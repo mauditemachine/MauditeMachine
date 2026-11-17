@@ -18,6 +18,7 @@
 
 #include <array>
 #include <atomic>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -106,6 +107,8 @@ public:
     static constexpr int kModN = 12;
     static const char* const kModIds[kModN];
     float modValue(int i) const { return modVal_[static_cast<size_t>(i)].load(std::memory_order_relaxed); }
+    // Le LFO de HELL (-1..1, NaN quand HELL est coupe) : le VU de sa page dans la face
+    float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
 
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
@@ -144,6 +147,9 @@ private:
     mmarp::ArpFx fx_;
     // HELL (2026-11-13) : delay + decaleur de Bode, apres la chaine ; contourne au bit pres a MIX 0
     mmarp::Hell hell_;
+    double hellNoteHz_ = 0;
+    std::atomic<float> hellLfo_{std::numeric_limits<float>::quiet_NaN()};
+    void migrateHell();
     std::array<std::atomic<float>, kModN> modVal_{};
     std::array<int, kModN> modKnob_{};
     void publishMod();

@@ -232,6 +232,12 @@ void MMArpEditor::timerCallback() {
             ids.add(juce::String(MMArpProcessor::kModIds[i]));
             vals.add(static_cast<double>(v));
         }
+        // le VU du LFO de HELL (2026-11-17) : sa sortie, de 0 a 1
+        const float hl = proc_.hellLfo();
+        if (hl == hl) {
+            ids.add(juce::String("hellLfo"));
+            vals.add(0.5 + 0.5 * static_cast<double>(hl));
+        }
         if (!ids.isEmpty() || modSent_) {
             auto* o = new juce::DynamicObject();
             o->setProperty("ids", ids);

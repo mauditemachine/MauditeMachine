@@ -3,6 +3,7 @@
 // des notes MIDI, l'etat sauve puis recharge. Rien ne sort des enceintes : tout se verifie dans les buffers.
 //   cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON && cmake --build build-host -j && ./build-host/mmarp_host_test
 #include "PluginProcessor.h"
+#include "Hell.h"
 
 #include <cmath>
 #include <cstdio>
@@ -368,6 +369,49 @@ int main() {
                 pk = std::max(pk, st.peak);
             }
             check(ok && pk < 2, "les 13 reverbes l'une apres l'autre (CLASSIC puis les douze machines) : fini, crete " + juce::String(pk, 2).toStdString());
+        }
+        {
+            // HELL d'avant RANGE (2026-11-17) : l'ancien decalage, TONE et LFO DEPTH migres au chargement, sans changer le son
+            MMArpProcessor a;
+            Head ha;
+            a.setPlayHead(&ha);
+            a.prepareToPlay(48000, 256);
+            const auto P = [&](MMArpProcessor& pr, const char* id) { return pr.knobParam(mmx::allIndex(id)); };
+            P(a, "xHellShift")->setValueNotifyingHost(0.7f); // 5000 x 0.4^3 = 320 Hz : WIDE
+            P(a, "xHellTone")->setValueNotifyingHost(0.2f);  // passe-bas
+            P(a, "xHellLfoDepth")->setValueNotifyingHost(0.5f);
+            juce::MemoryBlock blob;
+            a.getStateInformation(blob);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(blob.getData(), static_cast<int>(blob.getSize()));
+            int gone = 0;
+            if (xml)
+                for (auto* e : xml->getChildIterator()) {
+                    std::vector<juce::XmlElement*> kill;
+                    for (auto* c : e->getChildIterator())
+                        if (c->getStringAttribute("id").startsWith("xHell") &&
+                            c->getStringAttribute("id") != "xHellShift" && c->getStringAttribute("id") != "xHellTone" && c->getStringAttribute("id") != "xHellLfoDepth" &&
+                            c->getStringAttribute("id") != "xHellMix" && c->getStringAttribute("id") != "xHellSync" && c->getStringAttribute("id") != "xHellTime" &&
+                            c->getStringAttribute("id") != "xHellFb" && c->getStringAttribute("id") != "xHellUpDown" && c->getStringAttribute("id") != "xHellSpread" &&
+                            c->getStringAttribute("id") != "xHellLfoRate")
+                            kill.push_back(c);
+                    for (auto* c : kill) e->removeChildElement(c, true);
+                    gone += static_cast<int>(kill.size());
+                }
+            juce::MemoryBlock old;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, old);
+            MMArpProcessor b;
+            Head hb;
+            b.setPlayHead(&hb);
+            b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+            b.prepareToPlay(48000, 256);
+            const int range = static_cast<int>(std::lround(P(b, "xHellRange")->getValue() * 3));
+            const double hz = mmarp::Hell::shiftHzFor(P(b, "xHellShift")->getValue(), range, 120, 0);
+            const double lp = mmarp::Hell::lpHzOf(P(b, "xHellLp")->getValue());
+            const double lpWas = 600.0 * std::pow(30.0, 0.2 / 0.49);
+            const bool ok = gone == 12 && range == mmarp::Hell::WIDE && std::fabs(hz - 320) < 0.5 && std::fabs(P(b, "xHellTone")->getValue() - 0.5f) < 1e-6f &&
+                            std::fabs(lp - lpWas) < 0.01 * lpWas && std::fabs(P(b, "xHellLfoAmt")->getValue() - 0.75f) < 1e-3f && P(b, "xHellLfoDepth")->getValue() == 0.f;
+            check(ok, "HELL d'avant (sans RANGE) : 320 Hz -> WIDE " + juce::String(hz, 1).toStdString() + " Hz, TONE -> LOW-PASS " + juce::String(lp, 0).toStdString() + " Hz (avant " +
+                          juce::String(lpWas, 0).toStdString() + "), LFO DEPTH -> AMOUNT, " + std::to_string(gone) + " reglages retires");
         }
     }
     {

@@ -486,10 +486,13 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         // Un projet d'avant la reverbe facon BigSky (2026-11-16) : sans REVERB TYPE, il garde la reverbe d'avant (CLASSIC).
         // (lu avant replaceState : l'arbre est partage, et replaceState y ajoute les parametres qui manquent)
         const bool hadSky = params.getChildWithProperty("id", "xSkyType").isValid();
+        // Un projet d'avant HELL complet (2026-11-17) : sans RANGE, son decalage, son TONE et son LFO DEPTH sont migres
+        const bool hadRange = params.getChildWithProperty("id", "xHellRange").isValid();
         apvts.replaceState(params);
         knobsKnown_.store(true);
         if (!hadSky)
             if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
+        if (!hadRange) migrateHell();
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -502,6 +505,39 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     legacyFromLs(ls);
     // la premiere version : la reverbe d'avant
     if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
+}
+
+/*
+ * HELL d'avant RANGE (2026-11-17) : l'ancien decalage (5000 (2v - 1)^3 Hz) passe en FINE (jusqu'a 200 Hz) ou WIDE ; TONE
+ * passe en LOW-PASS (dessous) ou HIGH-PASS (dessus) a la meme frequence ; LFO DEPTH (Hz vers le decalage) passe en
+ * AMOUNT, TARGET FREQ. Le son reste le meme (les lois sont celles de Hell.cpp, a la meme frequence de coupure).
+ */
+void MMArpProcessor::migrateHell() {
+    const auto get = [&](const char* id) {
+        auto* p = apvts.getParameter(id);
+        return p ? static_cast<double>(p->getValue()) : 0.0;
+    };
+    const auto put = [&](const char* id, double v) {
+        if (auto* p = apvts.getParameter(id)) p->setValueNotifyingHost(static_cast<float>(std::min(1.0, std::max(0.0, v))));
+    };
+    const double hz = mmarp::Hell::shiftHzOf(get("xHellShift"));
+    const int range = std::fabs(hz) <= 200 ? mmarp::Hell::FINE : mmarp::Hell::WIDE;
+    put("xHellRange", range / 3.0);
+    put("xHellShift", mmarp::Hell::shiftVFor(hz, range));
+    const double t = get("xHellTone");
+    if (t < 0.49) {
+        put("xHellLp", std::log(600.0 * std::pow(30.0, t / 0.49) / 300.0) / std::log(20000.0 / 300.0));
+        put("xHellTone", 0.5);
+    } else if (t > 0.51) {
+        put("xHellHp", std::log(20.0 * std::pow(150.0, (t - 0.51) / 0.49) / 20.0) / std::log(200.0));
+        put("xHellTone", 0.5);
+    }
+    const double d = get("xHellLfoDepth");
+    if (d > 0) {
+        put("xHellLfoAmt", 0.5 + 0.5 * d);
+        put("xHellLfoTarget", 0);
+        put("xHellLfoDepth", 0);
+    }
 }
 
 /* ---------------- l'audio ---------------- */
@@ -887,28 +923,43 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // PUMP suit la position du morceau
     fx_.setTransport(ppq, pps, playing);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
+    // La note montree par la face (et la note jouee, pour HELL en RANGE MIDI)
+    const mmarp::ArpShown sh = arp_.shownAt(frame_ + n);
+    if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
     // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0)
     {
+        const auto on = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]) == 1; };
         mmarp::HellSettings hs;
         hs.mix = ex_[mmx::ex_xHellMix];
         hs.sync = mmx::exStep(mmx::ex_xHellSync, ex_[mmx::ex_xHellSync]);
         hs.timeMs = mmarp::Hell::timeMsOf(ex_[mmx::ex_xHellTime]);
         hs.feedback = ex_[mmx::ex_xHellFb];
-        hs.shiftHz = mmarp::Hell::shiftHzOf(ex_[mmx::ex_xHellShift]);
+        hs.cross = on(mmx::ex_xHellCross);
+        hs.shiftHz = mmarp::Hell::shiftHzFor(ex_[mmx::ex_xHellShift], mmx::exStep(mmx::ex_xHellRange, ex_[mmx::ex_xHellRange]), bpm, hellNoteHz_);
         hs.upDown = ex_[mmx::ex_xHellUpDown];
         hs.spread = ex_[mmx::ex_xHellSpread];
-        hs.lfoHz = mmarp::Hell::lfoHzOf(ex_[mmx::ex_xHellLfoRate]);
+        hs.phase = ex_[mmx::ex_xHellPhase];
+        hs.antiRefl = on(mmx::ex_xHellAntiRefl);
+        hs.smear = ex_[mmx::ex_xHellSmear];
+        hs.hpHz = mmarp::Hell::hpHzOf(ex_[mmx::ex_xHellHp]);
+        hs.lpHz = mmarp::Hell::lpHzOf(ex_[mmx::ex_xHellLp]);
+        hs.lfoHz = on(mmx::ex_xHellLfoSync) ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xHellLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xHellLfoRate]);
         hs.lfoDepthHz = mmarp::Hell::lfoDepthHzOf(ex_[mmx::ex_xHellLfoDepth]);
+        hs.lfoShape = mmx::exStep(mmx::ex_xHellLfoShape, ex_[mmx::ex_xHellLfoShape]);
+        hs.lfoAmt = 2 * ex_[mmx::ex_xHellLfoAmt] - 1;
+        hs.lfoStereo = on(mmx::ex_xHellLfoStereo);
+        hs.lfoTarget = mmx::exStep(mmx::ex_xHellLfoTarget, ex_[mmx::ex_xHellLfoTarget]);
         hs.tone = ex_[mmx::ex_xHellTone];
         hell_.set(hs, bpm);
         hell_.process(outL, outR, n);
+        // le VU du LFO dans la face (mm_mod, id hellLfo) : NaN quand HELL est coupe
+        hellLfo_.store(hell_.active() ? static_cast<float>(hell_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
     }
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;
 
     // La note montree par la face
     fbPlaying_.store(playing && arpOn);
-    const mmarp::ArpShown sh = arp_.shownAt(frame_);
     if (playing && sh.len > 0 && sh.frame != lastShownFrame_) {
         lastShownFrame_ = sh.frame;
         fbSlot_.store(sh.slot);

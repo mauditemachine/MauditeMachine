@@ -226,6 +226,201 @@ int main() {
         std::snprintf(msg, sizeof msg, "impulsion : l'echo a 100 ms + %ld echantillons", late);
         check(late >= 0 && late < 40, msg);
     }
+    // ---- 2026-11-17 : HELL complet (facon Echobode) ----
+    std::vector<float> sine(N), zero(N, 0.f);
+    for (size_t i = 0; i < N; ++i) sine[i] = static_cast<float>(0.5 * std::sin(2 * PI * 1000 * i / SR));
+    // 8. SIDEBAND au centre : la modulation en anneau, les deux bandes, la porteuse eteinte
+    {
+        HellSettings s;
+        s.mix = 1;
+        s.feedback = 0;
+        s.timeMs = 50;
+        s.shiftHz = 200;
+        s.upDown = 0.5;
+        const Out o = run(s, sine, sine, 128);
+        const double hi = goertzel(o.L, N / 2, N, 1200), lo = goertzel(o.L, N / 2, N, 800), c = goertzel(o.L, N / 2, N, 1000);
+        char msg[200];
+        std::snprintf(msg, sizeof msg, "SIDEBAND r.m. : 800 et 1200 Hz a %.1f dB l'un de l'autre, la porteuse a %.1f dB", 20 * std::log10(hi / lo), 20 * std::log10(c / std::max(hi, lo) + 1e-12));
+        check(hi > 0.1 && lo > 0.1 && std::fabs(20 * std::log10(hi / lo)) < 1.5 && c < 0.05 * std::max(hi, lo), msg);
+    }
+    // 9. CROSS : un signal a gauche seulement ; sans CROSS la droite reste muette, avec CROSS l'echo y passe
+    {
+        std::vector<float> b(N, 0.f);
+        for (size_t i = 0; i < static_cast<size_t>(0.05 * SR); ++i) b[i] = static_cast<float>(0.5 * std::sin(2 * PI * 500 * i / SR));
+        double rOff = 0, rOn = 0;
+        for (int k = 0; k < 2; ++k) {
+            HellSettings s;
+            s.mix = 1;
+            s.feedback = 0.7;
+            s.timeMs = 120;
+            s.cross = k == 1;
+            const Out o = run(s, b, zero, 128);
+            double e = 0;
+            for (float v : o.R) e += static_cast<double>(v) * v;
+            (k == 0 ? rOff : rOn) = e;
+        }
+        char msg[160];
+        std::snprintf(msg, sizeof msg, "CROSS : energie a droite %.2g sans, %.2g avec", rOff, rOn);
+        check(rOff == 0 && rOn > 1, msg);
+    }
+    // 10. ANTI REFL : un sinus de 200 Hz descendu de 300 Hz : sans, il se replie a 100 Hz ; avec, presque plus rien
+    {
+        std::vector<float> s2(N);
+        for (size_t i = 0; i < N; ++i) s2[i] = static_cast<float>(0.5 * std::sin(2 * PI * 200 * i / SR));
+        double refl[2];
+        for (int k = 0; k < 2; ++k) {
+            HellSettings s;
+            s.mix = 1;
+            s.feedback = 0;
+            s.timeMs = 30;
+            s.shiftHz = -300;
+            s.upDown = 1;
+            s.antiRefl = k == 1;
+            const Out o = run(s, s2, s2, 128);
+            refl[k] = goertzel(o.L, N / 2, N, 100);
+        }
+        char msg[160];
+        std::snprintf(msg, sizeof msg, "ANTI REFL : la composante repliee a 100 Hz baisse de %.1f dB", 20 * std::log10(refl[1] / refl[0] + 1e-12));
+        check(refl[0] > 0.1 && refl[1] < refl[0] * 0.1, msg);
+    }
+    // 11. le LFO et ses cibles : chacune change le son (contre AMOUNT 0), et FREQ decale bien de +/- 400 a^2 Hz
+    {
+        const char* names[4] = {"FREQ", "PHASE", "LOW-PASS", "DELAY"};
+        HellSettings base;
+        base.mix = 1;
+        base.feedback = 0.4;
+        base.timeMs = 80;
+        base.shiftHz = 30;
+        base.lpHz = 3000;
+        base.lfoHz = 2;
+        base.lfoShape = 2;
+        const Out ref = run(base, noiseL, noiseR, 128);
+        for (int t = 0; t < 4; ++t) {
+            HellSettings s = base;
+            s.lfoTarget = t;
+            s.lfoAmt = 0.8;
+            const Out o = run(s, noiseL, noiseR, 128);
+            double diff = 0, e = 0;
+            bool fin = true;
+            for (size_t i = N / 3; i < N; ++i) {
+                diff += (o.L[i] - ref.L[i]) * (o.L[i] - ref.L[i]);
+                e += ref.L[i] * ref.L[i];
+                fin = fin && std::isfinite(o.L[i]) && std::isfinite(o.R[i]);
+            }
+            char msg[160];
+            std::snprintf(msg, sizeof msg, "LFO vers %s : ecart %.1f dB sous le signal, fini", names[t], 10 * std::log10(diff / e));
+            check(fin && diff > 0.01 * e, msg);
+        }
+        // FREQ, carre lent : un sinus de 1 kHz, decale de 0 +/- 256 Hz (0.8^2 x 400) selon la moitie du cycle
+        HellSettings s;
+        s.mix = 1;
+        s.feedback = 0;
+        s.timeMs = 20;
+        s.lfoHz = 0.5;
+        s.lfoShape = 2;
+        s.lfoAmt = 0.8;
+        const Out o = run(s, sine, sine, 128);
+        const double up = goertzel(o.L, static_cast<size_t>(0.2 * SR), static_cast<size_t>(0.9 * SR), 1256);
+        const double dn = goertzel(o.L, static_cast<size_t>(1.2 * SR), static_cast<size_t>(1.9 * SR), 744);
+        check(up > 0.15 && dn > 0.15, "LFO FREQ, carre : 1 kHz -> 1256 Hz puis 744 Hz (+/- 256 Hz)");
+    }
+    // 12. les lois : RANGE FINE / WIDE / SYNC / MIDI, l'inverse (la migration)
+    {
+        const bool f = std::fabs(Hell::shiftHzFor(1, Hell::FINE, 120, 0) - 200) < 1e-9 && std::fabs(Hell::shiftHzFor(0, Hell::FINE, 120, 0) + 200) < 1e-9 &&
+                       Hell::shiftHzFor(0.5, Hell::FINE, 120, 0) == 0;
+        const bool w = std::fabs(Hell::shiftHzFor(1, Hell::WIDE, 120, 0) - 5000) < 1e-9;
+        const bool sy = std::fabs(Hell::shiftHzFor(1, Hell::SYNC, 120, 0) - 32) < 1e-9;
+        const bool mi = std::fabs(Hell::shiftHzFor(1, Hell::MIDI, 120, 440) - 880) < 1e-9 && Hell::shiftHzFor(1, Hell::MIDI, 120, 0) == 0;
+        bool inv = true;
+        for (double hz : {-180.0, -12.0, 5.0, 77.0, 199.0}) inv = inv && std::fabs(Hell::shiftHzFor(Hell::shiftVFor(hz, Hell::FINE), Hell::FINE, 120, 0) - hz) < 1e-6 * std::fabs(hz) + 1e-9;
+        for (double hz : {-4800.0, -320.0, 250.0, 3000.0}) inv = inv && std::fabs(Hell::shiftHzFor(Hell::shiftVFor(hz, Hell::WIDE), Hell::WIDE, 120, 0) - hz) < 1e-6 * std::fabs(hz) + 1e-9;
+        const bool other = std::fabs(Hell::lfoSyncHz(1, 120) - 16) < 1e-9 && Hell::hpHzOf(0) == 0 && Hell::lpHzOf(1) == 0 && std::fabs(Hell::lpHzOf(0) - 300) < 1e-9;
+        check(f && w && sy && mi && inv && other, "RANGE : FINE +/-200 Hz, WIDE 5 kHz, SYNC 16 cycles par temps (32 Hz a 120), MIDI 2 x la note ; l'inverse au millionieme");
+    }
+    // 13. MIX 0 au bit pres, tous les nouveaux reglages pousses
+    {
+        HellSettings s;
+        s.mix = 0;
+        s.feedback = 1;
+        s.cross = true;
+        s.shiftHz = -900;
+        s.antiRefl = true;
+        s.smear = 1;
+        s.hpHz = 400;
+        s.lpHz = 2000;
+        s.phase = 0.3;
+        s.lfoAmt = -1;
+        s.lfoShape = 3;
+        s.lfoTarget = 3;
+        s.lfoStereo = true;
+        const Out o = run(s, noiseL, noiseR, 128);
+        bool same = true;
+        for (size_t i = 0; i < N; ++i) same = same && o.L[i] == noiseL[i] && o.R[i] == noiseR[i];
+        check(same, "MIX 0 : sortie = entree au bit pres (CROSS, SMEAR, ANTI REFL, HP / LP, PHASE, LFO aleatoire vers DELAY)");
+    }
+    // 14. la stabilite au maximum : chaque cible, chaque forme, FEEDBACK 1, CROSS, SMEAR 1 ; 3 s de bruit fort puis 3 s
+    //     de silence : fini, sans sous-normaux, borne
+    {
+        double worst = 0;
+        bool ok = true;
+        for (int t = 0; t < 4; ++t)
+            for (int sh = 0; sh < 4; ++sh) {
+                HellSettings s;
+                s.mix = 1;
+                s.feedback = 1;
+                s.cross = true;
+                s.smear = 1;
+                s.timeMs = t == 3 ? 5 : 140;
+                s.shiftHz = sh == 0 ? 0 : sh == 1 ? 5000 : sh == 2 ? -200 : 3;
+                s.upDown = sh == 3 ? 0.5 : 1;
+                s.antiRefl = sh == 2;
+                s.lfoHz = 10;
+                s.lfoShape = sh;
+                s.lfoAmt = 1;
+                s.lfoTarget = t;
+                s.lfoStereo = true;
+                s.lpHz = t == 2 ? 1000 : 0;
+                s.hpHz = sh == 1 ? 2000 : 0;
+                std::vector<float> L(2 * N, 0.f), R(2 * N, 0.f);
+                for (size_t i = 0; i < N; ++i) {
+                    L[i] = noiseL[i] * 2.5f;
+                    R[i] = noiseR[i] * 2.5f;
+                }
+                const Out o = run(s, L, R, 333);
+                for (size_t i = 0; i < o.L.size(); ++i)
+                    for (float v : {o.L[i], o.R[i]}) {
+                        ok = ok && std::isfinite(v) && std::fpclassify(v) != FP_SUBNORMAL;
+                        worst = std::max(worst, static_cast<double>(std::fabs(v)));
+                    }
+            }
+        char msg[200];
+        std::snprintf(msg, sizeof msg, "au maximum (4 cibles x 4 formes, FEEDBACK 1, CROSS, SMEAR 1) : fini, sans sous-normaux, crete %.2f (borne a 6)", worst);
+        check(ok && worst < 6, msg);
+    }
+    // 15. independance a la taille des blocs, tout engage (LFO aleatoire vers LOW-PASS, ANTI REFL, SMEAR, CROSS)
+    {
+        HellSettings s;
+        s.mix = 0.8;
+        s.feedback = 0.85;
+        s.cross = true;
+        s.sync = 5;
+        s.shiftHz = 140;
+        s.upDown = 0.2;
+        s.antiRefl = true;
+        s.smear = 0.6;
+        s.hpHz = 80;
+        s.lpHz = 6000;
+        s.phase = 0.25;
+        s.lfoHz = 3.1;
+        s.lfoShape = 3;
+        s.lfoAmt = 0.7;
+        s.lfoTarget = 2;
+        s.lfoStereo = true;
+        const Out a = run(s, noiseL, noiseR, 64), b = run(s, noiseL, noiseR, 512), c = run(s, noiseL, noiseR, 1000);
+        bool same = true;
+        for (size_t i = 0; i < N; ++i) same = same && a.L[i] == b.L[i] && a.R[i] == b.R[i] && a.L[i] == c.L[i] && a.R[i] == c.R[i];
+        check(same, "tout engage : blocs de 64, 512, 1000, meme sortie au bit pres");
+    }
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

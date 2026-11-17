@@ -937,6 +937,124 @@
       "section": "sky",
       "def": 0,
       "help": "le cinquieme reglage propre a la machine (NONLINEAR MOD SPEED)"
+    },
+    {
+      "id": "xHellCross",
+      "label": "HELL CROSS",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "HELL (2026-11-17) : la reinjection croisee, chaque canal repart dans l'autre"
+    },
+    {
+      "id": "xHellHp",
+      "label": "HELL HIGH-PASS",
+      "section": "hell",
+      "def": 0,
+      "help": "dans la boucle : 0 coupe, sinon 20 Hz a 4 kHz (20 x 200^v), 12 dB/oct"
+    },
+    {
+      "id": "xHellLp",
+      "label": "HELL LOW-PASS",
+      "section": "hell",
+      "def": 1,
+      "help": "dans la boucle : 1 coupe, sinon 300 Hz a 20 kHz (300 x 66.7^v), 12 dB/oct"
+    },
+    {
+      "id": "xHellSmear",
+      "label": "HELL SMEAR",
+      "section": "hell",
+      "def": 0,
+      "help": "la diffusion dans la boucle (quatre passe-tout de 3 a 11 ms) : les repetitions s'adoucissent"
+    },
+    {
+      "id": "xHellRange",
+      "label": "HELL RANGE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "FINE",
+        "WIDE",
+        "SYNC",
+        "MIDI"
+      ],
+      "help": "la loi du decalage : FINE +/-3..200 Hz, WIDE +/-10..5000 Hz, SYNC multiples du tempo, MIDI fraction de la note jouee"
+    },
+    {
+      "id": "xHellPhase",
+      "label": "HELL PHASE",
+      "section": "hell",
+      "def": 0,
+      "help": "le dephasage fixe de l'oscillateur du decaleur, 0 a 360 degres"
+    },
+    {
+      "id": "xHellAntiRefl",
+      "label": "HELL ANTI REFL",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : rien ne se replie sous 0 Hz (un passe-haut a |decalage| quand une bande descend)"
+    },
+    {
+      "id": "xHellLfoShape",
+      "label": "HELL LFO SHAPE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "SAW",
+        "SQUARE",
+        "RANDOM"
+      ],
+      "help": "la forme du LFO"
+    },
+    {
+      "id": "xHellLfoSync",
+      "label": "HELL LFO SYNC",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : RATE en notes (8 mesures a 1/32), cale au tempo"
+    },
+    {
+      "id": "xHellLfoAmt",
+      "label": "HELL LFO AMOUNT",
+      "section": "hell",
+      "def": 0.5,
+      "help": "bipolaire, 0.5 : rien ; FREQ +/-400 Hz, PHASE +/-180 degres, LOW-PASS +/-3 octaves, DELAY +/-25 %"
+    },
+    {
+      "id": "xHellLfoStereo",
+      "label": "HELL LFO STEREO",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : le LFO du canal droit decale d'un quart de cycle"
+    },
+    {
+      "id": "xHellLfoTarget",
+      "label": "HELL LFO TARGET",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "FREQ",
+        "PHASE",
+        "LOW-PASS",
+        "DELAY"
+      ],
+      "help": "ce que le LFO module"
     }
   ]
 }

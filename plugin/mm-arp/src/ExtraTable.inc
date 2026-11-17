@@ -1,5 +1,5 @@
 // GENERE par tests/extra-gen.mjs depuis extra-params.json : ne pas editer.
-enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_COUNT };
+enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_xHellCross, ex_xHellHp, ex_xHellLp, ex_xHellSmear, ex_xHellRange, ex_xHellPhase, ex_xHellAntiRefl, ex_xHellLfoShape, ex_xHellLfoSync, ex_xHellLfoAmt, ex_xHellLfoStereo, ex_xHellLfoTarget, ex_COUNT };
 static const char* const kExSteps_xQuality[] = { "STD", "HQ" };
 static const char* const kExSteps_xLfo1Dest2[] = { "OFF", "RES", "AMP", "PAN", "OSC 2 PITCH", "OSC MIX", "NOISE", "SUB", "DRIVE", "STACK", "ENV AMT" };
 static const char* const kExSteps_xLfo2Rate[] = { "1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4", "1/2", "1 BAR", "2 BAR", "4 BAR", "8 BAR" };
@@ -26,6 +26,13 @@ static const char* const kExSteps_xPbRange[] = { "1", "2", "3", "5", "7", "12", 
 static const char* const kExSteps_xAmpMode[] = { "CLEAN", "TRIODE", "PENTODE", "SATURATED" };
 static const char* const kExSteps_xHellSync[] = { "FREE", "1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/2.", "1 BAR" };
 static const char* const kExSteps_xSkyType[] = { "CLASSIC", "ROOM", "HALL", "PLATE", "SPRING", "SWELL", "BLOOM", "CLOUD", "CHORALE", "SHIMMER", "MAGNETO", "NONLINEAR", "REFLECTIONS" };
+static const char* const kExSteps_xHellCross[] = { "OFF", "ON" };
+static const char* const kExSteps_xHellRange[] = { "FINE", "WIDE", "SYNC", "MIDI" };
+static const char* const kExSteps_xHellAntiRefl[] = { "OFF", "ON" };
+static const char* const kExSteps_xHellLfoShape[] = { "SINE", "SAW", "SQUARE", "RANDOM" };
+static const char* const kExSteps_xHellLfoSync[] = { "OFF", "ON" };
+static const char* const kExSteps_xHellLfoStereo[] = { "OFF", "ON" };
+static const char* const kExSteps_xHellLfoTarget[] = { "FREQ", "PHASE", "LOW-PASS", "DELAY" };
 static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xQuality", "QUALITY", "engine", 1, 2, kExSteps_xQuality },
   { "xLfo1Dest2", "TARGET 2", "lfo1", 0, 11, kExSteps_xLfo1Dest2 },
@@ -113,4 +120,16 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xSkyP3", "REVERB PARAM 3", "sky", 0, 0, nullptr },
   { "xSkyP4", "REVERB PARAM 4", "sky", 0, 0, nullptr },
   { "xSkyP5", "REVERB PARAM 5", "sky", 0, 0, nullptr },
+  { "xHellCross", "HELL CROSS", "hell", 0, 2, kExSteps_xHellCross },
+  { "xHellHp", "HELL HIGH-PASS", "hell", 0, 0, nullptr },
+  { "xHellLp", "HELL LOW-PASS", "hell", 1, 0, nullptr },
+  { "xHellSmear", "HELL SMEAR", "hell", 0, 0, nullptr },
+  { "xHellRange", "HELL RANGE", "hell", 0, 4, kExSteps_xHellRange },
+  { "xHellPhase", "HELL PHASE", "hell", 0, 0, nullptr },
+  { "xHellAntiRefl", "HELL ANTI REFL", "hell", 0, 2, kExSteps_xHellAntiRefl },
+  { "xHellLfoShape", "HELL LFO SHAPE", "hell", 0, 4, kExSteps_xHellLfoShape },
+  { "xHellLfoSync", "HELL LFO SYNC", "hell", 0, 2, kExSteps_xHellLfoSync },
+  { "xHellLfoAmt", "HELL LFO AMOUNT", "hell", 0.5, 0, nullptr },
+  { "xHellLfoStereo", "HELL LFO STEREO", "hell", 0, 2, kExSteps_xHellLfoStereo },
+  { "xHellLfoTarget", "HELL LFO TARGET", "hell", 0, 4, kExSteps_xHellLfoTarget },
 };
