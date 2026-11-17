@@ -1055,6 +1055,100 @@
         "DELAY"
       ],
       "help": "ce que le LFO module"
+    },
+    {
+      "id": "xDStyle",
+      "label": "DISTO STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MM",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P"
+      ],
+      "help": "DISTO (2026-11-16, facon Decapitator ; portee le 2026-11-17) : MM, l'OVERDRIVE du moteur (le son du site, celui d'avant : le depart, et toute la banque d'usine) ; A preampli a lampes, E transistors, N transformateur, T triode, P pentode (dsp/Decap.h). Le DRIVE est le potard DISTO de la face (dist). La pedale DISTORTION (xDist, xDistTone) reste a cote, apres la chaine"
+    },
+    {
+      "id": "xDPunish",
+      "label": "DISTO PUNISH",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "+20 dB dans la saturation"
+    },
+    {
+      "id": "xDLow",
+      "label": "DISTO LOW CUT",
+      "section": "disto",
+      "def": 0,
+      "help": "avant la saturation, 12 dB/oct : OFF sous 0.02, puis 20 Hz a 1 kHz (20 x 50^u)"
+    },
+    {
+      "id": "xDThump",
+      "label": "DISTO THUMP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "une bosse resonante (Q 2) sur la coupure du LOW CUT"
+    },
+    {
+      "id": "xDTone",
+      "label": "DISTO TONE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "avant la saturation, bascule sombre / brillant +/- 6 dB autour de 700 Hz ; 0.5 : FLAT"
+    },
+    {
+      "id": "xDHigh",
+      "label": "DISTO HIGH CUT",
+      "section": "disto",
+      "def": 1,
+      "help": "apres la saturation, 6 dB/oct : 1 kHz a 20 kHz (1000 x 20^(v / 0.98)), OFF au-dessus de 0.98"
+    },
+    {
+      "id": "xDSteep",
+      "label": "DISTO STEEP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "HIGH CUT a 30 dB/oct (Butterworth 5)"
+    },
+    {
+      "id": "xDMix",
+      "label": "DISTO MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec (retarde, en phase) contre le mouille"
+    },
+    {
+      "id": "xDOut",
+      "label": "DISTO OUTPUT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB (0.5 : 0 dB) ; sur MM aussi"
+    },
+    {
+      "id": "xDAuto",
+      "label": "DISTO AUTO",
+      "section": "disto",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "le niveau suit STYLE et DRIVE (table mesuree)"
     }
   ]
 }
