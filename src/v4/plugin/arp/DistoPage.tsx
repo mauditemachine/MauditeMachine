@@ -23,7 +23,7 @@ const ZONE = { x: 44, w: 1012 };
 
 const DC_BIAS = [0.22, 0.2, 0.04, 0.08, 0, 0.12];
 const DC_KNEE = [0, 0, 0.55, 0, 0, 0.85];
-export const DISTO_NAMES = ['MM OVERDRIVE', 'TUBE PREAMP', 'TRANSISTOR', 'TRANSFORMER', 'TRIODE', 'PENTODE'];
+export const DISTO_NAMES = ['ENGINE OVERDRIVE', 'TUBE PREAMP', 'TRANSISTOR', 'TRANSFORMER', 'TRIODE', 'PENTODE'];
 function dcRaw(s: number, u: number): number {
   if (s === 2 || s === 5) {
     const a = DC_KNEE[s];
@@ -92,7 +92,7 @@ const DistoScreen: React.FC<{ x: number; y: number; w: number; h: number }> = ({
   const read: [string, string][] = [
     ['STYLE', `${['MM', 'A', 'E', 'N', 'T', 'P'][st]} · ${DISTO_NAMES[st]}`],
     ['DRIVE', off ? 'OFF' : `${Math.round(drive * 100)} %${punish && !mm ? ' + PUNISH' : ''}`],
-    ['LEVEL', mm ? 'ENGINE OVERDRIVE' : (ex.xDAuto ?? 1) >= 0.5 ? 'AUTO' : 'MANUAL'],
+    ['LEVEL', mm ? 'AS BEFORE (ENGINE)' : (ex.xDAuto ?? 1) >= 0.5 ? 'AUTO' : 'MANUAL'],
   ];
   return (
     <div className="mm-disto-screen" style={{ left: x, top: y, width: w, height: h }} aria-hidden="true">

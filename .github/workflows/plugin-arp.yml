@@ -54,6 +54,8 @@ jobs:
         run: ./build-dsp/mmarp_hell_test
       - name: "Reverb facon BigSky : Tr60 HALL et ROOM, energie, 12 machines au max, blocs, cout"
         run: ./build-dsp/mmarp_sky_test
+      - name: "DISTO facon Decapitator : DRIVE 0 et MM au bit pres, styles plats en petit signal, repliement, AUTO, sans clic, stabilite"
+        run: ./build-dsp/mmarp_decap_test
       - name: "Arc lumineux de la face : ce que le moteur dit des modulations (LFO, matrice)"
         run: ./build-dsp/mmarp_modview_test
       - name: Banque d'usine a jour (FILTER + neutre partout)
