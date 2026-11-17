@@ -79,12 +79,13 @@ export interface LfoSpec {
 }
 
 /**
- * Une piste d'un kit : le numero du sample, puis ses reglages (db : en plus du role ; tune : en demi-tons ; ft, cut, res :
+ * Une piste d'un kit : le numero du sample (ou le nom du fichier d'un sample du plugin seul, plugin/mm-rytm/samples : 'Bd
+ * Industrial Slam.wav'), puis ses reglages (db : en plus du role ; tune : en demi-tons ; ft, cut, res :
  * le filtre de FLTR ; lfo : le LFO 1 de MOD ; les autres : des reglages de piste, 0 a 1).
  */
 type Tk =
   | number
-  | { n: number; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; hell?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec };
+  | { n: number | string; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; hell?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec };
 type Kit = Partial<Record<TrackKey, Tk>>;
 type Rows = Partial<Record<TrackKey, string>>;
 /** Les reglages de trig de toute la piste (PROB, uTIME, TLEN, VAR...) ; c : sa COND par son nom ('1:8', '2:2', '!1ST'). */
@@ -641,6 +642,51 @@ const STYLES: readonly Style[] = [
       },
     ],
   },
+  {
+    // 2026-11-17 (Mika : "ajoute aussi INDUSTRIAL SLAM en preset", un preset d'usine complet) : apres les 24 styles d'avant,
+    // leurs ids ne bougent pas. Le kick INDUSTRIAL SLAM du site (plugin/mm-rytm/samples, lot 33) sature et compresse, le
+    // grondement du WAREHOUSE RUMBLE sous passe-bas dans la reverbe sur les contretemps, des charleys metalliques
+    name: 'INDUSTRIAL SLAM',
+    bpm: 138,
+    // la DIST IRON (THUMP, AUTO) et le COMP a 6:1 qui cognent ; un peu de BIT ; une grande reverbe sombre pour le grondement
+    fx: { swing: 0, drive: 0.5, xstyle: 0.6, xthump: 0.5, xtilt: 0.55, xauto: 1, comp: 0.45, cratio: 0.714, bits: 0.06, reverb: 0.15, rsize: 0.72, rtone: 0.3 },
+    kit: {
+      // DEC raccourci : sa queue d'1.6 s remplissait chaque temps a 138 BPM (le rendu du moteur : les charleys et le clap 11 dB
+      // sous l'equilibre des autres presets) ; le coup reste, le grondement est celui de T9
+      // au rendu du moteur : les charleys et le clap a -14 dB du kick (-12 a -13 dans INDUSTRIAL : le kick un peu devant)
+      BD: { n: 'Bd Industrial Slam.wav', decay: 0.68, db: -2 },
+      SD: { n: 16, db: 2 },
+      CH: { n: 5, db: 2 },
+      OH: { n: 7, decay: 0.6, db: 2 },
+      CP: { n: 15, reverb: 0.3, db: 2 },
+      TOM: { n: 7, db: -2, dist: 0.3 },
+      HT: 11,
+      CY: 12,
+      T9: { n: 'Bd Warehouse Rumble.wav', reverb: 0.55, decay: 0.6, ft: 'LP', cut: 0.42 },
+      T10: { n: 8, dist: 0.25, db: 2 },
+      T11: { n: 1, db: -2 },
+      T12: 20,
+      T13: { n: 11, hell: 0.2, db: 2 },
+      T14: 1,
+      T15: 4,
+      T16: 10,
+    },
+    vars: [
+      // 1 : le slam nu, le grondement et les doubles croches
+      { steps: { BD: F4, T9: '0030003000300030', CH: HS16, CP: B6 }, trigs: { CH: { vlev: 18 }, T9: { vlev: 10 } } },
+      // 2 : les toms satures sur les e, une percussion sur 5 pas, le charley ouvert qui respire, le clap dans HELL
+      {
+        steps: { BD: F4, T9: '0030003000300030', CH: HS16, CP: B6, OH: OFF, TOM: '0006000600060006', T10: '0000000000000300', T13: '0000600000000000' },
+        trigs: { CH: { vlev: 18 }, T9: { vlev: 10 }, T10: { prob: 70 }, T13: { tlen: 5, vtun: 2 } },
+      },
+      // 3 : plein : le kick double en fin de mesure, la caisse qui roule toutes les 4 mesures, le crash de la phrase
+      {
+        steps: { BD: '9000900090009090', T9: '0030003000300030', CH: HS16, CP: B6, OH: OFF, TOM: '0006000600060006', T10: '0000000000000300', T13: '0000600000000000', SD: '0000000000000066', T16: CRASH },
+        trigs: { CH: { vlev: 18 }, T9: { vlev: 10 }, T10: { prob: 70 }, T13: { tlen: 5, vtun: 2 }, BD: { vlev: 8 }, T16: PHRASE },
+        locks: { BD: { 15: { c: '2:2' } }, SD: { 15: { c: '4:4', roll: [32, 30] }, 16: { c: '4:4', roll: [32, 40] } }, CH: { 16: { c: '2:2', roll: [32, -24] } } },
+      },
+    ],
+  },
 ];
 
 const BLANK = '0000000000000000';
@@ -694,7 +740,7 @@ function kitOf(base: Kit, over: Kit | undefined): StoredKit16 {
     if (spec === undefined) return;
     const { n, ...q }: Exclude<Tk, number> = typeof spec === 'number' ? { n: spec } : spec;
     const fam = FAMS[i % 8];
-    t[key] = trackEntry(i, `${fam}/${FILE[fam]} ${n}.wav`, q);
+    t[key] = trackEntry(i, `${fam}/${typeof n === 'string' ? n : `${FILE[fam]} ${n}.wav`}`, q);
   });
   return { v: 1, t };
 }
