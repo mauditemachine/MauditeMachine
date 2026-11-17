@@ -239,16 +239,48 @@ export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 
 };
 
 /**
+ * Le petit knob fin (2026-11-17, Mika : le petit knob AMT de la matrice de Legend HZ) : une prise noire cannelee vue de
+ * dessus (retro/fine-knob.png, rendue par three.js : son chanfrein, son vernis, ses reflets), un repere blanc fin qui part
+ * du centre, une couronne de graduations blanches fines autour (onze, 0 / 5 / 10 plus longues). Pour les reglages
+ * secondaires ; les potards du MM-RYTM restent pour les principaux.
+ */
+export const FINE_KNOB = { box: 44, r: 13, t0: 16, t1: 19, m0: 4, m1: 11.6, w: 1.7 } as const;
+const FINE_TICKS = Array.from({ length: 11 }, (_, i) => {
+  const a = ((-SWEEP + (2 * SWEEP * i) / 10) * Math.PI) / 180;
+  const c = FINE_KNOB.box / 2;
+  const t1 = i % 5 === 0 ? FINE_KNOB.t1 + 1.2 : FINE_KNOB.t1;
+  return { x1: c + Math.sin(a) * FINE_KNOB.t0, y1: c - Math.cos(a) * FINE_KNOB.t0, x2: c + Math.sin(a) * t1, y2: c - Math.cos(a) * t1, major: i % 5 === 0 };
+});
+export const FineKnob: React.FC<{ angle: number }> = ({ angle }) => {
+  const F = FINE_KNOB;
+  const c = F.box / 2;
+  const img = F.r * 2 * 1.12;
+  return (
+    <span className="mm-fk" style={{ width: F.box, height: F.box }} aria-hidden="true">
+      <svg className="mm-fk-ticks" width={F.box} height={F.box} viewBox={`0 0 ${F.box} ${F.box}`}>
+        {FINE_TICKS.map((t, i) => (
+          <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} data-major={t.major ? '1' : undefined} />
+        ))}
+      </svg>
+      <span className="mm-fk-img" style={{ left: c - img / 2, top: c - img / 2, width: img, height: img }} />
+      <span className="mm-fk-axis" style={{ left: c, top: c, transform: `rotate(${angle}deg)` }}>
+        <span className="mm-fk-mark" style={{ left: -F.w / 2, top: -F.m1, width: F.w, height: F.m1 - F.m0 }} />
+      </span>
+    </span>
+  );
+};
+
+/**
  * L'arc lumineux d'un potard d'OPEN module (modview.ts, la maquette A) : autour du pied du potard de l'image, sur ses
  * 270 degres ; rien quand il n'est pas module.
  */
-const KnobModArc: React.FC<{ id: string; k: number }> = ({ id, k }) => {
+const KnobModArc: React.FC<{ id: string; k: number; fine?: boolean }> = ({ id, k, fine }) => {
   const m = useSyncExternalStore(arpMod.subscribe, () => arpMod.of(id));
   if (!m) return null;
-  const box = KNOB_IMG.box * k;
-  const cx = 26 * k;
-  const cy = 26 * k;
-  const R = 27 * k;
+  const box = (fine ? FINE_KNOB.box : KNOB_IMG.box) * k;
+  const cx = (fine ? FINE_KNOB.box / 2 : 26) * k;
+  const cy = cx;
+  const R = (fine ? FINE_KNOB.t1 + 2.5 : 27) * k;
   const at = (v: number): readonly [number, number] => {
     const a = ((-SWEEP + 2 * SWEEP * Math.min(1, Math.max(0, v))) * Math.PI) / 180;
     return [cx + Math.sin(a) * R, cy - Math.cos(a) * R];
@@ -275,7 +307,7 @@ export interface CellProps {
   ref_: string;
 }
 
-export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boolean; big?: boolean }> = ({ id, name, ref_, lo, hi, small, big }) => {
+export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boolean; big?: boolean; fine?: boolean }> = ({ id, name, ref_, lo, hi, small, big, fine }) => {
   const v = useValue(id);
   const on = useTouched(id);
   const armed = useArmed(id);
@@ -332,11 +364,13 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
     e.stopPropagation();
     if (!learning()) setValue(id, next);
   };
-  const k = small ? 0.78 : big ? 1.3 : 1;
-  const box = KNOB_IMG.box * k;
+  // le petit knob fin (FineKnob) : les reglages secondaires et la matrice (small)
+  const thin = fine || small;
+  const k = big ? 1.3 : 1;
+  const box = thin ? FINE_KNOB.box : KNOB_IMG.box * k;
 
   return (
-    <div className="mm-p2-cell mm-p2-knob" data-small={small ? '1' : undefined} data-big={big ? '1' : undefined} data-inert={dim ? '1' : undefined} data-x={id}>
+    <div className="mm-p2-cell mm-p2-knob" data-small={small ? '1' : undefined} data-big={big ? '1' : undefined} data-fine={fine ? '1' : undefined} data-inert={dim ? '1' : undefined} data-x={id}>
       <div
         ref={el}
         className="mm-p2-knob-hit"
@@ -358,10 +392,10 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         onPointerEnter={() => pcbTouch.set(id)}
         onKeyDown={onKey}
       >
-        <RetroKnob angle={-SWEEP + v * 2 * SWEEP} k={k} />
-        <KnobModArc id={id} k={k} />
+        {thin ? <FineKnob angle={-SWEEP + v * 2 * SWEEP} /> : <RetroKnob angle={-SWEEP + v * 2 * SWEEP} k={k} />}
+        <KnobModArc id={id} k={thin ? 1 : k} fine={thin} />
       </div>
-      {!small && (
+      {!thin && (
         <span className="mm-p2-ends" aria-hidden="true">
           <span>{lo}</span>
           <span>{hi}</span>
@@ -458,34 +492,89 @@ function useStepDrag(id: string, idx: number, last: number, pick: (i: number, ho
 }
 
 /**
- * La touche a crans (deux a quatre), dessinee comme CHORUS sur la face : la touche noire rectangulaire en relief, une
- * LED par cran au-dessus (un ON / OFF : une seule, ON), leurs noms au-dessus des LED. Le cran choisi : sa LED allumee.
+ * La touche a crans (trois ou quatre crans, 2026-11-17, Mika : "pas comme un knob") : la touche noire de la face, une LED
+ * par cran au-dessus, leurs noms au-dessus des LED. Un clic passe au cran suivant, en boucle (la LED suit, la touche
+ * s'enfonce) ; un clic sur un nom ou une LED choisit ce cran. Plus de glisser ni de molette : rien ne change par erreur
+ * (un appui qui bouge de plus de 4 px ne fait rien). Fleches, Debut, Fin, Suppr au clavier. Deux crans : le levier
+ * (PcbToggle).
  */
-export const PcbStep: React.FC<CellProps & { w?: number }> = ({ id, name, ref_, w }) => {
+export const PcbStep: React.FC<CellProps & { w?: number }> = (props) => {
+  const steps = SRC.steps(props.id);
+  return steps.length === 2 ? <PcbToggle {...props} /> : <PcbStepKeys {...props} />;
+};
+
+/** Un appui sans glisser (moins de 4 px a l'echelle de la page) : click() au lacher. */
+function useClickOnly(id: string, click: () => void) {
+  const down = useRef<{ x: number; y: number; pid: number; moved: boolean } | null>(null);
+  const [held, setHeld] = useState(false);
+  const end = (fire: boolean): void => {
+    const d = down.current;
+    if (!d) return;
+    down.current = null;
+    setHeld(false);
+    pcbTouch.set(id, false);
+    if (fire && !d.moved && !learning()) click();
+  };
+  return {
+    held,
+    onPointerDown: (e: React.PointerEvent<HTMLElement>): void => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      e.currentTarget.focus({ preventScroll: true });
+      if (tryLearn(id)) return;
+      if (e.altKey || e.metaKey || e.ctrlKey) {
+        setValue(id, SRC.def(id));
+        return;
+      }
+      down.current = { x: e.clientX, y: e.clientY, pid: e.pointerId, moved: false };
+      setHeld(true);
+      pcbTouch.set(id, true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* rien */
+      }
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLElement>): void => {
+      const d = down.current;
+      if (!d || d.pid !== e.pointerId) return;
+      const k = pageScale(e.currentTarget);
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) / k > 4) {
+        d.moved = true;
+        setHeld(false);
+      }
+    },
+    onPointerUp: (): void => end(true),
+    onPointerCancel: (): void => end(false),
+    onLostPointerCapture: (): void => end(false),
+  };
+}
+
+const PcbStepKeys: React.FC<CellProps & { w?: number }> = ({ id, name, w }) => {
   const { idx, steps, last, pick } = useStepped(id);
   const armed = useArmed(id);
   const on = useTouched(id);
   const dim = useInert(id);
-  const el = useRef<HTMLButtonElement>(null);
-  useWheel(el, (t) => pick(stepOf(id, SRC.of(id)) + t));
-  const onOff = steps.length === 2 && steps[0] === 'OFF';
-  const toggle = steps.length === 2 ? () => pick(idx >= last ? 0 : 1) : undefined;
-  const g = useStepDrag(id, idx, last, pick, toggle);
-  const leds = onOff ? [{ text: steps[1], i: 1 }] : steps.map((text, i) => ({ text, i }));
-  const width = w ?? Math.max(80, leds.length * 30 + 16);
+  const next = (): void => pick(idx >= last ? 0 : idx + 1);
+  const g = useClickOnly(id, next);
+  const width = w ?? Math.max(80, steps.length * 30 + 16);
+  const choose = (i: number) => (e: React.MouseEvent): void => {
+    e.preventDefault();
+    if (tryLearn(id) || learning()) return;
+    pick(i);
+  };
   return (
     <div className="mm-p2-cell mm-p2-step" data-x={id} data-inert={dim ? '1' : undefined} style={{ width }}>
       <span className="mm-p2-name">{name}</span>
-      <span className="mm-p2-step-leds" aria-hidden="true">
-        {leds.map((l) => (
-          <span key={l.text} className="mm-p2-step-led">
-            <b>{l.text}</b>
-            <i className="mm-p2-led" data-on={idx === l.i ? '1' : undefined} />
+      <span className="mm-p2-step-leds">
+        {steps.map((text, i) => (
+          <span key={text} className="mm-p2-step-led" data-pick="1" onClick={choose(i)} title={text}>
+            <b>{text}</b>
+            <i className="mm-p2-led" data-on={idx === i ? '1' : undefined} />
           </span>
         ))}
       </span>
       <button
-        ref={el}
         type="button"
         className="mm-p2-step-key"
         role="slider"
@@ -496,7 +585,6 @@ export const PcbStep: React.FC<CellProps & { w?: number }> = ({ id, name, ref_, 
         aria-valuetext={steps[idx]}
         data-armed={armed ? '1' : undefined}
         data-held={g.held ? '1' : undefined}
-        data-toggle={toggle ? '1' : undefined}
         onPointerDown={g.onPointerDown}
         onPointerMove={g.onPointerMove}
         onPointerUp={g.onPointerUp}
@@ -504,9 +592,9 @@ export const PcbStep: React.FC<CellProps & { w?: number }> = ({ id, name, ref_, 
         onLostPointerCapture={g.onLostPointerCapture}
         onPointerEnter={() => pcbTouch.set(id)}
         onKeyDown={(e) => {
-          if (toggle && (e.key === 'Enter' || e.key === ' ')) {
+          if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (!learning()) toggle();
+            if (!learning()) next();
             return;
           }
           steppedKey(e, id, idx, last, pick);
@@ -514,6 +602,72 @@ export const PcbStep: React.FC<CellProps & { w?: number }> = ({ id, name, ref_, 
       >
         <span className="mm-p2-step-cap" />
       </button>
+      <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
+        {on ? steps[idx] : ''}
+      </span>
+    </div>
+  );
+};
+
+/**
+ * Le levier (deux crans, 2026-11-17, Mika : "l'interrupteur a levier metal") : un boitier noir horizontal, un levier
+ * chrome qui glisse a gauche ou a droite (retro/toggle-body.png, toggle-lever.png : rendus par three.js, vus de dessus),
+ * une LED ronde a cote, allumee sur le cran de droite (ON, NEG, HQ...), les deux crans ecrits dessous. Un clic bascule ;
+ * un clic sur un nom choisit ce cran ; Espace, Entree, fleches.
+ */
+export const PcbToggle: React.FC<CellProps & { w?: number }> = ({ id, name, w }) => {
+  const { idx, steps, pick } = useStepped(id);
+  const armed = useArmed(id);
+  const on = useTouched(id);
+  const dim = useInert(id);
+  const flip = (): void => pick(idx >= 1 ? 0 : 1);
+  const g = useClickOnly(id, flip);
+  const right = idx >= 1;
+  const choose = (i: number) => (e: React.MouseEvent): void => {
+    e.preventDefault();
+    if (tryLearn(id) || learning()) return;
+    pick(i);
+  };
+  return (
+    <div className="mm-p2-cell mm-p2-tog" data-x={id} data-inert={dim ? '1' : undefined} style={{ width: w ?? 84 }}>
+      <button
+        type="button"
+        className="mm-p2-tog-sw"
+        role="switch"
+        aria-checked={right}
+        aria-label={`${fullName(id)}: ${steps[idx]}`}
+        data-on={right ? '1' : undefined}
+        data-armed={armed ? '1' : undefined}
+        data-held={g.held ? '1' : undefined}
+        onPointerDown={g.onPointerDown}
+        onPointerMove={g.onPointerMove}
+        onPointerUp={g.onPointerUp}
+        onPointerCancel={g.onPointerCancel}
+        onLostPointerCapture={g.onLostPointerCapture}
+        onPointerEnter={() => pcbTouch.set(id)}
+        onKeyDown={(e) => {
+          if (learning()) return;
+          if (e.key === 'Enter' || e.key === ' ') flip();
+          else if (e.key === 'Home') pick(0);
+          else if (e.key === 'End') pick(1);
+          else return;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <span className="mm-p2-tog-body" aria-hidden="true" />
+        <span className="mm-p2-tog-lever" aria-hidden="true" />
+      </button>
+      <i className="mm-p2-led mm-p2-tog-led" data-on={right ? '1' : undefined} aria-hidden="true" />
+      <span className="mm-p2-tog-names">
+        <b data-on={!right ? '1' : undefined} onClick={choose(0)}>
+          {steps[0]}
+        </b>
+        <b data-on={right ? '1' : undefined} onClick={choose(1)}>
+          {steps[1]}
+        </b>
+      </span>
+      <span className="mm-p2-name">{name}</span>
       <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
         {on ? steps[idx] : ''}
       </span>

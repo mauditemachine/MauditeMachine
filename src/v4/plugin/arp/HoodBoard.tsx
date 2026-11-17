@@ -51,7 +51,7 @@ const STRIP_KEY = { w: 44, h: 16 };
 /* ---------------- les reglages, page par page ---------------- */
 
 type Ctl =
-  | { k: 'knob'; id: string; name: string; lo: string; hi: string; full?: string; big?: boolean }
+  | { k: 'knob'; id: string; name: string; lo: string; hi: string; full?: string; big?: boolean; fine?: boolean }
   | { k: 'step'; id: string; name: string; full?: string }
   | { k: 'rot'; id: string; name: string; full?: string }
   | { k: 'sel'; id: string; name: string; w: number; full?: string };
@@ -65,6 +65,8 @@ interface FrameSpec {
 
 const knob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full });
 const bigKnob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full, big: true });
+/** Le petit knob fin (2026-11-17) : un reglage secondaire ; les potards du MM-RYTM (knob) gardent les principaux. */
+const fine = (id: string, name: string, full?: string): Ctl => ({ k: 'knob', id, name, lo: '', hi: '', full, fine: true });
 const step = (id: string, name: string, full?: string): Ctl => ({ k: 'step', id, name, full });
 const sel = (id: string, name: string, w: number, full?: string): Ctl => ({ k: 'sel', id, name, w, full });
 const rot = (id: string, name: string, full?: string): Ctl => ({ k: 'rot', id, name, full });
@@ -77,90 +79,80 @@ const stepsOf = (id: string): readonly string[] => extraParam(id)?.steps ?? VOY_
 /** La largeur d'une touche a crans : une LED par cran (une seule pour un ON / OFF). */
 const stepW = (id: string): number => {
   const s = stepsOf(id);
-  const n = s.length === 2 && s[0] === 'OFF' ? 1 : s.length;
-  return Math.max(CELL_W, n * 34 + 12);
+  // deux crans : le levier (PcbToggle)
+  if (s.length === 2) return 84;
+  return Math.max(CELL_W, s.length * 34 + 12);
 };
-const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' ? ROT_W : c.k === 'sel' ? c.w + 28 : c.big ? 104 : CELL_W);
+const FINE_W = 56;
+const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' ? ROT_W : c.k === 'sel' ? c.w + 28 : c.big ? 104 : c.fine ? FINE_W : CELL_W);
 const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
-const FRAME_H = 120;
+const FRAME_H = 112;
 
-type GridPage = 'sound' | 'rack' | 'hell';
+type GridPage = 'sound' | 'hell';
 
 const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
-  // SOUND : les TWEAKS de la face (voyager/params.ts, section tweak) et le son du VST3 seul, du generateur a la sortie
+  // SOUND (2026-11-17, Mika : "le plus de choses possible sur une seule page") : les TWEAKS de la face, le son du VST3
+  // seul et les effets du rack, du generateur a la sortie ; un potard du MM-RYTM pour le reglage principal de chaque
+  // section, les petits knobs fins pour les secondaires, les leviers pour les deux crans, les touches au clic
   sound: [
     {
-      y: 64,
+      y: 62,
       frames: [
-        { title: 'OSCILLATORS', ctls: [knob('phase', 'PHASE', 'FREE', '360'), knob('drift', 'DRIFT', 'STABLE', 'LOOSE'), knob('stack', 'STACK', 'OFF', '30 CT'), step('sync', 'SYNC')] },
+        { title: 'OSCILLATORS', ctls: [fine('phase', 'PHASE'), knob('drift', 'DRIFT', 'STABLE', 'LOOSE'), fine('stack', 'STACK'), step('sync', 'SYNC')] },
         {
           title: 'OSC +',
-          ctls: [knob('xRing', 'RING MOD', 'OFF', 'FULL'), knob('xFold', 'FOLD', 'OFF', 'FULL', 'WAVEFOLD'), knob('xNoiseColor', 'NOISE', 'DARK', 'BRIGHT', 'NOISE COLOR'), step('xUnison', 'UNISON')],
+          ctls: [knob('xRing', 'RING MOD', 'OFF', 'FULL'), fine('xFold', 'FOLD', 'WAVEFOLD'), fine('xNoiseColor', 'NOISE', 'NOISE COLOR'), step('xUnison', 'UNISON')],
         },
         { title: 'VOICE', ctls: [step('xVoiceMode', 'MODE', 'VOICE MODE'), rot('xPbRange', 'BEND', 'BEND RANGE')] },
       ],
     },
     {
-      y: 212,
+      y: 179,
       frames: [
-        { title: 'FILTER', ctls: [knob('load', 'LOAD', 'CLEAN', 'HOT'), knob('space', 'SPACE', 'OFF', '1 OCT'), knob('keyTrack', 'KEY TRACK', '0', 'FULL'), step('fpol', 'POLARITY')] },
+        { title: 'FILTER', ctls: [knob('load', 'LOAD', 'CLEAN', 'HOT'), fine('space', 'SPACE'), fine('keyTrack', 'KEY TRACK'), step('fpol', 'POLARITY')] },
         {
           title: 'FILTER +',
           led: () => X('xHpf') > 0 || X('xComb') > 0,
-          ctls: [knob('xHpf', 'HIGH PASS', 'OFF', '2K'), knob('xComb', 'COMB', 'OFF', 'FULL'), knob('xCombFb', 'COMB FB', 'NEG', 'POS')],
+          ctls: [knob('xHpf', 'HIGH PASS', 'OFF', '2K'), fine('xComb', 'COMB'), fine('xCombFb', 'COMB FB')],
         },
         { title: 'AMP', ctls: [knob('xFeedback', 'FEEDBACK', 'OFF', 'FULL'), step('xAmpMode', 'AMP MODE')] },
+        { title: 'DISTORTION', led: () => X('xDist') > 0, ctls: [knob('xDist', 'AMOUNT', 'OFF', 'FULL', 'DISTORTION'), fine('xDistTone', 'TONE', 'DIST TONE')] },
       ],
     },
     {
-      y: 360,
+      y: 296,
       frames: [
-        { title: 'PERFORMANCE', ctls: [knob('accent', 'ACCENT', 'FLAT', 'HARD'), knob('accFlt', 'ACC FILTER', 'LEVEL', 'FILTER'), rot('chord', 'CHORD')] },
+        { title: 'PERFORMANCE', ctls: [knob('accent', 'ACCENT', 'FLAT', 'HARD'), fine('accFlt', 'ACC FILTER'), rot('chord', 'CHORD')] },
         {
           title: 'OUTPUT',
-          ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), knob('wide', 'WIDE', 'OFF', 'FULL'), knob('monoLow', 'BASS MONO', 'OFF', '300 HZ'), knob('glue', 'GLUE', 'OFF', 'TIGHT'), knob('duck', 'SIDECHAIN', 'OFF', '-24 DB')],
+          ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), fine('wide', 'WIDE'), fine('monoLow', 'BASS MONO'), fine('glue', 'GLUE'), fine('duck', 'SIDECHAIN')],
         },
-        { title: 'DISTORTION', led: () => X('xDist') > 0, ctls: [knob('xDist', 'AMOUNT', 'OFF', 'FULL', 'DISTORTION'), knob('xDistTone', 'TONE', 'DARK', 'BRIGHT', 'DIST TONE')] },
-      ],
-    },
-    {
-      y: 508,
-      frames: [
-        { title: 'EQ', ctls: [knob('xEqLow', 'LOW', '-12', '+12', 'EQ LOW'), knob('xEqMid', 'MID', '-12', '+12', 'EQ MID'), knob('xEqHigh', 'HIGH', '-12', '+12', 'EQ HIGH'), knob('xEqAir', 'AIR BAND', '-10', '+10', 'EQ AIR BAND')] },
-        { title: 'MASTER', ctls: [knob('xWarmth', 'WARMTH', 'OFF', 'FULL'), knob('xBass', 'BASS', '-6', '+6', 'MASTER BASS'), knob('xAir', 'AIR', '-6', '+6', 'MASTER AIR'), knob('xWidth', 'WIDTH', 'MONO', '200 %')] },
+        { title: 'EQ', ctls: [fine('xEqLow', 'LOW', 'EQ LOW'), fine('xEqMid', 'MID', 'EQ MID'), fine('xEqHigh', 'HIGH', 'EQ HIGH'), fine('xEqAir', 'AIR BAND', 'EQ AIR BAND')] },
         { title: 'ENGINE', ctls: [step('xQuality', 'QUALITY')] },
       ],
     },
-  ],
-  // FX, le rack : le delay et la reverbe de la face et leurs reglages, puis les effets du VST3 seul
-  rack: [
     {
-      y: 92,
+      y: 413,
       frames: [
+        { title: 'MASTER', ctls: [knob('xWarmth', 'WARMTH', 'OFF', 'FULL'), fine('xBass', 'BASS', 'MASTER BASS'), fine('xAir', 'AIR', 'MASTER AIR'), fine('xWidth', 'WIDTH', 'MASTER WIDTH')] },
         { title: 'DELAY', ctls: [rot('dlyTime', 'TIME', 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), rot('xDlyMode', 'MODE', 'DELAY MODE')] },
-        { title: 'REVERB', ctls: [knob('xRevSize', 'SIZE', '0.6 S', '9.6 S', 'REVERB SIZE'), knob('xRevTone', 'TONE', 'DARK', 'BRIGHT', 'REVERB TONE'), knob('xRevPre', 'PRE DELAY', '0', '100 MS', 'REVERB PRE DELAY'), knob('xShimmer', 'SHIMMER', 'OFF', 'FULL')] },
-      ],
-    },
-    {
-      y: 262,
-      frames: [
         {
           title: 'PHASER',
           led: () => X('xPhMix') > 0,
-          ctls: [knob('xPhMix', 'MIX', 'OFF', 'FULL', 'PHASER'), knob('xPhRate', 'RATE', '.05', '8 HZ', 'PHASER RATE'), knob('xPhDepth', 'DEPTH', '0', 'FULL', 'PHASER DEPTH'), knob('xPhFb', 'FEEDBACK', '0', 'FULL', 'PHASER FEEDBACK')],
-        },
-        {
-          title: 'FLANGER',
-          led: () => X('xFlMix') > 0,
-          ctls: [knob('xFlMix', 'MIX', 'OFF', 'FULL', 'FLANGER'), knob('xFlRate', 'RATE', '.03', '5 HZ', 'FLANGER RATE'), knob('xFlDepth', 'DEPTH', '0', 'FULL', 'FLANGER DEPTH'), knob('xFlFb', 'FEEDBACK', 'NEG', 'POS', 'FLANGER FEEDBACK')],
+          ctls: [knob('xPhMix', 'MIX', 'OFF', 'FULL', 'PHASER'), fine('xPhRate', 'RATE', 'PHASER RATE'), fine('xPhDepth', 'DEPTH', 'PHASER DEPTH'), fine('xPhFb', 'FEEDBACK', 'PHASER FEEDBACK')],
         },
       ],
     },
     {
-      y: 432,
+      y: 530,
       frames: [
-        { title: 'CRUSH', led: () => X('xCrushBits') > 0 || X('xCrushRate') > 0, ctls: [knob('xCrushBits', 'BITS', 'OFF', '4 BIT', 'BITCRUSH'), knob('xCrushRate', 'RATE', 'OFF', '2 KHZ', 'DOWNSAMPLE')] },
-        { title: 'PUMP', led: () => X('xPumpDepth') > 0, ctls: [knob('xPumpDepth', 'DEPTH', 'OFF', 'FULL', 'PUMP'), step('xPumpRate', 'RATE', 'PUMP RATE'), knob('xPumpShape', 'RELEASE', 'SHORT', 'LONG', 'PUMP RELEASE')] },
+        {
+          title: 'FLANGER',
+          led: () => X('xFlMix') > 0,
+          ctls: [knob('xFlMix', 'MIX', 'OFF', 'FULL', 'FLANGER'), fine('xFlRate', 'RATE', 'FLANGER RATE'), fine('xFlDepth', 'DEPTH', 'FLANGER DEPTH'), fine('xFlFb', 'FEEDBACK', 'FLANGER FEEDBACK')],
+        },
+        { title: 'CRUSH', led: () => X('xCrushBits') > 0 || X('xCrushRate') > 0, ctls: [knob('xCrushBits', 'BITS', 'OFF', '4 BIT', 'BITCRUSH'), fine('xCrushRate', 'RATE', 'DOWNSAMPLE')] },
+        { title: 'PUMP', led: () => X('xPumpDepth') > 0, ctls: [knob('xPumpDepth', 'DEPTH', 'OFF', 'FULL', 'PUMP'), step('xPumpRate', 'RATE', 'PUMP RATE'), fine('xPumpShape', 'RELEASE', 'PUMP RELEASE')] },
         { title: 'HELL', led: () => X('xHellMix') > 0, ctls: [knob('xHellMix', 'MIX', 'OFF', 'FULL', 'HELL')] },
       ],
     },
@@ -191,12 +183,12 @@ const REFS: Record<string, string> = {};
   for (const k of VOY_TWEAKS) REFS[k.id] = k.id === 'sync' || k.id === 'chord' || k.id === 'fpol' ? `SW${swT++}` : `RV${rvT++}`;
   let rv = 20;
   let swn = 4;
-  const all = [...ROWS.sound, ...ROWS.rack, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
+  const all = [...ROWS.sound, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
   for (const c of all) {
     REFS[c.id] = c.k === 'knob' ? `RV${rv++}` : `SW${swn++}`;
     setFullName(c.id, c.full ?? c.name);
   }
-  for (const c of [...ROWS.sound, ...ROWS.rack, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
+  for (const c of [...ROWS.sound, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
   for (let i = 1; i <= MATRIX_ROWS; i += 1) {
     setFullName(`xM${i}Src`, `MATRIX ${i} SOURCE`);
     setFullName(`xM${i}Dst`, `MATRIX ${i} DEST`);
@@ -224,7 +216,7 @@ const CtlCell: React.FC<{ c: Ctl }> = ({ c }) => {
   const ref_ = REFS[c.id] ?? '';
   switch (c.k) {
     case 'knob':
-      return <PcbKnob id={c.id} name={c.name} ref_={ref_} lo={c.lo} hi={c.hi} big={c.big} />;
+      return <PcbKnob id={c.id} name={c.name} ref_={ref_} lo={c.lo} hi={c.hi} big={c.big} fine={c.fine} />;
     case 'step':
       return <PcbStep id={c.id} name={c.name} ref_={ref_} w={stepW(c.id)} />;
     case 'rot':
@@ -356,14 +348,12 @@ const FxPage: React.FC = () => {
     <>
       {fx === 'reverb' ? (
         <SkyHost />
-      ) : fx === 'hell' ? (
+      ) : (
         <>
           <Grid page="hell" />
           <HellPresets />
           <HellDiagram />
         </>
-      ) : (
-        <Grid page="rack" />
       )}
     </>
   );
@@ -759,7 +749,7 @@ const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ
 const HoodLcd: React.FC = () => {
   const line = useSyncExternalStore(hoodLcd.subscribe, hoodLcd.get, hoodLcd.get);
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'RACK'}` : PAGE_NAME[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : 'REVERB'}` : PAGE_NAME[tab];
   return (
     <div className="mm-p2-lcd" role="status" aria-live="polite">
       <span className="mm-p2-lcd-a">{line ? line.name : 'MM-ARP'}</span>

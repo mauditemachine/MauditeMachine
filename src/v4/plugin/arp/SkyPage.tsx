@@ -249,6 +249,8 @@ const cellOf = (type: number, id: string, n?: number): Cell => {
   const name = skyLabel(type, id) ?? id;
   const [lo, hi] = endsOf(type, id);
   if (!n) return { k: 'knob', id, name, lo, hi, w: CELL };
+  // deux crans : le levier (PcbStep -> PcbToggle) ; trois ou quatre : la touche au clic
+  if (n === 2) return { k: 'step', id, name, lo, hi, w: 84 };
   if (n <= 4) return { k: 'step', id, name, lo, hi, w: Math.max(CELL, n * 34 + 12) };
   if (n <= 7) return { k: 'rot', id, name, lo, hi, w: ROT_W };
   return { k: 'sel', id, name, lo, hi, w: 92 + 28 };
