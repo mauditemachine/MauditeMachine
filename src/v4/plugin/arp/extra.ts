@@ -206,6 +206,50 @@ function text(id: string, v: number): string {
       const d = -18 + 36 * v;
       return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
     }
+    // DISTO v25 (dsp/Decap.h, disto.ts)
+    case 'xDMorph':
+    case 'xDFb':
+      return dose(v);
+    case 'xDDyn':
+      return Math.abs(v - 0.5) < 0.005 ? 'OFF' : `${v < 0.5 ? 'COMP' : 'EXP'} ${Math.round(Math.abs(v - 0.5) * 200)} %`;
+    case 'xDEnvAmt':
+    case 'xDLfoAmt':
+      return bipolar(v);
+    case 'xDFbFreq':
+      return hz(40 * Math.pow(30, v));
+    case 'xDXLo':
+      return hz(40 * Math.pow(25, v));
+    case 'xDXHi':
+      return hz(600 * Math.pow(25, v));
+    case 'xDPreFreq':
+    case 'xDPostFreq':
+      return hz(20 * Math.pow(1000, v));
+    case 'xDPreReso':
+    case 'xDPostReso':
+      return `Q ${(0.7071 * Math.pow(16, v)).toFixed(2)}`;
+    case 'xDB1Drive':
+    case 'xDB2Drive':
+    case 'xDB3Drive': {
+      const d = -18 + 36 * v;
+      return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
+    }
+    case 'xDB1Level':
+    case 'xDB2Level':
+    case 'xDB3Level': {
+      const d = -12 + 24 * v;
+      return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
+    }
+    case 'xDB1Mix':
+    case 'xDB2Mix':
+    case 'xDB3Mix':
+    case 'xDBoxMix':
+      return `${Math.round(v * 100)} %`;
+    case 'xDEnvSpd':
+      return `${Math.round(Math.pow(30, v))} / ${Math.round(30 * Math.pow(30, v))} ms`;
+    case 'xDLfoRate':
+      return (values.xDLfoSync ?? 0) >= 0.5 ? LFO_BEAT_NAMES[Math.round(Math.min(1, Math.max(0, v)) * (LFO_BEAT_NAMES.length - 1))] : hz(0.02 * Math.pow(500, v));
+    case 'xDBoxSize':
+      return `${signed((v - 0.5) * 1.2, 1)} oct`;
     case 'xHellHp':
       return v <= 0.001 ? 'OFF' : hz(20 * Math.pow(200, v));
     case 'xHellLp':

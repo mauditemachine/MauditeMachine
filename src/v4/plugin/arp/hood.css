@@ -2939,9 +2939,9 @@
 .mm-plugin-arp .mm-p2-tog-sw {
   position: absolute;
   left: 13px;
-  top: 16px;
+  top: 14.5px;
   width: 46px;
-  height: 19px;
+  height: 21.1px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -2958,23 +2958,38 @@
   filter: drop-shadow(-1px 2.5px 2px rgba(0, 0, 0, 0.7));
 }
 
+/* le levier chrome qui bascule (2026-11-17, v25, Mika : 42.png) : deux images, OFF penche a gauche, ON a droite, un
+   fondu enchaine de 90 ms entre les deux */
 .mm-plugin-arp .mm-p2-tog-lever {
   position: absolute;
-  left: 4.7px;
-  top: 2.6px;
-  width: 20.9px;
-  height: 13.9px;
-  background: url('./retro/toggle-lever.png') center / 100% 100% no-repeat;
-  filter: drop-shadow(-1px 1.5px 1px rgba(0, 0, 0, 0.8));
-  transition: left 90ms cubic-bezier(0.3, 0.7, 0.2, 1);
+  inset: 0;
+  filter: drop-shadow(0 1.2px 0.8px rgba(0, 0, 0, 0.55));
 }
 
-.mm-plugin-arp .mm-p2-tog-sw[data-on='1'] .mm-p2-tog-lever {
-  left: 20.4px;
+.mm-plugin-arp .mm-p2-tog-lever::before,
+.mm-plugin-arp .mm-p2-tog-lever::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('./retro/toggle-lever-off.png') center / 100% 100% no-repeat;
+  transition: opacity 90ms ease-out;
+}
+
+.mm-plugin-arp .mm-p2-tog-lever::after {
+  background-image: url('./retro/toggle-lever-on.png');
+  opacity: 0;
+}
+
+.mm-plugin-arp .mm-p2-tog-sw[data-on='1'] .mm-p2-tog-lever::before {
+  opacity: 0;
+}
+
+.mm-plugin-arp .mm-p2-tog-sw[data-on='1'] .mm-p2-tog-lever::after {
+  opacity: 1;
 }
 
 .mm-plugin-arp .mm-p2-tog-sw[data-held='1'] .mm-p2-tog-lever {
-  filter: drop-shadow(-0.5px 1px 0.5px rgba(0, 0, 0, 0.8)) brightness(0.92);
+  filter: drop-shadow(0 0.6px 0.4px rgba(0, 0, 0, 0.55)) brightness(0.92);
 }
 
 .mm-plugin-arp .mm-p2-tog-led.mm-p2-led {
@@ -3397,105 +3412,295 @@
 }
 
 /* =====================================================================================================================
-   2026-11-17 : la page DISTO (DistoPage.tsx), la DISTO facon Decapitator : l'ecran de verre noir, la courbe en orange
+   2026-11-17 (v25, la maquette v24 validee) : la page DISTO complete (DistoPage.tsx) : le verre noir (TRANSFER, la
+   lecture, la bande des frequences), la banque des styles, les presets, le VU ATTITUDE, la matrice du multibande.
    ===================================================================================================================== */
-.mm-plugin-arp .mm-disto-screen {
+.mm-plugin-arp .mm-dm-place,
+.mm-plugin-arp .mm-dm-bandplace {
   position: absolute;
+}
+
+.mm-plugin-arp .mm-dm-glass {
+  position: relative;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 18px;
   border-radius: 4px;
   background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 14px),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 14px),
     radial-gradient(120% 90% at 30% 0%, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%),
     linear-gradient(#0b0906, #141008);
   box-shadow:
     0 0 0 2px #050505,
     0 0 0 3px rgba(255, 255, 255, 0.08),
     inset 0 2px 10px rgba(0, 0, 0, 0.95);
-  pointer-events: none;
+  overflow: hidden;
 }
 
-.mm-plugin-arp .mm-disto-plot {
-  flex: none;
-  display: block;
+.mm-plugin-arp .mm-dm-glass svg {
+  position: absolute;
+  inset: 0;
 }
 
-.mm-plugin-arp .mm-disto-plot .grid {
-  fill: none;
+.mm-plugin-arp .mm-dm-glass .grid {
   stroke: rgba(244, 241, 234, 0.1);
-  stroke-width: 1;
-}
-
-.mm-plugin-arp .mm-disto-plot .lin {
+  stroke-width: 0.7;
   fill: none;
-  stroke: rgba(244, 241, 234, 0.2);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
 }
 
-.mm-plugin-arp .mm-disto-plot .main {
+.mm-plugin-arp .mm-dm-glass .ghost {
+  fill: none;
+  stroke: rgba(244, 241, 234, 0.3);
+  stroke-width: 0.9;
+  stroke-dasharray: 2 2;
+}
+
+.mm-plugin-arp .mm-dm-glass .main {
   fill: none;
   stroke: #ff8a52;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgba(244, 123, 47, 0.75));
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 2px rgba(244, 123, 47, 0.7));
 }
 
-.mm-plugin-arp .mm-disto-plot .main.off {
-  stroke: rgba(244, 241, 234, 0.45);
-  filter: none;
-}
-
-.mm-plugin-arp .mm-disto-plot text {
-  fill: rgba(244, 241, 234, 0.5);
-  font-size: 7.5px;
+.mm-plugin-arp .mm-dm-glass text {
+  font-size: 6.5px;
   font-weight: 600;
   letter-spacing: 0.16em;
+  fill: rgba(244, 241, 234, 0.5);
 }
 
-.mm-plugin-arp .mm-disto-read {
-  flex: 1;
-  display: grid;
-  gap: 2px;
-  align-content: center;
-  text-align: center;
-  color: #f4f1ea;
-}
-
-.mm-plugin-arp .mm-disto-read .k {
-  margin-top: 8px;
-  color: rgba(244, 241, 234, 0.5);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-}
-
-.mm-plugin-arp .mm-disto-read .v {
-  font-size: 13px;
-  font-weight: 700;
+.mm-plugin-arp .mm-dm-glass text.hot {
+  fill: #ff8a52;
   letter-spacing: 0.08em;
-  color: #ff8a52;
-  text-shadow: 0 0 8px rgba(244, 123, 47, 0.45);
 }
 
-.mm-plugin-arp .mm-disto-flow {
+.mm-plugin-arp .mm-dm-read {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-content: center;
+  row-gap: 4px;
+  padding: 0 10px;
+}
+
+.mm-plugin-arp .mm-dm-read .k {
+  font-size: 6.5px;
+  line-height: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(244, 241, 234, 0.45);
+}
+
+.mm-plugin-arp .mm-dm-read .v {
+  font-size: 8.5px;
+  line-height: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ff8a52;
+  text-shadow: 0 0 6px rgba(244, 123, 47, 0.45);
+  white-space: nowrap;
+}
+
+/* STYLE : deux rangees de touches au clic, leur LED */
+.mm-plugin-arp .mm-dm-bank {
   position: absolute;
   left: 0;
   right: 0;
-  margin: 0;
+  top: 18px;
+}
+
+.mm-plugin-arp .mm-dm-sub,
+.mm-plugin-arp .mm-dm-group {
+  display: block;
   text-align: center;
-  font-size: 7.5px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  font-size: 7px;
+  line-height: 9px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   color: var(--r-silk-dim);
 }
 
-.mm-plugin-arp .mm-disto-flow b {
+.mm-plugin-arp .mm-dm-group {
+  position: absolute;
+  border-bottom: 1px solid var(--r-line);
+  padding-bottom: 3px;
+}
+
+.mm-plugin-arp .mm-dm-keys {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin: 8px 0 4px;
+}
+
+.mm-plugin-arp .mm-dm-keys .mm-key {
+  position: relative;
+  gap: 6px;
+}
+
+.mm-plugin-arp .mm-dm-keys .mm-key-name {
+  letter-spacing: 0.12em;
+}
+
+.mm-plugin-arp .mm-dm-keys .mm-key-led,
+.mm-plugin-arp .mm-dm-mx .mm-key-led {
+  position: absolute;
+  left: 50%;
+  top: -7px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+}
+
+/* PRESETS : plus bas que la fenetre de HELL */
+.mm-plugin-arp .mm-dm-presets {
+  top: 22px;
+  left: 10px;
+  right: 10px;
+}
+
+.mm-plugin-arp .mm-hell-pwin.mm-dm-pwin {
+  height: 64px;
+  padding: 7px 10px;
+}
+
+.mm-plugin-arp .mm-dm-pwin b {
+  font-size: 13px;
+  line-height: 15px;
+}
+
+.mm-plugin-arp .mm-dm-pwin .mm-hell-pdesc {
+  font-size: 7.5px;
+  line-height: 10px;
+}
+
+.mm-plugin-arp .mm-dm-presets .mm-hell-pkeys {
+  margin-top: 12px;
+}
+
+.mm-plugin-arp .mm-dm-plist {
+  top: 70px;
+  left: -40px;
+  right: -6px;
+}
+
+/* le VU ATTITUDE : ses chiffres plus petits */
+.mm-plugin-arp .mm-dm-vu-t {
+  font-size: 6.5px !important;
+}
+
+.mm-plugin-arp .mm-dm-vu-t[data-red='1'] {
+  fill: #b3261a !important;
+}
+
+/* MULTIBAND : la bande des frequences, la matrice des bandes */
+.mm-plugin-arp .mm-dm-bands .fill {
+  fill: rgba(244, 123, 47, 0.28);
+  stroke: rgba(255, 138, 82, 0.8);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-dm-bands .xo {
+  stroke: rgba(244, 241, 234, 0.55);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 1.5;
+}
+
+.mm-plugin-arp .mm-dm-mx {
+  position: absolute;
+  display: grid;
+  grid-template-columns: 34px 70px 40px 40px 40px 30px 30px;
+  grid-auto-rows: 34px;
+  grid-template-rows: 12px;
+  justify-content: center;
+  column-gap: 4px;
+  align-items: center;
+}
+
+.mm-plugin-arp .mm-dm-mx-h {
+  align-self: end;
+  text-align: center;
+  font-size: 6.5px;
+  line-height: 8px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-dm-mx-n {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-dm-mx-c {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 34px;
+}
+
+.mm-plugin-arp .mm-dm-mx-c .mm-p2-selbox {
+  position: relative;
+  top: 0;
+}
+
+.mm-plugin-arp .mm-dm-mx-c .mm-p2-win {
+  height: 20px;
+  font-size: 8.5px;
+}
+
+.mm-plugin-arp .mm-dm-mx-c .mm-key {
+  position: relative;
+  gap: 0;
+  margin-top: 4px;
+}
+
+.mm-plugin-arp .mm-dm-mx-c .mm-key-name {
+  display: none;
+}
+
+/* les petits knobs de la matrice : le petit knob cannele, a 78 %, sans sa valeur a cote */
+.mm-plugin-arp .mm-dm-mk .mm-p2-knob[data-small='1'] {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  margin: -5px;
+  transform: scale(0.78);
+}
+
+.mm-plugin-arp .mm-dm-mk .mm-p2-knob[data-small='1'] .mm-p2-knob-hit {
+  left: 0;
+  top: 0;
+}
+
+.mm-plugin-arp .mm-dm-mk .mm-p2-val {
+  display: none;
+}
+
+.mm-plugin-arp .mm-dm-mx [data-inert='1'] {
+  opacity: 0.4;
+}
+
+.mm-plugin-arp .mm-dm-glass .main.off {
+  stroke: rgba(244, 241, 234, 0.35);
+  filter: none;
+}
+
+.mm-plugin-arp .mm-dm-vsep {
+  align-self: stretch;
+  width: 1px;
+  margin: 0 6px 22px;
+  background: var(--r-line);
+}
+
+.mm-plugin-arp .mm-dm-keys .mm-key[data-on='1'] .mm-key-cap {
+  background: linear-gradient(180deg, #ff9a5c 0%, #f47b2f 55%, #c95a17 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 190, 0.45),
+    inset 0 -1px 0 rgba(90, 40, 0, 0.5),
+    0 3px 0 #6b3202,
+    0 4px 12px rgba(244, 123, 47, 0.35);
+}
+
+.mm-plugin-arp .mm-dm-keys .mm-key[data-on='1'] .mm-key-name {
+  color: #f47b2f;
 }

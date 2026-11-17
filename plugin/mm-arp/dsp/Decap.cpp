@@ -1,5 +1,7 @@
-// DISTO, facon Decapitator (2026-11-16) : voir Decap.h. Le port de src/v4/audio/disto.worklet.js (le banc
-// scripts/disto-bench.mjs du site l'a valide : contournement au bit pres, platitude, MIX en phase, repliement, AUTO).
+// DISTO, facon Decapitator (2026-11-16 ; completee le 2026-11-17, v25) : voir Decap.h. Le coeur est le port de
+// src/v4/audio/disto.worklet.js (le banc scripts/disto-bench.mjs du site l'a valide : contournement au bit pres,
+// platitude, MIX en phase, repliement, AUTO) ; le reste (styles etendus, MORPH, multibande, dynamique, feedback,
+// enveloppe, LFO, filtres, caisse) est a nous. tests/decap_test.cpp le controle.
 
 #include "Decap.h"
 
@@ -12,20 +14,26 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kLn2 = 0.69314718055994530942;
+constexpr int NS = Decap::kStyles;
 
-// Par style (A, E, N, T, P) : l'etagere de pre-accentuation (Hz, dB du bas et du haut), le passe-bas d'apres la
-// saturation (Hz, 0 : aucun), la polarisation de la courbe, le genou (E, P)
-constexpr double kPreHz[5] = {300, 2000, 180, 800, 1200};
-constexpr double kPreLoDb[5] = {3, 0, 6, 0, -2};
-constexpr double kPreHiDb[5] = {0, 5, 1.5, 2, 5};
-constexpr double kPostLpHz[5] = {16000, 18000, 0, 14000, 11000};
-constexpr double kBias[5] = {0.2, 0.04, 0.08, 0, 0.12};
-constexpr double kKnee[5] = {0, 0.55, 0, 0, 0.85};
+// Par style (A, E, N, T, P, TAPE, FUZZ, DIODE, AMP, RECT, FOLD, CRUSH) : l'etagere de pre-accentuation (Hz, dB du bas et
+// du haut), le passe-bas d'apres la saturation (Hz, 0 : aucun), la polarisation de la courbe, le genou
+constexpr double kPreHz[NS] = {300, 2000, 180, 800, 1200, 3000, 900, 1000, 700, 1000, 1000, 1000};
+constexpr double kPreLoDb[NS] = {3, 0, 6, 0, -2, 0, -3, 0, -4, 0, 0, 0};
+constexpr double kPreHiDb[NS] = {0, 5, 1.5, 2, 5, 4, 3, 0, 4, 0, 0, 0};
+constexpr double kPostLpHz[NS] = {16000, 18000, 0, 14000, 11000, 15000, 9000, 0, 7000, 0, 0, 0};
+constexpr double kBias[NS] = {0.2, 0.04, 0.08, 0, 0.12, 0.05, 0.35, 0, 0.15, 0, 0, 0};
+constexpr double kKnee[NS] = {0, 0.55, 0, 0, 0.85, 0, 0.25, 0.9, 0, 0, 0, 0};
+constexpr double kTapeA = kPi / 2;
+constexpr double kRect = 0.9;
+constexpr double kCrushQ = 1.0 / 12;
+constexpr int kCrushK = 12;
 
-// AUTO (dB) aux DRIVE totaux kAutoAt (dB), mesures (disto-bench.mjs)
+// AUTO (dB) aux DRIVE totaux kAutoAt (dB) : A a P mesures (disto-bench.mjs) ; les autres : le modele d'un sinus de
+// crete 0.2 (le niveau de la prise), cale sur A (StyleNorm)
 constexpr int kAutoN = 10;
 constexpr double kAutoAt[kAutoN] = {0, 6, 12, 18, 24, 30, 36, 42, 48, 56};
-constexpr double kAutoDb[5][kAutoN] = {
+constexpr double kAutoMeas[5][kAutoN] = {
     {0.1, -5.6, -10.8, -14.7, -17, -18.2, -18.9, -19.3, -19.7, -20},
     {0, -6, -11.7, -16, -18.2, -19.1, -19.6, -20, -20.2, -20.6},
     {0.1, -5.7, -10.8, -14.2, -15.8, -16.7, -17.2, -17.6, -17.9, -18.2},
@@ -43,9 +51,24 @@ constexpr double kTiltDb = 6;
 constexpr double kAdaaEps = 1e-6;
 constexpr double kOff = 0.02;
 constexpr double kHighOff = 0.98;
+constexpr double kSqrt2 = 1.4142135623730951;
+
+// BOX : passe-haut, passe-bas, deux cloches (Hz, dB, Q), la resonance (ms, retour)
+struct BoxDef {
+    double hp, lp, p1, p1Db, p1Q, p2, p2Db, p2Q, ms, fb;
+};
+constexpr BoxDef kBox[5] = {
+    {0, 0, 0, 0, 1, 0, 0, 1, 1, 0},
+    {160, 4200, 1800, 5, 1.2, 0, 0, 1, 1.1, 0.35},       // SMALL
+    {90, 5200, 1200, 4, 0.9, 2600, -3, 2, 1.7, 0.3},     // COMBO
+    {70, 4600, 110, 4, 1.0, 2200, 3, 1.2, 2.6, 0.3},     // STACK
+    {420, 3000, 1500, 6, 1.5, 0, 0, 1, 0.7, 0.45},       // RADIO
+};
 
 double dbLin(double db) { return std::pow(10.0, db / 20.0); }
+double linDb(double x) { return 20 * std::log10(std::max(1e-12, x)); }
 double tptG(double f, double sr) { return std::tan(kPi * std::min(f, 0.49 * sr) / sr); }
+double lerp(double a, double b, double t) { return a + (b - a) * t; }
 
 double besselI0(double x) {
     double s = 1, t = 1;
@@ -86,39 +109,98 @@ double cubeF(double u) {
     const double v = std::fabs(u);
     return v <= 1.5 ? 0.5 * v * v - (v * v * v * v) / 27 : v - 0.5625;
 }
+// CRUSH : des marches de kCrushQ (arrondi), kCrushK marches au plus ; la primitive par morceaux, paire
+int crushK(double v) { return std::min(kCrushK, static_cast<int>(std::floor(v / kCrushQ + 0.5))); }
+double crushG(double u) {
+    const int k = crushK(std::fabs(u));
+    return (u < 0 ? -1 : 1) * kCrushQ * k;
+}
+double crushF(double u) {
+    const double v = std::fabs(u);
+    const int k = crushK(v);
+    if (k <= 0) return 0;
+    return kCrushQ * kCrushQ * k * (k - 1) * 0.5 + kCrushQ * k * (v - kCrushQ * (k - 0.5));
+}
 
 double rawG(int s, double u) {
     switch (s) {
-        case 0: return std::tanh(u);
-        case 1:
-        case 4: return kneeG(kKnee[s], u);
-        case 2: return cubeG(u);
-        case 3: return u >= 0 ? std::tanh(0.7 * u) / 0.7 : std::tanh(1.5 * u) / 1.5;
+        case Decap::STYLE_A: return std::tanh(u);
+        case Decap::STYLE_E:
+        case Decap::STYLE_P:
+        case Decap::STYLE_FUZZ:
+        case Decap::STYLE_DIODE: return kneeG(kKnee[s], u);
+        case Decap::STYLE_N: return cubeG(u);
+        case Decap::STYLE_T: return u >= 0 ? std::tanh(0.7 * u) / 0.7 : std::tanh(1.5 * u) / 1.5;
+        case Decap::STYLE_TAPE: return (2 / kPi) * std::atan(kTapeA * u);
+        case Decap::STYLE_AMP: return u >= 0 ? std::tanh(1.2 * u) / 1.2 : std::tanh(2.4 * u) / 2.4;
+        case Decap::STYLE_RECT: {
+            const double t = std::tanh(u);
+            return t + kRect * t * t;
+        }
+        case Decap::STYLE_FOLD: return std::sin(u);
+        case Decap::STYLE_CRUSH: return crushG(u);
         default: return u;
     }
 }
 double rawF(int s, double u) {
     switch (s) {
-        case 0: return lncosh(u);
-        case 1:
-        case 4: return kneeF(kKnee[s], u);
-        case 2: return cubeF(u);
-        case 3: return u >= 0 ? lncosh(0.7 * u) / 0.49 : lncosh(1.5 * u) / 2.25;
+        case Decap::STYLE_A: return lncosh(u);
+        case Decap::STYLE_E:
+        case Decap::STYLE_P:
+        case Decap::STYLE_FUZZ:
+        case Decap::STYLE_DIODE: return kneeF(kKnee[s], u);
+        case Decap::STYLE_N: return cubeF(u);
+        case Decap::STYLE_T: return u >= 0 ? lncosh(0.7 * u) / 0.49 : lncosh(1.5 * u) / 2.25;
+        case Decap::STYLE_TAPE: return (2 / kPi) * (u * std::atan(kTapeA * u) - std::log1p(kTapeA * kTapeA * u * u) / (2 * kTapeA));
+        case Decap::STYLE_AMP: return u >= 0 ? lncosh(1.2 * u) / 1.44 : lncosh(2.4 * u) / 5.76;
+        case Decap::STYLE_RECT: return lncosh(u) + kRect * (u - std::tanh(u));
+        case Decap::STYLE_FOLD: return -std::cos(u);
+        case Decap::STYLE_CRUSH: return crushF(u);
         default: return 0.5 * u * u;
     }
 }
 
 struct StyleNorm {
-    double gb[5];
-    double inv[5];
+    double gb[NS];
+    double inv[NS];
+    double autoDb[NS][kAutoN];
     StyleNorm() {
-        for (int s = 0; s < 5; ++s) {
+        for (int s = 0; s < NS; ++s) {
             const double b = kBias[s];
             gb[s] = rawG(s, b);
             const double h = 1e-5;
-            inv[s] = 1.0 / ((rawG(s, b + h) - rawG(s, b - h)) / (2 * h));
+            // CRUSH n'a pas de pente a l'origine (une marche) : sa pente moyenne est 1
+            inv[s] = s == Decap::STYLE_CRUSH ? 1.0 : 1.0 / ((rawG(s, b + h) - rawG(s, b - h)) / (2 * h));
         }
+        // AUTO : A a P mesures ; les autres d'apres le modele, cale sur A
+        double model[NS][kAutoN];
+        for (int s = 0; s < NS; ++s)
+            for (int i = 0; i < kAutoN; ++i) {
+                const double g = dbLin(kAutoAt[i]);
+                const int n = 512;
+                double m = 0, e = 0, ein = 0;
+                for (int k = 0; k < n; ++k) {
+                    const double x = 0.2 * std::sin(2 * kPi * (k + 0.5) / n);
+                    m += (rawG(s, g * x + b(s)) - gb[s]) * inv[s];
+                }
+                m /= n;
+                for (int k = 0; k < n; ++k) {
+                    const double x = 0.2 * std::sin(2 * kPi * (k + 0.5) / n);
+                    const double y = (rawG(s, g * x + b(s)) - gb[s]) * inv[s] - m;
+                    e += y * y;
+                    ein += x * x;
+                }
+                model[s][i] = 10 * std::log10(std::max(1e-30, ein) / std::max(1e-30, e));
+            }
+        // (le modele sinus laisse les styles etendus plus forts qu'A sur un arpege percussif une fois ecrases : une
+        // correction mesuree par decap_test, proportionnelle au DRIVE)
+        constexpr double kTrim[NS] = {0, 0, 0, 0, 0, 0.5, 1.8, 1.9, 2.0, 1.75, 3.9, 1.9};
+        for (int s = 0; s < NS; ++s)
+            for (int i = 0; i < kAutoN; ++i)
+                autoDb[s][i] = s < 5 ? kAutoMeas[s][i]
+                                     : kAutoMeas[0][i] + std::clamp(model[s][i] - model[0][i], -12.0, 12.0) - kTrim[s] * std::min(1.3, kAutoAt[i] / 30);
     }
+    static double b(int s) { return kBias[s]; }
 };
 const StyleNorm& norm() {
     static const StyleNorm n;
@@ -132,67 +214,160 @@ double Decap::lowHzOf(double v) { return v < kOff ? 0 : 20 * std::pow(50.0, (v -
 double Decap::highHzOf(double v) { return v > kHighOff ? 0 : 1000 * std::pow(20.0, v / kHighOff); }
 double Decap::tiltOf(double v) { return (v - 0.5) * 2; }
 double Decap::outDbOf(double v) { return -18 + 36 * v; }
+double Decap::fbHzOf(double v) { return 40 * std::pow(30.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::xLoHzOf(double v) { return 40 * std::pow(25.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::xHiHzOf(double v) { return 600 * std::pow(25.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::filtHzOf(double v) { return 20 * std::pow(1000.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::resoQOf(double v) { return 0.70710678118654752 * std::pow(16.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::bandDbOf(double v) { return -18 + 36 * std::clamp(v, 0.0, 1.0); }
+double Decap::levelDbOf(double v) { return -12 + 24 * std::clamp(v, 0.0, 1.0); }
+double Decap::envAtkMs(double v) { return std::pow(30.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::envRelMs(double v) { return 30 * std::pow(30.0, std::clamp(v, 0.0, 1.0)); }
+double Decap::boxScaleOf(double v) { return std::pow(2.0, (std::clamp(v, 0.0, 1.0) - 0.5) * 1.2); }
 
 double Decap::curve(int s, double x) {
     const StyleNorm& n = norm();
+    s = std::clamp(s, 0, NS - 1);
     return (rawG(s, x + kBias[s]) - n.gb[s]) * n.inv[s];
 }
 double Decap::curveF(int s, double x) {
     const StyleNorm& n = norm();
+    s = std::clamp(s, 0, NS - 1);
     return (rawF(s, x + kBias[s]) - n.gb[s] * x) * n.inv[s];
 }
-double Decap::autoGainOf(int s, double db) {
-    const double* row = kAutoDb[std::clamp(s, 0, 4)];
-    if (db <= kAutoAt[0]) return dbLin(row[0]);
+double Decap::autoDbOf(int s, double db) {
+    const double* row = norm().autoDb[std::clamp(s, 0, NS - 1)];
+    if (db <= kAutoAt[0]) return row[0];
     for (int i = 1; i < kAutoN; ++i) {
         if (db <= kAutoAt[i]) {
             const double t = (db - kAutoAt[i - 1]) / (kAutoAt[i] - kAutoAt[i - 1]);
-            return dbLin(row[i - 1] + (row[i] - row[i - 1]) * t);
+            return row[i - 1] + (row[i] - row[i - 1]) * t;
         }
     }
-    return dbLin(row[kAutoN - 1]);
+    return row[kAutoN - 1];
 }
+double Decap::autoGainOf(int s, double db) { return dbLin(autoDbOf(s, db)); }
+
+/* ---------------- le filtre a variables d'etat (TPT) ---------------- */
+
+void Decap::svfSet(Coef& c, double hz, double q, double sr) {
+    c.g = tptG(std::max(10.0, hz), sr);
+    c.k = 1 / std::max(0.05, q);
+    c.a1 = 1 / (1 + c.g * (c.g + c.k));
+}
+double Decap::svfRun(Svf& s, const Coef& c, double x, double& lp, double& bp, double& hp) {
+    hp = (x - (c.g + c.k) * s.s1 - s.s2) * c.a1;
+    const double v1 = c.g * hp;
+    bp = v1 + s.s1;
+    s.s1 = bp + v1;
+    const double v2 = c.g * bp;
+    lp = v2 + s.s2;
+    s.s2 = lp + v2;
+    return lp;
+}
+double Decap::filt(Svf& s, const Coef& c, double x) {
+    double lp, bp, hp;
+    svfRun(s, c, x, lp, bp, hp);
+    switch (c.mode) {
+        case F_LP: return lp;
+        case F_BP: return c.k * bp;
+        case F_HP: return hp;
+        case F_PEAK: return x + c.peak * c.k * bp;
+        default: return x;
+    }
+}
+
+/* ---------------- preparation ---------------- */
 
 void Decap::prepare(double sampleRate) {
     sr_ = sampleRate > 0 ? sampleRate : 48000;
     norm();
-    // Le filtre x kOs : N = kLatency x kOs + 1 coefficients, gain continu kOs (interpolation)
-    const int n = kLatency * kOs + 1;
-    std::vector<double> h(n);
-    const double c = (n - 1) / 2.0;
-    const double fc = kFirFc / (2.0 * kOs);
-    const double i0b = besselI0(kKaiserBeta);
-    double sum = 0;
-    for (int i = 0; i < n; ++i) {
-        const double t = i - c;
-        const double sinc = t == 0 ? 2 * fc : std::sin(2 * kPi * fc * t) / (kPi * t);
-        const double r = t / c;
-        const double w = besselI0(kKaiserBeta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
-        h[i] = sinc * w;
-        sum += h[i];
+    // Les filtres x2, x4, x8 : N = kLatency x os + 1 coefficients, gain continu os (interpolation) ; le meme retard
+    for (int bi = 0; bi < 3; ++bi) {
+        Bank& b = banks_[static_cast<size_t>(bi)];
+        const int os = 2 << bi;
+        const int n = kLatency * os + 1;
+        std::vector<double> h(static_cast<size_t>(n));
+        const double c = (n - 1) / 2.0;
+        const double fc = kFirFc / (2.0 * os);
+        const double i0b = besselI0(kKaiserBeta);
+        double sum = 0;
+        for (int i = 0; i < n; ++i) {
+            const double t = i - c;
+            const double sinc = t == 0 ? 2 * fc : std::sin(2 * kPi * fc * t) / (kPi * t);
+            const double r = t / c;
+            const double w = besselI0(kKaiserBeta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
+            h[static_cast<size_t>(i)] = sinc * w;
+            sum += h[static_cast<size_t>(i)];
+        }
+        for (double& x : h) x *= os / sum;
+        b.os = os;
+        b.nd = n;
+        b.ph.assign(static_cast<size_t>(os * kTaps), 0.0);
+        for (int p = 0; p < os; ++p)
+            for (int i = 0; i < kTaps; ++i) b.ph[static_cast<size_t>(p * kTaps + i)] = p + i * os < n ? h[static_cast<size_t>(p + i * os)] : 0;
+        b.hd.assign(static_cast<size_t>(n), 0.0);
+        for (int i = 0; i < n; ++i) b.hd[static_cast<size_t>(i)] = h[static_cast<size_t>(i)] / os;
     }
-    for (double& x : h) x *= kOs / sum;
-    ph_.assign(kOs * kTaps, 0.0);
-    for (int p = 0; p < kOs; ++p)
-        for (int i = 0; i < kTaps; ++i) ph_[p * kTaps + i] = p + i * kOs < n ? h[p + i * kOs] : 0;
-    nd_ = n;
-    hd_.assign(n, 0.0);
-    for (int i = 0; i < n; ++i) hd_[i] = h[i] / kOs;
-    for (int c2 = 0; c2 < 2; ++c2) {
-        upH_[c2].assign(2 * kTaps, 0.0);
-        dnH_[c2].assign(2 * nd_, 0.0);
+    for (Path& p : path_)
+        for (int c = 0; c < 2; ++c) {
+            p.up[static_cast<size_t>(c)].assign(2 * kTaps, 0.0);
+            p.dn[static_cast<size_t>(c)].assign(static_cast<size_t>(2 * banks_[2].nd), 0.0);
+        }
+    for (int c = 0; c < 2; ++c) {
+        fbBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ / 40) + 2 * kLatency + 8, 0.0);
+        boxBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ * 0.012) + 8, 0.0);
     }
+    cur_ = want_;
+    configure();
     reset();
 }
 
 void Decap::clearState() {
-    for (auto& v : upH_) std::fill(v.begin(), v.end(), 0.0);
-    for (auto& v : dnH_) std::fill(v.begin(), v.end(), 0.0);
-    upW_ = dnW_ = 0;
+    for (Path& p : path_) {
+        for (auto& v : p.up) std::fill(v.begin(), v.end(), 0.0);
+        for (auto& v : p.dn) std::fill(v.begin(), v.end(), 0.0);
+        p.upW = p.dnW = 0;
+        p.ax = {};
+        p.fa = {};
+        p.fb = {};
+        p.sa = {{-1, -1}};
+        p.sb = {{-1, -1}};
+    }
     ch_ = {};
-    ax_ = {};
-    aF_ = {};
-    aS_ = {{-1, -1}};
+    for (auto& v : fbBuf_) std::fill(v.begin(), v.end(), 0.0);
+    for (auto& v : boxBuf_) std::fill(v.begin(), v.end(), 0.0);
+    fbW_ = boxW_ = 0;
+    lfoPh_ = 0;
+    lfoSm_ = 0;
+    lfoRnd_ = 0;
+    rng_ = 22222u;
+    envE_ = envD_ = envV_ = 0;
+    tick_ = 0;
+}
+
+void Decap::configure() {
+    const bool bandsChanged = nb_ != std::clamp(want_.bands, 1, 3);
+    cur_ = want_;
+    nb_ = std::clamp(cur_.bands, 1, 3);
+    // une bande : x8 ; deux : x4 et x8 ; trois : x2, x4 et x8
+    static const int kOsOf[3][3] = {{2, 0, 0}, {1, 2, 0}, {0, 1, 2}};
+    for (int b = 0; b < 3; ++b) {
+        Path& p = path_[static_cast<size_t>(b)];
+        const int bi = b < nb_ ? kOsOf[nb_ - 1][b] : 2;
+        if (p.bank != &banks_[static_cast<size_t>(bi)] || bandsChanged) {
+            p.bank = &banks_[static_cast<size_t>(bi)];
+            p.os = p.bank->os;
+            for (auto& v : p.up) std::fill(v.begin(), v.end(), 0.0);
+            for (auto& v : p.dn) std::fill(v.begin(), v.end(), 0.0);
+            p.upW = p.dnW = 0;
+            p.ax = {};
+            p.sa = {{-1, -1}};
+            p.sb = {{-1, -1}};
+        }
+    }
+    if (bandsChanged)
+        for (Ch& c : ch_) c.a1 = c.a2 = c.a3 = c.b1 = c.b2 = c.b3 = c.ap = Svf();
 }
 
 void Decap::reset() {
@@ -202,13 +377,156 @@ void Decap::reset() {
     e_ = 0;
     needReset_ = true;
     dir_ = s_.mm ? dbLin(outDbOf(s_.out)) : 1;
+    vuDb_ = -120;
 }
 
 void Decap::set(const DecapSettings& s) {
     s_ = s;
     s_.style = std::clamp(s.style, 0, kStyles - 1);
+    s_.morphTo = std::clamp(s.morphTo, 0, kStyles - 1);
+    s_.bands = std::clamp(s.bands, 1, 3);
+    for (auto& b : s_.band) b.style = std::clamp(b.style, -1, kStyles - 1);
     target_ = (!s_.mm && s_.drive > 0) ? 1 : 0;
+    want_.style = s_.style;
+    want_.morphTo = s_.morphTo;
+    want_.bands = s_.bands;
+    want_.preMode = std::clamp(s_.preMode, 0, 4);
+    want_.postMode = std::clamp(s_.postMode, 0, 4);
+    want_.box = std::clamp(s_.box, 0, 4);
+    for (int b = 0; b < 3; ++b) want_.bandStyle[static_cast<size_t>(b)] = s_.band[static_cast<size_t>(b)].style;
+    // ce qui ne s'entend pas change sans fondu : la cible du MORPH a 0, le style d'une bande hors service
+    const bool morphOn = s_.morph > 0 || (s_.lfoTarget == T_MORPH && s_.lfoAmt != 0.5);
+    if (!morphOn) cur_.morphTo = want_.morphTo;
+    if (want_.bands == cur_.bands)
+        for (int b = cur_.bands; b < 3; ++b) cur_.bandStyle[static_cast<size_t>(b)] = want_.bandStyle[static_cast<size_t>(b)];
+    if (cur_.bands == 1) cur_.bandStyle = want_.bandStyle;
 }
+
+/* ---------------- les coefficients, tous les kTick echantillons ---------------- */
+
+void Decap::coefs(int mode) {
+    const double sr = sr_;
+    const double kT = mode == 1 ? 1.0 : mode == 2 ? 0.0 : 1 - std::exp(-kTick / (0.03 * sr));
+    const double mod = modNow_;
+    const int tgt = s_.lfoTarget;
+    const auto glide = [&](double& v, double to) { v *= std::pow(to / v, kT); };
+    // les coupures, lissees en log
+    const double lowHz = lowHzOf(s_.low), highHz = highHzOf(s_.high);
+    glide(low_, lowHz > 0 ? lowHz : 20);
+    glide(high_, highHz > 0 ? highHz : 20000);
+    tilt_ += (tiltOf(s_.tone) - tilt_) * kT;
+    glide(preHz_, filtHzOf(s_.preFreq));
+    glide(postHz_, filtHzOf(s_.postFreq));
+    glide(fbHz_, fbHzOf(s_.fbFreq));
+    glide(xLo_, xLoHzOf(s_.xLo));
+    glide(xHi_, xHiHzOf(s_.xHi));
+    Tick& t = t_;
+    t.lowOn = lowHz > 0 || low_ > 21;
+    t.highOn = highHz > 0 || high_ < 19900;
+    t.steep = s_.steep;
+    // l'accentuation du style, glissee vers celle de morphTo par le MORPH
+    const double m = std::clamp(s_.morph + (tgt == T_MORPH ? 0.5 * mod : 0), 0.0, 1.0);
+    t.morphOn = s_.morph > 0 || (tgt == T_MORPH && s_.lfoAmt != 0.5);
+    const int sa = cur_.style, sb = cur_.morphTo;
+    const double mm = t.morphOn ? m : 0;
+    const double preHz = std::exp(lerp(std::log(kPreHz[sa]), std::log(kPreHz[sb]), mm));
+    const double loDb = lerp(kPreLoDb[sa], kPreLoDb[sb], mm), hiDb = lerp(kPreHiDb[sa], kPreHiDb[sb], mm);
+    const double lpA = kPostLpHz[sa] > 0 ? kPostLpHz[sa] : 24000, lpB = kPostLpHz[sb] > 0 ? kPostLpHz[sb] : 24000;
+    const double slpHz = std::exp(lerp(std::log(lpA), std::log(lpB), mm));
+    t.gLo = dbLin(loDb);
+    t.gHi = dbLin(hiDb);
+    const double gPre = tptG(preHz, sr);
+    const double gPost = gPre * (t.gLo / t.gHi);
+    t.aPre = gPre / (1 + gPre);
+    t.aPost = gPost / (1 + gPost);
+    t.iLo = 1 / t.gLo;
+    t.iHi = 1 / t.gHi;
+    t.slp = slpHz < 20000;
+    const double gSlp = t.slp ? tptG(slpHz, sr) : 0;
+    t.aSlp = gSlp / (1 + gSlp);
+    const double gT = tptG(kTiltHz, sr);
+    t.aT = gT / (1 + gT);
+    const double tilt = std::clamp(tilt_ + (tgt == T_TONE ? mod : 0), -1.0, 1.0);
+    t.tLo = dbLin(-kTiltDb * tilt);
+    t.tHi = dbLin(kTiltDb * tilt);
+    t.gL = tptG(low_, sr);
+    t.kL = s_.thump ? 1 / 2.0 : kSqrt2;
+    t.a1L = 1 / (1 + t.gL * (t.gL + t.kL));
+    t.gH = tptG(high_, sr);
+    t.aH = t.gH / (1 + t.gH);
+    const double kA = 1 / 0.618, kBq = 1 / 1.618;
+    t.a1A = 1 / (1 + t.gH * (t.gH + kA));
+    t.a1B = 1 / (1 + t.gH * (t.gH + kBq));
+    t.aDc = 1 - (2 * kPi * kDcHz) / sr;
+    // PRE et POST FILTER
+    const double nyq = 0.45 * sr;
+    svfSet(t.pre, std::min(nyq, preHz_ * (tgt == T_PRE ? std::pow(2.0, 2 * mod) : 1)), resoQOf(s_.preReso), sr);
+    t.pre.mode = cur_.preMode;
+    t.pre.peak = dbLin(12) - 1;
+    svfSet(t.post, std::min(nyq, postHz_ * (tgt == T_POST ? std::pow(2.0, 2 * mod) : 1)), resoQOf(s_.postReso), sr);
+    t.post.mode = cur_.postMode;
+    t.post.peak = dbLin(12) - 1;
+    // les coupures du multibande (Butterworth : leur carre est un Linkwitz-Riley)
+    svfSet(t.x1, xLo_, 0.70710678118654752, sr);
+    svfSet(t.x2, std::max(xHi_, 1.5 * xLo_), 0.70710678118654752, sr);
+    // les bandes
+    bool anySolo = false;
+    for (int b = 0; b < nb_; ++b) anySolo = anySolo || s_.band[static_cast<size_t>(b)].solo;
+    for (int b = 0; b < 3; ++b) {
+        const DecapBand& bd = s_.band[static_cast<size_t>(b)];
+        const bool multi = nb_ > 1;
+        t.bandDb[static_cast<size_t>(b)] = multi ? bandDbOf(bd.drive) : 0;
+        t.gBT[static_cast<size_t>(b)] = dbLin(t.bandDb[static_cast<size_t>(b)]);
+        t.mixT[static_cast<size_t>(b)] = !multi ? 1 : bd.bypass ? 0 : std::clamp(bd.mix, 0.0, 1.0);
+        t.levelT[static_cast<size_t>(b)] = !multi || bd.bypass ? 1 : dbLin(levelDbOf(bd.level));
+        t.soloT[static_cast<size_t>(b)] = !multi || !anySolo || bd.solo ? 1 : 0;
+    }
+    // l'enveloppe (ENV), la dynamique, le VU
+    t.eA = 1 - std::exp(-1 / (envAtkMs(s_.envSpeed) * 1e-3 * sr));
+    t.eR = 1 - std::exp(-1 / (envRelMs(s_.envSpeed) * 1e-3 * sr));
+    t.dA = 1 - std::exp(-1 / (0.005 * sr));
+    t.dR = 1 - std::exp(-1 / (0.15 * sr));
+    t.vA = 1 - std::exp(-1 / (0.01 * sr));
+    t.vR = 1 - std::exp(-1 / (0.3 * sr));
+    vuDb_ = linDb(envV_);
+    // le FEEDBACK : la boucle accordee sur fbHz (le retard des filtres compris), un passe-bande Q 2 ; le gain de boucle
+    // normalise par le gain en petit signal de la saturation (la plus forte des bandes) : sous 0.9
+    svfSet(t.fbBp, fbHz_, 2, sr);
+    t.fbBp.mode = F_BP;
+    const int maxD = static_cast<int>(fbBuf_[0].size()) - 2;
+    t.fbD = std::clamp(static_cast<int>(std::lround(sr / fbHz_)) - (kLatency + 1), 0, maxD);
+    {
+        const double d0 = drive_;
+        double G = 1;
+        for (int b = 0; b < nb_; ++b) {
+            const int st = cur_.bandStyle[static_cast<size_t>(b)] < 0 || nb_ == 1 ? sa : cur_.bandStyle[static_cast<size_t>(b)];
+            const double db = d0 + t.bandDb[static_cast<size_t>(b)] + 24 + 18; // le pire : ENV et LFO a fond
+            const double a = s_.autoGain ? autoGainOf(st, d0 + t.bandDb[static_cast<size_t>(b)]) : 1;
+            G = std::max(G, t.levelT[static_cast<size_t>(b)] * std::max(1.0, dbLin(db) * a));
+        }
+        t.fbT = s_.fb > 0 ? s_.fb * 0.9 / G : 0;
+    }
+    // BOX
+    {
+        const BoxDef& bx = kBox[cur_.box];
+        const double sc = boxScaleOf(s_.boxSize);
+        svfSet(t.boxHp, bx.hp / sc, 0.70710678118654752, sr);
+        t.boxHp.mode = F_HP;
+        svfSet(t.boxLp, bx.lp / sc, 0.70710678118654752, sr);
+        t.boxLp.mode = F_LP;
+        svfSet(t.boxPk1, bx.p1 > 0 ? bx.p1 / sc : 1000, bx.p1Q, sr);
+        t.boxPk1.mode = bx.p1 > 0 ? F_PEAK : F_OFF;
+        t.boxPk1.peak = dbLin(bx.p1Db) - 1;
+        svfSet(t.boxPk2, bx.p2 > 0 ? bx.p2 / sc : 1000, bx.p2Q, sr);
+        t.boxPk2.mode = bx.p2 > 0 ? F_PEAK : F_OFF;
+        t.boxPk2.peak = dbLin(bx.p2Db) - 1;
+        t.boxD = std::clamp(static_cast<int>(std::lround(bx.ms * sc * 1e-3 * sr)), 1, static_cast<int>(boxBuf_[0].size()) - 2);
+        t.boxFb = bx.fb;
+        t.boxNorm = 1 - bx.fb;
+    }
+}
+
+/* ---------------- le traitement ---------------- */
 
 void Decap::process(float* L, float* R, int n) {
     if (n <= 0) return;
@@ -222,8 +540,8 @@ void Decap::process(float* L, float* R, int n) {
         int w = dryW_;
         const bool unity = dirT == 1.0 && dir_ == 1.0;
         for (int i = 0; i < n; ++i) {
-            dry_[0][w] = L[i];
-            dry_[1][w] = R[i];
+            dry_[0][static_cast<size_t>(w)] = L[i];
+            dry_[1][static_cast<size_t>(w)] = R[i];
             w = w + 1 == DN ? 0 : w + 1;
             if (!unity) {
                 dir_ += (dirT - dir_) * kS;
@@ -234,194 +552,367 @@ void Decap::process(float* L, float* R, int n) {
         }
         dryW_ = w;
         needReset_ = true;
+        vuDb_ = -120;
         return;
     }
     if (needReset_) {
         clearState();
         needReset_ = false;
-        style_ = s_.style;
+        cur_ = want_;
+        nb_ = -1;
+        configure();
         drive_ = driveDbOf(s_.drive, s_.punish);
-        auto_ = s_.autoGain ? autoGainOf(style_, drive_) : 1;
         mix_ = s_.mix;
         out_ = dbLin(outDbOf(s_.out));
+        morph_ = s_.morph;
         tilt_ = tiltOf(s_.tone);
         low_ = lowHzOf(s_.low) > 0 ? lowHzOf(s_.low) : 20;
         high_ = highHzOf(s_.high) > 0 ? highHzOf(s_.high) : 20000;
+        preHz_ = filtHzOf(s_.preFreq);
+        postHz_ = filtHzOf(s_.postFreq);
+        fbHz_ = fbHzOf(s_.fbFreq);
+        xLo_ = xLoHzOf(s_.xLo);
+        xHi_ = xHiHzOf(s_.xHi);
+        box_ = std::clamp(s_.boxMix, 0.0, 1.0);
         sw_ = 1;
+        dynG_ = 1;
+        modNow_ = 0;
+        coefs(1);
+        fbG_ = t_.fbT;
+        for (int b = 0; b < 3; ++b) {
+            Path& p = path_[static_cast<size_t>(b)];
+            p.gB = t_.gBT[static_cast<size_t>(b)];
+            p.mix = t_.mixT[static_cast<size_t>(b)];
+            p.level = t_.levelT[static_cast<size_t>(b)];
+            p.solo = t_.soloT[static_cast<size_t>(b)];
+        }
     }
 
-    // Les coupures au bloc, lissees en log
-    const double kB = 1 - std::exp(-n / (0.03 * sr));
-    const double lowHz = lowHzOf(s_.low), highHz = highHzOf(s_.high);
-    const double lowT = lowHz > 0 ? lowHz : 20;
-    const double highT = highHz > 0 ? highHz : 20000;
-    low_ *= std::pow(lowT / low_, kB);
-    high_ *= std::pow(highT / high_, kB);
-    tilt_ += (tiltOf(s_.tone) - tilt_) * kB;
-    const bool lowOn = lowHz > 0 || low_ > 21;
-    const bool highOn = highHz > 0 || high_ < 19900;
-
-    const int st = style_;
-    const double gLo = dbLin(kPreLoDb[st]), gHi = dbLin(kPreHiDb[st]);
-    const double gPre = tptG(kPreHz[st], sr);
-    const double gPost = gPre * (gLo / gHi);
-    const double aPre = gPre / (1 + gPre), aPost = gPost / (1 + gPost);
-    const double iLo = 1 / gLo, iHi = 1 / gHi;
-    const double gSlp = kPostLpHz[st] > 0 ? tptG(kPostLpHz[st], sr) : 0;
-    const double aSlp = gSlp / (1 + gSlp);
-    const double gT = tptG(kTiltHz, sr), aT = gT / (1 + gT);
-    const double tLo = dbLin(-kTiltDb * tilt_), tHi = dbLin(kTiltDb * tilt_);
-    const double gL = tptG(low_, sr);
-    const double kL = s_.thump ? 1 / 2.0 : std::sqrt(2.0);
-    const double a1L = 1 / (1 + gL * (gL + kL));
-    const double gH = tptG(high_, sr), aH = gH / (1 + gH);
-    const double kA = 1 / 0.618, kBq = 1 / 1.618;
-    const double a1A = 1 / (1 + gH * (gH + kA)), a1B = 1 / (1 + gH * (gH + kBq));
-    const bool steep = s_.steep;
-    const double aDc = 1 - (2 * kPi * kDcHz) / sr;
-    const double ref = std::max(1e-4, s_.ref);
-    const double iref = 1 / ref;
     const double fade = 1 / (kFadeS * sr);
     const double swStep = 1 / (kStyleFadeS * sr);
     const double driveT = driveDbOf(s_.drive, s_.punish);
     const double outT = dbLin(outDbOf(s_.out));
+    const double ref = std::max(1e-4, s_.ref);
+    const double iref = 1 / ref;
+    const double lfoInc = std::clamp(s_.lfoHz, 0.0, 50.0) / sr;
+    const double lfoAmt = 2 * std::clamp(s_.lfoAmt, 0.0, 1.0) - 1;
+    const int lfoShape = std::clamp(s_.lfoShape, 0, 4);
+    const double kLfo = 1 - std::exp(-1 / ((lfoShape == 4 ? 0.015 : 0.0015) * sr));
+    const int tgt = s_.lfoTarget;
+    const double envAmt = 2 * std::clamp(s_.envAmt, 0.0, 1.0) - 1;
+    const double dynK = std::clamp(s_.dyn, 0.0, 1.0) - 0.5;
+    const bool autoS = s_.autoGain;
+    const int fbN = static_cast<int>(fbBuf_[0].size());
+    const int boxN = static_cast<int>(boxBuf_[0].size());
 
     for (int i = 0; i < n; ++i) {
+        // le LFO (a l'echantillon) puis, tous les kTick echantillons, les coefficients
+        {
+            lfoPh_ += lfoInc;
+            if (lfoPh_ >= 1) {
+                lfoPh_ -= std::floor(lfoPh_);
+                rng_ = rng_ * 1664525u + 1013904223u;
+                lfoRnd_ = (rng_ >> 8) * (2.0 / 16777216.0) - 1;
+            }
+            double raw;
+            switch (lfoShape) {
+                case 1: raw = 4 * std::fabs(lfoPh_ - 0.5) - 1; break;
+                case 2: raw = 2 * lfoPh_ - 1; break;
+                case 3: raw = lfoPh_ < 0.5 ? 1 : -1; break;
+                case 4: raw = lfoRnd_; break;
+                default: raw = std::sin(2 * kPi * lfoPh_); break;
+            }
+            lfoSm_ += (raw - lfoSm_) * kLfo;
+            modNow_ = lfoSm_ * lfoAmt;
+        }
+        if (tick_ == 0) coefs(0);
+        tick_ = tick_ + 1 == kTick ? 0 : tick_ + 1;
+        const Tick& t = t_;
         e_ += target_ > e_ ? std::min(fade, target_ - e_) : -std::min(fade, e_ - target_);
-        if (s_.style != style_) {
+        // un changement de STYLE, de bandes, de mode : le mouille s'eteint, change, se rallume (6 ms)
+        if (!(want_ == cur_)) {
             sw_ -= swStep;
             if (sw_ <= 0) {
                 sw_ = 0;
-                style_ = s_.style;
+                configure();
+                coefs(2);
             }
         } else if (sw_ < 1) {
             sw_ = std::min(1.0, sw_ + swStep);
         }
+        // les enveloppes (les deux canaux ensemble, au niveau de la prise)
+        const double xl = L[i], xr = R[i];
+        const double a = std::max(std::fabs(xl), std::fabs(xr)) * ref;
+        envE_ += (a > envE_ ? t.eA : t.eR) * (a - envE_);
+        envD_ += (a > envD_ ? t.dA : t.dR) * (a - envD_);
+        // les lissages
         drive_ += (driveT - drive_) * kS;
         mix_ += (s_.mix - mix_) * kS;
         out_ += (outT - out_) * kS;
         dir_ += (dirT - dir_) * kS;
-        const double autoT = s_.autoGain ? autoGainOf(style_, drive_) : 1;
-        auto_ += (autoT - auto_) * kS;
-        const double gIn = dbLin(drive_) * ref;
-        const double gOut = auto_ * sw_ * iref;
-        const int w = upW_, dw = dryW_;
-        const int sty = style_;
-        double dec[2] = {0, 0};
-        int dwi0 = dnW_;
+        box_ += (std::clamp(s_.boxMix, 0.0, 1.0) - box_) * kS;
+        fbG_ += (t.fbT - fbG_) * kS;
+        double dTot = drive_;
+        if (envAmt != 0) dTot += envAmt * 24 * std::clamp((linDb(envE_) + 48) / 48, 0.0, 1.0);
+        if (tgt == T_DRIVE) dTot += 18 * modNow_;
+        const double mixEff = tgt == T_MIX ? std::clamp(mix_ + 0.5 * modNow_, 0.0, 1.0) : mix_;
+        const double mEff = std::clamp(s_.morph + (tgt == T_MORPH ? 0.5 * modNow_ : 0), 0.0, 1.0);
+        morph_ = mEff;
+        if (dynK != 0) {
+            const double dynDb = std::clamp(dynK * (linDb(envD_) + 24), -12.0, 12.0);
+            dynG_ += (dbLin(dynDb) - dynG_) * kS;
+        } else {
+            dynG_ += (1 - dynG_) * kS;
+        }
+        const double gIn = dbLin(dTot) * ref;
+        // les bandes : leurs gains lisses, leur courbe, leur compensation
+        struct Shape {
+            int sa, sb;
+            double m, autoScale, invG, mix;
+            bool morph, skip;
+        } shp[3];
+        for (int b = 0; b < nb_; ++b) {
+            Path& p = path_[static_cast<size_t>(b)];
+            p.gB += (t.gBT[static_cast<size_t>(b)] - p.gB) * kS;
+            p.mix += (t.mixT[static_cast<size_t>(b)] - p.mix) * kS;
+            if (std::fabs(p.mix - t.mixT[static_cast<size_t>(b)]) < 1e-7) p.mix = t.mixT[static_cast<size_t>(b)];
+            p.level += (t.levelT[static_cast<size_t>(b)] - p.level) * kS;
+            p.solo += (t.soloT[static_cast<size_t>(b)] - p.solo) * kS;
+            Shape& sh = shp[b];
+            const int own = nb_ > 1 ? cur_.bandStyle[static_cast<size_t>(b)] : -1;
+            sh.sa = own < 0 ? cur_.style : own;
+            sh.sb = cur_.morphTo;
+            sh.morph = own < 0 && t.morphOn;
+            sh.m = mEff;
+            const double db = dTot + t.bandDb[static_cast<size_t>(b)];
+            double aDb = 0;
+            if (autoS) aDb = sh.morph ? lerp(autoDbOf(sh.sa, db), autoDbOf(sh.sb, db), mEff) : autoDbOf(sh.sa, db);
+            sh.autoScale = (autoS ? dbLin(aDb) : 1) * iref;
+            sh.invG = 1 / (gIn * (nb_ > 1 ? p.gB : 1));
+            sh.mix = p.mix;
+            sh.skip = p.mix == 0;
+        }
+        const int dw = dryW_;
+        double vu = 0;
         for (int c = 0; c < 2; ++c) {
-            Ch& s = ch_[c];
-            const double x = c == 0 ? L[i] : R[i];
-            dry_[c][dw] = x;
+            Ch& s = ch_[static_cast<size_t>(c)];
+            const double x = c == 0 ? xl : xr;
+            dry_[static_cast<size_t>(c)][static_cast<size_t>(dw)] = x;
             double y = x;
-            if (lowOn) {
-                const double hp = (y - (gL + kL) * s.lc1 - s.lc2) * a1L;
-                const double v1 = gL * hp;
+            if (t.lowOn) {
+                const double hp = (y - (t.gL + t.kL) * s.lc1 - s.lc2) * t.a1L;
+                const double v1 = t.gL * hp;
                 const double bp = v1 + s.lc1;
                 s.lc1 = bp + v1;
-                const double v2 = gL * bp;
+                const double v2 = t.gL * bp;
                 const double lp = v2 + s.lc2;
                 s.lc2 = lp + v2;
                 y = hp;
             }
             {
-                const double v = (y - s.tilt) * aT;
+                const double v = (y - s.tilt) * t.aT;
                 const double lp = v + s.tilt;
                 s.tilt = lp + v;
-                y = tLo * lp + tHi * (y - lp);
+                y = t.tLo * lp + t.tHi * (y - lp);
             }
+            if (t.pre.mode != F_OFF) y = filt(s.preF, t.pre, y);
+            y += s.fbLast;
             {
-                const double v = (y - s.pre) * aPre;
+                const double v = (y - s.pre) * t.aPre;
                 const double lp = v + s.pre;
                 s.pre = lp + v;
-                y = gLo * lp + gHi * (y - lp);
+                y = t.gLo * lp + t.gHi * (y - lp);
             }
-            std::vector<double>& hb = upH_[c];
-            hb[w] = y * gIn;
-            hb[w + kTaps] = y * gIn;
-            std::vector<double>& dh = dnH_[c];
-            int dwi = dwi0;
-            if (aS_[c] != sty) {
-                aF_[c] = curveF(sty, ax_[c]);
-                aS_[c] = sty;
-            }
-            for (int q = 0; q < kOs; ++q) {
-                double acc = 0;
-                const double* pq = &ph_[q * kTaps];
-                for (int k = 0; k < kTaps; ++k) acc += pq[k] * hb[w + kTaps - k];
-                // ADAA du premier ordre
-                const double x1 = ax_[c];
-                const double Fx = curveF(sty, acc);
-                const double dxa = acc - x1;
-                const double z = (dxa > kAdaaEps || dxa < -kAdaaEps) ? (Fx - aF_[c]) / dxa : curve(sty, 0.5 * (acc + x1));
-                ax_[c] = acc;
-                aF_[c] = Fx;
-                dh[dwi] = z;
-                dh[dwi + nd_] = z;
-                if (q == 0) {
-                    // La decimation sur la phase 0 : le mouille en phase avec le sec retarde de kLatency
-                    const int base = dwi + nd_;
-                    double d = 0;
-                    for (int k = 0; k < nd_; ++k) d += hd_[k] * dh[base - k];
-                    dec[c] = d;
+            vu = std::max(vu, std::fabs(y * gIn));
+            // le multibande (Linkwitz-Riley 24 dB/oct ; trois bandes : le bas passe par le passe-tout de la seconde
+            // coupure, la somme reste plate)
+            double yb[3] = {y, 0, 0};
+            if (nb_ >= 2) {
+                double lp1, bp1, hp1, l2, b2, h2;
+                svfRun(s.a1, t.x1, y, lp1, bp1, hp1);
+                double lo, hi;
+                svfRun(s.a2, t.x1, lp1, lo, b2, h2);
+                svfRun(s.a3, t.x1, hp1, l2, b2, hi);
+                yb[0] = lo;
+                yb[1] = hi;
+                if (nb_ == 3) {
+                    double lp3, bp3, hp3, mid, high;
+                    svfRun(s.b1, t.x2, hi, lp3, bp3, hp3);
+                    svfRun(s.b2, t.x2, lp3, mid, b2, h2);
+                    svfRun(s.b3, t.x2, hp3, l2, b2, high);
+                    double la, ba, ha;
+                    svfRun(s.ap, t.x2, lo, la, ba, ha);
+                    yb[0] = lo - 2 * t.x2.k * ba;
+                    yb[1] = mid;
+                    yb[2] = high;
                 }
-                dwi = dwi + 1 == nd_ ? 0 : dwi + 1;
             }
-            if (c == 1) dnW_ = dwi;
-            y = dec[c];
+            double sum = 0;
+            for (int b = 0; b < nb_; ++b) {
+                Path& p = path_[static_cast<size_t>(b)];
+                const Shape& sh = shp[b];
+                const Bank& bk = *p.bank;
+                const int os = bk.os, nd = bk.nd;
+                const double u = yb[b] * gIn * (nb_ > 1 ? p.gB : 1);
+                std::vector<double>& hb = p.up[static_cast<size_t>(c)];
+                const int w = p.upW;
+                hb[static_cast<size_t>(w)] = u;
+                hb[static_cast<size_t>(w + kTaps)] = u;
+                std::vector<double>& dh = p.dn[static_cast<size_t>(c)];
+                int dwi = p.dnW;
+                double dec = 0;
+                for (int q = 0; q < os; ++q) {
+                    double acc = 0;
+                    const double* pq = &bk.ph[static_cast<size_t>(q * kTaps)];
+                    const double* hq = &hb[static_cast<size_t>(w + kTaps)];
+                    for (int k = 0; k < kTaps; ++k) acc += pq[k] * hq[-k];
+                    double z;
+                    if (sh.skip) {
+                        // la bande contournee : le sec seul, l'ADAA suit sans calculer
+                        p.ax[static_cast<size_t>(c)] = acc;
+                        p.sa[static_cast<size_t>(c)] = p.sb[static_cast<size_t>(c)] = -1;
+                        z = acc * sh.invG;
+                    } else {
+                        // ADAA du premier ordre (et celle de la cible du MORPH)
+                        const double x1 = p.ax[static_cast<size_t>(c)];
+                        if (p.sa[static_cast<size_t>(c)] != sh.sa) {
+                            p.fa[static_cast<size_t>(c)] = curveF(sh.sa, x1);
+                            p.sa[static_cast<size_t>(c)] = sh.sa;
+                        }
+                        const double dxa = acc - x1;
+                        const bool big = dxa > kAdaaEps || dxa < -kAdaaEps;
+                        const double Fa = curveF(sh.sa, acc);
+                        double yv = big ? (Fa - p.fa[static_cast<size_t>(c)]) / dxa : curve(sh.sa, 0.5 * (acc + x1));
+                        p.fa[static_cast<size_t>(c)] = Fa;
+                        if (sh.morph) {
+                            if (p.sb[static_cast<size_t>(c)] != sh.sb) {
+                                p.fb[static_cast<size_t>(c)] = curveF(sh.sb, x1);
+                                p.sb[static_cast<size_t>(c)] = sh.sb;
+                            }
+                            const double Fb = curveF(sh.sb, acc);
+                            const double yB = big ? (Fb - p.fb[static_cast<size_t>(c)]) / dxa : curve(sh.sb, 0.5 * (acc + x1));
+                            p.fb[static_cast<size_t>(c)] = Fb;
+                            yv += (yB - yv) * sh.m;
+                        } else {
+                            p.sb[static_cast<size_t>(c)] = -1;
+                        }
+                        p.ax[static_cast<size_t>(c)] = acc;
+                        const double wet = yv * sh.autoScale;
+                        z = sh.mix >= 1 ? wet : acc * sh.invG + (wet - acc * sh.invG) * sh.mix;
+                    }
+                    if (z < 1e-25 && z > -1e-25) z = 0;
+                    dh[static_cast<size_t>(dwi)] = z;
+                    dh[static_cast<size_t>(dwi + nd)] = z;
+                    if (q == 0) {
+                        // la decimation sur la phase 0 : le mouille en phase avec le sec retarde de kLatency
+                        const double* hd = bk.hd.data();
+                        const double* d = &dh[static_cast<size_t>(dwi + nd)];
+                        double sd = 0;
+                        for (int k = 0; k < nd; ++k) sd += hd[k] * d[-k];
+                        dec = sd;
+                    }
+                    dwi = dwi + 1 == nd ? 0 : dwi + 1;
+                }
+                sum += nb_ > 1 ? dec * p.level * p.solo : dec;
+            }
+            y = sum;
             {
-                const double dy = y - s.dcx + aDc * s.dcy;
+                const double dy = y - s.dcx + t.aDc * s.dcy;
                 s.dcx = y;
                 s.dcy = dy;
                 y = dy;
             }
             {
-                const double v = (y - s.post) * aPost;
+                const double v = (y - s.post) * t.aPost;
                 const double lp = v + s.post;
                 s.post = lp + v;
-                y = iHi * y + (iLo - iHi) * lp;
+                y = t.iHi * y + (t.iLo - t.iHi) * lp;
             }
-            if (gSlp > 0) {
-                const double v = (y - s.slp) * aSlp;
+            if (t.slp) {
+                const double v = (y - s.slp) * t.aSlp;
                 const double lp = v + s.slp;
                 s.slp = lp + v;
                 y = lp;
             }
-            if (highOn) {
-                const double v = (y - s.hc0) * aH;
+            if (t.highOn) {
+                const double v = (y - s.hc0) * t.aH;
                 const double lp = v + s.hc0;
                 s.hc0 = lp + v;
                 y = lp;
-                if (steep) {
-                    double hp = (y - (gH + kA) * s.ha1 - s.ha2) * a1A;
-                    double v1 = gH * hp, bp = v1 + s.ha1;
+                if (t.steep) {
+                    const double kA = 1 / 0.618, kBq = 1 / 1.618;
+                    double hp = (y - (t.gH + kA) * s.ha1 - s.ha2) * t.a1A;
+                    double v1 = t.gH * hp, bp = v1 + s.ha1;
                     s.ha1 = bp + v1;
-                    double v2 = gH * bp, l2 = v2 + s.ha2;
+                    double v2 = t.gH * bp, l2 = v2 + s.ha2;
                     s.ha2 = l2 + v2;
                     y = l2;
-                    hp = (y - (gH + kBq) * s.hb1 - s.hb2) * a1B;
-                    v1 = gH * hp;
+                    hp = (y - (t.gH + kBq) * s.hb1 - s.hb2) * t.a1B;
+                    v1 = t.gH * hp;
                     bp = v1 + s.hb1;
                     s.hb1 = bp + v1;
-                    v2 = gH * bp;
+                    v2 = t.gH * bp;
                     l2 = v2 + s.hb2;
                     s.hb2 = l2 + v2;
                     y = l2;
                 }
             }
-            const double wet = y * gOut;
-            const double dryD = dry_[c][dw + 1 == DN ? 0 : dw + 1];
-            const double proc = (dryD + (wet - dryD) * mix_) * out_;
-            const double r = x * dir_ + (proc - x * dir_) * e_;
+            // la prise du FEEDBACK : le retour du prochain echantillon (accorde, borne par une tangente)
+            {
+                std::vector<double>& fb = fbBuf_[static_cast<size_t>(c)];
+                fb[static_cast<size_t>(fbW_)] = y < 1e-25 && y > -1e-25 ? 0 : y;
+                if (fbG_ > 1e-9) {
+                    int r = fbW_ - t.fbD;
+                    if (r < 0) r += fbN;
+                    s.fbLast = std::tanh(fbG_ * filt(s.fbBp, t.fbBp, fb[static_cast<size_t>(r)]));
+                } else {
+                    s.fbLast = 0;
+                }
+            }
+            // BOX : filtres et une resonance courte
+            if (cur_.box != 0) {
+                double b = filt(s.boxHp, t.boxHp, y);
+                b = filt(s.boxLp, t.boxLp, b);
+                if (t.boxPk1.mode != F_OFF) b = filt(s.boxPk1, t.boxPk1, b);
+                if (t.boxPk2.mode != F_OFF) b = filt(s.boxPk2, t.boxPk2, b);
+                std::vector<double>& bb = boxBuf_[static_cast<size_t>(c)];
+                int r = boxW_ - t.boxD;
+                if (r < 0) r += boxN;
+                double cmb = b + t.boxFb * bb[static_cast<size_t>(r)];
+                if (cmb < 1e-25 && cmb > -1e-25) cmb = 0;
+                bb[static_cast<size_t>(boxW_)] = cmb;
+                y += (cmb * t.boxNorm - y) * box_;
+            }
+            if (t.post.mode != F_OFF) y = filt(s.postF, t.post, y);
+            double wet = y * dynG_ * sw_;
+            if (wet < 1e-25 && wet > -1e-25) wet = 0;
+            const double dryD = dry_[static_cast<size_t>(c)][static_cast<size_t>(dw + 1 == DN ? 0 : dw + 1)];
+            const double proc = (dryD + (wet - dryD) * mixEff) * out_;
+            const double r = e_ >= 1 ? proc : x * dir_ + (proc - x * dir_) * e_;
             (c == 0 ? L : R)[i] = static_cast<float>(r);
         }
-        upW_ = w + 1 == kTaps ? 0 : w + 1;
+        envV_ += (vu > envV_ ? t.vA : t.vR) * (vu - envV_);
+        for (int b = 0; b < nb_; ++b) {
+            Path& p = path_[static_cast<size_t>(b)];
+            p.upW = p.upW + 1 == kTaps ? 0 : p.upW + 1;
+            p.dnW = (p.dnW + p.bank->os) % p.bank->nd;
+        }
         dryW_ = dw + 1 == DN ? 0 : dw + 1;
+        fbW_ = fbW_ + 1 == fbN ? 0 : fbW_ + 1;
+        boxW_ = boxW_ + 1 == boxN ? 0 : boxW_ + 1;
     }
     // Les queues sous le denormal
-    for (Ch& s : ch_)
-        for (double* p : {&s.tilt, &s.pre, &s.post, &s.lc1, &s.lc2, &s.dcx, &s.dcy, &s.slp, &s.hc0, &s.ha1, &s.ha2, &s.hb1, &s.hb2})
+    for (Ch& s : ch_) {
+        for (double* p : {&s.tilt, &s.pre, &s.post, &s.lc1, &s.lc2, &s.dcx, &s.dcy, &s.slp, &s.hc0, &s.ha1, &s.ha2, &s.hb1, &s.hb2, &s.fbLast})
             if (std::fabs(*p) < 1e-20) *p = 0;
+        for (Svf* f : {&s.preF, &s.postF, &s.a1, &s.a2, &s.a3, &s.b1, &s.b2, &s.b3, &s.ap, &s.fbBp, &s.boxHp, &s.boxLp, &s.boxPk1, &s.boxPk2}) {
+            if (std::fabs(f->s1) < 1e-20) f->s1 = 0;
+            if (std::fabs(f->s2) < 1e-20) f->s2 = 0;
+        }
+    }
+    if (std::fabs(envE_) < 1e-20) envE_ = 0;
+    if (std::fabs(envD_) < 1e-20) envD_ = 0;
+    if (std::fabs(envV_) < 1e-20) envV_ = 0;
 }
 
 } // namespace mmarp

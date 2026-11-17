@@ -501,6 +501,7 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         if (!hadSky)
             if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
         if (!hadRange) migrateHell();
+        convertPedal();
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -546,6 +547,50 @@ void MMArpProcessor::migrateHell() {
         put("xHellLfoTarget", 0);
         put("xHellLfoDepth", 0);
     }
+}
+
+/*
+ * La pedale DISTORTION (xDist, xDistTone), masquee le 2026-11-17 (v25, Mika : "masque la pedale avec conversion") : ses
+ * parametres restent pour l'hote (l'automation des anciens projets les trouve) mais n'agissent plus. Un projet qui l'avait
+ * au-dessus de 0 passe a la DISTO, le reglage le plus proche :
+ *   - la pedale ecretait franc (droit jusqu'a 0.9, arrondi jusqu'a 1.2) : STYLE DIODE (droit jusqu'a 0.9, arrondi
+ *     jusqu'a 1.1) ;
+ *   - sa dose (36 v dB de gain) : DRIVE (dist), la meme loi : DRIVE = xDist ; sa dose entrait sur les 5 premiers % :
+ *     MIX = min(1, 20 x xDist) ; elle compensait son niveau : AUTO ;
+ *   - son TONE (passe-bas 12 dB/oct a 700 x (18000 / 700)^t Hz) : POST FILTER LP a la meme frequence, RESO 0 (Butterworth,
+ *     le meme filtre) ; sa cloche de presence (au-dessus de 0.5, +12 (t - 0.5) dB a 3.5 kHz) : TONE vers le brillant ;
+ *   - le reste de la DISTO a son depart. Seulement si la DISTO etait encore MM (un projet d'avant la page) ; sinon la
+ *     pedale est simplement coupee. La pedale remise a 0 (xDist 0, xDistTone 0.5).
+ * Ce qui change : la pedale etait apres CRUSH (dans la chaine), la DISTO est juste apres le moteur ; si le projet avait
+ * aussi l'OVERDRIVE du moteur (dist au-dessus de 0, style MM), DRIVE prend la dose de la pedale et l'OVERDRIVE du moteur
+ * s'efface (la DISTO le remplace). La face fait la meme chose pour un preset (disto.ts distoFromPedal).
+ */
+void MMArpProcessor::convertPedal() {
+    auto* pd = apvts.getParameter("xDist");
+    auto* pt = apvts.getParameter("xDistTone");
+    if (!pd || !pt) return;
+    const double a = static_cast<double>(pd->getValue());
+    const double t = static_cast<double>(pt->getValue());
+    if (!(a > 0)) return;
+    const auto put = [&](const char* id, double v) {
+        if (auto* p = apvts.getParameter(id)) p->setValueNotifyingHost(static_cast<float>(std::min(1.0, std::max(0.0, v))));
+    };
+    auto* ps = apvts.getParameter("xDStyle");
+    const int st = ps ? mmx::exStep(mmx::ex_xDStyle, static_cast<double>(ps->getValue())) : 0;
+    if (st == 0) {
+        const int n = mmx::kExtraDefs[mmx::ex_xDStyle].nSteps;
+        put("xDStyle", (1.0 + mmarp::Decap::STYLE_DIODE) / (n - 1));
+        put("dist", a);
+        put("xDMix", std::min(1.0, 20 * a));
+        put("xDAuto", 1);
+        const double hz = mmarp::ArpFxLaws::distToneHz(t);
+        put("xDPostMode", static_cast<double>(mmarp::Decap::F_LP) / 4);
+        put("xDPostFreq", std::log(hz / 20) / std::log(1000.0));
+        put("xDPostReso", 0);
+        if (t > 0.5) put("xDTone", 0.5 + mmarp::ArpFxLaws::distPresenceDb(t) / 12);
+    }
+    put("xDist", 0);
+    put("xDistTone", 0.5);
 }
 
 /* ---------------- l'audio ---------------- */
@@ -670,8 +715,10 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         fx.crushRate = ex_[mmx::ex_xCrushRate];
         fx.dlyMode = mmx::exStep(mmx::ex_xDlyMode, ex_[mmx::ex_xDlyMode]);
         fx.shimmer = ex_[mmx::ex_xShimmer];
-        fx.dist = ex_[mmx::ex_xDist];
-        fx.distTone = ex_[mmx::ex_xDistTone];
+        // la pedale DISTORTION est masquee (2026-11-17, v25) : sans effet ; un projet qui l'avait est converti a
+        // l'ouverture vers la DISTO (convertPedal), son automation ne fait plus rien
+        fx.dist = 0;
+        fx.distTone = 0.5;
         fx.eqLow = ex_[mmx::ex_xEqLow];
         fx.eqMid = ex_[mmx::ex_xEqMid];
         fx.eqHigh = ex_[mmx::ex_xEqHigh];
@@ -936,7 +983,8 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     publishMod();
     // DISTO facon Decapitator (2026-11-16, portee le 2026-11-17) : juste apres le moteur, avant la chaine du site ; DRIVE 0
     // ou MM (le depart) : contournee au bit pres (MM : OUTPUT seul, 0 dB au depart). Engagee, 32 echantillons de retard,
-    // non declares a l'hote (comme la DISTORTION, WARMTH et le FLANGER). La pedale DISTORTION (xDist) reste, dans ArpFx.
+    // non declares a l'hote (comme WARMTH et le FLANGER). v25 : la page complete (dsp/Decap.h) ; la pedale DISTORTION est
+    // masquee et convertie (convertPedal).
     {
         mmarp::DecapSettings ds;
         const int st = mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]);
@@ -952,10 +1000,51 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         ds.mix = ex_[mmx::ex_xDMix];
         ds.out = ex_[mmx::ex_xDOut];
         ds.autoGain = mmx::exStep(mmx::ex_xDAuto, ex_[mmx::ex_xDAuto]) == 1;
+        // v25 : MORPH, DYNAMICS, FEEDBACK, le multibande, ENV, LFO, les filtres, BOX
+        const auto stp = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+        ds.morph = ex_[mmx::ex_xDMorph];
+        ds.morphTo = stp(mmx::ex_xDMorphTo);
+        ds.dyn = ex_[mmx::ex_xDDyn];
+        ds.fb = ex_[mmx::ex_xDFb];
+        ds.fbFreq = ex_[mmx::ex_xDFbFreq];
+        ds.bands = 1 + stp(mmx::ex_xDBands);
+        ds.xLo = ex_[mmx::ex_xDXLo];
+        ds.xHi = ex_[mmx::ex_xDXHi];
+        {
+            const int k[3][6] = {{mmx::ex_xDB1Style, mmx::ex_xDB1Drive, mmx::ex_xDB1Mix, mmx::ex_xDB1Level, mmx::ex_xDB1Solo, mmx::ex_xDB1Byp},
+                                 {mmx::ex_xDB2Style, mmx::ex_xDB2Drive, mmx::ex_xDB2Mix, mmx::ex_xDB2Level, mmx::ex_xDB2Solo, mmx::ex_xDB2Byp},
+                                 {mmx::ex_xDB3Style, mmx::ex_xDB3Drive, mmx::ex_xDB3Mix, mmx::ex_xDB3Level, mmx::ex_xDB3Solo, mmx::ex_xDB3Byp}};
+            for (int b = 0; b < 3; ++b) {
+                mmarp::DecapBand& bd = ds.band[static_cast<size_t>(b)];
+                bd.style = stp(k[b][0]) - 1; // MAIN : -1
+                bd.drive = ex_[static_cast<size_t>(k[b][1])];
+                bd.mix = ex_[static_cast<size_t>(k[b][2])];
+                bd.level = ex_[static_cast<size_t>(k[b][3])];
+                bd.solo = stp(k[b][4]) == 1;
+                bd.bypass = stp(k[b][5]) == 1;
+            }
+        }
+        ds.envAmt = ex_[mmx::ex_xDEnvAmt];
+        ds.envSpeed = ex_[mmx::ex_xDEnvSpd];
+        ds.lfoShape = stp(mmx::ex_xDLfoShape);
+        ds.lfoHz = stp(mmx::ex_xDLfoSync) == 1 ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xDLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xDLfoRate]);
+        ds.lfoAmt = ex_[mmx::ex_xDLfoAmt];
+        ds.lfoTarget = stp(mmx::ex_xDLfoTarget);
+        ds.preMode = stp(mmx::ex_xDPreMode);
+        ds.preFreq = ex_[mmx::ex_xDPreFreq];
+        ds.preReso = ex_[mmx::ex_xDPreReso];
+        ds.postMode = stp(mmx::ex_xDPostMode);
+        ds.postFreq = ex_[mmx::ex_xDPostFreq];
+        ds.postReso = ex_[mmx::ex_xDPostReso];
+        ds.box = stp(mmx::ex_xDBox);
+        ds.boxSize = ex_[mmx::ex_xDBoxSize];
+        ds.boxMix = ex_[mmx::ex_xDBoxMix];
         // la saturation au niveau de la prise : le gain de VOLUME du site (audio/synth.ts volGain)
         ds.ref = mmarp::ArpFxLaws::volGain(knobs_[static_cast<size_t>(mmarp::kn_volume)], knobs_[static_cast<size_t>(mmarp::kn_delay)], knobs_[static_cast<size_t>(mmarp::kn_reverb)]);
         decap_.set(ds);
         decap_.process(dryL_.data(), dryR_.data(), n);
+        // ATTITUDE (mm_mod, id distoVu) : -20..+3 dB vers 0..1 ; NaN quand la DISTO est contournee
+        distoVu_.store(decap_.active() ? static_cast<float>(std::clamp((decap_.attitudeDb() + 20) / 23, 0.0, 1.0)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
     }
     // PUMP suit la position du morceau
     fx_.setTransport(ppq, pps, playing);

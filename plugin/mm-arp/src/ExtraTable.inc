@@ -1,5 +1,5 @@
 // GENERE par tests/extra-gen.mjs depuis extra-params.json : ne pas editer.
-enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_xHellCross, ex_xHellHp, ex_xHellLp, ex_xHellSmear, ex_xHellRange, ex_xHellPhase, ex_xHellAntiRefl, ex_xHellLfoShape, ex_xHellLfoSync, ex_xHellLfoAmt, ex_xHellLfoStereo, ex_xHellLfoTarget, ex_xDStyle, ex_xDPunish, ex_xDLow, ex_xDThump, ex_xDTone, ex_xDHigh, ex_xDSteep, ex_xDMix, ex_xDOut, ex_xDAuto, ex_COUNT };
+enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_xHellCross, ex_xHellHp, ex_xHellLp, ex_xHellSmear, ex_xHellRange, ex_xHellPhase, ex_xHellAntiRefl, ex_xHellLfoShape, ex_xHellLfoSync, ex_xHellLfoAmt, ex_xHellLfoStereo, ex_xHellLfoTarget, ex_xDStyle, ex_xDPunish, ex_xDLow, ex_xDThump, ex_xDTone, ex_xDHigh, ex_xDSteep, ex_xDMix, ex_xDOut, ex_xDAuto, ex_xDMorph, ex_xDMorphTo, ex_xDDyn, ex_xDFb, ex_xDFbFreq, ex_xDBands, ex_xDXLo, ex_xDXHi, ex_xDB1Style, ex_xDB1Drive, ex_xDB1Mix, ex_xDB1Level, ex_xDB1Solo, ex_xDB1Byp, ex_xDB2Style, ex_xDB2Drive, ex_xDB2Mix, ex_xDB2Level, ex_xDB2Solo, ex_xDB2Byp, ex_xDB3Style, ex_xDB3Drive, ex_xDB3Mix, ex_xDB3Level, ex_xDB3Solo, ex_xDB3Byp, ex_xDEnvAmt, ex_xDEnvSpd, ex_xDLfoShape, ex_xDLfoRate, ex_xDLfoSync, ex_xDLfoAmt, ex_xDLfoTarget, ex_xDPreMode, ex_xDPreFreq, ex_xDPreReso, ex_xDPostMode, ex_xDPostFreq, ex_xDPostReso, ex_xDBox, ex_xDBoxSize, ex_xDBoxMix, ex_COUNT };
 static const char* const kExSteps_xQuality[] = { "STD", "HQ" };
 static const char* const kExSteps_xLfo1Dest2[] = { "OFF", "RES", "AMP", "PAN", "OSC 2 PITCH", "OSC MIX", "NOISE", "SUB", "DRIVE", "STACK", "ENV AMT" };
 static const char* const kExSteps_xLfo2Rate[] = { "1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4", "1/2", "1 BAR", "2 BAR", "4 BAR", "8 BAR" };
@@ -33,11 +33,28 @@ static const char* const kExSteps_xHellLfoShape[] = { "SINE", "SAW", "SQUARE", "
 static const char* const kExSteps_xHellLfoSync[] = { "OFF", "ON" };
 static const char* const kExSteps_xHellLfoStereo[] = { "OFF", "ON" };
 static const char* const kExSteps_xHellLfoTarget[] = { "FREQ", "PHASE", "LOW-PASS", "DELAY" };
-static const char* const kExSteps_xDStyle[] = { "MM", "A", "E", "N", "T", "P" };
+static const char* const kExSteps_xDStyle[] = { "MM", "A", "E", "N", "T", "P", "TAPE", "FUZZ", "DIODE", "AMP", "RECT", "FOLD", "CRUSH" };
 static const char* const kExSteps_xDPunish[] = { "OFF", "ON" };
 static const char* const kExSteps_xDThump[] = { "OFF", "ON" };
 static const char* const kExSteps_xDSteep[] = { "OFF", "ON" };
 static const char* const kExSteps_xDAuto[] = { "OFF", "ON" };
+static const char* const kExSteps_xDMorphTo[] = { "A", "E", "N", "T", "P", "TAPE", "FUZZ", "DIODE", "AMP", "RECT", "FOLD", "CRUSH" };
+static const char* const kExSteps_xDBands[] = { "1", "2", "3" };
+static const char* const kExSteps_xDB1Style[] = { "MAIN", "A", "E", "N", "T", "P", "TAPE", "FUZZ", "DIODE", "AMP", "RECT", "FOLD", "CRUSH" };
+static const char* const kExSteps_xDB1Solo[] = { "OFF", "ON" };
+static const char* const kExSteps_xDB1Byp[] = { "OFF", "ON" };
+static const char* const kExSteps_xDB2Style[] = { "MAIN", "A", "E", "N", "T", "P", "TAPE", "FUZZ", "DIODE", "AMP", "RECT", "FOLD", "CRUSH" };
+static const char* const kExSteps_xDB2Solo[] = { "OFF", "ON" };
+static const char* const kExSteps_xDB2Byp[] = { "OFF", "ON" };
+static const char* const kExSteps_xDB3Style[] = { "MAIN", "A", "E", "N", "T", "P", "TAPE", "FUZZ", "DIODE", "AMP", "RECT", "FOLD", "CRUSH" };
+static const char* const kExSteps_xDB3Solo[] = { "OFF", "ON" };
+static const char* const kExSteps_xDB3Byp[] = { "OFF", "ON" };
+static const char* const kExSteps_xDLfoShape[] = { "SINE", "TRI", "SAW", "SQUARE", "RANDOM" };
+static const char* const kExSteps_xDLfoSync[] = { "FREE", "SYNC" };
+static const char* const kExSteps_xDLfoTarget[] = { "DRIVE", "MORPH", "TONE", "PRE", "POST", "MIX" };
+static const char* const kExSteps_xDPreMode[] = { "OFF", "LP", "BP", "HP", "PEAK" };
+static const char* const kExSteps_xDPostMode[] = { "OFF", "LP", "BP", "HP", "PEAK" };
+static const char* const kExSteps_xDBox[] = { "OFF", "SMALL", "COMBO", "STACK", "RADIO" };
 static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xQuality", "QUALITY", "engine", 1, 2, kExSteps_xQuality },
   { "xLfo1Dest2", "TARGET 2", "lfo1", 0, 11, kExSteps_xLfo1Dest2 },
@@ -102,8 +119,8 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xEqMid", "MID", "eq", 0.5, 0, nullptr },
   { "xEqHigh", "HIGH", "eq", 0.5, 0, nullptr },
   { "xEqAir", "AIR BAND", "eq", 0.5, 0, nullptr },
-  { "xDist", "DISTORTION", "dist", 0, 0, nullptr },
-  { "xDistTone", "TONE", "dist", 0.5, 0, nullptr },
+  { "xDist", "OLD PEDAL", "dist", 0, 0, nullptr },
+  { "xDistTone", "OLD PEDAL TONE", "dist", 0.5, 0, nullptr },
   { "xHellMix", "HELL", "hell", 0, 0, nullptr },
   { "xHellSync", "HELL TIME SYNC", "hell", 0.5384615384615384, 14, kExSteps_xHellSync },
   { "xHellTime", "HELL TIME", "hell", 0.5, 0, nullptr },
@@ -137,7 +154,7 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xHellLfoAmt", "HELL LFO AMOUNT", "hell", 0.5, 0, nullptr },
   { "xHellLfoStereo", "HELL LFO STEREO", "hell", 0, 2, kExSteps_xHellLfoStereo },
   { "xHellLfoTarget", "HELL LFO TARGET", "hell", 0, 4, kExSteps_xHellLfoTarget },
-  { "xDStyle", "DISTO STYLE", "disto", 0, 6, kExSteps_xDStyle },
+  { "xDStyle", "DISTO STYLE", "disto", 0, 13, kExSteps_xDStyle },
   { "xDPunish", "DISTO PUNISH", "disto", 0, 2, kExSteps_xDPunish },
   { "xDLow", "DISTO LOW CUT", "disto", 0, 0, nullptr },
   { "xDThump", "DISTO THUMP", "disto", 0, 2, kExSteps_xDThump },
@@ -147,4 +164,46 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xDMix", "DISTO MIX", "disto", 1, 0, nullptr },
   { "xDOut", "DISTO OUTPUT", "disto", 0.5, 0, nullptr },
   { "xDAuto", "DISTO AUTO", "disto", 1, 2, kExSteps_xDAuto },
+  { "xDMorph", "DISTO MORPH", "disto", 0, 0, nullptr },
+  { "xDMorphTo", "DISTO MORPH TO", "disto", 0, 12, kExSteps_xDMorphTo },
+  { "xDDyn", "DISTO DYNAMICS", "disto", 0.5, 0, nullptr },
+  { "xDFb", "DISTO FEEDBACK", "disto", 0, 0, nullptr },
+  { "xDFbFreq", "DISTO FB FREQ", "disto", 0.5, 0, nullptr },
+  { "xDBands", "DISTO BANDS", "disto", 0, 3, kExSteps_xDBands },
+  { "xDXLo", "DISTO XOVER LOW", "disto", 0.4, 0, nullptr },
+  { "xDXHi", "DISTO XOVER HIGH", "disto", 0.5, 0, nullptr },
+  { "xDB1Style", "DISTO LOW STYLE", "disto", 0, 13, kExSteps_xDB1Style },
+  { "xDB1Drive", "DISTO LOW DRIVE", "disto", 0.5, 0, nullptr },
+  { "xDB1Mix", "DISTO LOW MIX", "disto", 1, 0, nullptr },
+  { "xDB1Level", "DISTO LOW LEVEL", "disto", 0.5, 0, nullptr },
+  { "xDB1Solo", "DISTO LOW SOLO", "disto", 0, 2, kExSteps_xDB1Solo },
+  { "xDB1Byp", "DISTO LOW BYPASS", "disto", 0, 2, kExSteps_xDB1Byp },
+  { "xDB2Style", "DISTO MID STYLE", "disto", 0, 13, kExSteps_xDB2Style },
+  { "xDB2Drive", "DISTO MID DRIVE", "disto", 0.5, 0, nullptr },
+  { "xDB2Mix", "DISTO MID MIX", "disto", 1, 0, nullptr },
+  { "xDB2Level", "DISTO MID LEVEL", "disto", 0.5, 0, nullptr },
+  { "xDB2Solo", "DISTO MID SOLO", "disto", 0, 2, kExSteps_xDB2Solo },
+  { "xDB2Byp", "DISTO MID BYPASS", "disto", 0, 2, kExSteps_xDB2Byp },
+  { "xDB3Style", "DISTO HIGH STYLE", "disto", 0, 13, kExSteps_xDB3Style },
+  { "xDB3Drive", "DISTO HIGH DRIVE", "disto", 0.5, 0, nullptr },
+  { "xDB3Mix", "DISTO HIGH MIX", "disto", 1, 0, nullptr },
+  { "xDB3Level", "DISTO HIGH LEVEL", "disto", 0.5, 0, nullptr },
+  { "xDB3Solo", "DISTO HIGH SOLO", "disto", 0, 2, kExSteps_xDB3Solo },
+  { "xDB3Byp", "DISTO HIGH BYPASS", "disto", 0, 2, kExSteps_xDB3Byp },
+  { "xDEnvAmt", "DISTO ENV AMOUNT", "disto", 0.5, 0, nullptr },
+  { "xDEnvSpd", "DISTO ENV SPEED", "disto", 0.3, 0, nullptr },
+  { "xDLfoShape", "DISTO LFO SHAPE", "disto", 0, 5, kExSteps_xDLfoShape },
+  { "xDLfoRate", "DISTO LFO RATE", "disto", 0.4, 0, nullptr },
+  { "xDLfoSync", "DISTO LFO SYNC", "disto", 0, 2, kExSteps_xDLfoSync },
+  { "xDLfoAmt", "DISTO LFO AMOUNT", "disto", 0.5, 0, nullptr },
+  { "xDLfoTarget", "DISTO LFO TARGET", "disto", 0, 6, kExSteps_xDLfoTarget },
+  { "xDPreMode", "DISTO PRE FILTER", "disto", 0, 5, kExSteps_xDPreMode },
+  { "xDPreFreq", "DISTO PRE FREQ", "disto", 0.5, 0, nullptr },
+  { "xDPreReso", "DISTO PRE RESO", "disto", 0, 0, nullptr },
+  { "xDPostMode", "DISTO POST FILTER", "disto", 0, 5, kExSteps_xDPostMode },
+  { "xDPostFreq", "DISTO POST FREQ", "disto", 0.5, 0, nullptr },
+  { "xDPostReso", "DISTO POST RESO", "disto", 0, 0, nullptr },
+  { "xDBox", "DISTO BOX", "disto", 0, 5, kExSteps_xDBox },
+  { "xDBoxSize", "DISTO BOX SIZE", "disto", 0.5, 0, nullptr },
+  { "xDBoxMix", "DISTO BOX MIX", "disto", 1, 0, nullptr },
 };

@@ -195,9 +195,7 @@ const REFS: Record<string, string> = {};
   }
   // OVERDRIVE s'appelle DISTO dans le VST3 (2026-11-17, Mika)
   setFullName('dist', 'DISTO');
-  // la pedale DISTORTION (2026-11-17 : sur la page DISTO, PEDAL)
-  setFullName('xDist', 'DISTORTION');
-  setFullName('xDistTone', 'DIST TONE');
+  // la pedale DISTORTION est masquee (2026-11-17, v25) : plus nulle part ; la page DISTO a ses noms (DistoPage.tsx)
 }
 
 const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
@@ -291,8 +289,7 @@ const SkyHost: React.FC = () => {
 /** DISTO : la page facon Decapitator (DistoPage.tsx) ; le cadre DRIVE clignote au clic du potard DISTO de la face. */
 const DistoHost: React.FC = () => {
   const d = useFlash('DRIVE');
-  const p = useFlash('DISTORTION');
-  return <DistoPage flash={(t) => (t === 'DRIVE' ? d : t === 'DISTORTION' ? p : false)} />;
+  return <DistoPage flash={(t) => (t === 'DRIVE' ? d : false)} />;
 };
 
 const FxPage: React.FC = () => {

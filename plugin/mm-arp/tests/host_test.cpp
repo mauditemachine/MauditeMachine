@@ -6,7 +6,10 @@
 #include "Hell.h"
 
 #include <cmath>
+#include <map>
+#include <tuple>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 namespace {
@@ -252,26 +255,31 @@ int main() {
             X("xM1Amt")->setValueNotifyingHost(0.5f);
             p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
             check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
-            const char* on[] = {"xFeedback", "xDist", "xEqLow", "xEqHigh", "xEqAir"};
+            const char* on[] = {"xFeedback", "xEqLow", "xEqHigh", "xEqAir"};
             for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
-            // DISTO facon Decapitator (2026-11-17) : style P, PUNISH, DRIVE a fond, en plus de la pedale DISTORTION
-            X("xDStyle")->setValueNotifyingHost(1.f);
+            // DISTO (2026-11-17, v25) : style P, PUNISH, DRIVE a fond, trois bandes, FEEDBACK, MORPH vers FOLD, BOX
+            X("xDStyle")->setValueNotifyingHost(5.f / 12);
             X("xDPunish")->setValueNotifyingHost(1.f);
+            X("xDBands")->setValueNotifyingHost(1.f);
+            X("xDFb")->setValueNotifyingHost(1.f);
+            X("xDMorph")->setValueNotifyingHost(0.5f);
+            X("xDMorphTo")->setValueNotifyingHost(10.f / 11);
+            X("xDBox")->setValueNotifyingHost(0.75f);
+            X("xDLfoAmt")->setValueNotifyingHost(1.f);
             p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(1.f);
             X("xVoiceMode")->setValueNotifyingHost(1.f);
             X("xAmpMode")->setValueNotifyingHost(1.f);
             run(p, h, 9600, 512);
             const Stats all = run(p, h, 48000, 512);
             X("xFeedback")->setValueNotifyingHost(0.f);
-            X("xDist")->setValueNotifyingHost(0.f);
-            X("xDStyle")->setValueNotifyingHost(0.f);
-            X("xDPunish")->setValueNotifyingHost(0.f);
+            for (int e = 0; e < mmx::kExtra; ++e)
+                if (std::strcmp(mmx::kExtraDefs[e].section, "disto") == 0) X(mmx::kExtraDefs[e].id)->setValueNotifyingHost(static_cast<float>(mmx::kExtraDefs[e].def));
             p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(0.f);
             for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
             X("xVoiceMode")->setValueNotifyingHost(0.f);
             X("xAmpMode")->setValueNotifyingHost(0.f);
             run(p, h, 48000, 512);
-            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + DISTO P PUNISH + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTO P PUNISH 3 bandes FEEDBACK MORPH BOX + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
         }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
@@ -486,10 +494,11 @@ int main() {
         check(std::fabs(db(std::sqrt(ra)) - db(std::sqrt(rb))) < 0.5, "blocs de 512 contre 77 : la meme sonie (" + juce::String(db(std::sqrt(ra)) - db(std::sqrt(rb)), 2).toStdString() + " dB d'ecart)");
     }
     {
-        // DISTO facon Decapitator (2026-11-17) : un projet d'avant (sans les reglages xD*), DISTO (l'OVERDRIVE du moteur)
-        // a 0.6 et la pedale DISTORTION a 0.5, sonne au bit pres comme avant ; le style A, lui, change le son
-        static const char* const kD[] = {"xDStyle", "xDPunish", "xDLow", "xDThump", "xDTone", "xDHigh", "xDSteep", "xDMix", "xDOut", "xDAuto"};
-        auto render = [](bool strip, float style) {
+        // DISTO (2026-11-17, v25) : un projet d'avant (sans aucun reglage de la DISTO), DISTO (l'OVERDRIVE du moteur) a
+        // 0.6, sonne au bit pres comme avant ; le style A change le son. La pedale DISTORTION masquee : un projet qui
+        // l'avait (0.5, TONE 0.7) passe a la DISTO (DIODE, DRIVE 0.5, MIX, AUTO, POST FILTER LP, TONE) et sonne au bit
+        // pres comme ce reglage pose a la main
+        auto render = [](bool strip, float style, double pedal, double pedalTone, const std::vector<std::pair<const char*, double>>& set) {
             MMArpProcessor p;
             Head h;
             p.setPlayHead(&h);
@@ -502,10 +511,13 @@ int main() {
                 for (auto* c : e->getChildIterator()) {
                     const juce::String id = c->getStringAttribute("id");
                     if (id == "dist") c->setAttribute("value", 0.6);
-                    if (id == "xDist") c->setAttribute("value", 0.5);
+                    if (id == "xDist") c->setAttribute("value", pedal);
+                    if (id == "xDistTone") c->setAttribute("value", pedalTone);
                     if (id == "xDStyle") c->setAttribute("value", static_cast<double>(style));
-                    for (const char* k : kD)
-                        if (strip && id == k) kill.push_back(c);
+                    for (const auto& kv : set)
+                        if (id == kv.first) c->setAttribute("value", kv.second);
+                    const int ix = mmx::allIndex(id.toRawUTF8());
+                    if (strip && ix >= mmarp::kKnobs && std::strcmp(mmx::kExtraDefs[ix - mmarp::kKnobs].section, "disto") == 0) kill.push_back(c);
                 }
                 for (auto* c : kill) e->removeChildElement(c, true);
                 removed += static_cast<int>(kill.size());
@@ -520,18 +532,47 @@ int main() {
             h.playing = true;
             std::vector<float> L;
             run(p, h, 48000 * 2, 512, nullptr, &L);
-            return std::make_pair(L, removed);
+            std::map<std::string, double> v;
+            for (const char* id : {"dist", "xDist", "xDistTone", "xDStyle", "xDMix", "xDAuto", "xDPostMode", "xDPostFreq", "xDPostReso", "xDTone"})
+                v[id] = static_cast<double>(p.knobParam(mmx::allIndex(id))->getValue());
+            return std::make_tuple(L, removed, v);
         };
-        const auto now = render(false, 0.f), old = render(true, 0.f), a = render(false, 0.2f);
+        int nDisto = 0;
+        for (int e = 0; e < mmx::kExtra; ++e) nDisto += std::strcmp(mmx::kExtraDefs[e].section, "disto") == 0 ? 1 : 0;
+        const auto now = render(false, 0.f, 0, 0.5, {}), old = render(true, 0.f, 0, 0.5, {}), a = render(false, 1.f / 12, 0, 0.5, {});
         double d = 0, dA = 0, pk = 0;
-        for (size_t i = 0; i < now.first.size() && i < old.first.size() && i < a.first.size(); ++i) {
-            d = std::max(d, static_cast<double>(std::fabs(now.first[i] - old.first[i])));
-            dA = std::max(dA, static_cast<double>(std::fabs(now.first[i] - a.first[i])));
-            pk = std::max(pk, static_cast<double>(std::fabs(now.first[i])));
+        for (size_t i = 0; i < std::get<0>(now).size() && i < std::get<0>(old).size() && i < std::get<0>(a).size(); ++i) {
+            d = std::max(d, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(old)[i])));
+            dA = std::max(dA, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(a)[i])));
+            pk = std::max(pk, static_cast<double>(std::fabs(std::get<0>(now)[i])));
         }
-        check(old.second == 10 && pk > 0.01 && d <= 0 && dA > 0.001,
-              "DISTO : un projet d'avant (10 reglages xD* absents, DISTO 0.6, DISTORTION 0.5) sonne au bit pres comme avant ; le style A change le son (ecart " +
+        check(std::get<1>(old) == nDisto && nDisto == 52 && pk > 0.01 && d <= 0 && dA > 0.001,
+              "DISTO : un projet d'avant (" + std::to_string(std::get<1>(old)) + " reglages de la DISTO absents, DISTO 0.6) sonne au bit pres comme avant ; le style A change le son (ecart " +
                   juce::String(dA, 3).toStdString() + ")");
+        // la pedale : convertie
+        const auto conv = render(true, 0.f, 0.5, 0.7, {});
+        const auto& cv = std::get<2>(conv);
+        const double toneHz = mmarp::ArpFxLaws::distToneHz(0.7);
+        const double wantFreq = std::log(toneHz / 20) / std::log(1000.0);
+        const bool vals = std::fabs(cv.at("xDStyle") - 8.0 / 12) < 1e-6 && std::fabs(cv.at("dist") - 0.5) < 1e-6 && cv.at("xDMix") > 0.999 && cv.at("xDAuto") > 0.999 &&
+                          std::fabs(cv.at("xDPostMode") - 0.25) < 1e-6 && std::fabs(cv.at("xDPostFreq") - wantFreq) < 1e-6 && cv.at("xDPostReso") < 1e-6 &&
+                          std::fabs(cv.at("xDTone") - (0.5 + 12 * 0.2 / 12)) < 1e-6 && cv.at("xDist") == 0 && std::fabs(cv.at("xDistTone") - 0.5) < 1e-6;
+        const auto hand = render(false, 8.f / 12, 0, 0.5,
+                                 {{"dist", 0.5}, {"xDMix", 1}, {"xDAuto", 1}, {"xDPostMode", 0.25}, {"xDPostFreq", static_cast<double>(static_cast<float>(wantFreq))}, {"xDPostReso", 0}, {"xDTone", 0.7}});
+        double dc = 0, dn = 0;
+        for (size_t i = 0; i < std::get<0>(conv).size() && i < std::get<0>(hand).size(); ++i) {
+            dc = std::max(dc, static_cast<double>(std::fabs(std::get<0>(conv)[i] - std::get<0>(hand)[i])));
+            dn = std::max(dn, static_cast<double>(std::fabs(std::get<0>(conv)[i] - std::get<0>(now)[i])));
+        }
+        check(vals && dc <= 0 && dn > 0.001,
+              "pedale DISTORTION (0.5, TONE 0.7) convertie : DIODE, DRIVE 0.5, MIX 100 %, AUTO, POST LP " + std::to_string(std::lround(toneHz)) +
+                  " Hz, TONE ; au bit pres comme ce reglage pose a la main ; la pedale a 0");
+        // une pedale en dessous de 5 % : MIX suit sa dose ; une DISTO deja reglee (style T) : la pedale est seulement coupee
+        const auto low = render(true, 0.f, 0.02, 0.5, {});
+        const auto keep = render(false, 4.f / 12, 0.4, 0.5, {});
+        check(std::fabs(std::get<2>(low).at("xDMix") - 0.4) < 1e-6 && std::fabs(std::get<2>(low).at("dist") - 0.02) < 1e-6 && std::fabs(std::get<2>(keep).at("xDStyle") - 4.0 / 12) < 1e-6 &&
+                  std::fabs(std::get<2>(keep).at("dist") - 0.6) < 1e-6 && std::get<2>(keep).at("xDist") == 0,
+              "pedale a 2 % : MIX 40 % ; DISTO deja en T : la pedale seulement coupee, DRIVE garde");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

@@ -74,6 +74,18 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xDHigh) { if (v <= 0.98) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(1000.0 * std::pow(20.0, v / 0.98)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
     else if (e == ex_xDTone) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", (v - 0.5) * 12);
     else if (e == ex_xDOut) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", -18 + 36 * v);
+    // DISTO v25
+    else if (e == ex_xDDyn || e == ex_xDEnvAmt || e == ex_xDLfoAmt) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
+    else if (e == ex_xDFbFreq || e == ex_xDXLo || e == ex_xDXHi || e == ex_xDPreFreq || e == ex_xDPostFreq) {
+        const double hz = e == ex_xDFbFreq ? 40 * std::pow(30.0, v) : e == ex_xDXLo ? 40 * std::pow(25.0, v) : e == ex_xDXHi ? 600 * std::pow(25.0, v) : 20 * std::pow(1000.0, v);
+        if (hz >= 1000) std::snprintf(out, static_cast<size_t>(max), "%.1f kHz", hz / 1000);
+        else std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(hz)));
+    }
+    else if (e == ex_xDB1Drive || e == ex_xDB2Drive || e == ex_xDB3Drive) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", -18 + 36 * v);
+    else if (e == ex_xDB1Level || e == ex_xDB2Level || e == ex_xDB3Level) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", -12 + 24 * v);
+    else if (e == ex_xDEnvSpd) std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(std::pow(30.0, v))));
+    else if (e == ex_xDLfoRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.02 * std::pow(500.0, v));
+    else if (e == ex_xDPreReso || e == ex_xDPostReso) std::snprintf(out, static_cast<size_t>(max), "Q %.2f", 0.7071 * std::pow(16.0, v));
     else if (e == ex_xHellPhase) std::snprintf(out, static_cast<size_t>(max), "%d deg", static_cast<int>(std::lround(v * 360)));
     else if (e == ex_xHellLfoRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.02 * std::pow(500.0, v));
     else if (e == ex_xHellLfoDepth) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(400.0 * v * v)));

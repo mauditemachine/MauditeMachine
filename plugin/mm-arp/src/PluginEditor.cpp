@@ -238,6 +238,12 @@ void MMArpEditor::timerCallback() {
             ids.add(juce::String("hellLfo"));
             vals.add(0.5 + 0.5 * static_cast<double>(hl));
         }
+        // ATTITUDE, le VU de la page DISTO (v25) : de 0 a 1
+        const float dv = proc_.distoVu();
+        if (dv == dv) {
+            ids.add(juce::String("distoVu"));
+            vals.add(static_cast<double>(dv));
+        }
         if (!ids.isEmpty() || modSent_) {
             auto* o = new juce::DynamicObject();
             o->setProperty("ids", ids);

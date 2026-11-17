@@ -110,6 +110,8 @@ public:
     float modValue(int i) const { return modVal_[static_cast<size_t>(i)].load(std::memory_order_relaxed); }
     // Le LFO de HELL (-1..1, NaN quand HELL est coupe) : le VU de sa page dans la face
     float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
+    // ATTITUDE, le VU de la page DISTO (2026-11-17, v25) : 0..1 pour -20..+3 dB dans la saturation ; NaN : DISTO coupee
+    float distoVu() const { return distoVu_.load(std::memory_order_relaxed); }
 
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
@@ -153,7 +155,10 @@ private:
     int driveId_ = -1;
     double hellNoteHz_ = 0;
     std::atomic<float> hellLfo_{std::numeric_limits<float>::quiet_NaN()};
+    std::atomic<float> distoVu_{std::numeric_limits<float>::quiet_NaN()};
     void migrateHell();
+    // La pedale DISTORTION (xDist, xDistTone), masquee en v25 : un projet qui l'avait passe a la DISTO (convertPedal)
+    void convertPedal();
     std::array<std::atomic<float>, kModN> modVal_{};
     std::array<int, kModN> modKnob_{};
     void publishMod();

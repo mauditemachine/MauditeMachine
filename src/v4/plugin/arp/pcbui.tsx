@@ -29,6 +29,7 @@ import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKno
 import { arpExtra, extraParam, isExtra } from './extra';
 import { arpMidi } from './midimap';
 import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
+import { distoInert } from './disto';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
 
 /* ---------------- la source d'un reglage ---------------- */
@@ -84,18 +85,16 @@ const stepOf = (id: string, v: number): number => {
  */
 const COLOURS: ReadonlySet<string> = new Set([
   'xRing', 'xFold', 'xNoiseColor', 'xHpf', 'xComb', 'xFeedback', 'xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir', 'xWarmth', 'xBass', 'xAir', 'xWidth',
-  'xDist', 'xPhMix', 'xFlMix', 'xCrushBits', 'xCrushRate', 'xPumpDepth', 'xShimmer', 'xHellMix', 'xSwing', 'xLfo1Depth2', 'xLfo2Depth',
+  'xPhMix', 'xFlMix', 'xCrushBits', 'xCrushRate', 'xPumpDepth', 'xShimmer', 'xHellMix', 'xSwing', 'xLfo1Depth2', 'xLfo2Depth',
 ]);
 /** Sans effet tant que leur maitre est a zero : grises. */
 const MASTER_OF: Readonly<Record<string, string>> = {
   xCombFb: 'xComb',
-  xDistTone: 'xDist',
   xPhRate: 'xPhMix', xPhDepth: 'xPhMix', xPhFb: 'xPhMix',
   xFlRate: 'xFlMix', xFlDepth: 'xFlMix', xFlFb: 'xFlMix',
   xPumpRate: 'xPumpDepth', xPumpShape: 'xPumpDepth',
 };
 /** Les reglages de la DISTO sans effet sur MM (2026-11-17). */
-const DISTO_DECAP: ReadonlySet<string> = new Set(['xDPunish', 'xDLow', 'xDThump', 'xDTone', 'xDHigh', 'xDSteep', 'xDMix', 'xDAuto']);
 const near = (a: number, b: number): boolean => Math.abs(a - b) < 0.0005;
 /** La LED d'un reglage : null s'il n'en a pas, sinon allumee quand il colore le son. */
 export const colours = (id: string, v: number): boolean | null => (COLOURS.has(id) ? !near(v, SRC.def(id)) : null);
@@ -103,8 +102,9 @@ export const colours = (id: string, v: number): boolean | null => (COLOURS.has(i
 export const inert = (id: string): boolean => {
   // TIME de HELL ne sert qu'en FREE
   if (id === 'xHellTime' && SRC.of('xHellSync') > 0) return true;
-  // DISTO (2026-11-17) : sur MM (l'OVERDRIVE du moteur), seuls DRIVE et OUTPUT agissent
-  if (DISTO_DECAP.has(id) && SRC.of('xDStyle') <= 0) return true;
+  // DISTO (2026-11-17, v25) : sur MM (l'OVERDRIVE du moteur), seuls DRIVE et OUTPUT agissent ; une bande hors service,
+  // une coupure sans bandes, une frequence sans son filtre... (disto.ts)
+  if (distoInert(id)) return true;
   const m = MASTER_OF[id];
   return m !== undefined && SRC.of(m) <= 0;
 };
@@ -268,12 +268,13 @@ export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 
 };
 
 /**
- * Le petit knob fin (2026-11-17, Mika : le petit knob AMT de la matrice de Legend HZ) : une prise noire cannelee vue de
+ * Le petit knob fin (2026-11-17, Mika : le petit knob AMT de la matrice de Legend HZ ; v25, 41.png : flancs canneles et
+ * moletes qui accrochent la lumiere, dessus plat un peu plus clair, repere du centre au bord, meme taille) : vu de
  * dessus (retro/fine-knob.png, rendue par three.js : son chanfrein, son vernis, ses reflets), un repere blanc fin qui part
  * du centre, une couronne de graduations blanches fines autour (onze, 0 / 5 / 10 plus longues). Pour les reglages
  * secondaires ; les potards du MM-RYTM restent pour les principaux.
  */
-export const FINE_KNOB = { box: 44, r: 13, t0: 16, t1: 19, m0: 4, m1: 11.6, w: 1.7 } as const;
+export const FINE_KNOB = { box: 44, r: 13, t0: 16, t1: 19, m0: 0.6, m1: 8.9, w: 1.5 } as const;
 const FINE_TICKS = Array.from({ length: 11 }, (_, i) => {
   const a = ((-SWEEP + (2 * SWEEP * i) / 10) * Math.PI) / 180;
   const c = FINE_KNOB.box / 2;
@@ -641,7 +642,8 @@ const PcbStepKeys: React.FC<CellProps & { w?: number }> = ({ id, name, w }) => {
 
 /**
  * Le levier (deux crans, 2026-11-17, Mika : "l'interrupteur a levier metal") : un boitier noir horizontal, un levier
- * chrome qui glisse a gauche ou a droite (retro/toggle-body.png, toggle-lever.png : rendus par three.js, vus de dessus),
+ * chrome qui bascule a gauche ou a droite (2026-11-17, v25 : retro/toggle-body.png, toggle-lever-off.png, toggle-lever-on.png,
+ * rendus par three.js, vus de face en biais ; un fondu enchaine entre les deux),
  * une LED ronde a cote, allumee sur le cran de droite (ON, NEG, HQ...), les deux crans ecrits dessous. Un clic bascule ;
  * un clic sur un nom choisit ce cran ; Espace, Entree, fleches.
  */

@@ -749,16 +749,17 @@
     },
     {
       "id": "xDist",
-      "label": "DISTORTION",
+      "label": "OLD PEDAL",
       "section": "dist",
       "def": 0,
-      "help": "pedale de distorsion, surechantillonnee ; 0 : contournee"
+      "help": "OBSOLETE (2026-11-17, v25 : la pedale DISTORTION est masquee et convertie). Garde pour l'automation des anciens projets ; sans effet. Un projet ou un preset qui l'avait au-dessus de 0 passe a la DISTO : STYLE DIODE, DRIVE (dist) = sa dose, MIX = min(1, 20 x dose), AUTO, POST FILTER LP 12 dB/oct a la frequence de son TONE (PluginProcessor::convertPedal, disto.ts distoFromPedal)"
     },
     {
       "id": "xDistTone",
-      "label": "TONE",
+      "label": "OLD PEDAL TONE",
       "section": "dist",
-      "def": 0.5
+      "def": 0.5,
+      "help": "OBSOLETE (v25) : sans effet ; converti avec la pedale (POST FILTER LP a 700 x (18000 / 700)^v Hz, sa cloche de presence au-dessus de 0.5 en TONE)"
     },
     {
       "id": "xHellMix",
@@ -1067,9 +1068,16 @@
         "E",
         "N",
         "T",
-        "P"
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
       ],
-      "help": "DISTO (2026-11-16, facon Decapitator ; portee le 2026-11-17) : MM, l'OVERDRIVE du moteur (le son du site, celui d'avant : le depart, et toute la banque d'usine) ; A preampli a lampes, E transistors, N transformateur, T triode, P pentode (dsp/Decap.h). Le DRIVE est le potard DISTO de la face (dist). La pedale DISTORTION (xDist, xDistTone) reste a cote, apres la chaine"
+      "help": "DISTO (2026-11-16, facon Decapitator ; completee le 2026-11-17, v25) : MM, l'OVERDRIVE du moteur (le son du site, celui d'avant : le depart, et toute la banque d'usine) ; A preampli a lampes, E transistors, N transformateur, T triode, P pentode, TAPE bande, FUZZ, DIODE ecretage franc, AMP ampli de guitare, RECT redresseur, FOLD replieur, CRUSH quantification (dsp/Decap.h). Le DRIVE est le potard DISTO de la face (dist)"
     },
     {
       "id": "xDPunish",
@@ -1149,6 +1157,428 @@
         "ON"
       ],
       "help": "le niveau suit STYLE et DRIVE (table mesuree)"
+    },
+    {
+      "id": "xDMorph",
+      "label": "DISTO MORPH",
+      "section": "disto",
+      "def": 0,
+      "help": "la courbe glisse du STYLE vers MORPH TO (accentuations et AUTO comprises) ; 0 : rien"
+    },
+    {
+      "id": "xDMorphTo",
+      "label": "DISTO MORPH TO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "le style vise par MORPH"
+    },
+    {
+      "id": "xDDyn",
+      "label": "DISTO DYNAMICS",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; dessous COMP (les forts baissent), dessus EXPAND ; +/- 12 dB au plus autour de -24 dBFS, detection 5 ms / 150 ms"
+    },
+    {
+      "id": "xDFb",
+      "label": "DISTO FEEDBACK",
+      "section": "disto",
+      "def": 0,
+      "help": "le mouille revient avant la saturation, accorde sur FB FREQ ; gain de boucle sous 0.9 : stable"
+    },
+    {
+      "id": "xDFbFreq",
+      "label": "DISTO FB FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "40 x 30^v Hz (40 Hz a 1.2 kHz) : la boucle et son passe-bande"
+    },
+    {
+      "id": "xDBands",
+      "label": "DISTO BANDS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "1",
+        "2",
+        "3"
+      ],
+      "help": "1, 2 ou 3 bandes (Linkwitz-Riley 24 dB/oct) ; deux bandes : LOW / MID seule"
+    },
+    {
+      "id": "xDXLo",
+      "label": "DISTO XOVER LOW",
+      "section": "disto",
+      "def": 0.4,
+      "help": "la coupure LOW / MID : 40 x 25^v Hz (40 Hz a 1 kHz)"
+    },
+    {
+      "id": "xDXHi",
+      "label": "DISTO XOVER HIGH",
+      "section": "disto",
+      "def": 0.5,
+      "help": "la coupure MID / HIGH : 600 x 25^v Hz (600 Hz a 15 kHz), au moins 1.5 fois LOW / MID"
+    },
+    {
+      "id": "xDB1Style",
+      "label": "DISTO LOW STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB1Drive",
+      "label": "DISTO LOW DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB1Mix",
+      "label": "DISTO LOW MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB1Level",
+      "label": "DISTO LOW LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB1Solo",
+      "label": "DISTO LOW SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB1Byp",
+      "label": "DISTO LOW BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDB2Style",
+      "label": "DISTO MID STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB2Drive",
+      "label": "DISTO MID DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB2Mix",
+      "label": "DISTO MID MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB2Level",
+      "label": "DISTO MID LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB2Solo",
+      "label": "DISTO MID SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB2Byp",
+      "label": "DISTO MID BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDB3Style",
+      "label": "DISTO HIGH STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB3Drive",
+      "label": "DISTO HIGH DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB3Mix",
+      "label": "DISTO HIGH MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB3Level",
+      "label": "DISTO HIGH LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB3Solo",
+      "label": "DISTO HIGH SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB3Byp",
+      "label": "DISTO HIGH BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDEnvAmt",
+      "label": "DISTO ENV AMOUNT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; l'enveloppe de l'entree ajoute (ou retire) jusqu'a 24 dB au DRIVE"
+    },
+    {
+      "id": "xDEnvSpd",
+      "label": "DISTO ENV SPEED",
+      "section": "disto",
+      "def": 0.3,
+      "help": "attaque 1 x 30^v ms, relachement 30 x 30^v ms"
+    },
+    {
+      "id": "xDLfoShape",
+      "label": "DISTO LFO SHAPE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "SQUARE",
+        "RANDOM"
+      ],
+      "help": "la forme du LFO"
+    },
+    {
+      "id": "xDLfoRate",
+      "label": "DISTO LFO RATE",
+      "section": "disto",
+      "def": 0.4,
+      "help": "0.02 x 500^v Hz ; SYNC : 8 BAR a 1/32 (comme HELL)"
+    },
+    {
+      "id": "xDLfoSync",
+      "label": "DISTO LFO SYNC",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo de l'hote"
+    },
+    {
+      "id": "xDLfoAmt",
+      "label": "DISTO LFO AMOUNT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; bipolaire"
+    },
+    {
+      "id": "xDLfoTarget",
+      "label": "DISTO LFO TARGET",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "DRIVE",
+        "MORPH",
+        "TONE",
+        "PRE",
+        "POST",
+        "MIX"
+      ],
+      "help": "DRIVE +/- 18 dB, MORPH +/- 0.5, TONE, PRE et POST (+/- 2 octaves), MIX +/- 0.5"
+    },
+    {
+      "id": "xDPreMode",
+      "label": "DISTO PRE FILTER",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "LP",
+        "BP",
+        "HP",
+        "PEAK"
+      ],
+      "help": "avant la saturation ; PEAK : cloche +12 dB"
+    },
+    {
+      "id": "xDPreFreq",
+      "label": "DISTO PRE FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "20 x 1000^v Hz"
+    },
+    {
+      "id": "xDPreReso",
+      "label": "DISTO PRE RESO",
+      "section": "disto",
+      "def": 0,
+      "help": "Q 0.707 x 16^v (0 : Butterworth)"
+    },
+    {
+      "id": "xDPostMode",
+      "label": "DISTO POST FILTER",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "LP",
+        "BP",
+        "HP",
+        "PEAK"
+      ],
+      "help": "apres la saturation et BOX ; PEAK : cloche +12 dB"
+    },
+    {
+      "id": "xDPostFreq",
+      "label": "DISTO POST FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "20 x 1000^v Hz"
+    },
+    {
+      "id": "xDPostReso",
+      "label": "DISTO POST RESO",
+      "section": "disto",
+      "def": 0,
+      "help": "Q 0.707 x 16^v (0 : Butterworth)"
+    },
+    {
+      "id": "xDBox",
+      "label": "DISTO BOX",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "SMALL",
+        "COMBO",
+        "STACK",
+        "RADIO"
+      ],
+      "help": "une caisse courte : filtres et une resonance de quelques ms"
+    },
+    {
+      "id": "xDBoxSize",
+      "label": "DISTO BOX SIZE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "+/- 0.6 octave et la resonance plus longue ou plus courte"
+    },
+    {
+      "id": "xDBoxMix",
+      "label": "DISTO BOX MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "la part de la caisse"
     }
   ]
 }

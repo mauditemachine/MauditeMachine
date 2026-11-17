@@ -648,6 +648,8 @@ function full(p) {
   // la DISTO facon Decapitator (2026-11-17) : neutre dans toute la banque (MM, l'OVERDRIVE du moteur sur lequel les
   // presets sont regles, OUTPUT a 0 dB, le reste a son depart) : le son de la banque ne change pas
   for (const e of EXTRA) if (e.section === 'disto' && ex[e.id] !== e.def) throw new Error(`${p.name} : la DISTO doit rester neutre (${e.id} a ${e.def}) dans la banque d'usine`);
+  // la pedale DISTORTION est masquee (2026-11-17, v25) : jamais dans la banque d'usine (sinon elle serait convertie)
+  if (ex.xDist !== 0 || ex.xDistTone !== 0.5) throw new Error(`${p.name} : la pedale DISTORTION masquee doit rester a 0 (xDist 0, xDistTone 0.5)`);
   const extra = {};
   for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);
   for (const id of Object.keys(p.extra)) if (!EXTRA.some((e) => e.id === id)) throw new Error(`${p.name} : reglage inconnu ${id}`);
