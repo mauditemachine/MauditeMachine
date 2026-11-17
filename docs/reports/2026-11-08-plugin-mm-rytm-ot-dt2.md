@@ -582,6 +582,7 @@ Mika : « ajoute aussi INDUSTRIAL SLAM en preset dans PERFORM » ; a la question
 - **Les samples du plugin dans les presets** : un kit peut nommer un fichier de `plugin/mm-rytm/samples` au lieu d'un numero (`Tk.n` : 'Bd Industrial Slam.wav').
 - **Les niveaux, au rendu du vrai moteur C++ hors ligne (aucun son)** : le premier jet etait ecrase par le kick (sa queue d'1.6 s remplissait chaque temps : les charleys et le clap 11 a 12 dB sous l'equilibre d'INDUSTRIAL) ; DEC du kick raccourci (0.68), le kick a -2 dB et le reste a +2 : les charleys et le clap a -14 dB du kick (-12 a -13 dans INDUSTRIAL : le kick un peu devant), le grondement a -12, RMS -21.5 dBFS (INDUSTRIAL -19.6), cretes -7.6 dBFS au plus.
 - **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, leur programme part au moteur avec `bd/Bd Industrial Slam.wav` et `bd/Bd Warehouse Rumble.wav` ; les 72 d'avant ont les memes ids (INDUSTRIAL toujours 66 a 68). Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 44028900094), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 84161b7, branche claude/intelligent-ride-56tyeo, 2026-11-17 06:14 UTC.
 
 ## 2. Decisions prises et pourquoi
 
