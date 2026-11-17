@@ -529,3 +529,29 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Projets convertis depuis la pedale : la DISTO est placee apres le moteur (la pedale etait apres CRUSH).
 - Presets DISTO regles sans ecoute.
 - La branche claude/admiring-feynman-5zsgxp (session Decapitator) est desormais remplacee par ce portage ; elle publie encore sur mm-arp-latest.
+
+## 2026-11-17 (suite 2) : v27, encart EDIT synthe, EQ parametrique 6 bandes, page DELAY, accent #FFD900
+
+### Ce qui a ete fait
+- Face : encart EDIT = 8 sections synthe reglables (OSCILLATORS, OSC +, VOICE, FILTER, FILTER +, AMP, PERFORMANCE, OUTPUT) avec vraies zones de clic par piece et MIDI LEARN ; l'editeur de notes passe dans SEQ (piste NOTES).
+- Face : DETUNE (pilote STACK) et SPREAD (pilote WIDE) ; petits knobs canneles pour FM, RATIO, OSC 1, OSC 2, NOISE, SUB, SUB WAVE ; SUB OCT en levier ; touches et pads reduits ; levier capsule chrome.
+- Accent #FFD900 partout a la place de l'orange (PLUGIN_ACCENT) ; LED et RUN/STOP restent rouges.
+- Taille par defaut 1870 (-15 %), cle editorW6.
+- Page SOUND : EQ parametrique 6 bandes (BELL, SHELF, NOTCH, HP/LP 12/24/48 dB/oct), analyseur nourri par le C++ (calcule seulement page ouverte), ENGINE, MASTER, rack enrichi (PHASER, FLANGER, CHORUS, CRUSH, PUMP : 17 reglages nouveaux).
+- Page DELAY (facon EchoBoy / H-Delay) : 8 styles, 5 modes (SINGLE, DUAL, PING-PONG, WIDE, RHYTHM), SYNC/FREE, NOTE, TAP, CHARACTER, VINTAGE, DUCKING, IN THE LOOP, GROOVE, PRIME, RHYTHM 16 prises (12 motifs), 20 presets ; clic sur DELAY de la face ouvre la page.
+- 77 params hote ajoutes en fin de liste ; ancien DELAY garde en OLD, converti au chargement (convertDelay C++, face, build.mjs).
+- Tests : echo_test 20/20 (11 empreintes au bit pres, conversion 72/72, MIX 0 40/40, temps exact, EQ mesure au sinus), suite DSP complete, host 51/51 (6 projets, 40/40 presets d'usine au bit pres), evenements 20/20 sans son, tsc 105, YAML valide.
+- CPU : page DELAY pire cas 18,9 ms/s (DELAY du site 7,1), EQ 3,8 ms/s, analyseur 1,7 ms/s page ouverte.
+
+### Decisions prises et pourquoi
+- Mika a valide les maquettes v26 ("ok code et publie") et demande #FFD900.
+- Conversion DELAY : TAPE >= 0,02 donne style TAPE + WOBBLE = TAPE + PING-PONG, sinon DIGITAL (STEREO devient DUAL) ; DLY TIME en SYNC ; FEEDBACK = 0,35 + 0,33 x DELAY ; le potard DELAY de la face devient MIX.
+- Nouveaux modules neutres par defaut : projets et banque d'usine identiques au bit pres.
+
+### Ce qui reste a faire / points en suspens
+- Projet qui automatise le potard DELAY : FEEDBACK fige a la valeur d'ouverture (avant, il suivait le potard).
+- Ancien EQ 4 bandes non converti : reste actif en coulisse (OLD EQ), la page SOUND affiche OLD EQ ON avec RESET.
+- Choix pris sans validation : mode WIDE ajoute, RHYTHM par 12 motifs, FEEL +-6 %, GROOVE sans effet en SINGLE, echo max 2 s.
+- Rack : PHASER/FLANGER SYNC suivent le tempo sans phase de mesure ; FLANGER DELAY peut cliquer en le bougeant.
+- Crochet de test ?probe (window.__mmProbe) dans la face, a retirer si inutile.
+- Presets DELAY regles sans ecoute.
