@@ -491,3 +491,21 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - Ajouts possibles a pageOf : CUTOFF -> SOUND/FILTER, oscillateurs -> SOUND/OSCILLATORS, MOD -> SEQ/LFO, arpegiateur -> SEQ/ARP, VOLUME -> SOUND/MASTER.
+
+## 2026-11-17 : OPEN dense, leviers et touches au clic, HELL facon Echobode, DISTO
+
+### Ce qui a ete fait
+- OPEN en 4 pages (SOUND, HELL, REVERB, SEQ) : le rack (DELAY, PHASER, FLANGER, CRUSH, PUMP) rentre dans SOUND ; clic sur DELAY de la face = SOUND, cadre DELAY.
+- Petit knob fin rendu en 3D (three.js) pour les reglages secondaires ; levier chrome 3D a LED pour tous les reglages a 2 choix (clic = bascule) ; touches 3-4 choix : clic = cran suivant en boucle, clic sur nom/LED = ce cran, plus de glisser.
+- HELL facon Echobode (DSP Hell.cpp/.h) : 12 params hote ajoutes en fin de liste (CROSS, HIGH-PASS, LOW-PASS, SMEAR, RANGE fine/wide/sync/midi, PHASE, ANTI REFL, LFO SHAPE/SYNC/AMOUNT/STEREO/TARGET) ; SIDEBAND reprend UP/DOWN (centre = R.M.) ; VU LFO alimente par mm_mod (hellLfo) ; migration des anciens projets (C++) et presets (face).
+- Page HELL : FREQUENCY SHIFTER en vedette, VU, 24 presets (PREV/NEXT/INIT), MIX = knob HELL de la face (meme param xHellMix).
+- Presets d'usine : HELL MIX 0 et reverb CLASSIC imposes au chargement ; presets/build.mjs refuse HELL actif ou reverb non CLASSIC ; presets utilisateur gardent leurs valeurs.
+- OVERDRIVE renomme DISTO (plugin seulement, ID dist inchange).
+- Tests : hell_test 24/24 (MIX 0 bit-exact, R.M. 0,0 dB, bande opposee -29,9 dB, ANTI REFL -21,2 dB, 16 cas au max crete 4,73, blocs bit-exact), suite DSP 20/20, host OK.
+
+### Decisions prises et pourquoi
+- Mika : HELL = Echobode a la sauce MM, presets dans la page, MIX lie a la face, HELL jamais actif dans les presets d'usine.
+
+### Ce qui reste a faire / points en suspens
+- Integration de la DISTO facon Decapitator (branche claude/admiring-feynman-5zsgxp) : demandee par Mika, a faire ici avec migration de xDist/xDistTone.
+- Presets HELL regles sans ecoute ; RANGE MIDI mis a jour par bloc ; LFO SYNC non recale sur la mesure.
