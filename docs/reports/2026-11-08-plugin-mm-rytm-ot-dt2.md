@@ -584,6 +584,15 @@ Mika : « ajoute aussi INDUSTRIAL SLAM en preset dans PERFORM » ; a la question
 - **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, leur programme part au moteur avec `bd/Bd Industrial Slam.wav` et `bd/Bd Warehouse Rumble.wav` ; les 72 d'avant ont les memes ids (INDUSTRIAL toujours 66 a 68). Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 44028900094), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 84161b7, branche claude/intelligent-ride-56tyeo, 2026-11-17 06:14 UTC.
 
+### Lot 39, le preset d'usine DEEP HOUSE THUMP (2026-11-17)
+
+Mika : « ajoute aussi DEEP HOUSE THUMP en preset d'usine ».
+
+- **Un 26e style, DEEP HOUSE THUMP 1, 2, 3** (`src/v4/state/pluginFactory.ts`), apres INDUSTRIAL SLAM (ids `factory-rytm-75` a `77` ; ceux d'avant ne bougent pas). 121 BPM, un swing marque (0.5). Le kick DEEP HOUSE THUMP du site (lot 35, `bd/Bd Deep House Thump.wav`, DEC 0.74), le clap un rien en retard dans une reverbe sombre (SIZE 2.8 s, TONE 1.4 kHz), des charleys en doubles croches sous un passe-bas qu'un LFO balaie sur 4 mesures, l'ouvert qui respire (un LFO sur son DEC), un peu de CHORUS, de COMP et de DIST.
+- **Les variations** : 1 le thump, le clap, les charleys ; 2 le shaker sur les e et a, le rim dans un delay dub, les congas qui bougent de hauteur ; 3 plein : un kick fantome avant le 4e temps (PROB 55), une percussion sur 7 pas (TLEN), la caisse qui repond, le crash de la phrase.
+- **Les niveaux au rendu du moteur C++ hors ligne (aucun son)** : le premier jet avait les charleys, l'ouvert et les congas 2 dB sous DEEP HOUSE ; remontes : le meme equilibre (charleys et ouvert -23 dB du kick, clap -15, congas -17), RMS -20.2 dBFS (DEEP HOUSE -19.9), cretes -6.8 dBFS.
+- **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, 121 BPM, le kick `bd/Bd Deep House Thump.wav` part au moteur ; DEEP HOUSE garde ses ids (54 a 56). Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -707,6 +716,7 @@ Mika : « ajoute aussi INDUSTRIAL SLAM en preset dans PERFORM » ; a la question
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 39)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : DEEP HOUSE THUMP 1, 2, 3 ; comparer avec DEEP HOUSE, dire si le kick doit trainer plus (DEC).
 - **Cote Mika (lot 38)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : INDUSTRIAL SLAM 1, 2, 3 ; laisser tourner 8 mesures, dire si le kick doit etre plus long (DEC) ou plus fort.
 - **Cote Mika (lot 37)** : la commande mm-rytm ; OPEN, FX, REVERB : GATED ; dire si le jaune des touches est assez vif (la lueur se regle dans `theme.ts` PLUGIN_ACCENT_GLOW).
 - **Cote Mika (lot 36)** : la commande mm-rytm ; SEND FX, tape sur REVERB, GATE (potard E) vers 200 a 350 ms avec une REVERB bien dosee sur la caisse claire ou le clap et SIZE long ; dire si la coupure est trop seche ou pas assez, et si un mode qui suit le niveau (un vrai gate a seuil) manque.

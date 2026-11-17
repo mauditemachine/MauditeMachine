@@ -686,6 +686,47 @@ const STYLES: readonly Style[] = [
         locks: { BD: { 15: { c: '2:2' } }, SD: { 15: { c: '4:4', roll: [32, 30] }, 16: { c: '4:4', roll: [32, 40] } }, CH: { 16: { c: '2:2', roll: [32, -24] } } },
       },
     ],
+  },  {
+    // 2026-11-17 (Mika : "ajoute aussi DEEP HOUSE THUMP en preset d'usine") : apres INDUSTRIAL SLAM, les ids d'avant ne
+    // bougent pas. Le kick DEEP HOUSE THUMP du site (un 808 rond, plugin/mm-rytm/samples, lot 35), un swing marque, des
+    // charleys sous un passe-bas qui balaie, l'ouvert qui respire, le rim dans un delay dub, une reverbe sombre
+    name: 'DEEP HOUSE THUMP',
+    bpm: 121,
+    fx: { swing: 0.5, drive: 0.05, reverb: 0.2, rsize: 0.62, rtone: 0.35, delay: 0.12, dfb: 0.55, chorus: 0.12, comp: 0.2 },
+    kit: {
+      BD: { n: 'Bd Deep House Thump.wav', decay: 0.74 },
+      SD: 21,
+      // les charleys, l'ouvert et les congas a +2 dB : au rendu du moteur, l'equilibre de DEEP HOUSE (-23 dB du kick)
+      CH: { ...(sweep(17, '4B', 0.82) as Exclude<Tk, number>), db: 4 },
+      OH: { ...(breath(18) as Exclude<Tk, number>), db: 2 },
+      CP: { n: 7, reverb: 0.25 },
+      TOM: 16,
+      HT: 6,
+      CY: 7,
+      T9: 1,
+      T10: { n: 29, delay: 0.35 },
+      T11: { n: 18, db: -2 },
+      T12: 21,
+      T13: { n: 12, db: -2 },
+      T14: 13,
+      T15: 12,
+      T16: 1,
+    },
+    vars: [
+      // 1 : le thump, le clap un rien en retard, l'ouvert qui respire, les doubles croches qui balancent
+      { steps: { BD: F4, CP: B8, OH: OFF, CH: H16 }, trigs: { CH: { vlev: 20 }, CP: { utime: 2 } } },
+      // 2 : le shaker sur les e et a, le rim dub, les congas qui bougent de hauteur
+      {
+        steps: { BD: F4, CP: B8, OH: OFF, CH: H16, T11: HEA, T10: '0000003000000300', HT: '0000000600000600' },
+        trigs: { CH: { vlev: 20 }, CP: { utime: 2 }, T11: { vlev: 35 }, T10: { prob: 80 }, HT: { vtun: 3, vlev: 15 } },
+      },
+      // 3 : plein : un kick fantome avant le 4e temps, une percussion sur 7 pas, la caisse qui repond, le crash de la phrase
+      {
+        steps: { BD: '9000900090009300', CP: B8, SD: '0000000000000300', OH: OFF, CH: H16, T11: HEA, T10: '0000003000000300', HT: '0000000600000600', T13: '0060000000000000', T16: CRASH },
+        trigs: { CH: { vlev: 20 }, CP: { utime: 2 }, SD: { prob: 60 }, T11: { vlev: 35 }, T10: { prob: 80 }, HT: { vtun: 3, vlev: 15 }, T13: { tlen: 7, vtun: 2 }, T16: PHRASE },
+        locks: { BD: { 14: { p: 55 } } },
+      },
+    ],
   },
 ];
 
