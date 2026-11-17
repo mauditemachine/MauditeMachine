@@ -574,6 +574,26 @@ int main() {
                   std::fabs(std::get<2>(keep).at("dist") - 0.6) < 1e-6 && std::get<2>(keep).at("xDist") == 0,
               "pedale a 2 % : MIX 40 % ; DISTO deja en T : la pedale seulement coupee, DRIVE garde");
     }
+    {
+        // La taille de la fenetre (2026-11-17, v26) : 1870 par defaut ; un projet d'avant (editorW5) rouvre une fois a
+        // 1870 ; la taille choisie reste dans le projet (editorW6)
+        MMArpProcessor a;
+        const int def = a.editorWidth();
+        a.setEditorWidth(1500);
+        juce::MemoryBlock mb;
+        a.getStateInformation(mb);
+        MMArpProcessor b;
+        b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        xml->removeAttribute("editorW6");
+        xml->setAttribute("editorW5", 2500);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*xml, m2);
+        MMArpProcessor c;
+        c.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        check(def == 1870 && b.editorWidth() == 1500 && c.editorWidth() == 1870,
+              "taille : 1870 par defaut, la taille choisie gardee (1500), un projet d'avant (editorW5 2500) rouvre a " + std::to_string(c.editorWidth()));
+    }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;
 }

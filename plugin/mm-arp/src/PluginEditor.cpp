@@ -134,7 +134,8 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
     setResizable(true, true);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
-    // 2026-11-13 (Mika : "par defaut grossis l'app 2x") : 2200 de large par defaut, de 880 a 3300 ; jamais plus grand
+    // 2026-11-13 (Mika : "par defaut grossis l'app 2x") : 2200 de large par defaut, de 880 a 3300 ; 2026-11-17 (v26) :
+    // 1870 par defaut (15 % plus petit, PluginProcessor editorW6) ; jamais plus grand
     // que l'ecran (zone utile de l'ecran principal, marge pour la barre de fenetre d'Ableton)
     int maxW = 3300;
     if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()) {

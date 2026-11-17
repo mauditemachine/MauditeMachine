@@ -441,7 +441,7 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMARP1");
     state.setProperty("v", 2, nullptr);
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
-    state.setProperty("editorW5", editorW_.load(), nullptr);
+    state.setProperty("editorW6", editorW_.load(), nullptr);
     // Les parametres (les potards, Master, Arpeggiator)
     state.appendChild(apvts.copyState(), nullptr);
     // MIDI LEARN : les CC assignes
@@ -470,9 +470,11 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     const auto state = juce::ValueTree::fromXml(*xml);
     // La graine du projet : le hasard du moteur et de l'arpege (RAND, DRIFT) rejoue pareil a chaque ouverture et a l'export
     if (state.hasProperty("seed")) seed_ = static_cast<uint32_t>(static_cast<juce::int64>(state.getProperty("seed")));
-    // (un projet d'avant le format large gardait 1100 : il rouvre a la taille par defaut)
+    // (un projet d'avant le format large gardait 1100 : il rouvre a la taille par defaut ; 2026-11-17, v26, Mika : la
+    // taille par defaut 15 % plus petite, 1870 ; la cle passe a editorW6 : un projet d'avant (editorW5) rouvre une fois a
+    // 1870, puis garde la taille choisie)
     {
-        const int w = static_cast<int>(state.getProperty("editorW5", 2200));
+        const int w = static_cast<int>(state.getProperty("editorW6", 1870));
         editorW_.store(juce::jlimit(880, 3300, w));
     }
     const juce::String ls = state.getProperty("ls", "").toString();
