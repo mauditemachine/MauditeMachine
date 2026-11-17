@@ -197,7 +197,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -488,7 +498,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -779,7 +799,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -1070,7 +1100,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -1359,7 +1399,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -1650,7 +1700,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -1941,7 +2001,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -2232,7 +2302,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -2521,7 +2601,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -2812,7 +2902,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -3100,7 +3200,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -3391,7 +3501,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -3679,7 +3799,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -3970,7 +4100,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -4258,7 +4398,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -4549,7 +4699,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -4840,7 +5000,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -5128,7 +5298,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -5416,7 +5596,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -5707,7 +5897,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -5995,7 +6195,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -6283,7 +6493,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -6578,7 +6798,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -6866,7 +7096,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -7154,7 +7394,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -7442,7 +7692,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -7733,7 +7993,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -8024,7 +8294,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -8315,7 +8595,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -8604,7 +8894,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -8893,7 +9193,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -9184,7 +9494,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -9475,7 +9795,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -9763,7 +10093,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -10054,7 +10394,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -10343,7 +10693,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -10632,7 +10992,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -10923,7 +11293,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -11212,7 +11592,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [
@@ -11507,7 +11897,17 @@
         "xHellLfoSync": 0,
         "xHellLfoAmt": 0.5,
         "xHellLfoStereo": 0,
-        "xHellLfoTarget": 0
+        "xHellLfoTarget": 0,
+        "xDStyle": 0,
+        "xDPunish": 0,
+        "xDLow": 0,
+        "xDThump": 0,
+        "xDTone": 0.5,
+        "xDHigh": 1,
+        "xDSteep": 0,
+        "xDMix": 1,
+        "xDOut": 0.5,
+        "xDAuto": 1
       },
       "steps": {
         "acc": [

@@ -9,7 +9,8 @@
  * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
  * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
  * Alt / Cmd / Ctrl + clic) :
- *   HELL -> la page HELL ; REVERB -> la page REVERB ; DELAY -> SOUND, cadre DELAY. Les autres : rien (pageOf).
+ *   HELL -> la page HELL ; REVERB -> la page REVERB ; DISTO -> la page DISTO ; DELAY -> SOUND, cadre DELAY. Les autres :
+ *   rien (pageOf).
  */
 
 import { useEffect } from 'react';
@@ -51,13 +52,15 @@ registerDialSpec(HELL_DIAL, {
 
 /**
  * La page d'un potard de la face (2026-11-16, Mika : "seuls les boutons qui ont une page ou une section dediee dans OPEN
- * l'ouvrent") : REVERB (sa page), HELL (sa page), DELAY (SOUND, son cadre : TIME, TAPE, MODE). Tous les autres ne font
+ * l'ouvrent") : REVERB (sa page), HELL (sa page), DISTO (sa page), DELAY (SOUND, son cadre : TIME, TAPE, MODE). Tous les autres ne font
  * rien au clic (ni OPEN, ni saut de valeur : ui/Hotspots.tsx tapDial) ; ils se tournent au glisser comme avant.
  */
 function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string } | null {
   if (dial === HELL_DIAL) return { tab: 'fx', fx: 'hell', focus: 'HELL' };
   if (dial === 'v:reverb') return { tab: 'fx', fx: 'reverb', focus: 'REVERB' };
   if (dial === 'v:delay') return { tab: 'sound', fx: null, focus: 'DELAY' };
+  // DISTO (2026-11-17, la DISTO facon Decapitator) : sa page, le cadre DRIVE
+  if (dial === 'v:dist') return { tab: 'fx', fx: 'disto', focus: 'DRIVE' };
   return null;
 }
 

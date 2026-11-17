@@ -19,7 +19,7 @@ import { hellShiftText, LFO_BEAT_NAMES } from './hell';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto';
 
 export interface ExtraParam {
   id: string;
@@ -191,6 +191,21 @@ function text(id: string, v: number): string {
       return v >= 0.999 ? 'UP' : v <= 0.001 ? 'DOWN' : Math.abs(v - 0.5) < 0.01 ? 'R.M.' : `${Math.round((1 - v) * 100)} / ${Math.round(v * 100)}`;
     case 'xHellLfoRate':
       return (values.xHellLfoSync ?? 0) >= 0.5 ? LFO_BEAT_NAMES[Math.round(Math.min(1, Math.max(0, v)) * (LFO_BEAT_NAMES.length - 1))] : hz(0.02 * Math.pow(500, v));
+    // DISTO facon Decapitator (dsp/Decap.h)
+    case 'xDLow':
+      return v < 0.02 ? 'OFF' : hz(20 * Math.pow(50, (v - 0.02) / 0.98));
+    case 'xDHigh':
+      return v > 0.98 ? 'OFF' : hz(1000 * Math.pow(20, v / 0.98));
+    case 'xDTone': {
+      const t = (v - 0.5) * 2;
+      return Math.abs(t) < 0.02 ? 'FLAT' : `${t < 0 ? 'DARK' : 'BRIGHT'} ${Math.abs(t * 6).toFixed(1)} dB`;
+    }
+    case 'xDMix':
+      return `${Math.round(v * 100)} %`;
+    case 'xDOut': {
+      const d = -18 + 36 * v;
+      return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
+    }
     case 'xHellHp':
       return v <= 0.001 ? 'OFF' : hz(20 * Math.pow(200, v));
     case 'xHellLp':

@@ -133,7 +133,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
                             return juce::String(buf);
                         })
                         .withLabel("");
-        const juce::String name = juce::String(d.section).toUpperCase() + " " + d.label;
+        // le nom montre a l'hote : la section devant, sauf si le nom la porte deja (HELL TIME, DISTO STYLE ; pas "HELL HELL
+        // TIME") ; seul le nom change, pas l'ID : l'automation reste
+        const juce::String sec = juce::String(d.section).toUpperCase(), lab(d.label);
+        const juce::String name = lab.startsWith(sec + " ") || lab == sec ? lab : sec + " " + lab;
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, name, juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
     }
     return layout;
@@ -158,6 +161,7 @@ MMArpProcessor::MMArpProcessor()
     }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
+    driveId_ = mmarp::Voyager::paramIndex("drive");
     const char* xk[13] = {"xl1Dest", "xl1Amt", "l2Beats", "l2Shape", "l2Dest", "l2Amt", "xRing", "xFold", "xNoiseCol", "xUnison", "xHpf", "xComb", "xCombFb"};
     for (size_t i = 0; i < 13; ++i) xId_[i] = mmarp::Voyager::paramIndex(xk[i]);
     for (int i = 0; i < kModN; ++i) {
@@ -599,6 +603,11 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
     if (knobsChanged || fresh_) {
         // Un message 'params' du site : tous les reglages du moteur, et le tempo
         int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
+        // DISTO (2026-11-16, portee le 2026-11-17) : le potard DISTO (dist) pousse l'OVERDRIVE du moteur sur le style MM
+        // (le depart : le son d'avant) ; sur A a P, le moteur reste propre et Decap sature (processBlock)
+        if (mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]) != 0)
+            for (int i = 0; i < n; ++i)
+                if (kv_[static_cast<size_t>(i)].id == driveId_) kv_[static_cast<size_t>(i)].value = 0;
         kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
         // Le VST3 seul : la seconde destination du LFO 1, le LFO 2
         kv_[static_cast<size_t>(n++)] = {xId_[0], static_cast<double>(mmx::exStep(mmx::ex_xLfo1Dest2, ex_[mmx::ex_xLfo1Dest2]))};
@@ -717,6 +726,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     voy_ = std::make_unique<mmarp::Voyager>(o);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
     hell_.prepare(sampleRate);
+    decap_.prepare(sampleRate);
     // La reverb des reglages du projet, tout de suite (rien ne joue encore) ; ensuite le timer suit SIZE, TONE, PRE DELAY
     {
         const double rs = static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), rt = static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
@@ -924,6 +934,29 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
     for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
     publishMod();
+    // DISTO facon Decapitator (2026-11-16, portee le 2026-11-17) : juste apres le moteur, avant la chaine du site ; DRIVE 0
+    // ou MM (le depart) : contournee au bit pres (MM : OUTPUT seul, 0 dB au depart). Engagee, 32 echantillons de retard,
+    // non declares a l'hote (comme la DISTORTION, WARMTH et le FLANGER). La pedale DISTORTION (xDist) reste, dans ArpFx.
+    {
+        mmarp::DecapSettings ds;
+        const int st = mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]);
+        ds.mm = st == 0;
+        ds.style = st > 0 ? st - 1 : 0;
+        ds.drive = knobs_[static_cast<size_t>(mmarp::kn_dist)];
+        ds.punish = mmx::exStep(mmx::ex_xDPunish, ex_[mmx::ex_xDPunish]) == 1;
+        ds.low = ex_[mmx::ex_xDLow];
+        ds.thump = mmx::exStep(mmx::ex_xDThump, ex_[mmx::ex_xDThump]) == 1;
+        ds.tone = ex_[mmx::ex_xDTone];
+        ds.high = ex_[mmx::ex_xDHigh];
+        ds.steep = mmx::exStep(mmx::ex_xDSteep, ex_[mmx::ex_xDSteep]) == 1;
+        ds.mix = ex_[mmx::ex_xDMix];
+        ds.out = ex_[mmx::ex_xDOut];
+        ds.autoGain = mmx::exStep(mmx::ex_xDAuto, ex_[mmx::ex_xDAuto]) == 1;
+        // la saturation au niveau de la prise : le gain de VOLUME du site (audio/synth.ts volGain)
+        ds.ref = mmarp::ArpFxLaws::volGain(knobs_[static_cast<size_t>(mmarp::kn_volume)], knobs_[static_cast<size_t>(mmarp::kn_delay)], knobs_[static_cast<size_t>(mmarp::kn_reverb)]);
+        decap_.set(ds);
+        decap_.process(dryL_.data(), dryR_.data(), n);
+    }
     // PUMP suit la position du morceau
     fx_.setTransport(ppq, pps, playing);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);

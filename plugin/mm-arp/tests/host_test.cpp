@@ -254,17 +254,24 @@ int main() {
             check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
             const char* on[] = {"xFeedback", "xDist", "xEqLow", "xEqHigh", "xEqAir"};
             for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
+            // DISTO facon Decapitator (2026-11-17) : style P, PUNISH, DRIVE a fond, en plus de la pedale DISTORTION
+            X("xDStyle")->setValueNotifyingHost(1.f);
+            X("xDPunish")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(1.f);
             X("xVoiceMode")->setValueNotifyingHost(1.f);
             X("xAmpMode")->setValueNotifyingHost(1.f);
             run(p, h, 9600, 512);
             const Stats all = run(p, h, 48000, 512);
             X("xFeedback")->setValueNotifyingHost(0.f);
             X("xDist")->setValueNotifyingHost(0.f);
+            X("xDStyle")->setValueNotifyingHost(0.f);
+            X("xDPunish")->setValueNotifyingHost(0.f);
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(0.f);
             for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
             X("xVoiceMode")->setValueNotifyingHost(0.f);
             X("xAmpMode")->setValueNotifyingHost(0.f);
             run(p, h, 48000, 512);
-            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + DISTO P PUNISH + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
         }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
@@ -477,6 +484,54 @@ int main() {
         }
         juce::ignoreUnused(d2);
         check(std::fabs(db(std::sqrt(ra)) - db(std::sqrt(rb))) < 0.5, "blocs de 512 contre 77 : la meme sonie (" + juce::String(db(std::sqrt(ra)) - db(std::sqrt(rb)), 2).toStdString() + " dB d'ecart)");
+    }
+    {
+        // DISTO facon Decapitator (2026-11-17) : un projet d'avant (sans les reglages xD*), DISTO (l'OVERDRIVE du moteur)
+        // a 0.6 et la pedale DISTORTION a 0.5, sonne au bit pres comme avant ; le style A, lui, change le son
+        static const char* const kD[] = {"xDStyle", "xDPunish", "xDLow", "xDThump", "xDTone", "xDHigh", "xDSteep", "xDMix", "xDOut", "xDAuto"};
+        auto render = [](bool strip, float style) {
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            int removed = 0;
+            for (auto* e : xml->getChildIterator()) {
+                std::vector<juce::XmlElement*> kill;
+                for (auto* c : e->getChildIterator()) {
+                    const juce::String id = c->getStringAttribute("id");
+                    if (id == "dist") c->setAttribute("value", 0.6);
+                    if (id == "xDist") c->setAttribute("value", 0.5);
+                    if (id == "xDStyle") c->setAttribute("value", static_cast<double>(style));
+                    for (const char* k : kD)
+                        if (strip && id == k) kill.push_back(c);
+                }
+                for (auto* c : kill) e->removeChildElement(c, true);
+                removed += static_cast<int>(kill.size());
+            }
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("seed", 12345, nullptr);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            p.prepareToPlay(48000, 512);
+            h.playing = true;
+            std::vector<float> L;
+            run(p, h, 48000 * 2, 512, nullptr, &L);
+            return std::make_pair(L, removed);
+        };
+        const auto now = render(false, 0.f), old = render(true, 0.f), a = render(false, 0.2f);
+        double d = 0, dA = 0, pk = 0;
+        for (size_t i = 0; i < now.first.size() && i < old.first.size() && i < a.first.size(); ++i) {
+            d = std::max(d, static_cast<double>(std::fabs(now.first[i] - old.first[i])));
+            dA = std::max(dA, static_cast<double>(std::fabs(now.first[i] - a.first[i])));
+            pk = std::max(pk, static_cast<double>(std::fabs(now.first[i])));
+        }
+        check(old.second == 10 && pk > 0.01 && d <= 0 && dA > 0.001,
+              "DISTO : un projet d'avant (10 reglages xD* absents, DISTO 0.6, DISTORTION 0.5) sonne au bit pres comme avant ; le style A change le son (ecart " +
+                  juce::String(dA, 3).toStdString() + ")");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

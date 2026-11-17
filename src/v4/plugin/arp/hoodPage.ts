@@ -8,7 +8,7 @@
  */
 
 export type HoodTab = 'sound' | 'fx' | 'seq';
-export type HoodFx = 'hell' | 'reverb';
+export type HoodFx = 'hell' | 'reverb' | 'disto';
 export type HoodOverlay = 'library' | 'midi' | null;
 
 export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [
@@ -19,10 +19,12 @@ export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [
 
 /**
  * Les pages a plat, les touches de l'en-tete (2026-11-17, Mika : "le moins de pages possible") : SOUND (le son et le rack
- * d'effets), HELL, REVERB, SEQ.
+ * d'effets), DISTO, HELL, REVERB, SEQ.
  */
 export const HOOD_PAGES: readonly { id: string; label: string; tab: HoodTab; fx: HoodFx | null }[] = [
   { id: 'sound', label: 'SOUND', tab: 'sound', fx: null },
+  // la DISTO facon Decapitator (2026-11-17) : juste apres le moteur, avant les effets
+  { id: 'disto', label: 'DISTO', tab: 'fx', fx: 'disto' },
   { id: 'hell', label: 'HELL', tab: 'fx', fx: 'hell' },
   // la reverbe facon BigSky (2026-11-16, Mika) : le clic du potard REVERB de la face y mene
   { id: 'reverb', label: 'REVERB', tab: 'fx', fx: 'reverb' },

@@ -94,6 +94,8 @@ const MASTER_OF: Readonly<Record<string, string>> = {
   xFlRate: 'xFlMix', xFlDepth: 'xFlMix', xFlFb: 'xFlMix',
   xPumpRate: 'xPumpDepth', xPumpShape: 'xPumpDepth',
 };
+/** Les reglages de la DISTO sans effet sur MM (2026-11-17). */
+const DISTO_DECAP: ReadonlySet<string> = new Set(['xDPunish', 'xDLow', 'xDThump', 'xDTone', 'xDHigh', 'xDSteep', 'xDMix', 'xDAuto']);
 const near = (a: number, b: number): boolean => Math.abs(a - b) < 0.0005;
 /** La LED d'un reglage : null s'il n'en a pas, sinon allumee quand il colore le son. */
 export const colours = (id: string, v: number): boolean | null => (COLOURS.has(id) ? !near(v, SRC.def(id)) : null);
@@ -101,6 +103,8 @@ export const colours = (id: string, v: number): boolean | null => (COLOURS.has(i
 export const inert = (id: string): boolean => {
   // TIME de HELL ne sert qu'en FREE
   if (id === 'xHellTime' && SRC.of('xHellSync') > 0) return true;
+  // DISTO (2026-11-17) : sur MM (l'OVERDRIVE du moteur), seuls DRIVE et OUTPUT agissent
+  if (DISTO_DECAP.has(id) && SRC.of('xDStyle') <= 0) return true;
   const m = MASTER_OF[id];
   return m !== undefined && SRC.of(m) <= 0;
 };

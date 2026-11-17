@@ -69,6 +69,11 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xHellShift || e == ex_xHellLfoAmt) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
     else if (e == ex_xHellHp) { if (v > 0.001) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(20.0 * std::pow(200.0, v)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
     else if (e == ex_xHellLp) { if (v < 0.999) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(300.0 * std::pow(20000.0 / 300.0, v)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    // DISTO (dsp/Decap.h)
+    else if (e == ex_xDLow) { if (v >= 0.02) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(20.0 * std::pow(50.0, (v - 0.02) / 0.98)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xDHigh) { if (v <= 0.98) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(1000.0 * std::pow(20.0, v / 0.98)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xDTone) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", (v - 0.5) * 12);
+    else if (e == ex_xDOut) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", -18 + 36 * v);
     else if (e == ex_xHellPhase) std::snprintf(out, static_cast<size_t>(max), "%d deg", static_cast<int>(std::lround(v * 360)));
     else if (e == ex_xHellLfoRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.02 * std::pow(500.0, v));
     else if (e == ex_xHellLfoDepth) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(400.0 * v * v)));

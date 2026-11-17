@@ -33,6 +33,7 @@ import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
 import { HellPage } from './HellPage';
+import { DistoPage } from './DistoPage';
 import { HoodLookButton } from './LookPanel';
 import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
@@ -115,7 +116,6 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
           ctls: [knob('xHpf', 'HIGH PASS', 'OFF', '2K'), fine('xComb', 'COMB'), fine('xCombFb', 'COMB FB')],
         },
         { title: 'AMP', ctls: [knob('xFeedback', 'FEEDBACK', 'OFF', 'FULL'), step('xAmpMode', 'AMP MODE')] },
-        { title: 'DISTORTION', led: () => X('xDist') > 0, ctls: [knob('xDist', 'AMOUNT', 'OFF', 'FULL', 'DISTORTION'), fine('xDistTone', 'TONE', 'DIST TONE')] },
       ],
     },
     {
@@ -195,6 +195,9 @@ const REFS: Record<string, string> = {};
   }
   // OVERDRIVE s'appelle DISTO dans le VST3 (2026-11-17, Mika)
   setFullName('dist', 'DISTO');
+  // la pedale DISTORTION (2026-11-17 : sur la page DISTO, PEDAL)
+  setFullName('xDist', 'DISTORTION');
+  setFullName('xDistTone', 'DIST TONE');
 }
 
 const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
@@ -285,12 +288,21 @@ const SkyHost: React.FC = () => {
   return <SkyPage flash={(t) => (t === 'REVERB' ? rev : t === 'TYPE' ? typ : false)} />;
 };
 
+/** DISTO : la page facon Decapitator (DistoPage.tsx) ; le cadre DRIVE clignote au clic du potard DISTO de la face. */
+const DistoHost: React.FC = () => {
+  const d = useFlash('DRIVE');
+  const p = useFlash('DISTORTION');
+  return <DistoPage flash={(t) => (t === 'DRIVE' ? d : t === 'DISTORTION' ? p : false)} />;
+};
+
 const FxPage: React.FC = () => {
   const { fx } = useHoodPage();
   return (
     <>
       {fx === 'reverb' ? (
         <SkyHost />
+      ) : fx === 'disto' ? (
+        <DistoHost />
       ) : (
         <HellHost />
       )}
@@ -656,7 +668,7 @@ const PageKeys: React.FC = () => {
 const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
 const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : tab === 'fx' && fx === 'reverb' ? 'EFFECTS / REVERB' : PAGE_LABEL[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `EFFECTS / ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'DISTO'}` : PAGE_LABEL[tab];
   return (
     <>
       <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
@@ -688,7 +700,7 @@ const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ
 const HoodLcd: React.FC = () => {
   const line = useSyncExternalStore(hoodLcd.subscribe, hoodLcd.get, hoodLcd.get);
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : 'REVERB'}` : PAGE_NAME[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'DISTO'}` : PAGE_NAME[tab];
   return (
     <div className="mm-p2-lcd" role="status" aria-live="polite">
       <span className="mm-p2-lcd-a">{line ? line.name : 'MM-ARP'}</span>
