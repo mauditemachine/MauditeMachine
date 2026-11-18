@@ -1635,6 +1635,11 @@ for (const route of ROUTES) {
 
   // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
   let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
+  // Page cachee (/plugins/) : servie en 200 mais non indexee par les moteurs
+  if (route === '/plugins/') {
+    html = upsertMeta(html, 'name', 'robots', 'noindex, nofollow');
+    html = upsertMeta(html, 'name', 'googlebot', 'noindex, nofollow');
+  }
   html = withContent(html, route);
   // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
   if (!REACT_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
