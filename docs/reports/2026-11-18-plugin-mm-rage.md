@@ -47,7 +47,7 @@ La DISTO vit dans le MM-ARP (branche `claude/nifty-bohr-7ixmpf`, `plugin/mm-arp/
 ## 3. Ce qui reste à faire / points en suspens
 
 - **Mika** : installer une fois le CI vert (`curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rage-latest/update.sh | bash`), ouvrir MM-RAGE dans Ableton, tourner les potards (le rendu Moog et le cuir sont à juger à l'œil sur l'écran Retina), et **écouter les 64 nouveaux presets** : aucun son n'a été joué pendant les tests (règle du projet). Dire lesquels garder, lesquels refaire.
-- Le build macOS n'a pas pu être fait ici (Linux) : c'est le CI qui le fait. Vérifier que la release `mm-rage-latest` apparaît.
+- Le build macOS ne peut se faire qu'au CI : premier run vert (DSP et banque, processeur et fenêtre, VST3 macOS universel, publication), la release `mm-rage-latest` est en ligne.
 - Validation par pluginval : non faite (comme MM-HELL).
 - Le jour où le MM-ARP rejoint `main`, `dsp/Decap.*` pourra être partagé au lieu d'être copié, et le look (potards Moog, cuir relevé) pourra être porté à MM-HELL si Mika aime.
 - Pas de presets utilisateur sur le disque (les presets d'Ableton font le travail), pas de compteur CPU dans la fenêtre (le pire cas de la DISTO, trois bandes et tout, coûte ~150 ms par seconde stéréo à 48 kHz sur la machine de test (Linux) ; une bande ~55 ms).
