@@ -1,12 +1,17 @@
 // MM-ARP, HELL (dsp/Hell.{h,cpp}) : contourne au bit pres a MIX 0, le decaleur monte et descend, la spirale de la
-// boucle, la stabilite au FEEDBACK maximal (ni NaN, ni sous-normaux, borne), l'independance a la taille des blocs.
+// boucle, la stabilite au FEEDBACK maximal (ni NaN, ni sous-normaux, borne), l'independance a la taille des blocs ; et
+// les presets de la face (hell.ts, via tests/hell_presets.inc) : un SHIFT negatif descend, un positif monte.
 //   ./mmarp_hell_test
 #include "Hell.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
+#include <string>
 #include <vector>
+
+#include "hell_presets.inc" // GENERE par tests/hell-presets-gen.mjs depuis src/v4/plugin/arp/hell.ts
 
 using mmarp::Hell;
 using mmarp::HellSettings;
@@ -47,6 +52,37 @@ static Out run(HellSettings s, const std::vector<float>& inL, const std::vector<
         h.process(o.L.data() + i, o.R.data() + i, n);
     }
     return o;
+}
+
+// Un preset de la face (valeurs 0..1 de hell.ts) vers le DSP, comme PluginProcessor.cpp (les crans arrondis comme exStep)
+static int stepOf(double v, int n) {
+    const int i = static_cast<int>(std::lround(v * (n - 1)));
+    return std::max(0, std::min(n - 1, i));
+}
+static HellSettings fromPreset(const HellPresetRef& p, double bpm) {
+    const double* v = p.v;
+    HellSettings s;
+    s.mix = 1;
+    s.sync = stepOf(v[hp_xHellSync], Hell::kSync);
+    s.timeMs = Hell::timeMsOf(v[hp_xHellTime]);
+    s.feedback = v[hp_xHellFb];
+    s.cross = stepOf(v[hp_xHellCross], 2) == 1;
+    s.shiftHz = Hell::shiftHzFor(v[hp_xHellShift], stepOf(v[hp_xHellRange], 4), bpm, 0);
+    s.upDown = v[hp_xHellUpDown];
+    s.spread = v[hp_xHellSpread];
+    s.phase = v[hp_xHellPhase];
+    s.antiRefl = stepOf(v[hp_xHellAntiRefl], 2) == 1;
+    s.smear = v[hp_xHellSmear];
+    s.hpHz = Hell::hpHzOf(v[hp_xHellHp]);
+    s.lpHz = Hell::lpHzOf(v[hp_xHellLp]);
+    s.lfoHz = stepOf(v[hp_xHellLfoSync], 2) == 1 ? Hell::lfoSyncHz(v[hp_xHellLfoRate], bpm) : Hell::lfoHzOf(v[hp_xHellLfoRate]);
+    s.lfoDepthHz = Hell::lfoDepthHzOf(v[hp_xHellLfoDepth]);
+    s.lfoShape = stepOf(v[hp_xHellLfoShape], 4);
+    s.lfoAmt = 2 * v[hp_xHellLfoAmt] - 1;
+    s.lfoStereo = stepOf(v[hp_xHellLfoStereo], 2) == 1;
+    s.lfoTarget = stepOf(v[hp_xHellLfoTarget], 4);
+    s.tone = v[hp_xHellTone];
+    return s;
 }
 
 int main() {
@@ -420,6 +456,59 @@ int main() {
         bool same = true;
         for (size_t i = 0; i < N; ++i) same = same && a.L[i] == b.L[i] && a.R[i] == b.R[i] && a.L[i] == c.L[i] && a.R[i] == c.R[i];
         check(same, "tout engage : blocs de 64, 512, 1000, meme sortie au bit pres");
+    }
+    // 16. les presets de la face (hell.ts) : le sens. Un sinus de 1 kHz, sans reinjection, LFO, filtres ni flou, a 120 BPM ;
+    //     chaque preset a une seule bande (SIDEBAND UP ou DOWN, hors RANGE MIDI, decalage d'au moins 1 Hz) : un SHIFT
+    //     negatif descend, un positif monte (le signe affiche par la face = le sens entendu). Jusqu'au 2026-11-18, BARBER
+    //     DOWN, ABYSS, DEEP STAIRS, SULFUR RAIN et HELLFIRE SWELL (SHIFT negatif + DOWN) montaient : 1 kHz -> 1018, 1140,
+    //     1055, 1024, 1040 Hz. Et ANTI REFL agit sur ceux qui descendent : un sinus a |decalage| / 2, que la descente
+    //     replierait sous 0 Hz, baisse d'au moins 20 dB.
+    {
+        const size_t M = static_cast<size_t>(SR * 2.5); // le premier echo de DEEP STAIRS (1/2 a 120 BPM) arrive a 1 s
+        const auto sine = [&](double hz) {
+            std::vector<float> x(M);
+            for (size_t i = 0; i < M; ++i) x[i] = static_cast<float>(0.5 * std::sin(2 * PI * hz * static_cast<double>(i) / SR));
+            return x;
+        };
+        const std::vector<float> s1k = sine(1000);
+        int nDown = 0, nUp = 0, nAr = 0;
+        double arWorst = -1e9;
+        std::string bad;
+        for (const HellPresetRef& pr : kHellPresets) {
+            HellSettings s = fromPreset(pr, 120);
+            const double sh = s.shiftHz;
+            if (stepOf(pr.v[hp_xHellRange], 4) == Hell::MIDI || std::fabs(sh) < 1 || (s.upDown > 0.01 && s.upDown < 0.99)) continue;
+            s.feedback = 0;
+            s.lfoAmt = 0;
+            s.lfoDepthHz = 0;
+            s.hpHz = 0;
+            s.lpHz = 0;
+            s.smear = 0;
+            s.spread = 0;
+            s.tone = 0.5;
+            const Out o = run(s, s1k, s1k, 256);
+            const double up = goertzel(o.L, M / 2, M, 1000 + std::fabs(sh)), dn = goertzel(o.L, M / 2, M, std::fabs(1000 - std::fabs(sh)));
+            const bool falls = dn > 4 * up, rises = up > 4 * dn;
+            if (sh < 0 ? !falls : !rises) bad += std::string(" ") + pr.name + (rises ? " (monte)" : falls ? " (descend)" : " (?)");
+            ++(sh < 0 ? nDown : nUp);
+            if (sh < 0 && s.antiRefl) {
+                const double f = std::fabs(sh) / 2;
+                const std::vector<float> x = sine(f);
+                double e[2];
+                for (int k = 0; k < 2; ++k) {
+                    s.antiRefl = k == 1;
+                    e[k] = goertzel(run(s, x, x, 256).L, M / 2, M, f);
+                }
+                const double db = 20 * std::log10(e[1] / e[0] + 1e-12);
+                arWorst = std::max(arWorst, db);
+                if (!(e[0] > 0.05 && e[1] < 0.1 * e[0])) bad += std::string(" ") + pr.name + " (ANTI REFL)";
+                ++nAr;
+            }
+        }
+        char msg[400];
+        std::snprintf(msg, sizeof msg, "presets de la face : %d descendent, %d montent, le sens suit le signe de SHIFT ; ANTI REFL (%d presets qui descendent) : le repli sous 0 Hz baisse d'au moins %.1f dB%s",
+                      nDown, nUp, nAr, -arWorst, bad.c_str());
+        check(bad.empty() && nDown > 0 && nAr > 0, msg);
     }
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;

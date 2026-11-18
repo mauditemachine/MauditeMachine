@@ -194,19 +194,19 @@ const P = (name: string, desc: string, o: Units): HellPreset => {
 export const HELL_PRESETS: readonly HellPreset[] = [
   // les douze d'avant (2026-11-13), passes aux nouveaux reglages (meme idee, meme son de depart)
   P('SLOW ASCENT', 'Each repeat climbs a little: a slow rising spiral', { t: '1/4', fb: 0.72, sh: 35, sp: 0.2 }),
-  P('BARBER DOWN', 'Endless falling staircase on sixteenths', { t: '1/16', fb: 0.88, sh: -18, ud: 0, lp: 5800 }),
+  P('BARBER DOWN', 'Endless falling staircase on sixteenths', { t: '1/16', fb: 0.88, sh: -18, ud: 1, lp: 5800 }),
   P('TIN CAN', 'Short metallic box, both sidebands', { t: 18, fb: 0.82, sh: 7, ud: 0.5, sp: 0.5, hp: 120 }),
   P('HALO', 'Bright shimmer, a fifth-ish up each pass', { t: '1/8.', fb: 0.7, sh: 420, sp: 0.35, lr: 0.3, amt: 0.22, hp: 90, smear: 0.25 }),
-  P('ABYSS', 'Falls deep and dark, repeat after repeat', { t: '1/4.', fb: 0.9, sh: -140, ud: 0, lp: 1500, ar: true }),
+  P('ABYSS', 'Falls deep and dark, repeat after repeat', { t: '1/4.', fb: 0.9, sh: -140, ud: 1, lp: 1500, ar: true }),
   P('CROOKED PONG', 'Left climbs, right falls: a bent ping-pong', { t: '1/8', fb: 0.6, sh: 12, sp: 1, cross: true }),
   P('INFERNAL DUB', 'Dub echo that drifts out of tune', { t: '1/4.', fb: 0.85, sh: -6, lp: 2400, hp: 140, lr: 0.25, amt: 0.27 }),
   P('SIREN', 'The shift swings with a slow LFO', { t: '1/8T', fb: 0.65, sh: 60, sp: 0.5, lr: 0.4, amt: 0.79 }),
   P('GHOST CHOIR', 'Barely shifted, both ways: a ghostly chorus', { t: 90, fb: 0.78, sh: 3, ud: 0.5, lr: 0.1, amt: 0.14, smear: 0.4 }),
   P('BROKEN RADIO', 'Far shift, thin and wide', { t: 45, fb: 0.7, sh: 900, ud: 0.5, sp: 0.7, hp: 700 }),
-  P('DEEP STAIRS', 'Half notes stepping down', { t: '1/2', fb: 0.8, sh: -55, ud: 0, ar: true }),
+  P('DEEP STAIRS', 'Half notes stepping down', { t: '1/2', fb: 0.8, sh: -55, ud: 1, ar: true }),
   P('INIT', 'Plain delay, no shift', { t: '1/8.', fb: 0.5, sh: 0 }),
   // les nouveaux (2026-11-17) : SMEAR, CROSS, ANTI REFL, PHASE, RANGE SYNC et MIDI, le LFO et ses cibles
-  P('SULFUR RAIN', 'Smeared falling drops, each one a little lower', { t: '1/16.', fb: 0.82, sh: -24, ud: 0, smear: 0.7, lp: 4200, ar: true }),
+  P('SULFUR RAIN', 'Smeared falling drops, each one a little lower', { t: '1/16.', fb: 0.82, sh: -24, ud: 1, smear: 0.7, lp: 4200, ar: true }),
   P('CHAPEL OF RUST', 'A diffused halo whose phase turns slowly', { t: 140, fb: 0.86, sh: 0, smear: 0.85, lr: 0.08, amt: 1, tgt: 'PHASE', st: true, hp: 160 }),
   P('MOLTEN TAPE', 'A melting tape echo: the delay time wobbles', { t: '1/8', fb: 0.7, sh: 2, shape: 'SINE', lr: 0.7, amt: 0.35, tgt: 'DELAY', lp: 3800, hp: 90 }),
   P('CROSSFIRE', 'Crossed feedback, opposite shifts: the echo bounces and bends', { t: '1/8.', fb: 0.78, sh: 25, sp: 1, cross: true, st: true }),
@@ -217,7 +217,7 @@ export const HELL_PRESETS: readonly HellPreset[] = [
   P('NOTE GHOST', 'The shift follows the played note: a harmonic shadow', { t: '1/8.', fb: 0.66, range: 'MIDI', sh: 0.5, ud: 1, hp: 100 }),
   P('PHASE MONK', 'No shift, only the phase swinging: a slow hollow sweep', { t: 30, fb: 0.62, sh: 0, shape: 'SAW', lr: 0.15, amt: 1, tgt: 'PHASE', st: true }),
   P('TEMPO SPIRAL', 'Upward spiral in tempo, crossed and smeared', { t: '1/8', fb: 0.85, range: 'SYNC', sh: 4, cross: true, smear: 0.5, ar: true }),
-  P('HELLFIRE SWELL', 'A rising saw opens and closes the loop', { t: '1/4.', fb: 0.8, sh: -40, ud: 0, shape: 'SAW', lr: '1 BAR', amt: -0.9, tgt: 'LOW-PASS', lp: 1800, ar: true }),
+  P('HELLFIRE SWELL', 'A rising saw opens and closes the loop', { t: '1/4.', fb: 0.8, sh: -40, ud: 1, shape: 'SAW', lr: '1 BAR', amt: -0.9, tgt: 'LOW-PASS', lp: 1800, ar: true }),
 ];
 
 const KEYS = Object.keys(HELL_PRESETS[0].v);

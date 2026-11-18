@@ -50,8 +50,10 @@ jobs:
         run: ./build-dsp/mmarp_hq2_test
       - name: Controleurs, matrice, MONO / LEGATO, FEEDBACK, AMP MODE, DISTORTION, EQ (neutre = avant, mesures)
         run: ./build-dsp/mmarp_hq3_test
-      - name: "HELL facon Echobode : MIX 0 au bit pres, SIDEBAND, CROSS, ANTI REFL, RANGE, LFO et ses cibles, stabilite, blocs"
-        run: ./build-dsp/mmarp_hell_test
+      - name: "HELL facon Echobode : MIX 0 au bit pres, SIDEBAND, CROSS, ANTI REFL, RANGE, LFO et ses cibles, stabilite, blocs ; presets de la face (hell.ts) : le sens suit le signe de SHIFT"
+        run: |
+          node plugin/mm-arp/tests/hell-presets-gen.mjs --check
+          ./build-dsp/mmarp_hell_test
       - name: "Reverb facon BigSky : Tr60 HALL et ROOM, energie, 12 machines au max, blocs, cout"
         run: ./build-dsp/mmarp_sky_test
       - name: "DISTO complete : DRIVE 0 et MM au bit pres, 12 styles, MORPH, multibande, BOX, filtres, DYNAMICS, FEEDBACK stable, ENV, LFO, blocs, MIX 0, cout"

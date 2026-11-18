@@ -65,6 +65,13 @@ node plugin/mm-arp/tests/params-gen.mjs --check && node plugin/mm-arp/tests/para
 node plugin/mm-arp/tests/fx-ref.mjs build-dsp/ref-fx && ./build-dsp/mmarp_fx_test build-dsp/ref-fx
 ```
 
+```bash
+node plugin/mm-arp/tests/hell-presets-gen.mjs --check && ./build-dsp/mmarp_hell_test
+```
+
+(`hell-presets-gen.mjs` sans `--check` regenere `tests/hell_presets.inc` apres une modif de la banque HELL dans
+`src/v4/plugin/arp/hell.ts` : le test verifie qu'un SHIFT negatif descend et qu'un positif monte.)
+
 (`fx-ref.mjs` rend aussi la chaine dans Chromium, `--mute-audio` ; `fx-ref.mjs <dossier> worklet` : les worklets seuls.)
 
 Le processeur complet sans fenetre (JUCE, joue comme sous Ableton, sans son) :
