@@ -2530,6 +2530,105 @@ double sin(double x) {
   }
 }
 
+/*
+ * v32 (MM-ARP, Mika : "optimise chaque bloc") : sin en ligne pour les arguments du moteur (|x| < 2^19 pi/2 : les
+ * oscillateurs, la FM, le SUB), les MEMES operations, dans le meme ordre, que sin et les deux premiers chemins de
+ * __ieee754_rem_pio2 ci-dessus (au bit pres : voyager_compare 85/85) ; ni appel, ni tableau y[2] en memoire. Les autres
+ * arguments (tres grands, infinis, NaN) passent par sin.
+ */
+inline double sinFast(double x) {
+  static constexpr double invpio2 = 6.36619772367581382433e-01, half = 5.00000000000000000000e-01,
+                          pio2_1 = 1.57079632673412561417e+00, pio2_1t = 6.07710050650619224932e-11,
+                          pio2_2 = 6.07710050630396597660e-11, pio2_2t = 2.02226624879595063154e-21,
+                          pio2_3 = 2.02226624871116645580e-21, pio2_3t = 8.47842766036889956997e-32;
+  static constexpr int32_t npio2_hw[] = {
+      0x3FF921FB, 0x400921FB, 0x4012D97C, 0x401921FB, 0x401F6A7A, 0x4022D97C, 0x4025FDBB, 0x402921FB,
+      0x402C463A, 0x402F6A7A, 0x4031475C, 0x4032D97C, 0x40346B9C, 0x4035FDBB, 0x40378FDB, 0x403921FB,
+      0x403AB41B, 0x403C463A, 0x403DD85A, 0x403F6A7A, 0x40407E4C, 0x4041475C, 0x4042106C, 0x4042D97C,
+      0x4043A28C, 0x40446B9C, 0x404534AC, 0x4045FDBB, 0x4046C6CB, 0x40478FDB, 0x404858EB, 0x404921FB,
+  };
+  int32_t hx;
+  GET_HIGH_WORD(hx, x);
+  const int32_t ix = hx & 0x7FFFFFFF;
+  if (ix <= 0x3FE921FB) return __kernel_sin(x, 0.0, 0);
+  if (ix > 0x413921FB) return sin(x);
+  double y0, y1;
+  int32_t n;
+  if (ix < 0x4002D97C) {
+    double z;
+    if (hx > 0) {
+      z = x - pio2_1;
+      if (ix != 0x3FF921FB) {
+        y0 = z - pio2_1t;
+        y1 = (z - y0) - pio2_1t;
+      } else {
+        z -= pio2_2;
+        y0 = z - pio2_2t;
+        y1 = (z - y0) - pio2_2t;
+      }
+      n = 1;
+    } else {
+      z = x + pio2_1;
+      if (ix != 0x3FF921FB) {
+        y0 = z + pio2_1t;
+        y1 = (z - y0) + pio2_1t;
+      } else {
+        z += pio2_2;
+        y0 = z + pio2_2t;
+        y1 = (z - y0) + pio2_2t;
+      }
+      n = -1;
+    }
+  } else {
+    double t = fabs(x);
+    n = static_cast<int32_t>(t * invpio2 + half);
+    const double fn = static_cast<double>(n);
+    double r = t - fn * pio2_1;
+    double w = fn * pio2_1t;
+    if (n < 32 && ix != npio2_hw[n - 1]) {
+      y0 = r - w;
+    } else {
+      uint32_t high;
+      const int32_t j = ix >> 20;
+      y0 = r - w;
+      GET_HIGH_WORD(high, y0);
+      int32_t i = j - ((high >> 20) & 0x7FF);
+      if (i > 16) {
+        t = r;
+        w = fn * pio2_2;
+        r = t - w;
+        w = fn * pio2_2t - ((t - r) - w);
+        y0 = r - w;
+        GET_HIGH_WORD(high, y0);
+        i = j - ((high >> 20) & 0x7FF);
+        if (i > 49) {
+          t = r;
+          w = fn * pio2_3;
+          r = t - w;
+          w = fn * pio2_3t - ((t - r) - w);
+          y0 = r - w;
+        }
+      }
+    }
+    y1 = (r - y0) - w;
+    if (hx < 0) {
+      y0 = -y0;
+      y1 = -y1;
+      n = -n;
+    }
+  }
+  switch (n & 3) {
+    case 0:
+      return __kernel_sin(y0, y1, 1);
+    case 1:
+      return __kernel_cos(y0, y1);
+    case 2:
+      return -__kernel_sin(y0, y1, 1);
+    default:
+      return -__kernel_cos(y0, y1);
+  }
+}
+
 /* tan(x)
  * Return tangent function of x.
  *

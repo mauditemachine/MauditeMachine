@@ -33,7 +33,11 @@ namespace fdlibm_or_std = std;
 namespace fdlibm_or_std = fdlibm;
 #endif
 namespace jsm {
-inline double sin(double x) { return fdlibm_or_std::sin(x); }
+#if defined(MMARP_VOYAGER_SYSTEM_LIBM)
+inline double sin(double x) { return std::sin(x); }
+#else
+inline double sin(double x) { return fdlibm::sinFast(x); }  // v32 : en ligne, les memes operations (au bit pres)
+#endif
 inline double cos(double x) { return fdlibm_or_std::cos(x); }
 inline double tan(double x) { return fdlibm_or_std::tan(x); }
 inline double exp(double x) { return fdlibm_or_std::exp(x); }
@@ -3291,20 +3295,29 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             if (qq >= 1) qq -= 1;
             y = 1 - 4 * jsm::abs(qq - 0.5);
             const double kb = (8 * dt2) / 6;
-            double xb = qq / dt2;
-            if (xb < 1) {
-              const double ub = 1 - xb;
-              y += kb * ub * ub * ub;
+            // v32 : chaque division seulement quand le quotient peut passer sous 1 (le meme resultat : sinon >= 1, rien)
+            if (qq < dt2) {
+              const double xb = qq / dt2;
+              if (xb < 1) {
+                const double ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
             }
-            xb = (1 - qq) / dt2;
-            if (xb < 1) {
-              const double ub = 1 - xb;
-              y += kb * ub * ub * ub;
+            const double qa = 1 - qq;
+            if (qa < dt2) {
+              const double xb = qa / dt2;
+              if (xb < 1) {
+                const double ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
             }
-            xb = (qq - 0.5) / dt2;
-            if (xb > -1 && xb < 1) {
-              const double ub = 1 - (xb < 0 ? -xb : xb);
-              y -= kb * ub * ub * ub;
+            const double qc = qq - 0.5;
+            if (qc < dt2 && qc > -dt2) {
+              const double xb = qc / dt2;
+              if (xb > -1 && xb < 1) {
+                const double ub = 1 - (xb < 0 ? -xb : xb);
+                y -= kb * ub * ub * ub;
+              }
             }
           } else if (!pwm2 && w == 2) {
             double pb = 0;
@@ -3469,20 +3482,29 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             if (qq >= 1) qq -= 1;
             y = 1 - 4 * jsm::abs(qq - 0.5);
             const double kb = (8 * dt1) / 6;
-            double xb = qq / dt1;
-            if (xb < 1) {
-              const double ub = 1 - xb;
-              y += kb * ub * ub * ub;
+            // v32 : chaque division seulement quand le quotient peut passer sous 1 (le meme resultat : sinon >= 1, rien)
+            if (qq < dt1) {
+              const double xb = qq / dt1;
+              if (xb < 1) {
+                const double ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
             }
-            xb = (1 - qq) / dt1;
-            if (xb < 1) {
-              const double ub = 1 - xb;
-              y += kb * ub * ub * ub;
+            const double qa = 1 - qq;
+            if (qa < dt1) {
+              const double xb = qa / dt1;
+              if (xb < 1) {
+                const double ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
             }
-            xb = (qq - 0.5) / dt1;
-            if (xb > -1 && xb < 1) {
-              const double ub = 1 - (xb < 0 ? -xb : xb);
-              y -= kb * ub * ub * ub;
+            const double qc = qq - 0.5;
+            if (qc < dt1 && qc > -dt1) {
+              const double xb = qc / dt1;
+              if (xb > -1 && xb < 1) {
+                const double ub = 1 - (xb < 0 ? -xb : xb);
+                y -= kb * ub * ub * ub;
+              }
             }
           } else if (!pwm1 && w == 2) {
             double pb = 0;
@@ -3580,20 +3602,29 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
           if (qq >= 1) qq -= 1;
           sy = 1 - 4 * jsm::abs(qq - 0.5);
           const double kb = (8 * sdt) / 6;
-          double xb = qq / sdt;
-          if (xb < 1) {
-            const double ub = 1 - xb;
-            sy += kb * ub * ub * ub;
+          // v32 : chaque division seulement quand le quotient peut passer sous 1 (le meme resultat : sinon >= 1, rien)
+          if (qq < sdt) {
+            const double xb = qq / sdt;
+            if (xb < 1) {
+              const double ub = 1 - xb;
+              sy += kb * ub * ub * ub;
+            }
           }
-          xb = (1 - qq) / sdt;
-          if (xb < 1) {
-            const double ub = 1 - xb;
-            sy += kb * ub * ub * ub;
+          const double qa = 1 - qq;
+          if (qa < sdt) {
+            const double xb = qa / sdt;
+            if (xb < 1) {
+              const double ub = 1 - xb;
+              sy += kb * ub * ub * ub;
+            }
           }
-          xb = (qq - 0.5) / sdt;
-          if (xb > -1 && xb < 1) {
-            const double ub = 1 - (xb < 0 ? -xb : xb);
-            sy -= kb * ub * ub * ub;
+          const double qc = qq - 0.5;
+          if (qc < sdt && qc > -sdt) {
+            const double xb = qc / sdt;
+            if (xb > -1 && xb < 1) {
+              const double ub = 1 - (xb < 0 ? -xb : xb);
+              sy -= kb * ub * ub * ub;
+            }
           }
         } else if (subW == 2) {
           double pb = 0;
