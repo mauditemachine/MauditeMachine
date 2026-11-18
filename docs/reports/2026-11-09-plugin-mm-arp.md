@@ -601,3 +601,18 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - Premier run sans cache (~8 min) ; mesurer les suivants (attendu ~6-7 min, borne par les tests DSP).
+
+## 2026-11-18 (suite 3) : v30, accent #FF0066
+
+### Ce qui a ete fait
+- theme/base.ts : PLUGIN_ACCENT #FFD900 -> #FF0066, PLUGIN_ACCENT_INK #7A6200 -> #A3003F (lisible sur fond clair).
+- voyager/silk.ts : les arcs et pictos des selecteurs WAVEFORM (jaune Typhon 242,194,48) prennent l'accent dans le plugin ; le site garde son jaune.
+- theme.ts PAD_GLOW : lueurs des pads du plugin au rose (faint, hover, active, flash, orange, orangeDim) ; le site inchange.
+- hood.css : LED de pas de SEQ en degrade derive de l'accent (fini l'ambre #f0a51c) ; face.css : contour clavier en var(--mm-accent).
+- Verifie : captures face + 6 pages, 0 pixel jaune restant ; tsc 105 ; aucun son.
+
+### Decisions prises et pourquoi
+- Mika : "a la place du jaune tu mets cette couleur FF0066". Les LED et RUN/STOP restent rouges.
+
+### Ce qui reste a faire / points en suspens
+- Le rose est proche du rouge des LED : a juger a l'oeil par Mika.

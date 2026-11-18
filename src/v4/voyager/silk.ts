@@ -486,7 +486,9 @@ export class VoySilk {
     // Machine noire : jaune Typhon, le cran choisi plein. Machine claire (2026-10-03,
     // Mika n'aimait pas l'ambre) : l'encre de la serigraphie, le cran choisi en orange
     const light = APPEARANCE.current === 'light';
-    const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(242, 194, 48, ${a})`);
+    // Le plugin MM-ARP (v30, Mika : "a la place du jaune cette couleur FF0066") : la couleur d'accent (HEX.orange) a la place du jaune Typhon
+    const dark = PLUGIN_ARP ? new Color(HEX.orange).getStyle().replace('rgb(', '').replace(')', '') : '242, 194, 48';
+    const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(${dark}, ${a})`);
     const dim = light ? S.dim.light : S.dim.dark;
     for (const k of VOY_FACE_KNOBS) {
       if (!isSelector(k.id)) continue;

@@ -837,9 +837,10 @@ export const PAD_FX = {
  * vif (yellowHi #FFD75E) pour la page ouverte, une seule a la fois ;
  * OPEN : jaune faible, yellowHi pendant l'ouverture et vue ouverte.
  */
+// v30 (plugin MM-ARP) : les lueurs des pads au rose d'accent #FF0066 (lineaire 1, 0, 0.13), le site garde le jaune
 export const PAD_GLOW = {
   /** dessus 241,193,74 (#F2C230 : 242,194,48, le bleu hors gamut sous l'ACES) */
-  flash: [1.2, 0.42, 0],
+  flash: PLUGIN_ARP ? [1.2, 0.02, 0.16] : [1.2, 0.42, 0],
   /**
    * la voix choisie, blanc chaud. 2026-10-22 (audit SB-04) : dessus vers 78,74,66 (le caoutchouc 18,17,16 plus 60
    * niveaux) ; avant [0.011, 0.0105, 0.0085], 29 contre 17 sur les autres pads : on ne voyait pas quelle voix l'ecran,
@@ -847,15 +848,15 @@ export const PAD_GLOW = {
    */
   selected: [0.062, 0.057, 0.046],
   /** dessus 40,34,18 : environ 10 % de jaune sur le caoutchouc */
-  faint: [0.022, 0.016, 0.001],
+  faint: PLUGIN_ARP ? [0.022, 0.0008, 0.003] : [0.022, 0.016, 0.001],
   /** dessus 86,71,24 : environ 30 % */
-  hover: [0.085, 0.06, 0.003],
+  hover: PLUGIN_ARP ? [0.085, 0.003, 0.011] : [0.085, 0.06, 0.003],
   /** dessus 246,223,124 (#FFD75E : 255,215,94, meme limite de gamut) */
-  active: PLUGIN_ARP ? [1.7, 1.25, 0.0] : [1.8, 0.85, 0.02],
+  active: PLUGIN_ARP ? [1.8, 0.03, 0.24] : [1.8, 0.85, 0.02],
   /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page ; le plugin (v27) : le jaune d'accent */
-  orange: PLUGIN_ARP ? [1.6, 1.2, 0.0] : [1.6, 0.2, 0.004],
+  orange: PLUGIN_ARP ? [1.6, 0.025, 0.21] : [1.6, 0.2, 0.004],
   /** OPEN devenu CLOSE, machine ouverte : orange faible */
-  orangeDim: PLUGIN_ARP ? [0.16, 0.12, 0] : [0.16, 0.024, 0],
+  orangeDim: PLUGIN_ARP ? [0.16, 0.002, 0.021] : [0.16, 0.024, 0],
   /** voix coupee (2026-10-07, Mika : "Mute en rouge, type LED a travers un caoutchouc") : une LED rouge allumee sous le pad */
   muted: [0.62, 0.025, 0.012],
 } as const;
