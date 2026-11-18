@@ -555,3 +555,25 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Rack : PHASER/FLANGER SYNC suivent le tempo sans phase de mesure ; FLANGER DELAY peut cliquer en le bougeant.
 - Crochet de test ?probe (window.__mmProbe) dans la face, a retirer si inutile.
 - Presets DELAY regles sans ecoute.
+
+## 2026-11-18 : v28, correctifs visuels, bascule animee, RANDOM et banque plus graves
+
+### Ce qui a ete fait
+- Listes deroulantes (TYPE de l'EQ, presets DISTO / HELL / DELAY) au premier plan (useRaise dans pcbui.tsx + z-index hood.css).
+- OLD EQ ON / RESET deplace dans l'en-tete de l'ecran EQ, sans chevauchement.
+- Logo et titre MM-ARP des pages OPEN a la taille et a la hauteur de la face (masque en 100 % auto).
+- Bascule face <-> OPEN animee et rapide pour tous les declencheurs (re-clic d'onglet, CLOSE, croix, logo, Echap, OPEN, knob de la face) : carte 220 / 200 ms, capot 3D du plugin 240 + 30 ms (rig.ts, sous PLUGIN_ARP, le site garde ses durees) ; mouvement reduit = fondu 160 ms.
+- Chevauchements corriges : FLANGER SYNC / THRU-0, CLR des pistes SEQ, DETUNE contre le filet, colonnes de la LIBRARY.
+- RANDOM (hypno.ts, plugin seulement) par familles BASS / ARP / PAD / DARK (~40 % BASS), jamais OCTAVE +1, cutoff <= 0,62, resonance bornee ; HELL une fois sur trois, MIX 0,03 a 0,10 avec un reglage doux (hellGentle, hell.ts).
+- Banque d'usine retravaillee : 40 presets (BASS 16, ARP 12, PAD 6, DARK 6), noms parlants, 7 presets avec une touche de HELL (MIX <= 0,10), volumes recales a -23 LUFS (PAD -25), centroide median 635 -> 450 Hz ; categories LIBRARY = BASS, ARP, PAD, DARK.
+- presets/build.mjs refuse xHellMix > 0,10 (au lieu de != 0) ; regles reverb CLASSIC, DISTO neutre, ancienne pedale 0 gardees.
+- Tests : tsc 105, suite DSP complete, host (anciens projets au bit pres, banque regeneree), presets-check, 16 controles Chromium muet, aucune lecture audio.
+
+### Decisions prises et pourquoi
+- Mika : une toute petite dose de HELL dans RANDOM et presets, sons moins aigus et souvent des basslines, logo du back a la taille de la face, bascule rapide mais animee.
+- Re-clic sur l'onglet courant garde son role (retour a la face) mais avec l'animation.
+
+### Ce qui reste a faire / points en suspens
+- Ecouter RANDOM et la nouvelle banque (reglee par mesures, sans ecoute).
+- Vitesse reelle du capot dans le WebView macOS non mesuree ; logo cale dans Chromium (+-1 px possible).
+- Choix pris sans validation : poids des familles RANDOM, 7 presets avec HELL, categories LIBRARY renommees.
