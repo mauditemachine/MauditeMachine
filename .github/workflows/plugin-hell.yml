@@ -1,0 +1,122 @@
+name: Plugin MM-HELL
+# 2026-11-18 (Mika : "l'equivalent de Echobod que j'ai mis dans ARP VST3, en VST3 aussi seul, avec une interface
+# optimisee") : le HELL du MM-ARP en effet audio seul (plugin/mm-hell). 1) le DSP et la banque, sur Linux ; 2) le vrai
+# processeur et la vraie fenetre sans hote (gestes de la souris, captures PNG en artefact) ; 3) le VST3 macOS universel,
+# signe ad hoc, en artefact et dans la release mm-hell-latest. Pas de face web a construire (interface native JUCE).
+# Rien ne touche au site ni a GitHub Pages, ni aux releases du MM-RYTM et du MM-ARP.
+on:
+  push:
+    paths:
+      - 'plugin/mm-hell/**'
+      - '.github/workflows/plugin-hell.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-hell-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dsp:
+    name: DSP et banque
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire le DSP et ses tests (sans JUCE)
+        run: |
+          cmake -S plugin/mm-hell -B build-dsp -DMM_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp -j
+      - name: "HELL (copie conforme du MM-ARP) : MIX 0 au bit pres, SIDEBAND, CROSS, ANTI REFL, RANGE, LFO, stabilite, blocs"
+        run: ./build-dsp/mmhell_hell_test
+      - name: "Banque : les 24 presets du MM-ARP (5 corriges : ils descendent), INIT par defaut, stabilite, textes"
+        run: ./build-dsp/mmhell_presets_test
+
+  host:
+    name: Processeur et fenetre sans hote
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependances de JUCE (Linux) et ecran virtuel
+        run: sudo apt-get update -q && sudo apt-get install -y -q libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libxcomposite-dev libasound2-dev libfreetype-dev libfontconfig1-dev xvfb
+      - name: Construire les bancs
+        run: |
+          cmake -S plugin/mm-hell -B build-host -DMM_HOST_TEST=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host -j 4 --target mmhell_host_test mmhell_ui_test mmhell_snapshot
+      - name: "Processeur : INIT, MIX 0 au bit pres, programmes, etat du projet, MIDI, entree mono, blocs, textes"
+        run: ./build-host/mmhell_host_test_artefacts/Release/mmhell_host_test
+      - name: "Fenetre : glisser, Maj, double-clic, Alt + clic, molette, leviers, touches, PREV / NEXT / INIT, automation, taille"
+        run: xvfb-run -a ./build-host/mmhell_ui_test_artefacts/Release/mmhell_ui_test
+      - name: Captures de la fenetre (PNG)
+        run: xvfb-run -a ./build-host/mmhell_snapshot_artefacts/Release/mmhell_snapshot snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-HELL-captures
+          path: snapshots/*.png
+          retention-days: 14
+
+  mac:
+    name: Plugin macOS (VST3)
+    runs-on: macos-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+    steps:
+      - uses: actions/checkout@v4
+      - name: ccache
+        run: brew install ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-mac-hell-${{ github.sha }}
+          restore-keys: ccache-mac-hell-
+      - name: Configurer (universel arm64 + x86_64)
+        run: cmake -S plugin/mm-hell -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Construire
+        run: |
+          cmake --build build --config Release -j 4 --target MM_HELL_VST3
+          ccache -s | head -20
+      # Le paquet dans pkg/, jamais dans dist/ (le build du site commite dans le repo)
+      - name: Signer ad hoc et empaqueter
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-HELL
+          B=build/MM_HELL_artefacts/Release/VST3/MM-HELL.vst3
+          codesign --force --deep --sign - "$B"
+          codesign --verify --deep --strict "$B"
+          lipo -info "$B/Contents/MacOS/MM-HELL"
+          ditto "$B" pkg/MM-HELL/MM-HELL.vst3
+          cp plugin/mm-hell/INSTALL.md plugin/mm-hell/update.sh pkg/MM-HELL/
+          printf 'commit %s, branche %s, %s\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-HELL/BUILD.txt
+          ditto -c -k --keepParent pkg/MM-HELL MM-HELL-macOS.zip
+          unzip -l MM-HELL-macOS.zip | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-HELL-macOS
+          path: MM-HELL-macOS.zip
+          retention-days: 30
+
+  # La publication : seulement si les tests (dsp, host) et le Mac sont verts
+  publish:
+    name: Publier (release mm-hell-latest)
+    needs: [dsp, host, mac]
+    runs-on: ubuntu-latest
+    # La release mm-hell-latest : le seul droit d'ecriture du workflow
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MM-HELL-macOS
+      # Le dernier build en release mm-hell-latest, a une adresse fixe : plugin/mm-hell/update.sh la telecharge et
+      # l'installe par-dessus l'ancien. Ses fichiers sont remplaces, son etiquette avance au commit construit.
+      - name: Publier le dernier build (release mm-hell-latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view mm-hell-latest >/dev/null 2>&1; then
+            gh release create mm-hell-latest --prerelease --target "$GITHUB_SHA" --title "MM-HELL (dernier build)" --notes "Le VST3 macOS du dernier build."
+          fi
+          gh release upload mm-hell-latest MM-HELL-macOS.zip plugin/mm-hell/update.sh --clobber
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-hell-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          gh release edit mm-hell-latest --notes "MM-HELL, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-hell-latest/update.sh | bash"
