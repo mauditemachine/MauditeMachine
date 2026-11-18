@@ -673,3 +673,22 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Juger l'aliasing a l'oeil sur Mac ; capuchon un peu plus sombre qu'avant (a eclaircir si besoin).
 - Un projet qui a enregistre LEATHER a 0,7 le garde : RESET dans SETTINGS pour revenir au niveau A.
 - Moteur PRO (piste CPU B) en cours.
+
+## 2026-11-18 (suite 7) : v34, moteur PRO
+
+### Ce qui a ete fait
+- Selecteur ENGINE CLASSIC / PRO (SOUND > ENGINE, nouveau parametre en fin de liste, 229) : instance neuve en PRO, ancien projet en CLASSIC ; un preset d'usine ne change pas le moteur.
+- CLASSIC inchange au bit pres (voyager_compare 85/85, 40 presets HQ identiques a la v32).
+- PRO : oscillateurs au taux de base (polyBLEP, Catmull-Rom vers le taux du filtre), sauf FM / SYNC / RING ; filtre, saturation, VCA, voie droite, enveloppes, LFO, matrice a x1 (ECO), x2 (STD), x4 (HQ) ; sinus rapide (erreur < 4e-8) ; EXPORT HQ en x4.
+- Banc pro_test dans la CI (stabilite, niveaux, repliement, cout).
+- Mesures (cas de Mika, echelle v32) : CLASSIC HQ 71,9 % / STD 34,1 % ; PRO HQ 38,4 % (-47 %), PRO STD 21,1 % (-38 %), PRO ECO 17,3 %. Banque STD -29 %.
+- Ecart de son PRO STD contre CLASSIC HQ : niveau +-0,37 dB au pire, rien sous 4 kHz, -1 a -1,5 dB a 8 kHz, -3 a -4,7 dB dans la bande 16 kHz.
+- Tests : tsc 105, suite DSP + pro_test, host 58, aucun son.
+
+### Decisions prises et pourquoi
+- Mika : piste CPU B, "code et publie". Publication de la premiere etape de B (oscillateurs et filtre), le reste suit.
+
+### Ce qui reste a faire / points en suspens
+- Objectifs (PRO STD < 15 %, PRO HQ < 25 %) non atteints : reste de la piste B (modulations par paquets, SIMD 4 voix, pow / exp / tanh rapides), estime -25 a -35 % de plus.
+- Aigu de PRO STD un peu plus terne (interpolation Catmull-Rom) : a ecouter (MUNICH BASS, STRING PAD, MOON ARP...), a corriger par un meilleur passage au taux du filtre.
+- PRO ECO change le caractere de 21 presets.
