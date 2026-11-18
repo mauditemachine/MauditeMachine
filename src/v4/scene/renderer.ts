@@ -271,7 +271,8 @@ const DJ_UNIT_MS = 420;
  * plus d'images pour rien pendant qu'une machine joue. Sous 16.7 ms : a
  * 60 Hz chaque rAF passe, a 120 Hz un sur deux.
  */
-const FRAME_MIN_MS = 12;
+// v31 (Mika : "je viens de freez mon cpu") : le plugin plafonne a 30 images par seconde (33 ms), le site garde 12 ms
+const FRAME_MIN_MS = PLUGIN_ARP ? 33 : 12;
 
 /* ---------------- Stage ---------------- */
 
@@ -324,6 +325,8 @@ export interface StageStats {
   lastRenderAt: number;
   loopActive: boolean;
   dpr: number;
+  /** v31 (le compteur CPU du plugin) : le temps JS cumule des rendus (ms, l'appel de dessin compris, le GPU non) */
+  renderMs: number;
   /** remet a zero les maxima et le compte des passes d'ombre (tests) */
   reset: () => void;
 }
@@ -462,6 +465,7 @@ export class Stage {
     lastRenderAt: 0,
     loopActive: false,
     dpr: 1,
+    renderMs: 0,
     reset: () => {
       this.stats.maxDrawCalls = 0;
       this.stats.maxTriangles = 0;
@@ -2531,14 +2535,45 @@ export class Stage {
     this.capMs = Math.max(0, ms);
   }
 
+  /** v31 : le plugin attend la prochaine image sous un minuteur (raf -1), plus de rAF a vide a la cadence de l'ecran */
+  private capTimer = 0;
+
+  /** La boucle continue : tout de suite (le site), ou au plafond suivant sous un minuteur (le plugin, 30 images/s). */
+  private kickNext(): void {
+    if (!PLUGIN_ARP) {
+      this.kick();
+      return;
+    }
+    if (this.raf !== 0 || this.disposed || this.paused || this.contextLost || !this.started) return;
+    const wait = Math.max(this.capMs, FRAME_MIN_MS) - (performance.now() - this.lastFrameAt) - 4;
+    if (wait <= 1) {
+      this.kick();
+      return;
+    }
+    this.raf = -1;
+    this.capTimer = window.setTimeout(() => {
+      this.capTimer = 0;
+      if (this.raf !== -1) return;
+      this.raf = 0;
+      this.kick();
+    }, wait);
+  }
+
   private frame = (now: number): void => {
     this.raf = 0;
     if (this.disposed) return;
-    if (now - this.lastFrameAt < Math.max(this.capMs, FRAME_MIN_MS)) {
+    // (le plugin : l'horloge reelle, l'heure du rAF est celle du debut de l'image d'avant quand le minuteur l'a demande ;
+    // 6 ms de tolerance, le minuteur part 4 ms avant)
+    const clock = PLUGIN_ARP ? performance.now() : now;
+    if (clock - this.lastFrameAt < Math.max(this.capMs, FRAME_MIN_MS) - (PLUGIN_ARP ? 6 : 0)) {
+      if (PLUGIN_ARP) {
+        this.kickNext();
+        return;
+      }
       this.raf = requestAnimationFrame(this.frame);
       return;
     }
-    this.lastFrameAt = now;
+    this.lastFrameAt = clock;
     this.stats.rafs += 1;
     // Reveil apres un repos : un pas de 16.7 ms, pas l'ecart depuis la derniere frame
     const dt = this.last < 0 ? 16.667 : Math.min(50, now - this.last);
@@ -2571,7 +2606,7 @@ export class Stage {
       return;
     }
     if (viewMoved || moved || painted || poll) {
-      this.kick();
+      this.kickNext();
     } else {
       this.last = -1;
       this.stats.loopActive = false;
@@ -2633,7 +2668,9 @@ export class Stage {
     const shadow = this.shadowDirty;
     this.renderer.shadowMap.needsUpdate = shadow;
     this.shadowDirty = false;
+    const t0 = performance.now();
     if (!this.skipDraw) this.renderer.render(this.scene, this.camera);
+    this.stats.renderMs += performance.now() - t0;
     this.dirty = false;
     const r = this.renderer.info.render;
     const s = this.stats;
@@ -3712,6 +3749,7 @@ export class Stage {
     this.introLand = null;
     cancelAnimationFrame(this.raf);
     cancelAnimationFrame(this.resizeRaf);
+    window.clearTimeout(this.capTimer);
     this.raf = 0;
     this.resizeRaf = 0;
     for (const t of this.timers) window.clearTimeout(t);

@@ -121,6 +121,16 @@ public:
     bool specOn() const { return specOn_.load(std::memory_order_relaxed); }
     bool specFrame(float* out96) { return spec_.frame(out96); }
 
+    // v31 (Mika : "un compteur de cpu en haut a droite du plugin") : la charge de CETTE instance, en % du temps reel
+    // (le temps de processBlock rapporte a la duree du bloc), lissee sur 250 ms, par etage, et le pic du total tenu 1 s.
+    // Ecrites par le thread audio (des atomiques, sans allocation), lues par le timer de l'editeur.
+    enum CpuStage { kCpuEngine, kCpuDisto, kCpuDelay, kCpuReverb, kCpuHell, kCpuEqRack, kCpuRest, kCpuTotal, kCpuN };
+    float cpu(int i) const { return cpu_[static_cast<size_t>(i)].load(std::memory_order_relaxed); }
+    float cpuPeak() const { return cpuPeak_.load(std::memory_order_relaxed); }
+    // le surechantillonnage du moteur (8 en HQ) et les voix qui sonnent, pour le detail du compteur
+    int cpuOs() const { return cpuOs_.load(std::memory_order_relaxed); }
+    int cpuVoices() const { return cpuVoices_.load(std::memory_order_relaxed); }
+
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
     juce::MidiFile arpMidi(int cycles, int& bars) const;
@@ -173,6 +183,14 @@ private:
     void convertPedal();
     // v27 : l'ancien DELAY (DLY TIME, TAPE, DELAY MODE, masques : OLD ...) passe a la page DELAY (convertDelay)
     void convertDelay();
+    // v31 : le compteur CPU (thread audio : les lissages ; les atomiques pour l'editeur)
+    std::array<std::atomic<float>, kCpuN> cpu_{};
+    std::atomic<float> cpuPeak_{0};
+    std::atomic<int> cpuOs_{1}, cpuVoices_{0};
+    std::array<double, kCpuN> cpuSm_{};
+    double cpuPk_ = 0, cpuHold_ = 0;
+    const double tickS_ = 1.0 / static_cast<double>(juce::Time::getHighResolutionTicksPerSecond());
+    void cpuMeter(const double* s, int n);
     // v27 : l'EQ parametrique 6 bandes (apres HELL), son analyseur
     mmarp::ParamEq peq_;
     mmarp::SpecAnalyzer spec_;
@@ -220,6 +238,20 @@ private:
     juce::SpinLock revLock_;
     std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;
     std::array<double, 4> revKey_{-1, -1, -1, -1};
+    // v31 (Mika : "je viens de freez mon cpu") : la reponse de la reverb se calcule sur un fil partage par les instances
+    // (RevPool), plus sur le thread du message : 6 a 40 ms par calcul, jusqu'a 15 fois par seconde sous automation de
+    // SIZE, TONE ou PRE DELAY, ce qui bloquait l'interface de l'hote. Le timer lance le calcul et reprend le resultat.
+    struct RevJob {
+        juce::SpinLock lock;
+        std::shared_ptr<const mmarp::ReverbIR> ready;
+        std::atomic<bool> busy{false};
+    };
+    struct RevPool {
+        juce::ThreadPool pool{juce::ThreadPoolOptions{}.withThreadName("MM-ARP reverb").withNumberOfThreads(1).withDesiredThreadPriority(juce::Thread::Priority::low)};
+        ~RevPool() { pool.removeAllJobs(true, 5000); }
+    };
+    std::shared_ptr<RevJob> revJob_ = std::make_shared<RevJob>();
+    juce::SharedResourcePointer<RevPool> revPool_;
     bool fresh_ = true;
     double lastBpm_ = 0;
 

@@ -351,6 +351,21 @@ int MMArpProcessor::osFor(double sr, double quality) {
 // ici et part vers le thread audio ; les anciennes sont liberees ici aussi
 void MMArpProcessor::timerCallback() {
     while (fx_.takeRetiredReverb()) {}
+    // v31 : une reponse calculee par le fil de la reverb part au thread audio (comme avant, en fondu enchaine)
+    {
+        std::shared_ptr<const mmarp::ReverbIR> got;
+        {
+            const juce::SpinLock::ScopedLockType sl(revJob_->lock);
+            got = std::move(revJob_->ready);
+        }
+        if (got) {
+            std::shared_ptr<const mmarp::ReverbIR> old;
+            const juce::SpinLock::ScopedLockType sl(revLock_);
+            old = std::move(revWanted_);
+            revWanted_ = got;
+            revPending_ = std::move(got);
+        }
+    }
     const double sr = sr_;
     if (sr <= 0) return;
     const std::array<double, 4> key{static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
@@ -358,15 +373,19 @@ void MMArpProcessor::timerCallback() {
     bool same = true;
     for (size_t i = 0; i < 4; ++i) same = same && std::fabs(key[i] - revKey_[i]) < 1e-9;
     if (same) return;
-    auto ir = mmarp::ArpFx::makeReverb(sr, key[0], key[1], key[2]);
-    std::shared_ptr<const mmarp::ReverbIR> old;
-    {
-        const juce::SpinLock::ScopedLockType sl(revLock_);
-        old = std::move(revWanted_);
-        revWanted_ = ir;
-        revPending_ = std::move(ir);
-        revKey_ = key;
-    }
+    // un calcul a la fois : le reglage d'arrivee est repris au tick suivant (le dernier gagne)
+    if (revJob_->busy.load()) return;
+    revJob_->busy.store(true);
+    revKey_ = key;
+    std::shared_ptr<RevJob> job = revJob_;
+    revPool_->pool.addJob([job, key] {
+        auto ir = mmarp::ArpFx::makeReverb(key[3], key[0], key[1], key[2]);
+        {
+            const juce::SpinLock::ScopedLockType sl(job->lock);
+            job->ready = std::move(ir);
+        }
+        job->busy.store(false);
+    });
 }
 
 /* ---------------- MIDI LEARN ---------------- */
@@ -968,11 +987,32 @@ void MMArpProcessor::fifoReserve(size_t cap) {
     fifoHead_ = 0;
 }
 
+void MMArpProcessor::cpuMeter(const double* s, int n) {
+    const double dur = static_cast<double>(n) / sr_;
+    if (!(dur > 0)) return;
+    const double a = 1.0 - std::exp(-dur / 0.25);
+    for (int i = 0; i < kCpuN; ++i) {
+        const double pc = 100.0 * std::max(0.0, s[i]) / dur;
+        cpuSm_[static_cast<size_t>(i)] += (pc - cpuSm_[static_cast<size_t>(i)]) * a;
+        cpu_[static_cast<size_t>(i)].store(static_cast<float>(cpuSm_[static_cast<size_t>(i)]), std::memory_order_relaxed);
+    }
+    // le pic du total : tenu 1 s, puis il redescend vers la moyenne
+    const double tot = 100.0 * s[kCpuTotal] / dur;
+    if (tot >= cpuPk_) {
+        cpuPk_ = tot;
+        cpuHold_ = 1.0;
+    } else if ((cpuHold_ -= dur) <= 0)
+        cpuPk_ = std::max(cpuSm_[kCpuTotal], cpuPk_ * std::exp(-dur / 0.4));
+    cpuPeak_.store(static_cast<float>(cpuPk_), std::memory_order_relaxed);
+}
+
 void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     buffer.clear();
     if (!voy_ || n <= 0) return;
+    // v31 : le compteur CPU, quelques lectures de l'horloge par bloc
+    const juce::int64 c0 = juce::Time::getHighResolutionTicks();
     const double sr = sr_;
     const int64_t f0 = frame_;
     auto at = [&](int pos) { return static_cast<double>(f0 + pos) / sr; };
@@ -1129,7 +1169,9 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // Faible latence (2026-11-11, Mika : "le top du top a faible latence") : le moteur rend directement le bloc de
     // l'hote, par morceaux de 128 au plus (plus de file de 128 echantillons : il ne reste que le retard des decimateurs,
     // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
+    const juce::int64 cE = juce::Time::getHighResolutionTicks();
     for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
+    const juce::int64 c1 = juce::Time::getHighResolutionTicks();
     publishMod();
     // DISTO facon Decapitator (2026-11-16, portee le 2026-11-17) : juste apres le moteur, avant la chaine du site ; DRIVE 0
     // ou MM (le depart) : contournee au bit pres (MM : OUTPUT seul, 0 dB au depart). Engagee, 32 echantillons de retard,
@@ -1197,8 +1239,11 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         distoVu_.store(decap_.active() ? static_cast<float>(std::clamp((decap_.attitudeDb() + 20) / 23, 0.0, 1.0)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
     }
     // PUMP suit la position du morceau
+    const juce::int64 c2 = juce::Time::getHighResolutionTicks();
     fx_.setTransport(ppq, pps, playing);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
+    const juce::int64 c3 = juce::Time::getHighResolutionTicks();
+    const mmarp::ArpFx::Clock fc = fx_.takeClock();
     // La note montree par la face (et la note jouee, pour HELL en RANGE MIDI)
     const mmarp::ArpShown sh = arp_.shownAt(frame_ + n);
     if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
@@ -1231,6 +1276,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         // le VU du LFO dans la face (mm_mod, id hellLfo) : NaN quand HELL est coupe
         hellLfo_.store(hell_.active() ? static_cast<float>(hell_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
     }
+    const juce::int64 c4 = juce::Time::getHighResolutionTicks();
     // v27 : l'EQ parametrique 6 bandes (contourne au neutre, au bit pres), l'analyseur de la page SOUND (PRE ou POST,
     // seulement quand la page est visible)
     {
@@ -1252,6 +1298,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         peq_.process(outL, outR, n);
         if (ana == 2) spec_.push(outL, outR, n);
     }
+    const juce::int64 c5 = juce::Time::getHighResolutionTicks();
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;
 
@@ -1265,6 +1312,22 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         fbChord_.store(sh.chord);
         fbMidi_.store(sh.midi);
         fbSeq_.fetch_add(1);
+    }
+    // v31 : le compteur CPU, par etage (le reste : les reglages, l'arpege, BASS MONO, le CHORUS, la prise de la chaine)
+    {
+        const double k = tickS_;
+        double st[kCpuN];
+        st[kCpuEngine] = static_cast<double>(c1 - cE) * k;
+        st[kCpuDisto] = static_cast<double>(c2 - c1) * k;
+        st[kCpuDelay] = fc.delay;
+        st[kCpuReverb] = fc.reverb;
+        st[kCpuHell] = static_cast<double>(c4 - c3) * k;
+        st[kCpuEqRack] = fc.rack + static_cast<double>(c5 - c4) * k;
+        st[kCpuTotal] = static_cast<double>(juce::Time::getHighResolutionTicks() - c0) * k;
+        st[kCpuRest] = std::max(0.0, st[kCpuTotal] - st[kCpuEngine] - st[kCpuDisto] - st[kCpuDelay] - st[kCpuReverb] - st[kCpuHell] - st[kCpuEqRack]);
+        cpuMeter(st, n);
+        cpuOs_.store(osAsked_, std::memory_order_relaxed);
+        cpuVoices_.store(voy_->activeVoices(), std::memory_order_relaxed);
     }
 }
 

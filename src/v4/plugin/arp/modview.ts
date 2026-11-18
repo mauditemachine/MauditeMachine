@@ -25,7 +25,10 @@ interface Track {
   trail: number[];
 }
 
-const TRAIL = 10;
+/** v31 : l'arc se redessine a 30 images par seconde au plus (FRAME_MS) ; la trainee garde sa duree (5 images de 33 ms,
+ *  10 de 16.7 ms avant) */
+const FRAME_MS = 33;
+const TRAIL = 5;
 /** le lissage de la valeur (s) et le resserrement de la plage (s) */
 const SMOOTH_S = 0.035;
 const RANGE_S = 1.6;
@@ -43,9 +46,19 @@ function publish(): void {
   listeners.forEach((fn) => fn());
 }
 
-function frame(now: number): void {
+function frame(): void {
   raf = 0;
   if (tracks.size === 0) return;
+  // l'horloge reelle (l'heure passee au rAF est celle du debut de l'image, en retard apres un minuteur)
+  const now = performance.now();
+  if (last && now - last < FRAME_MS - 6) {
+    // sous le plafond : un minuteur jusqu'a l'image suivante (raf reste non nul : rien d'autre ne relance la boucle)
+    raf = -1;
+    window.setTimeout(() => {
+      raf = window.requestAnimationFrame(frame);
+    }, Math.max(1, FRAME_MS - (now - last) - 4));
+    return;
+  }
   const dt = Math.min(0.1, Math.max(0, (now - (last || now)) / 1000));
   last = now;
   const a = 1 - Math.exp(-dt / SMOOTH_S);
@@ -58,7 +71,11 @@ function frame(now: number): void {
     if (t.trail.length > TRAIL) t.trail.length = TRAIL;
   }
   publish();
-  raf = window.requestAnimationFrame(frame);
+  // la suivante au plafond : directement sous un minuteur
+  raf = -1;
+  window.setTimeout(() => {
+    raf = window.requestAnimationFrame(frame);
+  }, FRAME_MS - 4);
 }
 
 export const arpMod = {

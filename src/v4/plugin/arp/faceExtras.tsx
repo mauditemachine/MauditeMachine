@@ -552,6 +552,9 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         ids: () => stage.hit.list().map((h) => h.id),
         params: () => ({ ...voyParams.get(), ...arpExtra.get() }),
         msg: () => voyMsg.get(),
+        // v31 : la cadence du rendu (frames rendues, rAF, temps JS des rendus, DPR, taille du canevas)
+        stats: () => ({ frames: stage.stats.frames, rafs: stage.stats.rafs, renderMs: stage.stats.renderMs, dpr: stage.stats.dpr, loop: stage.stats.loopActive }),
+        stage: () => stage,
       };
     const turn = (): void => {
       for (const t of turns) t();

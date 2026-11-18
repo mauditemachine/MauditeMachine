@@ -767,6 +767,36 @@ int main() {
               "taille : 1496 par defaut, la taille choisie gardee (1300), un projet v26-v28 a 1870 rouvre a " + std::to_string(w6) +
                   ", a 3300 a " + std::to_string(w6b) + ", un plus ancien (editorW5 2500) a " + std::to_string(w5));
     }
+    {
+        // v31 : le compteur CPU (la charge de l'instance par etage, lissee, et son pic) : des valeurs finies, le total
+        // au-dessus de la somme des etages mesures a part, le pic au-dessus de la moyenne, les voix et QUALITY (HQ : x8)
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 128);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        h.playing = true;
+        const bool idle0 = p.cpu(MMArpProcessor::kCpuTotal) == 0.f;
+        run(p, h, 48000, 128, nullptr, nullptr);
+        bool finite = true;
+        double parts = 0;
+        for (int i = 0; i < MMArpProcessor::kCpuN; ++i) {
+            finite = finite && std::isfinite(p.cpu(i)) && p.cpu(i) >= 0;
+            if (i != MMArpProcessor::kCpuTotal) parts += p.cpu(i);
+        }
+        const double tot = p.cpu(MMArpProcessor::kCpuTotal);
+        char buf[200];
+        std::snprintf(buf, sizeof buf, "v31 compteur CPU : total %.2f %% (etages %.2f %%), pic %.2f %%, moteur %.2f %%, %d voix, x%d", tot, parts, static_cast<double>(p.cpuPeak()),
+                      static_cast<double>(p.cpu(MMArpProcessor::kCpuEngine)), p.cpuVoices(), p.cpuOs());
+        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 8, buf);
+    }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;
 }

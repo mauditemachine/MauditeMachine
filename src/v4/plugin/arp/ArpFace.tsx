@@ -31,6 +31,7 @@ import { HellKnob } from './hellKnob';
 import { FaceExtras } from './faceExtras';
 import { FaceModArcs } from './FaceModArcs';
 import { FaceLook, FaceLookButton } from './LookPanel';
+import { FaceCpuMeter } from './CpuMeter';
 import './hypno';
 import { LearnMarks } from './HoodPanel';
 
@@ -152,6 +153,7 @@ const ArpFace: React.FC = () => {
         <FaceModArcs stage={stage} />
         <FaceLook stage={stage} />
         <FaceLookButton stage={stage} />
+        <FaceCpuMeter stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (

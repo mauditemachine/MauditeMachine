@@ -251,7 +251,7 @@ const Icon: React.FC = () => (
 /* ---------------- sur la face ---------------- */
 
 /** Le point de l'icone a l'ecran : a gauche de FIRMWARE, sur le panneau (projete par la camera). */
-function iconPoint(stage: Stage): [number, number] | null {
+export function iconPoint(stage: Stage): [number, number] | null {
   const rig = stage.voy;
   if (!rig || !VOY_HEAD.sub) return null;
   rig.panel.updateWorldMatrix(true, false);

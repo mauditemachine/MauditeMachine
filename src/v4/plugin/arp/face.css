@@ -663,3 +663,183 @@
     0 0 0 1px rgba(0, 0, 0, 0.7),
     0 2px 4px rgba(0, 0, 0, 0.7);
 }
+
+/* =====================================================================================================================
+   v31 (Mika : "un compteur de cpu en haut a droite du plugin") : le compteur CPU de cette instance (CpuMeter.tsx), sur la
+   face a gauche de SETTINGS et dans OPEN avant SETTINGS ; un petit afficheur sombre, la serigraphie claire, les chiffres
+   tabulaires ; l'accent au-dela de 50 %, rouge au-dela de 80 %. Le detail : les etages, le pic, les voix, le rendu.
+   ===================================================================================================================== */
+.mm-plugin-arp .mm-cpu {
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  margin: 0;
+  padding: 0 6px 0 7px;
+  border: 1px solid rgba(240, 234, 224, 0.16);
+  border-radius: 3px;
+  background: linear-gradient(#0b0a09, #12100f);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  color: #f0eae0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mm-plugin-arp .mm-cpu:hover,
+.mm-plugin-arp .mm-cpu[data-on='1'] {
+  border-color: rgba(240, 234, 224, 0.4);
+}
+.mm-plugin-arp .mm-cpu-k {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(240, 234, 224, 0.55);
+}
+.mm-plugin-arp .mm-cpu-v {
+  min-width: 17px;
+  text-align: right;
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.mm-plugin-arp .mm-cpu-u {
+  margin-left: -2px;
+  font-size: 6.5px;
+  font-weight: 600;
+  color: rgba(240, 234, 224, 0.55);
+}
+.mm-plugin-arp .mm-cpu-bar {
+  position: relative;
+  width: 26px;
+  height: 3px;
+  border-radius: 1px;
+  background: rgba(240, 234, 224, 0.12);
+}
+.mm-plugin-arp .mm-cpu-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  background: rgba(240, 234, 224, 0.75);
+}
+.mm-plugin-arp .mm-cpu-bar b {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+  margin-left: -1px;
+  background: #f0eae0;
+}
+.mm-plugin-arp .mm-cpu[data-level='hot'] .mm-cpu-v,
+.mm-plugin-arp .mm-cpu-tot[data-level='hot'] b {
+  color: var(--mm-accent);
+}
+.mm-plugin-arp .mm-cpu[data-level='hot'] .mm-cpu-bar i,
+.mm-plugin-arp .mm-cpu[data-level='hot'] .mm-cpu-bar b {
+  background: var(--mm-accent);
+}
+.mm-plugin-arp .mm-cpu[data-level='over'] .mm-cpu-v,
+.mm-plugin-arp .mm-cpu-tot[data-level='over'] b {
+  color: #ff3b30;
+}
+.mm-plugin-arp .mm-cpu[data-level='over'] .mm-cpu-bar i,
+.mm-plugin-arp .mm-cpu[data-level='over'] .mm-cpu-bar b {
+  background: #ff3b30;
+}
+.mm-plugin-arp .mm-cpu[data-level='over'] {
+  border-color: rgba(255, 59, 48, 0.6);
+}
+/* dans OPEN : dans la rangee de l'en-tete, avant SETTINGS */
+.mm-plugin-arp .mm-cpu-hood-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  pointer-events: auto;
+}
+.mm-plugin-arp .mm-cpu-hood {
+  height: 18px;
+}
+/* le detail */
+.mm-plugin-arp .mm-cpu-detail {
+  z-index: 80;
+  width: 230px;
+  padding: 10px 12px 9px;
+  border: 1px solid rgba(240, 234, 224, 0.18);
+  border-radius: 4px;
+  background: #0e0d0c;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  color: #f0eae0;
+  text-align: left;
+}
+.mm-plugin-arp .mm-cpu-title {
+  margin: 0 0 8px;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(240, 234, 224, 0.7);
+}
+.mm-plugin-arp .mm-cpu-detail ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mm-plugin-arp .mm-cpu-detail li {
+  display: grid;
+  grid-template-columns: 62px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+  height: 15px;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(240, 234, 224, 0.72);
+}
+.mm-plugin-arp .mm-cpu-detail li b {
+  text-align: right;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #f0eae0;
+}
+.mm-plugin-arp .mm-cpu-row-bar {
+  position: relative;
+  height: 3px;
+  border-radius: 1px;
+  background: rgba(240, 234, 224, 0.1);
+}
+.mm-plugin-arp .mm-cpu-row-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  background: rgba(240, 234, 224, 0.6);
+}
+.mm-plugin-arp .mm-cpu-detail li.mm-cpu-tot {
+  margin-top: 3px;
+  padding-top: 4px;
+  height: 18px;
+  border-top: 1px solid rgba(240, 234, 224, 0.14);
+  color: #f0eae0;
+}
+.mm-plugin-arp .mm-cpu-line {
+  margin: 6px 0 0;
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(240, 234, 224, 0.72);
+}
+.mm-plugin-arp .mm-cpu-note {
+  margin: 7px 0 0;
+  font-size: 7px;
+  line-height: 9.5px;
+  letter-spacing: 0.02em;
+  color: rgba(240, 234, 224, 0.45);
+}

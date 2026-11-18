@@ -38,6 +38,7 @@ private:
     // mm_mod : le dernier evenement envoye avait des reglages modules
     bool modSent_ = false;
     unsigned specTick_ = 0;
+    int cpuTick_ = 0; // v31 : le compteur CPU, 10 fois par seconde
     bool ready_ = false;
     bool sizing_ = true;  // pendant le constructeur : ne pas memoriser les tailles transitoires (880 force par les limites)
     // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)

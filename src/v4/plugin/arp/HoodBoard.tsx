@@ -39,6 +39,7 @@ import { CHORDS, degreeName } from '../../voyager/chords';
 import { SEQ_MIN, SEQ_TOP } from '../../voyager/seq';
 import { arpSpec, SPEC_BINS } from './spec';
 import { HoodLookButton } from './LookPanel';
+import { HoodCpuMeter } from './CpuMeter';
 import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, say, setFullName, SRC } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
@@ -1155,7 +1156,7 @@ const PageKeys: React.FC<{ onClose: () => void }> = ({ onClose }) => {
  * referme le capot, comme CLOSE ou Echap.
  */
 const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
-const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const Panel: React.FC<{ onClose: () => void; stage: Stage | null }> = ({ onClose, stage }) => {
   const { tab, fx, overlay } = useHoodPage();
   const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `EFFECTS / ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : fx === 'delay' ? 'DELAY' : 'DISTO'}` : PAGE_LABEL[tab];
   return (
@@ -1169,6 +1170,8 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <span className="mm-r-model">MM-ARP</span>
         </button>
         <PageKeys onClose={onClose} />
+        {/* v31 : le compteur CPU de cette instance, avant SETTINGS et la croix */}
+        <HoodCpuMeter stage={stage} />
         {/* Les reglages d'aspect (2026-11-16) : le cuir, la lumiere du panneau */}
         <HoodLookButton />
         {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
@@ -1290,7 +1293,7 @@ const HoodBody: React.FC<{ stage: Stage | null; leaving: boolean }> = ({ stage, 
         <PcbDefs />
         <div className="mm-p2-fade">
           <div className="mm-p2-board">
-            <Panel onClose={() => openToggle(stage, 'voy')} />
+            <Panel onClose={() => openToggle(stage, 'voy')} stage={stage} />
             {overlay ? (
               <Overlay which={overlay} />
             ) : (

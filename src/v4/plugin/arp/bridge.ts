@@ -69,6 +69,7 @@ import { hellMigrate } from './hell';
 import { distoFromPedal } from './disto';
 import { delayFromOld } from './delay';
 import { arpSpec } from './spec';
+import { cpuStore } from './cpu';
 import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
@@ -567,6 +568,8 @@ export const arpBridge = {
     be?.addEventListener('mm_mod', (o) => arpMod.receive(o));
     // L'analyseur de la page SOUND (v27, spec.ts) : le C++ ne le calcule que page ouverte (mm_view)
     be?.addEventListener('mm_spec', (o) => arpSpec.receive(o));
+    // v31 : le compteur CPU de cette instance (PluginEditor.cpp, 10 fois par seconde)
+    be?.addEventListener('mm_cpu', (o) => cpuStore.receive(o));
     arpSpec.onView((on) => send('mm_view', { spec: on }));
     midi.subscribe(onLearnPick);
     // Echap eteint MIDI LEARN d'abord (avant hooks/useKeys : le capot reste ouvert), sauf pendant le nom d'un preset

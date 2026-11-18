@@ -206,6 +206,21 @@ void MMArpEditor::saveMidi() {
 }
 
 void MMArpEditor::timerCallback() {
+    // v31 : le compteur CPU de la face, 10 fois par seconde : la charge de cette instance par etage (% du temps reel,
+    // lissee) et son pic tenu 1 s. La fenetre fermee, l'editeur n'existe plus : rien ne tourne ni ne s'envoie.
+    if (ready_ && ++cpuTick_ >= 3) {
+        cpuTick_ = 0;
+        juce::Array<juce::var> s;
+        for (int i = 0; i < MMArpProcessor::kCpuN; ++i) s.add(std::round(static_cast<double>(proc_.cpu(i)) * 100.0) / 100.0);
+        auto* o = new juce::DynamicObject();
+        o->setProperty("s", s);
+        o->setProperty("pk", std::round(static_cast<double>(proc_.cpuPeak()) * 100.0) / 100.0);
+        o->setProperty("os", proc_.cpuOs());
+        o->setProperty("voices", proc_.cpuVoices());
+        o->setProperty("sr", proc_.getSampleRate());
+        o->setProperty("block", proc_.getBlockSize());
+        browser_->emitEventIfBrowserIsVisible("mm_cpu", juce::var(o));
+    }
     // MIDI LEARN : la liste des CC a chaque changement
     if (ready_ && proc_.takeMapChanged()) browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap());
     // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face

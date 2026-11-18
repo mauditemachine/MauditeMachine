@@ -158,6 +158,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <complex>
 #include <cstdint>
 #include <memory>
@@ -756,7 +757,21 @@ public:
     int chorusMode() const { return mode_; }
     bool chorusLive() const { return branch_; }
 
+    /** v31 (le compteur CPU du plugin) : le temps passe (s) dans le DELAY (ping-pong et bande), la REVERB (convolueur,
+     *  BigSky, SHIMMER) et le rack (CRUSH, PHASER, FLANGER, PUMP, EQ 4 bandes, master) depuis le dernier appel. Thread
+     *  audio, sans allocation : quelques lectures de l'horloge par morceau de 128. */
+    struct Clock {
+        double delay = 0, reverb = 0, rack = 0;
+    };
+    Clock takeClock() {
+        const Clock c = clock_;
+        clock_ = {};
+        return c;
+    }
+
 private:
+    static double nowS() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+    Clock clock_;
     static constexpr int Q = 128; // le bloc de rendu du Web Audio
     void processPiece(const float* inL, const float* inR, float* outL, float* outR, int n);
     void chorusSet(int m);

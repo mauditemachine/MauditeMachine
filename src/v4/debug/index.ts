@@ -352,6 +352,7 @@ const NO_STATS: StageStats = {
   lastRenderAt: 0,
   loopActive: false,
   dpr: 0,
+  renderMs: 0,
   reset: () => undefined,
 };
 const DEGR = 180 / Math.PI;

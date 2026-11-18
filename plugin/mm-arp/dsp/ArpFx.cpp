@@ -2814,20 +2814,28 @@ void ArpFx::process(const float* inL, const float* inR, float* outL, float* outR
         const float* pR = inR + done;
         if (!pre_.bypassed()) {
             // CRUSH, PHASER, FLANGER : sur une copie de l'entree (au neutre : l'entree elle-meme)
+            const double t0 = nowS();
             std::copy(pL, pL + len, bPreL_.data());
             std::copy(pR, pR + len, bPreR_.data());
             pre_.process(bPreL_.data(), bPreR_.data(), len);
             pL = bPreL_.data();
             pR = bPreR_.data();
+            clock_.rack += nowS() - t0;
         }
         processPiece(pL, pR, outL + done, outR + done, len);
-        if (!pump_.bypassed()) pump_.process(outL + done, outR + done, len, ppq_ + done * pps_, pps_, playing_);
+        if (!pump_.bypassed()) {
+            const double t0 = nowS();
+            pump_.process(outL + done, outR + done, len, ppq_ + done * pps_, pps_, playing_);
+            clock_.rack += nowS() - t0;
+        }
         done += len;
     }
     ppq_ += n * pps_; // (sans setTransport avant le prochain bloc : la position continue)
     // l'EQ 4 bandes puis la section master du plugin, apres tout le reste (contournees au neutre)
+    const double t0 = nowS();
     eq_.process(outL, outR, n);
     master_.process(outL, outR, n);
+    clock_.rack += nowS() - t0;
 }
 
 std::shared_ptr<const ReverbIR> ArpFx::makeReverb(double sampleRate, double size, double tone, double pre) {
@@ -2898,6 +2906,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     bool dXf = dMode_ != dWant_ || dXf_.moving();
     const bool shOn = !shim_.bypassed();
     const int q0 = static_cast<int>(frame_ % Q);
+    const double tD = nowS(); // v31 : le DELAY (avec l'insert, VOLUME et les envois de cette boucle) et la bande
     for (int i = 0; i < n; ++i) {
         float cL, cR;
         if (direct_) {
@@ -3026,6 +3035,8 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* toR = bHiR_.data();
     if (!xTape_ && tape_.settled()) tape_.process(tinL, tinR, times, qFb_, qTape_, toL, toR, n, qStart, qEnd);
     else tape_.processX(tinL, tinR, times, aTs_.data(), qFb_, qTape_, toL, toR, n, qStart, qEnd, tx_); // v27
+    const double tR = nowS();
+    clock_.delay += tR - tD;
     // 5. la reverb
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();
@@ -3052,6 +3063,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         }
     }
     if (shOn) shim_.process(roL, roR, q0, n);
+    clock_.reverb += nowS() - tR;
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
     if (!xPost_)
         for (int i = 0; i < n; ++i) {
