@@ -138,6 +138,44 @@ int main() {
         auto* rangeRow = dynamic_cast<hl::KeyRow*>(find<hl::KeyRow>(ed.get(), ""));
         check(smear && std::fabs(smear->value01() - 0.8f) < 1e-6f && rangeRow && rangeRow->index() == 3, "automation : SMEAR 80 % et RANGE MIDI arrivent aux pieces");
     }
+    // 8. v1.1 : les potards tournent (le corps suit la valeur), un seul modele en tailles selon l'importance
+    {
+        auto* shift = find<hl::Knob>(ed.get(), "SHIFT");
+        auto* mixK = find<hl::Knob>(ed.get(), "MIX");
+        auto* fbK = find<hl::Knob>(ed.get(), "FEEDBACK");
+        auto* hpK = find<hl::Knob>(ed.get(), "HIGH-PASS");
+        check(shift && mixK && fbK && hpK && shift->knobSize() > mixK->knobSize() && mixK->knobSize() > fbK->knobSize() && fbK->knobSize() > hpK->knobSize(),
+              "tailles : SHIFT > MIX > FEEDBACK > HIGH-PASS");
+    }
+    // 9. v1.1 : le menu et le panneau SETTINGS (LEATHER TEXTURE, PANEL LIGHT, ACCENT COLOR, RESET), un clic dehors le ferme
+    {
+        hl::SharedLook look;
+        look->reset();
+        he->showSettings(true);
+        auto& sp = he->settingsPanel();
+        const bool shown = he->settingsShown() && sp.isVisible();
+        // un clic au debut du rail du cuir (0), au bout de celui de la lumiere (100), au milieu de la couleur (180 degres)
+        const auto r0 = sp.rail(0), r1 = sp.rail(1), r2 = sp.rail(2);
+        click(&sp, {r0.getX(), r0.getCentreY()});
+        click(&sp, {r1.getRight(), r1.getCentreY()});
+        click(&sp, {r2.getCentreX(), r2.getCentreY()});
+        const auto st = look->state();
+        const bool set = st.leather < 0.01f && st.light > 0.99f && st.hue == 180 && hl::accent() == hl::hueColour(180);
+        sp.mouseDoubleClick(ev(&sp, {r1.getCentreX(), r1.getCentreY()}, {r1.getCentreX(), r1.getCentreY()}, {}, 2));
+        const bool dbl = std::fabs(look->state().light - 0.5f) < 1e-6f;
+        click(&sp, sp.resetArea().getCentre());
+        const auto d = look->state();
+        const bool reset = std::fabs(d.leather - 0.7f) < 1e-6f && std::fabs(d.light - 0.5f) < 1e-6f && d.hue == 336 && hl::accent() == juce::Colour(0xffff0066);
+        // le voile sous le panneau : un clic dehors le ferme
+        juce::Component* scrim = nullptr;
+        for (auto* c : sp.getParentComponent()->getChildren())
+            if (c != &sp && c->isVisible() && c->getBounds() == sp.getParentComponent()->getLocalBounds()) scrim = c;
+        if (scrim) click(scrim, {600, 300});
+        char msg[200];
+        std::snprintf(msg, sizeof msg, "SETTINGS : ouvert %d, rails (cuir 0, lumiere 100, teinte 180) %d, double-clic %d, RESET (70, 50, #FF0066) %d, clic dehors ferme %d",
+                      shown, set, dbl, reset, !he->settingsShown());
+        check(shown && set && dbl && reset && scrim && !he->settingsShown(), msg);
+    }
     // 7. la taille : agrandie, gardee par le processeur
     {
         ed->setSize(1600, 992);

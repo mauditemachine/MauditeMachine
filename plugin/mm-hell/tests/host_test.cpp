@@ -60,14 +60,14 @@ int main() {
         MMHellProcessor p;
         prepare(p);
         const bool ok = mmhell::match(p.patch()) == mmhell::initIndex() && std::fabs(p.mix() - 0.35f) < 1e-6f && p.getParameters().size() == 22 &&
-                        p.getCurrentProgram() == mmhell::initIndex() && p.getNumPrograms() == 24 && p.getProgramName(0) == "SLOW ASCENT";
+                        p.getCurrentProgram() == mmhell::initIndex() && p.getNumPrograms() == 72 && p.getProgramName(0) == "SLOW ASCENT";
         juce::AudioProcessor::BusesLayout mono;
         mono.inputBuses.add(juce::AudioChannelSet::mono());
         mono.outputBuses.add(juce::AudioChannelSet::stereo());
         juce::AudioProcessor::BusesLayout bad;
         bad.inputBuses.add(juce::AudioChannelSet::stereo());
         bad.outputBuses.add(juce::AudioChannelSet::mono());
-        check(ok && p.checkBusesLayoutSupported(mono) && !p.checkBusesLayoutSupported(bad), "ouverture : INIT, MIX 35 %, 22 parametres, 24 programmes, entree mono ou stereo");
+        check(ok && p.checkBusesLayoutSupported(mono) && !p.checkBusesLayoutSupported(bad), "ouverture : INIT, MIX 35 %, 22 parametres, 72 programmes, entree mono ou stereo");
     }
     // 2. MIX 0 : le signal passe au bit pres, meme tout pousse
     {

@@ -19,7 +19,7 @@ Demande de Mika : « Echobod VST3 : je voudrais que tu fasses l'équivalent de E
   - la bande d'info : la pièce survolée, sa valeur, ce qu'elle fait (et l'option survolée pour RANGE, SHAPE, TARGET) ; le tempo et la note MIDI reçue.
 - **Les gestes de la face du MM-ARP** : glisser vertical (160 points pour toute la course, Maj : 4 fois plus fin), molette, double-clic ou Alt + clic = valeur par défaut, clic sur levier et touches. L'automation bouge les pièces.
 - **Taille** : un plan de 1000 x 620 mis à l'échelle, 1200 px de large à l'ouverture, de 80 % à 200 % par le coin, jamais plus grand que l'écran, gardée dans le projet.
-- **Bancs** (`tests/`) : `presets_test` (la banque = celle du MM-ARP, valeur par valeur, référence `presets_ref.inc` tirée de `hell.ts` ; le sens de chaque décalage mesuré sur le DSP ; stabilité des 24 presets ; textes), `host_test` (le vrai processeur sans fenêtre, 8/8), `ui_test` (la vraie fenêtre, gestes de la souris vers les paramètres, 11/11), `snapshot` (captures PNG). Tout passe aussi sous AddressSanitizer / UBSan (DSP et banque).
+- **Bancs** (`tests/`) : `presets_test` (la banque = celle du MM-ARP, valeur par valeur, référence `presets_ref.inc` tirée de `hell.ts` ; le sens de chaque décalage mesuré sur le DSP ; stabilité des 24 presets ; textes), `host_test` (le vrai processeur sans fenêtre, 8/8), `ui_test` (la vraie fenêtre, gestes de la souris vers les paramètres, 10/10), `snapshot` (captures PNG). Tout passe aussi sous AddressSanitizer / UBSan (DSP et banque).
 - **CI** `.github/workflows/plugin-hell.yml` : DSP et banque (Linux), processeur et fenêtre sans hôte (Linux, Xvfb, captures en artefact `MM-HELL-captures`), VST3 macOS universel signé ad hoc (artefact `MM-HELL-macOS`), puis la release `mm-hell-latest` si tout est vert.
 - `plugin/mm-hell/INSTALL.md`, `update.sh`, `README.md`.
 - `.github/workflows/plugin.yml` (MM-RYTM) : n'est plus déclenché par `plugin/mm-hell/**` (commit séparé, poussé seul avec `[skip ci]`).
@@ -59,3 +59,39 @@ Demande de Mika : « Echobod VST3 : je voudrais que tu fasses l'équivalent de E
   puis `xvfb-run -a ./build-host/mmhell_ui_test_artefacts/Release/mmhell_ui_test` et `xvfb-run -a ./build-host/mmhell_snapshot_artefacts/Release/mmhell_snapshot snapshots`
 - Workflow GitHub **Plugin MM-HELL** (`.github/workflows/plugin-hell.yml`) : artefacts `MM-HELL-macOS` et `MM-HELL-captures`, release `mm-hell-latest`.
 - Validation optionnelle (Mac, avec pluginval installé) : `pluginval --strictness-level 10 --validate /Library/Audio/Plug-Ins/VST3/MM-HELL.vst3`
+
+## Suite (v1.1) : potards qui tournent, 48 presets, menu SETTINGS
+
+Demande de Mika : « que les knobs tournent vraiment ; plus de presets, vraiment plus, complètement différents ; des knobs comme l'image 1 (le potard du MM-RYTM) de tailles différentes selon l'importance, pas comme l'image 2 (le petit knob cannelé) ; un bouton settings dans un menu hamburger, à gauche, avec ces paramètres (l'image 3 : LEATHER TEXTURE, PANEL LIGHT, ACCENT COLOR) ».
+
+### 1. Ce qui a été fait
+
+- **Les potards tournent** (`src/HellControls.cpp`, `Knob`) : le corps du potard du MM-RYTM (base, prise à six lobes, repère) tourne avec la valeur ; le capuchon de métal brossé reste fixe par-dessus (sa lumière ne tourne pas, comme un vrai potard éclairé d'en haut) ; l'ombre reste fixe. Le corps est mis à l'échelle une fois, à la résolution de l'écran, puis dessiné tourné.
+- **Un seul modèle, six tailles selon l'importance** : le décaleur 120, MIX 80, DELAY et FEEDBACK 60, RATE et AMOUNT 54, les réglages fins 44 (HIGH-PASS, LOW-PASS, SMEAR, SIDEBAND, PHASE, SPREAD). Le petit knob cannelé est retiré (`assets/fine-knob.png` supprimé). Chaque potard a ses bouts de course (OFF / 4K, 300 / OFF, 0° / 360°…).
+- **48 nouveaux presets** (`dsp/HellPatch.cpp`), 72 au total, en 8 familles : THE CLASSICS et MORE HELL (les 24 du MM-ARP), puis six familles de 8 :
+  - SPACE & DUB : DARK DISCO THROW, WAREHOUSE, SPACE TAPE, DUB TECHNO CHORD, SLAPBACK, HAAS WIDENER, BASS SAFE DUB, HYPNO THROW ;
+  - METAL & RESONATORS : STEEL STRING (une corde accordée en La), IRON BELL, GONG CHAMBER, TIN ROBOT, SPRING TANK, ANVIL, GLASS TUBE, RUSTY PIPE ;
+  - MOTION : WIDE CHORUS, JET FLANGER, BARBER FLANGE (flanger sans fin), PHASE WASH, ROTARY, VIBRATO, DOPPLER RIDE, SEASICK ;
+  - SPIRALS & ALIENS : SHEPARD RISE, SHEPARD FALL, VORTEX, DALEK, ALIEN RADIO, LASER FIGHT, SONAR, WORMHOLE ;
+  - HARMONIC & RHYTHM : FIFTH LADDER, OCTAVE CLIMB, SUB SHADOW, HARMONIC CHOIR (les quatre suivent la note MIDI : chaque répétition monte dans les harmoniques de la note), STUTTER, TEMPO SIREN, POLYRHYTHM, RANDOM ARP ;
+  - TEXTURES & DRONES : FROZEN LAKE, INFINITE DESCENT, BLACK HOLE, SPARKLE DUST, UNDERWATER, HAUNTED HALL, BROKEN MACHINE, ACID WATER.
+- **La banque** se déroule en 4 colonnes, une section par famille ; la fenêtre montre le numéro et la famille (« 49 / 72 SPIRALS & ALIENS »).
+- **Le menu** (trois traits, en haut à gauche, le wordmark décalé à droite) : SETTINGS, WINDOW SIZE (80, 100, 120, 150, 200 %), la ligne de firmware.
+- **Le panneau SETTINGS** (`HellViews.cpp`, `SettingsPanel`), dessiné comme celui du MM-ARP (`LookPanel.tsx`, `face.css .mm-look`) : LEATHER TEXTURE, PANEL LIGHT, ACCENT COLOR (la roue des teintes vives et sa pastille), RESET ; glisser, molette, double-clic = valeur de départ ; un clic dehors le ferme. Mêmes lois que `look.ts` et `accent.ts` : cuir 0,7 au départ, lumière 0,5 neutre, teinte 336 = #FF0066 (TSV 100 %, 100 %).
+- **La couleur d'accent** est réglable partout : LED, valeurs, sélections, échelle, ECHO MAP, banque, menus (`hl::accent()`).
+- **FIRMWARE V.1.1** (version CMake 1.1.0).
+- **Bancs** : `presets_test` (72 presets, les 24 premiers = MM-ARP, 8 familles, noms uniques, sens des décalages, niveaux, stabilité), `host_test` (72 programmes), `ui_test` (tailles des potards ; SETTINGS : rails, double-clic, RESET, clic dehors ; 12/12), captures (`10-settings`, `11-iron-bell`, `12-fifth-ladder`).
+
+### 2. Décisions prises et pourquoi
+
+- **« Tourner vraiment »** : avant, l'image du potard restait fixe et seul le repère bougeait (comme dans le MM-ARP). Maintenant les lobes tournent avec le repère. Le capuchon ne tourne pas : son reflet de métal brossé vient de la lumière, qui ne bouge pas.
+- **Presets mesurés faute de pouvoir les écouter** : chaque preset est rendu sur un même son (dent de scie de 220 Hz et coup de bruit), et j'ai comparé leurs signatures (durée, brillance, dérive de hauteur, largeur stéréo, mouvement). Trois paires trop proches ont été retravaillées : TREMOLO SHIFT, trop proche de DALEK, est devenu DOPPLER RIDE ; RANDOM ARP et WORMHOLE ont été éloignés de SULFUR RAIN et VORTEX ; TEMPO SIREN a été rendu plus vif. Niveaux mouillés : de -14,8 à +2,6 dB de l'entrée, crête max 1,7 (`presets_test` borne à -20 / +6 dB). Aucun ne saute au visage.
+- **Le sens suit le signe** pour les nouveaux presets (SIDEBAND UP, décalage négatif = descente) : la leçon des cinq presets corrigés.
+- **Les presets MIDI** (HARMONIC) : un décalage égal à une fraction de la note jouée tombe sur ses harmoniques (0,5 x : quinte, octave, tierce… ; 1 x : octave, puis quinte au-dessus). Sans MIDI routé, le décalage reste à 0.
+- **SETTINGS pour tous les MM-HELL** et gardés sur le Mac (`~/Library/Application Support/Maudite Machine/MM-HELL.settings`), pas dans le projet : c'est l'aspect de l'atelier, pas un réglage de son ; toutes les fenêtres ouvertes suivent tout de suite.
+- **PANEL LIGHT un peu plus marqué qu'en CSS** (x 1,7) : dans le MM-ARP la variation s'applique deux fois (laque et cuir) ; ici une seule couche.
+
+### 3. Ce qui reste à faire / points en suspens
+
+- **Mika** : installer la v1.1 (même commande `update.sh`), tourner les potards, ouvrir le menu, essayer SETTINGS, et **écouter les 48 nouveaux presets** (réglés et mesurés, jamais écoutés). Dire lesquels garder, lesquels refaire.
+- Les presets HARMONIC ont besoin d'une note MIDI routée vers MM-HELL.

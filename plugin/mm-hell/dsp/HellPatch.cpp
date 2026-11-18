@@ -90,7 +90,7 @@ HellPreset P(const char* name, const char* desc, const std::function<void(U&)>& 
     p.lfoAmt = o.amt;
     p.lfoStereo = o.st;
     p.lfoTarget = indexOf(kTargetNames, 4, o.tgt);
-    return {name, desc, p};
+    return {name, desc, p, {}};
 }
 
 // 2026-11-18, une correction du MM-ARP : BARBER DOWN, ABYSS, DEEP STAIRS, SULFUR RAIN et HELLFIRE SWELL avaient un
@@ -254,6 +254,156 @@ std::vector<HellPreset> build() {
         u.lp = 1800;
         u.ar = true;
     }));
+    for (size_t i = 0; i < b.size(); ++i) b[i].bank = i < 12 ? "THE CLASSICS" : "MORE HELL";
+
+    // ---- v1.1 (2026-11-18) : 48 presets propres au MM-HELL, six categories de huit, chacun dans un coin different ----
+    // Le sens du decalage suit son signe (SIDEBAND UP) ; DOWN ne sert qu'a la bande seule voulue. Les temps libres : 5 ms
+    // au moins (la loi de DELAY). RANGE MIDI : le decalage suit la note recue (route une piste MIDI vers MM-HELL).
+    std::string bank;
+    const auto add = [&](const char* name, const char* desc, const std::function<void(U&)>& f) {
+        b.push_back(P(name, desc, f));
+        b.back().bank = bank;
+    };
+
+    bank = "SPACE & DUB";
+    add("DARK DISCO THROW", "Dotted-eighth throws that sink a little, dark and narrow", [](U& u) {
+        u.t = "1/8."; u.fb = 0.62; u.sh = -4; u.lp = 2600; u.hp = 220; u.smear = 0.2;
+    });
+    add("WAREHOUSE", "Wide crossed echoes bouncing off concrete", [](U& u) {
+        u.t = "1/4"; u.fb = 0.7; u.sh = 3; u.cross = true; u.sp = 0.8; u.lp = 3500; u.hp = 160; u.smear = 0.45;
+    });
+    add("SPACE TAPE", "A worn tape echo: wow, flutter and a soft top", [](U& u) {
+        u.t = "1/4T"; u.fb = 0.76; u.sh = 0; u.lrHz = 0.6; u.amt = 0.18; u.tgt = "DELAY"; u.lp = 2800; u.hp = 120; u.smear = 0.15;
+    });
+    add("DUB TECHNO CHORD", "A slow filter breathes over long, smeared repeats", [](U& u) {
+        u.t = "1/8."; u.fb = 0.86; u.sh = 0; u.cross = true; u.smear = 0.35; u.lp = 1600; u.hp = 250; u.lrNote = "2 BAR"; u.amt = 0.6;
+        u.tgt = "LOW-PASS";
+    });
+    add("SLAPBACK", "One short, clean bounce, like a fifties vocal", [](U& u) { u.tMs = 95; u.fb = 0.12; u.sh = 0; u.lp = 4500; u.hp = 120; });
+    add("HAAS WIDENER", "No repeats: a tiny offset that widens a mono sound", [](U& u) { u.tMs = 5; u.fb = 0; u.sh = 0; u.sp = 1; });
+    add("BASS SAFE DUB", "Echoes without the lows: kick and bass stay clean", [](U& u) { u.t = "1/8."; u.fb = 0.7; u.sh = -3; u.hp = 420; u.lp = 3200; });
+    add("HYPNO THROW", "Quarter-note echoes on a slow random walk of pitch", [](U& u) {
+        u.t = "1/4"; u.fb = 0.74; u.sh = 0; u.shape = "RANDOM"; u.lrNote = "1 BAR"; u.amt = 0.25; u.st = true; u.lp = 4000; u.hp = 180;
+    });
+
+    bank = "METAL & RESONATORS";
+    add("STEEL STRING", "A plucked string tuned to A: every hit rings like a guitar", [](U& u) {
+        u.tMs = 9.09; u.fb = 0.93; u.sh = 0; u.lp = 6000; u.hp = 60;
+    });
+    add("IRON BELL", "A short metal comb, shifted: inharmonic bell tones", [](U& u) { u.tMs = 7; u.fb = 0.9; u.sh = 23; u.lp = 9000; u.hp = 150; });
+    add("GONG CHAMBER", "A smeared, sinking gong that never quite stops", [](U& u) {
+        u.tMs = 23; u.fb = 0.92; u.sh = -9; u.smear = 0.6; u.lp = 5000; u.ar = true;
+    });
+    add("TIN ROBOT", "A short ring-modulated box: a talking robot", [](U& u) {
+        u.tMs = 11; u.fb = 0.55; u.range = "WIDE"; u.sh = 160; u.ud = 0.5; u.hp = 200; u.lp = 7000;
+    });
+    add("SPRING TANK", "Boingy, diffused and bright, like a cheap spring", [](U& u) {
+        u.tMs = 33; u.fb = 0.8; u.sh = 0; u.smear = 1; u.hp = 400; u.lp = 6500; u.lrHz = 4.5; u.amt = 0.08; u.tgt = "DELAY";
+    });
+    add("ANVIL", "Hard metallic hits, both sidebands, very short", [](U& u) { u.tMs = 5; u.fb = 0.86; u.sh = 47; u.ud = 0.5; u.hp = 500; });
+    add("GLASS TUBE", "A glassy tube resonance climbing with each pass", [](U& u) { u.tMs = 6; u.fb = 0.9; u.sh = 5; u.hp = 900; u.lp = 12000; });
+    add("RUSTY PIPE", "A dark, dull pipe resonance with a slow wobble", [](U& u) {
+        u.tMs = 14; u.fb = 0.9; u.sh = 0; u.lp = 1400; u.hp = 90; u.lrHz = 0.3; u.amt = 0.12; u.tgt = "DELAY";
+    });
+
+    bank = "MOTION";
+    add("WIDE CHORUS", "A lush stereo chorus, almost no repeats", [](U& u) {
+        u.tMs = 22; u.fb = 0.1; u.sh = 0; u.lrHz = 0.8; u.amt = 0.5; u.tgt = "DELAY"; u.st = true; u.sp = 0.3;
+    });
+    add("JET FLANGER", "A slow jet sweep with a resonant edge", [](U& u) {
+        u.tMs = 5; u.fb = 0.75; u.sh = 0; u.lrHz = 0.12; u.amt = 0.95; u.tgt = "DELAY"; u.st = true;
+    });
+    add("BARBER FLANGE", "An endless flanger that keeps falling", [](U& u) { u.tMs = 6; u.fb = 0.8; u.sh = -3; });
+    add("PHASE WASH", "A hollow phaser swirl in stereo", [](U& u) {
+        u.tMs = 5; u.fb = 0.55; u.sh = 0; u.lrHz = 0.25; u.amt = 1; u.tgt = "PHASE"; u.st = true;
+    });
+    add("ROTARY", "A spinning speaker: doppler wobble from left to right", [](U& u) {
+        u.tMs = 8; u.fb = 0.2; u.sh = 0; u.lrHz = 6.2; u.amt = 0.3; u.tgt = "FREQ"; u.st = true; u.sp = 0.2;
+    });
+    add("VIBRATO", "Pitch vibrato on the wet signal: turn MIX to full", [](U& u) {
+        u.tMs = 12; u.fb = 0; u.sh = 0; u.lrHz = 5.5; u.amt = 0.7; u.tgt = "DELAY";
+    });
+    add("DOPPLER RIDE", "A saw sweeps the delay time: every echo bends like a passing car", [](U& u) {
+        u.tMs = 300; u.fb = 0.45; u.sh = 0; u.shape = "SAW"; u.lrHz = 1.5; u.amt = 0.9; u.tgt = "DELAY"; u.lp = 6000;
+    });
+    add("SEASICK", "Everything drifts out of tune and back", [](U& u) {
+        u.t = "1/8"; u.fb = 0.5; u.sh = 0; u.lrHz = 0.18; u.amt = 0.45; u.tgt = "FREQ"; u.st = true; u.smear = 0.3;
+    });
+
+    bank = "SPIRALS & ALIENS";
+    add("SHEPARD RISE", "A dense, endless rising tone: the classic illusion", [](U& u) {
+        u.t = "1/32"; u.fb = 0.95; u.sh = 4; u.smear = 0.5; u.hp = 180; u.lp = 6500;
+    });
+    add("SHEPARD FALL", "Crossed triplet stairs that keep falling", [](U& u) {
+        u.t = "1/8T"; u.fb = 0.92; u.sh = -6; u.smear = 0.5; u.hp = 250; u.lp = 4000; u.ar = true; u.cross = true;
+    });
+    add("VORTEX", "Fast crossed spirals turning in the stereo field", [](U& u) {
+        u.tMs = 35; u.fb = 0.9; u.sh = 31; u.cross = true; u.sp = 0.5; u.smear = 0.6;
+    });
+    add("DALEK", "A low ring modulator: an alien voice", [](U& u) { u.tMs = 5; u.fb = 0.1; u.sh = 30; u.ud = 0.5; });
+    add("ALIEN RADIO", "Far shifted chatter that jumps at random", [](U& u) {
+        u.tMs = 120; u.fb = 0.7; u.range = "WIDE"; u.sh = 1800; u.ud = 0.5; u.hp = 600; u.lp = 6000; u.shape = "RANDOM"; u.lrNote = "1/8";
+        u.amt = 0.5;
+    });
+    add("LASER FIGHT", "Zapping repeats that shoot upward", [](U& u) { u.t = "1/32"; u.fb = 0.8; u.range = "WIDE"; u.sh = 700; u.hp = 400; });
+    add("SONAR", "Deep, ghostly pings with a double underneath", [](U& u) {
+        u.tMs = 480; u.fb = 0.68; u.sh = 70; u.ud = 0.5; u.lp = 2200; u.hp = 300; u.smear = 0.5;
+    });
+    add("WORMHOLE", "A dark whirlpool that speeds up and slows down", [](U& u) {
+        u.tMs = 140; u.fb = 0.9; u.sh = -17; u.lrHz = 0.15; u.amt = 0.6; u.tgt = "FREQ"; u.smear = 0.2; u.lp = 3000; u.ar = true; u.st = true;
+    });
+
+    bank = "HARMONIC & RHYTHM";
+    add("FIFTH LADDER", "Climbs the harmonics of the played note: fifth, octave... (route MIDI)", [](U& u) {
+        u.t = "1/16."; u.fb = 0.7; u.range = "MIDI"; u.sh = 0.5; u.hp = 100;
+    });
+    add("OCTAVE CLIMB", "Octave, then fifth above, each repeat a harmonic higher (route MIDI)", [](U& u) {
+        u.t = "1/8."; u.fb = 0.6; u.range = "MIDI"; u.sh = 1; u.hp = 120; u.lp = 9000;
+    });
+    add("SUB SHADOW", "An octave below the played note, then gone (route MIDI)", [](U& u) {
+        u.t = "1/4"; u.fb = 0.45; u.range = "MIDI"; u.sh = -0.5; u.ar = true; u.lp = 1500;
+    });
+    add("HARMONIC CHOIR", "Harmonics spread both ways around the note (route MIDI)", [](U& u) {
+        u.tMs = 90; u.fb = 0.75; u.range = "MIDI"; u.sh = 0.25; u.ud = 0.5; u.smear = 0.7; u.lp = 5000;
+    });
+    add("STUTTER", "The delay time jumps on the grid: glitchy stutters", [](U& u) {
+        u.t = "1/32"; u.fb = 0.85; u.sh = 0; u.shape = "SQUARE"; u.lrNote = "1/8"; u.amt = 1; u.tgt = "DELAY";
+    });
+    add("TEMPO SIREN", "A tempo-locked shift that a saw drags up every bar", [](U& u) {
+        u.t = "1/8"; u.fb = 0.72; u.range = "SYNC"; u.sh = 8; u.shape = "SAW"; u.lrNote = "1/2"; u.amt = 0.8; u.hp = 300;
+    });
+    add("POLYRHYTHM", "Triplet echoes against straight phase flips", [](U& u) {
+        u.t = "1/8T"; u.fb = 0.7; u.cross = true; u.sp = 1; u.sh = 5; u.shape = "SQUARE"; u.lrNote = "1/4"; u.amt = 1; u.tgt = "PHASE"; u.st = true;
+    });
+    add("RANDOM ARP", "A random step of pitch on every sixteenth", [](U& u) {
+        u.t = "1/16"; u.fb = 0.7; u.sh = 0; u.shape = "RANDOM"; u.lrNote = "1/16"; u.amt = 0.9; u.tgt = "FREQ"; u.hp = 200;
+    });
+
+    bank = "TEXTURES & DRONES";
+    add("FROZEN LAKE", "Near-infinite, diffused and still: a drone pad", [](U& u) {
+        u.tMs = 900; u.fb = 0.97; u.sh = 3; u.smear = 0.9; u.lp = 3200; u.hp = 300;
+    });
+    add("INFINITE DESCENT", "A falling drone that never ends", [](U& u) {
+        u.t = "1/2"; u.fb = 0.98; u.sh = -12; u.smear = 0.7; u.ar = true; u.lp = 5000; u.hp = 150;
+    });
+    add("BLACK HOLE", "Everything collapses into a dark rumble", [](U& u) {
+        u.tMs = 40; u.fb = 0.97; u.sh = -80; u.smear = 1; u.lp = 900; u.ar = true;
+    });
+    add("SPARKLE DUST", "Bright glitter flying upward at random", [](U& u) {
+        u.tMs = 25; u.fb = 0.82; u.range = "WIDE"; u.sh = 1200; u.hp = 2000; u.smear = 0.6; u.shape = "RANDOM"; u.lrNote = "1/16"; u.amt = 0.5;
+    });
+    add("UNDERWATER", "Submerged: a slow low-pass sweeps the repeats", [](U& u) {
+        u.tMs = 60; u.fb = 0.7; u.sh = 0; u.lp = 700; u.smear = 0.5; u.lrHz = 0.3; u.amt = 1; u.tgt = "LOW-PASS"; u.st = true;
+    });
+    add("HAUNTED HALL", "A ghostly hall that beats slowly", [](U& u) {
+        u.t = "1/4"; u.fb = 0.88; u.sh = 3; u.ud = 0.5; u.smear = 0.9; u.lp = 2500; u.hp = 200;
+    });
+    add("BROKEN MACHINE", "Folding, glitching repeats: no anti-reflection", [](U& u) {
+        u.tMs = 13; u.fb = 0.8; u.range = "WIDE"; u.sh = -300; u.shape = "RANDOM"; u.lrNote = "1/16"; u.amt = 0.8; u.tgt = "DELAY";
+    });
+    add("ACID WATER", "A saw opens the low-pass on every eighth", [](U& u) {
+        u.t = "1/16"; u.fb = 0.75; u.sh = 20; u.shape = "SAW"; u.lrNote = "1/8"; u.amt = 0.8; u.tgt = "LOW-PASS"; u.lp = 1500;
+    });
     return b;
 }
 

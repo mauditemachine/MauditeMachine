@@ -54,7 +54,7 @@ void paintShiftScale(juce::Graphics& g, juce::Point<float> c, int range) {
         const auto a = polar(c, v, r0), b = polar(c, v, r1 + 2), p = polar(c, v, rt);
         g.setColour(kSilk.withAlpha(0.9f));
         g.drawLine(a.x, a.y, b.x, b.y, 1.3f);
-        text(g, t, {p.x - 18, p.y - 6, 36, 12}, f, zero ? kAccent : kSilk.withAlpha(0.9f));
+        text(g, t, {p.x - 18, p.y - 6, 36, 12}, f, zero ? accent() : kSilk.withAlpha(0.9f));
     };
     for (const auto& m : half) {
         mark(m.v, m.t, false);
@@ -332,7 +332,7 @@ void EchoMap::paint(juce::Graphics& g) {
     g.drawImage(glass, b);
     const auto inner = b.reduced(3);
     text(g, "ECHO MAP", {inner.getX() + 8, inner.getY() + 5, 80, 9}, font(6.5f, Weight::Bold, 0.24f), kSilkDim, juce::Justification::centredLeft);
-    text(g, head_, {inner.getX() + 70, inner.getY() + 5, inner.getWidth() - 78, 9}, font(6.5f, Weight::Semibold, 0.08f), kAccent, juce::Justification::centredRight);
+    text(g, head_, {inner.getX() + 70, inner.getY() + 5, inner.getWidth() - 78, 9}, font(6.5f, Weight::Semibold, 0.08f), accent(), juce::Justification::centredRight);
     const juce::Rectangle<float> plot(inner.getX() + 26, inner.getY() + 20, inner.getWidth() - 34, inner.getHeight() - 46);
     const double fLo = 25, fHi = 18000;
     const auto yOf = [&](double f) {
@@ -374,7 +374,7 @@ void EchoMap::paint(juce::Graphics& g) {
         g.fillEllipse(x - 3, y - 3, 6, 6);
     }
     // les repetitions : la plus forte de chaque tour reliee (la spirale), toutes en points
-    const juce::Colour cc[2] = {kAccent, kCream};
+    const juce::Colour cc[2] = {accent(), kCream};
     for (int chain = 0; chain < 2; ++chain) {
         juce::Path line;
         line.startNewSubPath(xOf(0), yOf(f0_));
@@ -429,39 +429,50 @@ void PresetWindow::paint(juce::Graphics& g) {
     const auto& bank = mmhell::factory();
     const int n = static_cast<int>(bank.size());
     const bool known = match_ >= 0 && match_ < n;
-    const juce::String num = known ? juce::String(match_ + 1).paddedLeft('0', 2) + " / " + juce::String(n) : "-- / " + juce::String(n);
+    const juce::String num = known ? juce::String(match_ + 1).paddedLeft('0', 2) + " / " + juce::String(n) + "   " + juce::String(bank[static_cast<size_t>(match_)].bank)
+                                   : "-- / " + juce::String(n);
     const juce::String name = known ? juce::String(bank[static_cast<size_t>(match_)].name) : "YOUR SETTING";
     const juce::String desc = known ? juce::String(bank[static_cast<size_t>(match_)].desc)
                                     : (last_ >= 0 && last_ < n ? "Edited from " + juce::String(bank[static_cast<size_t>(last_)].name) + ". A preset sets everything but MIX."
                                                                : "A preset sets every HELL control except MIX.");
-    text(g, num, {in.getX(), in.getY(), 60, 9}, font(6.5f, Weight::Semibold, 0.24f), kSilk.withAlpha(0.5f), juce::Justification::centredLeft);
+    text(g, num, {in.getX(), in.getY(), in.getWidth() - 16, 9}, font(6.5f, Weight::Semibold, 0.24f), kSilk.withAlpha(0.5f), juce::Justification::centredLeft);
     // le nom a l'accent, avec son halo
     const auto nf = font(13.5f, Weight::Bold, 0.06f);
     const juce::Rectangle<float> nr(in.getX(), in.getY() + 9, in.getWidth() - 16, 17);
-    text(g, name, nr.translated(0, 0.5f), nf, kAccent.withAlpha(0.25f), juce::Justification::centredLeft);
-    text(g, name, nr, nf, kAccent, juce::Justification::centredLeft);
+    text(g, name, nr.translated(0, 0.5f), nf, accent().withAlpha(0.25f), juce::Justification::centredLeft);
+    text(g, name, nr, nf, accent(), juce::Justification::centredLeft);
     text(g, desc, {in.getX(), in.getY() + 27, in.getWidth() - 16, 10}, font(7.f, Weight::Medium, 0.03f), kSilk.withAlpha(0.6f), juce::Justification::centredLeft);
     // le chevron : la banque se deroule
     juce::Path tri;
     const float cx = in.getRight() - 4, cy = in.getCentreY();
     tri.addTriangle(cx - 4, cy - 2, cx + 4, cy - 2, cx, cy + 3);
-    g.setColour(isMouseOver() ? kAccent : kSilkDim);
+    g.setColour(isMouseOver() ? accent() : kSilkDim);
     g.fillPath(tri);
 }
 
 void PresetWindow::mouseDown(const juce::MouseEvent&) {
+    // la banque : une section par categorie ; THE CLASSICS et MORE HELL (ceux du MM-ARP) en premiere colonne, puis deux
+    // categories par colonne
     const auto& bank = mmhell::factory();
     juce::PopupMenu m;
-    m.addSectionHeader("THE CLASSICS");
+    juce::String cur;
+    int inColumn = 0;
     for (size_t i = 0; i < bank.size(); ++i) {
-        if (i == 12) {
-            m.addColumnBreak();
-            m.addSectionHeader("MORE HELL");
+        const juce::String b(bank[i].bank);
+        if (b != cur) {
+            const bool newColumn = !cur.isEmpty() && (b == "SPACE & DUB" || inColumn >= 2);
+            if (newColumn) {
+                m.addColumnBreak();
+                inColumn = 0;
+            }
+            m.addSectionHeader(b);
+            cur = b;
+            ++inColumn;
         }
         m.addItem(static_cast<int>(i) + 1, juce::String(static_cast<int>(i) + 1).paddedLeft('0', 2) + "  " + juce::String(bank[i].name), true, static_cast<int>(i) == match_);
     }
     juce::Component::SafePointer<PresetWindow> safe(this);
-    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()), [safe](int r) {
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [safe](int r) {
         if (safe && r > 0 && safe->onLoad) safe->onLoad(r - 1);
     });
 }
@@ -471,7 +482,7 @@ void PresetWindow::mouseDown(const juce::MouseEvent&) {
 MenuLook::MenuLook() {
     setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff0a0908));
     setColour(juce::PopupMenu::textColourId, kSilk);
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, kAccent.withAlpha(0.18f));
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, accent().withAlpha(0.18f));
     setColour(juce::PopupMenu::highlightedTextColourId, juce::Colour(0xfffff4ea));
 }
 
@@ -481,18 +492,34 @@ void MenuLook::drawPopupMenuBackground(juce::Graphics& g, int width, int height)
     g.drawRect(0, 0, width, height, 1);
 }
 
-void MenuLook::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area, bool isSeparator, bool, bool isHighlighted, bool isTicked, bool,
-                                 const juce::String& t, const juce::String&, const juce::Drawable*, const juce::Colour*) {
-    if (isSeparator) return;
+void MenuLook::drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area, bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
+                                 bool hasSubMenu, const juce::String& t, const juce::String&, const juce::Drawable*, const juce::Colour*) {
+    if (isSeparator) {
+        g.setColour(kSilk.withAlpha(0.12f));
+        g.fillRect(area.toFloat().reduced(10, 0).withSizeKeepingCentre(area.getWidth() - 20.f, 1.f));
+        return;
+    }
     auto r = area.toFloat().reduced(4, 1);
-    if (isHighlighted || isTicked) {
-        g.setColour(kAccent.withAlpha(isHighlighted ? 0.22f : 0.12f));
+    if ((isHighlighted && isActive) || isTicked) {
+        g.setColour(accent().withAlpha(isHighlighted ? 0.22f : 0.12f));
         g.fillRoundedRectangle(r, 2);
     }
-    const juce::String num = t.upToFirstOccurrenceOf("  ", false, false), name = t.fromFirstOccurrenceOf("  ", false, false);
     const auto f = font(8.5f, Weight::Semibold, 0.06f);
-    text(g, num, r.withWidth(22).translated(6, 0), f, kSilk.withAlpha(0.4f), juce::Justification::centredLeft);
-    text(g, name, r.withTrimmedLeft(30), f, isTicked ? kAccent : isHighlighted ? juce::Colour(0xfffff4ea) : kSilk.withAlpha(0.85f), juce::Justification::centredLeft);
+    const juce::Colour main = !isActive ? kSilk.withAlpha(0.35f) : isTicked ? accent() : isHighlighted ? juce::Colour(0xfffff4ea) : kSilk.withAlpha(0.85f);
+    // un preset : "07  NOM" (le numero en retrait) ; sinon le texte seul
+    if (t.length() > 4 && t.substring(2, 4) == "  " && t.substring(0, 2).containsOnly("0123456789")) {
+        text(g, t.substring(0, 2), r.withWidth(22).translated(6, 0), f, kSilk.withAlpha(0.4f), juce::Justification::centredLeft);
+        text(g, t.substring(4), r.withTrimmedLeft(30), f, main, juce::Justification::centredLeft);
+    } else {
+        text(g, t, r.withTrimmedLeft(10), f, main, juce::Justification::centredLeft);
+    }
+    if (hasSubMenu) {
+        juce::Path tri;
+        const float x = r.getRight() - 8, y = r.getCentreY();
+        tri.addTriangle(x - 2.5f, y - 3.5f, x - 2.5f, y + 3.5f, x + 2.5f, y);
+        g.setColour(main);
+        g.fillPath(tri);
+    }
 }
 
 void MenuLook::drawPopupMenuSectionHeader(juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& sectionName) {
@@ -504,6 +531,168 @@ juce::Font MenuLook::getPopupMenuFont() { return font(9.f, Weight::Semibold, 0.0
 void MenuLook::getIdealPopupMenuItemSize(const juce::String& t, bool isSeparator, int, int& idealWidth, int& idealHeight) {
     idealHeight = isSeparator ? 6 : 20;
     idealWidth = 60 + juce::roundToInt(juce::GlyphArrangement::getStringWidth(font(8.5f, Weight::Semibold, 0.06f), t));
+}
+
+/* ------------------------------------------------------------------ le panneau SETTINGS ------------------------------------------------------------------ */
+
+namespace {
+constexpr float kPadX = 14, kTop = 11;
+constexpr float kRowY0 = kTop + 12 + 4; // sous le titre
+constexpr float kRowH = 6 + 10 + 26;    // padding, label, fader (face.css .mm-look-row)
+const char* const kLookLabels[3] = {"LEATHER TEXTURE", "PANEL LIGHT", "ACCENT COLOR"};
+} // namespace
+
+SettingsPanel::SettingsPanel() {
+    setSize(kW, kH);
+    look_->addChangeListener(this);
+}
+
+SettingsPanel::~SettingsPanel() { look_->removeChangeListener(this); }
+
+juce::Rectangle<float> SettingsPanel::rail(int i) const {
+    // la colonne du fader (1fr), 6 de marge de chaque cote ; la valeur dans 26 a droite, 10 d'ecart
+    const float x0 = kPadX + 6, x1 = static_cast<float>(kW) - kPadX - 26 - 10 - 6;
+    const float y = kRowY0 + i * kRowH + 6 + 10;
+    return {x0, y, x1 - x0, 26};
+}
+
+float SettingsPanel::get(int i) const {
+    const auto st = look_->state();
+    return i == 0 ? st.leather : i == 1 ? st.light : static_cast<float>(st.hue) / 360.f;
+}
+
+void SettingsPanel::put(int i, float v) {
+    auto st = look_->state();
+    v = juce::jlimit(0.f, 1.f, v);
+    if (i == 0) st.leather = v;
+    else if (i == 1) st.light = v;
+    else st.hue = juce::roundToInt(v * 360.f) % 360;
+    look_->set(st);
+}
+
+int SettingsPanel::rowAt(juce::Point<float> p) const {
+    for (int i = 0; i < 3; ++i)
+        if (rail(i).expanded(6, 2).contains(p)) return i;
+    return -1;
+}
+
+void SettingsPanel::paint(juce::Graphics& g) {
+    const auto b = getLocalBounds().toFloat();
+    // le verre fume (face.css .mm-look) : plus opaque qu'en CSS, sans flou d'arriere-plan
+    {
+        juce::ColourGradient bg(juce::Colour::fromFloatRGBA(30 / 255.f, 28 / 255.f, 27 / 255.f, 0.995f), 0, 0,
+                                juce::Colour::fromFloatRGBA(14 / 255.f, 13 / 255.f, 12 / 255.f, 0.995f), 0, b.getHeight(), false);
+        g.setGradientFill(bg);
+        g.fillRoundedRectangle(b, 6);
+        g.setColour(juce::Colours::white.withAlpha(0.08f));
+        g.drawRoundedRectangle(b.reduced(0.5f), 6, 1);
+        g.setColour(juce::Colours::white.withAlpha(0.06f));
+        g.drawHorizontalLine(1, 6, b.getWidth() - 6);
+    }
+    const juce::Colour ink = juce::Colour::fromFloatRGBA(240 / 255.f, 234 / 255.f, 224 / 255.f, 0.86f);
+    text(g, "SETTINGS", {kPadX, kTop, 120, 12}, font(9.f, Weight::Bold, 0.24f), ink, juce::Justification::centredLeft);
+    text(g, "RESET", resetArea(), font(7.f, Weight::Semibold, 0.18f), kSilk.withAlpha(resetHot_ ? 0.9f : 0.45f), juce::Justification::centredRight);
+    for (int i = 0; i < 3; ++i) {
+        const float y = kRowY0 + i * kRowH;
+        text(g, kLookLabels[i], {kPadX, y + 6, 200, 10}, font(7.5f, Weight::Semibold, 0.2f), kSilk.withAlpha(0.6f), juce::Justification::centredLeft);
+        const auto r = rail(i);
+        const float v = get(i);
+        if (i == 2) {
+            // la roue des teintes vives, plus epaisse
+            const juce::Rectangle<float> rr(r.getX(), r.getY() + 10, r.getWidth(), 6);
+            juce::ColourGradient hg(hueColour(0), rr.getX(), 0, hueColour(360), rr.getRight(), 0, false);
+            for (int h = 30; h < 360; h += 30) hg.addColour(h / 360.0, hueColour(static_cast<float>(h)));
+            g.setColour(juce::Colours::black.withAlpha(0.75f));
+            g.fillRoundedRectangle(rr.expanded(1), 4);
+            g.setGradientFill(hg);
+            g.fillRoundedRectangle(rr, 3);
+        } else {
+            const juce::Rectangle<float> rr(r.getX(), r.getY() + 12, r.getWidth(), 2);
+            g.setColour(juce::Colour(0xff050505));
+            g.fillRoundedRectangle(rr, 1);
+            g.setColour(juce::Colours::white.withAlpha(0.07f));
+            g.drawHorizontalLine(juce::roundToInt(rr.getBottom()), rr.getX(), rr.getRight());
+            g.setColour(kSilk.withAlpha(0.35f / 0.84f * 0.84f));
+            g.fillRoundedRectangle(rr.withWidth(rr.getWidth() * v), 1);
+        }
+        // la tete : un capuchon noir, une ligne claire au milieu
+        {
+            const juce::Rectangle<float> hd(r.getX() + r.getWidth() * v - 5.5f, r.getY() + 3, 11, 20);
+            juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 4, {0, 2}).drawForRectangle(g, hd.toNearestInt());
+            juce::ColourGradient cg(juce::Colour(0xff2c2a28), 0, hd.getY(), juce::Colour(0xff0c0b0a), 0, hd.getBottom(), false);
+            cg.addColour(0.55, juce::Colour(0xff161514));
+            g.setGradientFill(cg);
+            g.fillRoundedRectangle(hd, 2);
+            g.setColour(juce::Colours::black.withAlpha(0.7f));
+            g.drawRoundedRectangle(hd.expanded(0.5f), 2.5f, 1);
+            g.setColour(juce::Colours::white.withAlpha(0.14f));
+            g.drawHorizontalLine(juce::roundToInt(hd.getY() + 1), hd.getX() + 1, hd.getRight() - 1);
+            g.setColour(juce::Colour(0xffece6dc));
+            g.fillRect(hd.getX() + 4.5f, hd.getY() + 2, 2.f, hd.getHeight() - 4);
+        }
+        // la valeur (0 a 100), ou la pastille de la couleur
+        const juce::Rectangle<float> vr(static_cast<float>(kW) - kPadX - 26, r.getY(), 26, 26);
+        if (i == 2) {
+            const juce::Rectangle<float> sw(vr.getRight() - 14, vr.getCentreY() - 7, 14, 14);
+            const auto a = accent();
+            for (int k = 3; k >= 1; --k) {
+                g.setColour(a.withAlpha(0.1f * (4 - k)));
+                g.fillRoundedRectangle(sw.expanded(k * 1.5f), 3 + k * 1.5f);
+            }
+            g.setColour(juce::Colours::black.withAlpha(0.8f));
+            g.fillRoundedRectangle(sw.expanded(1), 4);
+            g.setColour(a);
+            g.fillRoundedRectangle(sw, 3);
+            g.setColour(juce::Colours::white.withAlpha(0.35f));
+            g.drawHorizontalLine(juce::roundToInt(sw.getY() + 1), sw.getX() + 2, sw.getRight() - 2);
+        } else {
+            text(g, juce::String(juce::roundToInt(v * 100)), vr, font(10.f, Weight::Semibold, 0.04f), kSilk.withAlpha(0.9f / 0.84f * 0.84f), juce::Justification::centredRight);
+        }
+    }
+}
+
+void SettingsPanel::mouseDown(const juce::MouseEvent& e) {
+    if (resetArea().contains(e.position)) {
+        look_->reset();
+        return;
+    }
+    drag_ = rowAt(e.position);
+    if (drag_ >= 0) put(drag_, (e.position.x - rail(drag_).getX()) / rail(drag_).getWidth());
+}
+
+void SettingsPanel::mouseDrag(const juce::MouseEvent& e) {
+    if (drag_ >= 0) put(drag_, (e.position.x - rail(drag_).getX()) / rail(drag_).getWidth());
+}
+
+void SettingsPanel::mouseUp(const juce::MouseEvent&) { drag_ = -1; }
+
+void SettingsPanel::mouseMove(const juce::MouseEvent& e) {
+    const bool hot = resetArea().contains(e.position);
+    if (hot != resetHot_) {
+        resetHot_ = hot;
+        repaint();
+    }
+    setMouseCursor(hot ? juce::MouseCursor::PointingHandCursor : rowAt(e.position) >= 0 ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::NormalCursor);
+}
+
+void SettingsPanel::mouseExit(const juce::MouseEvent&) {
+    if (resetHot_) {
+        resetHot_ = false;
+        repaint();
+    }
+}
+
+void SettingsPanel::mouseDoubleClick(const juce::MouseEvent& e) {
+    const int i = rowAt(e.position);
+    if (i < 0) return;
+    const Look::State d;
+    put(i, i == 0 ? d.leather : i == 1 ? d.light : static_cast<float>(d.hue) / 360.f);
+}
+
+void SettingsPanel::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w) {
+    const int i = rowAt(e.position);
+    if (i < 0 || std::fabs(w.deltaY) < 1e-6f) return;
+    put(i, get(i) + (w.deltaY > 0 ? 0.02f : -0.02f) * (i == 2 ? 0.5f : 1.f));
 }
 
 } // namespace hl

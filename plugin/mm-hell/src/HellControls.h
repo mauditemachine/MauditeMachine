@@ -26,10 +26,15 @@ protected:
     bool hover_ = false, held_ = false;
 };
 
+/**
+ * Le potard du MM-RYTM (retro/knob.png) en toutes tailles, selon l'importance du reglage (v1.1, Mika : "des knobs comme
+ * l'image 1 de tailles differentes selon l'importance, et que les knobs tournent vraiment") : le corps (base, prise a six
+ * lobes, repere) tourne avec la valeur ; le capuchon de metal brosse (retro/knob-cap.png) reste fixe par-dessus, sa lumiere
+ * ne tourne pas (comme un vrai potard eclaire d'en haut). hero : le gros potard du decaleur, son echelle autour.
+ */
 class Knob final : public Control {
 public:
-    enum class Style { Main, Fine, Big, Hero };
-    Knob(juce::RangedAudioParameter& p, Style s, juce::String name, juce::String lo = {}, juce::String hi = {});
+    Knob(juce::RangedAudioParameter& p, float size, juce::String name, juce::String lo = {}, juce::String hi = {}, bool hero = false);
 
     /** Place le potard : son centre en (cx, cy) dans le parent. */
     void placeAt(float cx, float cy);
@@ -61,7 +66,8 @@ private:
     void reset();
     juce::RangedAudioParameter& p_;
     juce::ParameterAttachment att_;
-    Style style_;
+    float size_;
+    bool hero_;
     juce::String name_, lo_, hi_;
     float v_ = 0;          // normalise, celui du parametre
     float dragStart_ = 0;  // normalise, au debut du glisser

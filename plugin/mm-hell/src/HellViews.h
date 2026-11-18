@@ -77,6 +77,37 @@ public:
     void getIdealPopupMenuItemSize(const juce::String& text, bool isSeparator, int standardMenuItemHeight, int& idealWidth, int& idealHeight) override;
 };
 
+/**
+ * Le panneau SETTINGS (v1.1, celui du MM-ARP : LookPanel.tsx, face.css .mm-look) : LEATHER TEXTURE, PANEL LIGHT, ACCENT
+ * COLOR (la roue des teintes vives et sa pastille), RESET. Glisser sur un rail, molette, double-clic : la valeur de depart.
+ */
+class SettingsPanel final : public juce::Component, private juce::ChangeListener {
+public:
+    SettingsPanel();
+    ~SettingsPanel() override;
+    static constexpr int kW = 248, kH = 160;
+    void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    /** Le rail i (0 cuir, 1 lumiere, 2 couleur) : sa zone (les tests y cliquent). */
+    juce::Rectangle<float> rail(int i) const;
+    juce::Rectangle<float> resetArea() const { return {static_cast<float>(kW) - 14 - 44, 9, 44, 16}; }
+
+private:
+    void changeListenerCallback(juce::ChangeBroadcaster*) override { repaint(); }
+    int rowAt(juce::Point<float> p) const;
+    float get(int i) const;
+    void put(int i, float v);
+    SharedLook look_;
+    int drag_ = -1;
+    bool resetHot_ = false;
+};
+
 /** Le verre noir des ecrans (hood.css .mm-hell-pwin). */
 void paintGlass(juce::Graphics& g, juce::Rectangle<float> r, float radius = 4.f);
 

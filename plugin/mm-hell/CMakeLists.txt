@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 # MM-HELL (2026-11-18), un plugin Maudite Machine (la famille de MM-RYTM et MM-ARP) : un delay infernal facon Echobode (un
 # decaleur de frequence de Bode dans la boucle), effet audio VST3 avec une interface native (JUCE, sans WebView). Son moteur
 # est celui du module HELL du MM-ARP. Usage perso.
-project(MM_HELL VERSION 1.0.0 LANGUAGES C CXX)
+project(MM_HELL VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,7 +49,7 @@ endif()
 
 # Les images (celles de la face du MM-ARP : potards, leviers, touches, cuir, bois) et les polices, dans le binaire
 juce_add_binary_data(mmhell_assets HEADER_NAME HellAssets.h NAMESPACE HellAssets SOURCES
-  assets/knob.png assets/knob-cap.png assets/fine-knob.png assets/key.png assets/leather.png
+  assets/knob.png assets/knob-cap.png assets/key.png assets/leather.png
   assets/toggle-body.png assets/toggle-lever-off.png assets/toggle-lever-on.png assets/wood-l.jpg assets/wood-r.jpg
   assets/SF-Pro-Display-Medium.otf assets/SF-Pro-Display-Semibold.otf assets/SF-Pro-Display-Bold.otf assets/RobotRadicals.ttf)
 

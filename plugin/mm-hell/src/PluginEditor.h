@@ -1,7 +1,8 @@
 // MM-HELL, la fenetre : une interface native (JUCE, sans WebView : rien a charger, quelques Mo de memoire, aucun moteur
 // web par instance), au design de la page HELL du MM-ARP (cuir, joues de bois, potards du MM-RYTM, leviers chrome,
 // touches a LED, VU ivoire), resserree pour un effet seul :
-//   en-tete : MAUDITE MACHINE, MM-HELL, la banque (PREV, la fenetre qui la deroule, NEXT, INIT) ;
+//   en-tete : le menu (trois traits : SETTINGS, WINDOW SIZE), MAUDITE MACHINE, MM-HELL, la banque (PREV, la fenetre qui la
+//   deroule en categories, NEXT, INIT) ;
 //   DELAY (DELAY, FEEDBACK, SYNC, CROSS ; IN THE LOOP : HIGH-PASS, LOW-PASS, SMEAR) ;
 //   FREQUENCY SHIFTER (RANGE en touches, le gros potard et son echelle, SIDEBAND, PHASE, ANTI REFL, SPREAD, la valeur) ;
 //   HELL (MIX ; l'ECHO MAP : ou vont les repetitions) ; LFO (SHAPE, RATE, SYNC, AMOUNT, STEREO, TARGET, le VU) ;
@@ -16,7 +17,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-class MMHellEditor final : public juce::AudioProcessorEditor, private juce::Timer {
+class MMHellEditor final : public juce::AudioProcessorEditor, private juce::Timer, private juce::ChangeListener {
 public:
     explicit MMHellEditor(MMHellProcessor&);
     ~MMHellEditor() override;
@@ -25,9 +26,17 @@ public:
     void resized() override;
     /** Ce que fait le minuteur (le banc de capture l'appelle directement). */
     void refresh(float dt);
+    /** Le panneau SETTINGS (le menu hamburger l'ouvre ; les bancs aussi). */
+    void showSettings(bool on);
+    bool settingsShown() const { return settings_.isVisible(); }
+    hl::SettingsPanel& settingsPanel() { return settings_; }
+    /** La taille de la fenetre en pour cent du plan (WINDOW SIZE du menu). */
+    void setScalePercent(int pct);
 
 private:
     void timerCallback() override;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
+    void openMenu();
     void mouseEnter(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
     void mouseMove(const juce::MouseEvent&) override;
@@ -48,6 +57,24 @@ private:
         bool on = false;
         void paint(juce::Graphics& g) override { hl::led(g, getLocalBounds().toFloat().getCentre(), 6.f, on); }
     };
+    // Le bouton du menu (trois traits), en haut a gauche
+    struct Burger final : juce::Component {
+        std::function<void()> onClick;
+        bool open = false;
+        void paint(juce::Graphics&) override;
+        void mouseDown(const juce::MouseEvent&) override {
+            if (onClick) onClick();
+        }
+        void mouseEnter(const juce::MouseEvent&) override { repaint(); }
+        void mouseExit(const juce::MouseEvent&) override { repaint(); }
+    };
+    // Sous le panneau SETTINGS ouvert : un clic ailleurs le referme (et ne fait rien d'autre)
+    struct Scrim final : juce::Component {
+        std::function<void()> onClick;
+        void mouseDown(const juce::MouseEvent&) override {
+            if (onClick) onClick();
+        }
+    };
     // La bande d'info
     struct Info final : juce::Component {
         juce::String title, value, help, status;
@@ -56,6 +83,7 @@ private:
 
     MMHellProcessor& proc_;
     hl::MenuLook look_;
+    hl::SharedLook lookState_;
     Panel panel_;
     std::unique_ptr<hl::Knob> delayTime_, delayNote_, feedback_, hp_, lp_, smear_, shift_, sideband_, phase_, spread_, mix_, lfoRate_, lfoNote_, lfoAmt_;
     std::unique_ptr<hl::Lever> sync_, cross_, antiRefl_, lfoSync_, lfoStereo_;
@@ -67,6 +95,9 @@ private:
     ShiftValue shiftValue_;
     Dot hellLed_;
     Info info_;
+    Burger burger_;
+    Scrim scrim_;
+    hl::SettingsPanel settings_;
     juce::Component* hovered_ = nullptr;
     double lastTick_ = 0;
 

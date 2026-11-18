@@ -3,6 +3,7 @@
 //   ./mmhell_presets_test
 #include "HellPatch.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -52,9 +53,9 @@ int main() {
     const auto& bank = factory();
     // 1. la banque = celle du MM-ARP, nom par nom, valeur par valeur
     {
-        bool ok = bank.size() == 24;
+        bool ok = bank.size() == 72;
         double worst = 0;
-        for (size_t i = 0; ok && i < bank.size(); ++i) {
+        for (size_t i = 0; ok && i < 24; ++i) {
             ok = ok && bank[i].name == kRef[i].name && bank[i].desc == kRef[i].desc;
             const auto v = arpView(bank[i].p);
             for (size_t k = 0; k < v.size(); ++k) {
@@ -69,7 +70,7 @@ int main() {
             }
         }
         char msg[160];
-        std::snprintf(msg, sizeof msg, "banque : 24 presets, noms, descriptions et valeurs du MM-ARP (ecart max %.1e)", worst);
+        std::snprintf(msg, sizeof msg, "banque : 72 presets, les 24 premiers = ceux du MM-ARP (noms, descriptions, valeurs ; ecart max %.1e)", worst);
         check(ok, msg);
     }
     // 1b. le sens du decalage : un sinus de 1 kHz, sans reinjection ni LFO ni filtres ; ce qui doit descendre descend
@@ -115,6 +116,70 @@ int main() {
             }
         }
         check(ok, ("le sens : un decalage negatif descend, un positif monte, pour chaque preset a une bande" + bad).c_str());
+    }
+    // 1c. v1.1 : les 48 du MM-HELL, six categories de huit apres les deux du MM-ARP ; des noms uniques ; et pas un preset
+    //     qui saute au visage : un son de 0.35 s (dent de scie de 220 Hz et un coup de bruit), MIX a fond, 4 s ecoutees,
+    //     le niveau mouille entre -20 et +6 dB de l'entree, la crete sous 2
+    {
+        const char* const banks[8] = {"THE CLASSICS", "MORE HELL", "SPACE & DUB", "METAL & RESONATORS", "MOTION", "SPIRALS & ALIENS", "HARMONIC & RHYTHM", "TEXTURES & DRONES"};
+        bool ok = true;
+        for (int k = 0; k < 8; ++k) {
+            int n = 0;
+            for (const auto& pr : bank) n += pr.bank == banks[k] ? 1 : 0;
+            ok = ok && n == (k < 2 ? 12 : 8);
+        }
+        for (size_t i = 0; i < bank.size(); ++i)
+            for (size_t j = i + 1; j < bank.size(); ++j) ok = ok && bank[i].name != bank[j].name;
+        check(ok, "categories : THE CLASSICS 12, MORE HELL 12, puis six de 8 ; 72 noms uniques");
+
+        const double SR = 48000, PI = 3.14159265358979323846;
+        const size_t N = static_cast<size_t>(SR * 4), on = static_cast<size_t>(SR * 0.35);
+        std::vector<float> in(N, 0.f);
+        uint32_t r = 7;
+        for (size_t i = 0; i < on; ++i) {
+            const double env = std::min(1.0, static_cast<double>(i) / 200.0) * std::min(1.0, static_cast<double>(on - i) / 2000.0);
+            double saw = 0;
+            for (int h = 1; h <= 12; ++h) saw += std::sin(2 * PI * 220 * h * static_cast<double>(i) / SR) / h;
+            r = r * 1664525u + 1013904223u;
+            const double nz = ((r >> 8) / 16777216.0 - 0.5) * (i < 2400 ? 1.0 : 0.05);
+            in[i] = static_cast<float>(0.3 * env * saw + 0.3 * nz);
+        }
+        double inE = 0;
+        for (size_t i = 0; i < on; ++i) inE += static_cast<double>(in[i]) * in[i];
+        const double inRms = std::sqrt(inE / static_cast<double>(on));
+        double lo = 99, hi = -99, crest = 0;
+        std::string bad;
+        for (const auto& pr : bank) {
+            mmarp::Hell h;
+            h.prepare(SR);
+            std::vector<float> L = in, R = in;
+            for (size_t i = 0; i < N; i += 256) {
+                h.set(settingsOf(pr.p, 1, 120, 220), 120);
+                h.process(L.data() + i, R.data() + i, static_cast<int>(std::min<size_t>(256, N - i)));
+            }
+            // le niveau sur la duree ou ca sonne (jusqu'a -40 dB de la plus forte trame de 1024)
+            std::vector<double> fr;
+            for (size_t s0 = 0; s0 + 1024 <= N; s0 += 1024) {
+                double e = 0;
+                for (size_t k = s0; k < s0 + 1024; ++k) e += 0.5 * (static_cast<double>(L[k]) * L[k] + static_cast<double>(R[k]) * R[k]);
+                fr.push_back(e / 1024);
+            }
+            const double mx = *std::max_element(fr.begin(), fr.end());
+            size_t last = 0;
+            for (size_t k = 0; k < fr.size(); ++k)
+                if (fr[k] > mx * 1e-4) last = k;
+            double e = 0, pk = 0;
+            for (size_t k = 0; k <= last; ++k) e += fr[k];
+            for (size_t i = 0; i < N; ++i) pk = std::max(pk, static_cast<double>(std::max(std::fabs(L[i]), std::fabs(R[i]))));
+            const double db = 20 * std::log10(std::sqrt(e / static_cast<double>(last + 1)) / inRms + 1e-12);
+            lo = std::min(lo, db);
+            hi = std::max(hi, db);
+            crest = std::max(crest, pk);
+            if (db < -20 || db > 6 || pk >= 2) bad += " " + pr.name;
+        }
+        char msg[220];
+        std::snprintf(msg, sizeof msg, "niveau : les 72 presets mouilles entre %.1f et %+.1f dB de l'entree, crete max %.2f (bornes -20 / +6 dB, 2)%s", lo, hi, crest, bad.c_str());
+        check(bad.empty(), msg);
     }
     // 2. les reglages par defaut sont INIT ; chaque preset se reconnait lui-meme
     {
@@ -182,7 +247,7 @@ int main() {
             worst = std::max(worst, peak);
         }
         char msg[200];
-        std::snprintf(msg, sizeof msg, "les 24 presets a MIX 50 %% : finis, sans sous-normaux, crete max %.2f (entree a +/-1 ; borne a 6)%s", worst, bad.c_str());
+        std::snprintf(msg, sizeof msg, "les 72 presets a MIX 50 %% : finis, sans sous-normaux, crete max %.2f (entree a +/-1 ; borne a 6)%s", worst, bad.c_str());
         check(ok, msg);
     }
     // 5. les textes (l'hote et l'interface)

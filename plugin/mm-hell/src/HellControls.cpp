@@ -37,40 +37,33 @@ void Control::mouseExit(const juce::MouseEvent&) {
 
 /* ------------------------------------------------------------------ le potard ------------------------------------------------------------------ */
 
-Knob::Knob(juce::RangedAudioParameter& p, Style s, juce::String name, juce::String lo, juce::String hi)
+Knob::Knob(juce::RangedAudioParameter& p, float size, juce::String name, juce::String lo, juce::String hi, bool hero)
     : p_(p), att_(p, [this](float x) {
           v_ = p_.convertTo0to1(x);
           repaint();
       }),
-      style_(s), name_(std::move(name)), lo_(std::move(lo)), hi_(std::move(hi)) {
+      size_(size), hero_(hero), name_(std::move(name)), lo_(std::move(lo)), hi_(std::move(hi)) {
     setRepaintsOnMouseActivity(false);
     setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
     att_.sendInitialUpdate();
 }
 
-float Knob::knobSize() const {
-    switch (style_) {
-    case Style::Fine: return 44.f;
-    case Style::Big: return 76.f;
-    case Style::Hero: return 120.f;
-    case Style::Main: break;
-    }
-    return 56.f;
-}
+float Knob::knobSize() const { return size_; }
 
 juce::Point<float> Knob::centre() const {
-    if (style_ == Style::Hero) return {getWidth() / 2.f, getHeight() / 2.f};
-    return {getWidth() / 2.f, 2.f + knobSize() / 2.f};
+    if (hero_) return {getWidth() / 2.f, getHeight() / 2.f};
+    return {getWidth() / 2.f, 2.f + size_ / 2.f};
 }
 
 void Knob::placeAt(float cx, float cy) {
-    const float s = knobSize();
-    if (style_ == Style::Hero) {
+    const float s = size_;
+    if (hero_) {
         const float box = 236.f;
         setBounds(juce::roundToInt(cx - box / 2), juce::roundToInt(cy - box / 2), juce::roundToInt(box), juce::roundToInt(box));
         return;
     }
-    const float w = style_ == Style::Fine ? 76.f : style_ == Style::Big ? 112.f : 92.f;
+    // assez large pour les bouts de course (DOWN, 1 BAR, 10 HZ) et le nom
+    const float w = juce::jmax(80.f, s + 44.f);
     const float h = 2.f + s + 30.f;
     setBounds(juce::roundToInt(cx - w / 2), juce::roundToInt(cy - 2.f - s / 2), juce::roundToInt(w), juce::roundToInt(h));
 }
@@ -80,66 +73,56 @@ juce::String Knob::valueText() const { return textFn ? textFn() : p_.getCurrentV
 
 bool Knob::hitTest(int x, int y) {
     const auto c = centre();
-    const float r = style_ == Style::Hero ? 104.f : knobSize() / 2 + 6;
+    const float r = hero_ ? 104.f : size_ / 2 + 6;
     // le potard et son nom
-    return c.getDistanceFrom({static_cast<float>(x), static_cast<float>(y)}) <= r || (style_ != Style::Hero && y > c.y);
+    return c.getDistanceFrom({static_cast<float>(x), static_cast<float>(y)}) <= r || (!hero_ && y > c.y);
 }
 
 void Knob::paint(juce::Graphics& g) {
     const float phys = physicalScale(g);
     const auto c = centre();
-    const float s = knobSize();
+    const float s = size_;
     if (under) under(g, c);
     const float ang = juce::degreesToRadians(-kSweep + 2 * kSweep * v_);
-    if (style_ == Style::Fine) {
-        // le petit knob fin (pcbui.tsx FINE_KNOB) : ses graduations, son image, son repere depuis le centre
-        const float k = s / 44.f;
-        for (int i = 0; i <= 10; ++i) {
-            const float a = juce::degreesToRadians(-kSweep + 2 * kSweep * i / 10.f);
-            const bool major = i % 5 == 0;
-            const float t0 = 16.f * k, t1 = (major ? 20.2f : 19.f) * k;
-            g.setColour(kSilk.withAlpha(major ? 0.92f : 0.72f));
-            g.drawLine(c.x + std::sin(a) * t0, c.y - std::cos(a) * t0, c.x + std::sin(a) * t1, c.y - std::cos(a) * t1, major ? 1.1f : 0.8f);
-        }
-        if (bipolar) {
-            g.setColour(kAccent.withAlpha(0.9f));
-            g.fillEllipse(c.x - 1.3f, c.y - 22.5f * k, 2.6f, 2.6f);
-        }
-        const float img = 13.f * 2 * 1.12f * k;
-        roundShadow(g, c, img / 2 - 1, {-1.5f, 3.f}, 2.5f, 0.75f);
-        drawScaled(g, body_, Img::FineKnob, {c.x - img / 2, c.y - img / 2, img, img}, phys);
-        const float m0 = 0.6f * k, m1 = 8.9f * k, w = 1.5f * k;
-        juce::Path mark;
-        mark.addRoundedRectangle(-w / 2, -m1, w, m1 - m0, w / 2);
-        g.setColour(juce::Colour(0xfff3efe8));
-        g.fillPath(mark, juce::AffineTransform::rotation(ang).translated(c));
-    } else {
-        // le potard du MM-RYTM vu de dessus (pcbui.tsx KNOB_IMG) : l'image fixe, le repere qui tourne, le capuchon
-        const float k = s / 52.f;
-        roundShadow(g, c, s * 0.47f, {-1.f, 2.f}, 2.f * k, 0.55f);
-        const juce::Rectangle<float> r(c.x - s / 2, c.y - s / 2, s, s);
-        drawScaled(g, body_, Img::Knob, r, phys);
-        const float r0 = 15.2f * k, r1 = 22.f * k, w = 3.f * k;
-        juce::Path mark;
-        mark.addRectangle(-w / 2, -r1, w, r1 - r0);
-        const auto t = juce::AffineTransform::rotation(ang).translated(c);
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.strokePath(mark, juce::PathStrokeType(0.6f), t);
-        g.setColour(juce::Colour(0xffefebe3));
-        g.fillPath(mark, t);
-        drawScaled(g, cap_, Img::KnobCap, r, phys);
+    // le potard du MM-RYTM vu de dessus (pcbui.tsx KNOB_IMG, 52 de boite) : l'ombre fixe (la lumiere vient d'en haut),
+    // le corps qui tourne (base, lobes, repere), le capuchon fixe
+    const float k = s / 52.f;
+    roundShadow(g, c, s * 0.47f, {-1.f, 2.f}, 2.f * k, 0.55f);
+    const juce::Rectangle<float> r(c.x - s / 2, c.y - s / 2, s, s);
+    {
+        const auto& body = body_.image(Img::Knob, s, s, phys);
+        juce::Graphics::ScopedSaveState st(g);
+        g.setOpacity(1.f);
+        g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
+        g.drawImageTransformed(body, juce::AffineTransform::scale(s / static_cast<float>(body.getWidth()), s / static_cast<float>(body.getHeight()))
+                                         .translated(r.getX(), r.getY())
+                                         .rotated(ang, c.x, c.y));
     }
-    if (style_ == Style::Hero) return;
+    const float r0 = 15.2f * k, r1 = 22.f * k, w = 3.f * k;
+    juce::Path mark;
+    mark.addRectangle(-w / 2, -r1, w, r1 - r0);
+    const auto t = juce::AffineTransform::rotation(ang).translated(c);
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.strokePath(mark, juce::PathStrokeType(0.6f), t);
+    g.setColour(juce::Colour(0xffefebe3));
+    g.fillPath(mark, t);
+    drawScaled(g, cap_, Img::KnobCap, r, phys);
+    if (bipolar) {
+        // le centre d'un reglage bipolaire (AMOUNT) : un point a l'accent au-dessus du potard
+        g.setColour(accent().withAlpha(0.9f));
+        g.fillEllipse(c.x - 1.4f, c.y - s / 2 - 4.5f, 2.8f, 2.8f);
+    }
+    if (hero_) return;
     // les bouts de course, le nom, la valeur pendant le geste
     const float yl = c.y + s * 0.38f;
     const auto small = font(6.5f, Weight::Medium, 0.08f);
     // centres sous les coins du potard (comme les bouts de course de la face), assez larges pour DOWN, 1 BAR, 10 HZ
     if (lo_.isNotEmpty()) text(g, lo_, {c.x - s * 0.44f - 20, yl, 40, 9}, small, kSilkDim);
     if (hi_.isNotEmpty()) text(g, hi_, {c.x + s * 0.44f - 20, yl, 40, 9}, small, kSilkDim);
-    const float yn = c.y + s / 2 + (style_ == Style::Fine ? 2.f : 5.f);
+    const float yn = c.y + s / 2 + (s < 50 ? 3.f : 5.f);
     const bool hotNow = hot() || dragging_;
-    text(g, title(), {0, yn, static_cast<float>(getWidth()), 12}, font(style_ == Style::Fine ? 8.f : 9.5f, Weight::Medium, 0.2f), hotNow ? kSilk.brighter(0.2f) : kSilk);
-    if (showValue && hotNow) text(g, valueText(), {0, yn + 12, static_cast<float>(getWidth()), 11}, font(7.5f, Weight::Semibold, 0.08f), kAccent);
+    text(g, title(), {0, yn, static_cast<float>(getWidth()), 12}, font(s < 50 ? 8.5f : 9.5f, Weight::Medium, 0.2f), hotNow ? kSilk.brighter(0.2f) : kSilk);
+    if (showValue && hotNow) text(g, valueText(), {0, yn + 12, static_cast<float>(getWidth()), 11}, font(7.5f, Weight::Semibold, 0.08f), accent());
 }
 
 void Knob::setNorm(float n, bool gesture) {
@@ -297,7 +280,7 @@ void KeyRow::paint(juce::Graphics& g) {
             g.fillRoundedRectangle(r.reduced(r.getWidth() * 0.12f, r.getHeight() * 0.16f), 2.f);
         }
         if (icon) icon(g, i, r.reduced(r.getWidth() * 0.24f, r.getHeight() * 0.3f).translated(0, -1));
-        text(g, labels_[i], {r.getX() - gap_ / 2 - 4, r.getBottom() + 1, r.getWidth() + gap_ + 8, 10}, lf, i == idx_ ? kAccent : kSilkDim);
+        text(g, labels_[i], {r.getX() - gap_ / 2 - 4, r.getBottom() + 1, r.getWidth() + gap_ + 8, 10}, lf, i == idx_ ? accent() : kSilkDim);
     }
     if (name_.isNotEmpty()) text(g, name_, {0, 47, static_cast<float>(getWidth()), 12}, font(9.f, Weight::Medium, 0.2f), hot() ? kSilk.brighter(0.2f) : kSilk);
 }

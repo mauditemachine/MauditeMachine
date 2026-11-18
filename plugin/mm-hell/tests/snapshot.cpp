@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
         float mix;
         int note;
         float scale;
+        int look = 0; // 1 : SETTINGS ouvert, cuir 100, lumiere 28, accent turquoise (la capture de Mika)
     };
     const std::vector<Case> cases = {
         {"01-init", "INIT", 0.35f, -1, 2.f},          {"02-halo", "HALO", 0.5f, -1, 2.f},
@@ -23,7 +24,11 @@ int main(int argc, char** argv) {
         {"05-note-ghost", "NOTE GHOST", 0.5f, 57, 1.f}, {"06-ember-drift", "EMBER DRIFT", 0.6f, -1, 1.f},
         {"07-crossfire", "CROSSFIRE", 0.5f, -1, 1.f},   {"08-broken-radio", "BROKEN RADIO", 0.5f, -1, 1.f},
         {"09-off", "ABYSS", 0.f, -1, 1.f},
+        {"10-settings", "SHEPARD RISE", 0.5f, -1, 2.f, 1},
+        {"11-iron-bell", "IRON BELL", 0.5f, -1, 1.f},
+        {"12-fifth-ladder", "FIFTH LADDER", 0.5f, 45, 1.f},
     };
+    hl::SharedLook look;
     int fails = 0;
     for (const auto& c : cases) {
         MMHellProcessor p;
@@ -53,6 +58,12 @@ int main(int argc, char** argv) {
         auto* he = dynamic_cast<MMHellEditor*>(ed.get());
         if (he == nullptr) return 2;
         ed->setSize(MMHellProcessor::kCanvasW, MMHellProcessor::kCanvasH);
+        if (c.look == 1) {
+            look->set({1.f, 0.28f, 168});
+            he->showSettings(true);
+        } else {
+            look->reset();
+        }
         for (int k = 0; k < 40; ++k) he->refresh(1.f / 30.f);
         const juce::Image img = ed->createComponentSnapshot(ed->getLocalBounds(), true, c.scale);
         const juce::File f = out.getChildFile(juce::String(c.file) + ".png");
@@ -63,5 +74,6 @@ int main(int argc, char** argv) {
         std::printf("%s  %s (%dx%d)\n", ok ? "ok  " : "FAIL", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
         if (!ok) ++fails;
     }
+    look->reset();
     return fails ? 1 : 0;
 }

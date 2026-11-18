@@ -4,7 +4,9 @@
 //   extra-params.json section hell ; SYNC et la note, le LFO SYNC et sa note, separes pour l'automation) ;
 // - settingsOf : un patch, MIX, le tempo et la note jouee -> HellSettings (comme PluginProcessor.cpp du MM-ARP) ;
 // - la banque d'usine : les 24 presets du HELL du MM-ARP (src/v4/plugin/arp/hell.ts HELL_PRESETS), memes noms, memes
-//   valeurs ; un preset regle tout sauf MIX (la dose reste la tienne), et met MIX a 35 % s'il etait a 0 ;
+//   valeurs (cinq corriges pour descendre vraiment), puis 48 presets propres au MM-HELL (v1.1, 2026-11-18, Mika : "vraiment
+//   plus de presets completement differents"), en six categories ; un preset regle tout sauf MIX (la dose reste la tienne),
+//   et met MIX a 35 % s'il etait a 0 ;
 // - les textes des reglages (l'hote, l'interface) : les memes que la face du MM-ARP.
 #pragma once
 
@@ -52,9 +54,10 @@ struct HellPatch {
 struct HellPreset {
     std::string name, desc;
     HellPatch p;
+    std::string bank; // la categorie (le menu de la banque) : THE CLASSICS, MORE HELL, SPACE & DUB...
 };
 
-/** La banque d'usine (24, l'ordre du MM-ARP ; INIT est le 12e). */
+/** La banque d'usine : les 24 du MM-ARP (dans son ordre ; INIT est le 12e), puis les 48 du MM-HELL. */
 const std::vector<HellPreset>& factory();
 /** L'indice de INIT dans factory(). */
 int initIndex();

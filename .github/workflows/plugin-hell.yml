@@ -27,7 +27,7 @@ jobs:
           cmake --build build-dsp -j
       - name: "HELL (copie conforme du MM-ARP) : MIX 0 au bit pres, SIDEBAND, CROSS, ANTI REFL, RANGE, LFO, stabilite, blocs"
         run: ./build-dsp/mmhell_hell_test
-      - name: "Banque : les 24 presets du MM-ARP (5 corriges : ils descendent), INIT par defaut, stabilite, textes"
+      - name: "Banque : 72 presets (les 24 du MM-ARP, 5 corriges ; 48 du MM-HELL), sens, niveaux, stabilite, textes"
         run: ./build-dsp/mmhell_presets_test
 
   host:
@@ -43,7 +43,7 @@ jobs:
           cmake --build build-host -j 4 --target mmhell_host_test mmhell_ui_test mmhell_snapshot
       - name: "Processeur : INIT, MIX 0 au bit pres, programmes, etat du projet, MIDI, entree mono, blocs, textes"
         run: ./build-host/mmhell_host_test_artefacts/Release/mmhell_host_test
-      - name: "Fenetre : glisser, Maj, double-clic, Alt + clic, molette, leviers, touches, PREV / NEXT / INIT, automation, taille"
+      - name: "Fenetre : glisser, Maj, double-clic, Alt + clic, molette, leviers, touches, PREV / NEXT / INIT, automation, tailles, SETTINGS"
         run: xvfb-run -a ./build-host/mmhell_ui_test_artefacts/Release/mmhell_ui_test
       - name: Captures de la fenetre (PNG)
         run: xvfb-run -a ./build-host/mmhell_snapshot_artefacts/Release/mmhell_snapshot snapshots

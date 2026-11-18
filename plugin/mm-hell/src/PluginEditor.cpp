@@ -67,13 +67,14 @@ void sectionTitle(juce::Graphics& g, const juce::String& t, float cx, float y) {
 
 void MMHellEditor::Panel::paint(juce::Graphics& g) {
     const float phys = hl::physicalScale(g);
-    const auto& img = bg.get(W, H, phys, [](juce::Graphics& b) {
-        hl::paintPanel(b, {0, 0, W, H});
+    const auto look = hl::SharedLook()->state();
+    const auto& img = bg.get(W, H, phys, [look](juce::Graphics& b) {
+        hl::paintPanel(b, {0, 0, W, H}, look);
         // l'en-tete : le wordmark et le nom, comme la face du MM-ARP
-        hl::text(b, "MAUDITE MACHINE", {56, 20, 300, 30}, hl::logoFont(23.f), hl::kSilk.withAlpha(0.92f), juce::Justification::centredLeft);
-        hl::text(b, "MM-HELL", {330, 16, 200, 26}, hl::font(16.f, hl::Weight::Medium, 0.32f), hl::kSilk, juce::Justification::centredLeft);
+        hl::text(b, "MAUDITE MACHINE", {86, 20, 300, 30}, hl::logoFont(23.f), hl::kSilk.withAlpha(0.92f), juce::Justification::centredLeft);
+        hl::text(b, "MM-HELL", {352, 16, 180, 26}, hl::font(16.f, hl::Weight::Medium, 0.32f), hl::kSilk, juce::Justification::centredLeft);
         // la ligne de firmware des machines Maudite Machine (MM-RYTM, MM-ARP : "FIRMWARE V.2.5 / 2026")
-        hl::text(b, "FIRMWARE V." MMHELL_VERSION " / 2026", {331, 42, 200, 10}, hl::font(6.5f, hl::Weight::Semibold, 0.24f), hl::kSilkDim,
+        hl::text(b, "FIRMWARE V." MMHELL_VERSION " / 2026", {353, 42, 180, 10}, hl::font(6.5f, hl::Weight::Semibold, 0.24f), hl::kSilkDim,
                  juce::Justification::centredLeft);
         // les cadres : les titres, les filets entre eux
         sectionTitle(b, "DELAY", (kDelayX0 + kDelayX1) / 2, kTop + 4);
@@ -102,11 +103,27 @@ void MMHellEditor::Panel::paint(juce::Graphics& g) {
     g.drawImage(img, juce::Rectangle<float>(0, 0, W, H));
 }
 
+void MMHellEditor::Burger::paint(juce::Graphics& g) {
+    const auto b = getLocalBounds().toFloat().reduced(1);
+    const bool hot = isMouseOver() || open;
+    // une petite touche sombre encastree, trois traits de serigraphie (l'accent quand le menu est ouvert ou survole)
+    g.setColour(juce::Colours::black.withAlpha(0.55f));
+    g.fillRoundedRectangle(b.translated(0, 1), 4);
+    juce::ColourGradient cg(juce::Colour(0xff1d1b1a), 0, b.getY(), juce::Colour(0xff0e0d0c), 0, b.getBottom(), false);
+    g.setGradientFill(cg);
+    g.fillRoundedRectangle(b, 4);
+    g.setColour(juce::Colours::white.withAlpha(hot ? 0.16f : 0.09f));
+    g.drawRoundedRectangle(b.reduced(0.5f), 4, 1);
+    g.setColour(hot ? hl::accent() : hl::kSilk);
+    const float w = 14, x = b.getCentreX() - w / 2;
+    for (int i = -1; i <= 1; ++i) g.fillRoundedRectangle(x, b.getCentreY() + i * 4.5f - 0.75f, w, 1.5f, 0.75f);
+}
+
 void MMHellEditor::ShiftValue::paint(juce::Graphics& g) {
     const auto b = getLocalBounds().toFloat();
     const auto f = hl::font(15.f, hl::Weight::Bold, 0.08f);
-    hl::text(g, value, b.withHeight(20).translated(0, 0.6f), f, hl::kAccent.withAlpha(0.3f));
-    hl::text(g, value, b.withHeight(20), f, hl::kAccent);
+    hl::text(g, value, b.withHeight(20).translated(0, 0.6f), f, hl::accent().withAlpha(0.3f));
+    hl::text(g, value, b.withHeight(20), f, hl::accent());
     hl::text(g, line, b.withTrimmedTop(21).withHeight(10), hl::font(6.8f, hl::Weight::Semibold, 0.2f), hl::kSilkDim);
 }
 
@@ -123,7 +140,7 @@ void MMHellEditor::Info::paint(juce::Graphics& g) {
     const float sw = status.isEmpty() ? 0 : juce::GlyphArrangement::getStringWidth(vf, status) + 16;
     hl::text(g, status, b.withTrimmedLeft(b.getWidth() - sw), hl::font(7.5f, hl::Weight::Semibold, 0.14f), hl::kSilkDim, juce::Justification::centredRight);
     put(title, tf, hl::kSilk, 10);
-    put(value, vf, hl::kAccent, 14);
+    put(value, vf, hl::accent(), 14);
     hl::text(g, help, {x, b.getY(), b.getRight() - sw - x - 8, b.getHeight()}, hf, hl::kSilk.withAlpha(0.62f), juce::Justification::centredLeft);
 }
 
@@ -137,26 +154,26 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     const auto add = [this](juce::Component& c) { panel_.addAndMakeVisible(c); };
 
     // ---- DELAY ----
-    delayTime_ = std::make_unique<Knob>(P(p, pid::time), Knob::Style::Main, "DELAY", "5 MS", "2 S");
+    delayTime_ = std::make_unique<Knob>(P(p, pid::time), 60.f, "DELAY", "5 MS", "2 S");
     delayTime_->help = "The time between repeats: 5 ms to 2 s. Raise SYNC to set it in notes, locked to the tempo of the host.";
-    delayNote_ = std::make_unique<Knob>(P(p, pid::note), Knob::Style::Main, "DELAY", "1/32", "1 BAR");
+    delayNote_ = std::make_unique<Knob>(P(p, pid::note), 60.f, "DELAY", "1/32", "1 BAR");
     delayNote_->help = "The time between repeats, in notes locked to the tempo of the host (1/32 to 1 bar). Lower SYNC for milliseconds.";
-    feedback_ = std::make_unique<Knob>(P(p, pid::feedback), Knob::Style::Main, "FEEDBACK", "0", "FULL");
+    feedback_ = std::make_unique<Knob>(P(p, pid::feedback), 60.f, "FEEDBACK", "0", "FULL");
     feedback_->help = "How much of each repeat goes back into the loop. A soft limiter holds it, even at FULL.";
     sync_ = std::make_unique<Lever>(P(p, pid::sync), "SYNC", "FREE", "SYNC");
     sync_->help = "FREE: the delay in milliseconds. SYNC: in notes, locked to the tempo of the host.";
     cross_ = std::make_unique<Lever>(P(p, pid::cross), "CROSS");
     cross_->help = "Crossed feedback: each channel goes back into the other one (with SPREAD, the echo bounces and bends).";
-    hp_ = std::make_unique<Knob>(P(p, pid::hp), Knob::Style::Fine, "HIGH-PASS");
+    hp_ = std::make_unique<Knob>(P(p, pid::hp), 44.f, "HIGH-PASS", "OFF", "4K");
     hp_->help = "In the loop: each repeat loses more lows. 20 Hz to 4 kHz, 12 dB/oct. Fully left: off.";
-    lp_ = std::make_unique<Knob>(P(p, pid::lp), Knob::Style::Fine, "LOW-PASS");
+    lp_ = std::make_unique<Knob>(P(p, pid::lp), 44.f, "LOW-PASS", "300", "OFF");
     lp_->help = "In the loop: each repeat gets darker. 300 Hz to 20 kHz, 12 dB/oct. Fully right: off.";
-    smear_ = std::make_unique<Knob>(P(p, pid::smear), Knob::Style::Fine, "SMEAR");
+    smear_ = std::make_unique<Knob>(P(p, pid::smear), 44.f, "SMEAR", "0", "FULL");
     smear_->help = "Diffusion inside the loop (four allpass filters, 3 to 11 ms): the repeats blur and soften.";
     const float dcx = (kDelayX0 + kDelayX1) / 2;
-    delayTime_->placeAt(dcx - 60, 152);
-    delayNote_->placeAt(dcx - 60, 152);
-    feedback_->placeAt(dcx + 60, 152);
+    delayTime_->placeAt(dcx - 60, 154);
+    delayNote_->placeAt(dcx - 60, 154);
+    feedback_->placeAt(dcx + 60, 154);
     sync_->placeAt(dcx - 60, 244);
     cross_->placeAt(dcx + 60, 244);
     hp_->placeAt(dcx - 76, 362);
@@ -164,7 +181,7 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     smear_->placeAt(dcx + 76, 362);
 
     // ---- FREQUENCY SHIFTER ----
-    shift_ = std::make_unique<Knob>(P(p, pid::shift), Knob::Style::Hero, "SHIFT");
+    shift_ = std::make_unique<Knob>(P(p, pid::shift), 120.f, "SHIFT", juce::String(), juce::String(), true);
     shift_->help = "The Bode frequency shifter, inside the loop: each repeat is shifted once more. Right: up, left: down, centre: none. Spirals and endless stairs.";
     shift_->under = [this](juce::Graphics& g, juce::Point<float> c) { hl::paintShiftScale(g, c, range_ ? range_->index() : 0); };
     range_ = std::make_unique<KeyRow>(P(p, pid::range), "", juce::StringArray{"FINE", "WIDE", "SYNC", "MIDI"});
@@ -172,13 +189,13 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     range_->optionHelp = {"+/- 3 to 200 Hz: slow spirals, chorus, dub drift.", "+/- 10 Hz to 5 kHz: metal, bells, broken radio.",
                           "Multiples of the tempo, 1/16 to 16 cycles per beat: a rhythmic barber pole.",
                           "A part of the last MIDI note received (1/16 to 2 x): route a MIDI track to MM-HELL."};
-    sideband_ = std::make_unique<Knob>(P(p, pid::sideband), Knob::Style::Fine, "SIDEBAND", "DOWN", "UP");
+    sideband_ = std::make_unique<Knob>(P(p, pid::sideband), 44.f, "SIDEBAND", "DOWN", "UP");
     sideband_->help = "DOWN: only the band shifted down. UP: only the band shifted up. Centre (R.M.): both, a ring modulator.";
-    phase_ = std::make_unique<Knob>(P(p, pid::phase), Knob::Style::Fine, "PHASE");
+    phase_ = std::make_unique<Knob>(P(p, pid::phase), 44.f, "PHASE", juce::String::fromUTF8("0\xC2\xB0"), juce::String::fromUTF8("360\xC2\xB0"));
     phase_->help = "A fixed phase offset of the shifter's oscillator, 0 to 360 degrees. With no shift: a pure phase rotation.";
     antiRefl_ = std::make_unique<Lever>(P(p, pid::antiRefl), "ANTI REFL");
     antiRefl_->help = "ON: nothing folds back below 0 Hz when a band goes down (a high-pass just above the shift, before the shifter).";
-    spread_ = std::make_unique<Knob>(P(p, pid::spread), Knob::Style::Fine, "SPREAD");
+    spread_ = std::make_unique<Knob>(P(p, pid::spread), 44.f, "SPREAD", "0", "FULL");
     spread_->help = "The right channel: its shift turns the other way (fully right: opposite), its line up to 23 ms longer, its LFO in quadrature.";
     const float scx = (kShiftX0 + kShiftX1) / 2;
     range_->placeAt(scx, kTop + 18);
@@ -191,10 +208,10 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     shiftValue_.setInterceptsMouseClicks(false, false);
 
     // ---- HELL ----
-    mix_ = std::make_unique<Knob>(P(p, pid::mix), Knob::Style::Big, "MIX", "OFF", "FULL");
+    mix_ = std::make_unique<Knob>(P(p, pid::mix), 80.f, "MIX", "OFF", "FULL");
     mix_->help = "The dose of HELL. 0: bypassed, bit for bit. Half way: dry and wet both full. Presets never touch it.";
     const float hcx = (kHellX0 + kHellX1) / 2;
-    mix_->placeAt(hcx, 150);
+    mix_->placeAt(hcx, 152);
     hellLed_.setBounds(juce::roundToInt(hcx + 18), juce::roundToInt(kTop + 5), 12, 12);
     hellLed_.setInterceptsMouseClicks(false, false);
     map_.setBounds(juce::roundToInt(kHellX0 + 8), 232, juce::roundToInt(kHellX1 - kHellX0 - 8), 196);
@@ -207,13 +224,13 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     shape_->icon = shapeIcon;
     shape_->help = "The shape of the LFO.";
     shape_->optionHelp = {"A smooth swing.", "A rising saw, then a jump.", "Flips between two values: trills and jumps.", "A new random value each cycle (sample and hold)."};
-    lfoRate_ = std::make_unique<Knob>(P(p, pid::lfoRate), Knob::Style::Main, "RATE", ".02", "10 HZ");
+    lfoRate_ = std::make_unique<Knob>(P(p, pid::lfoRate), 54.f, "RATE", ".02", "10 HZ");
     lfoRate_->help = "The speed of the LFO: 0.02 to 10 Hz. Raise SYNC to set it in notes.";
-    lfoNote_ = std::make_unique<Knob>(P(p, pid::lfoNote), Knob::Style::Main, "RATE", "8 BAR", "1/32");
+    lfoNote_ = std::make_unique<Knob>(P(p, pid::lfoNote), 54.f, "RATE", "8 BAR", "1/32");
     lfoNote_->help = "The speed of the LFO in notes, locked to the tempo of the host: one cycle every 8 bars to every 1/32.";
     lfoSync_ = std::make_unique<Lever>(P(p, pid::lfoSync), "SYNC", "FREE", "SYNC");
     lfoSync_->help = "FREE: the rate in Hz. SYNC: in notes, locked to the tempo of the host.";
-    lfoAmt_ = std::make_unique<Knob>(P(p, pid::lfoAmt), Knob::Style::Main, "AMOUNT", "-", "+");
+    lfoAmt_ = std::make_unique<Knob>(P(p, pid::lfoAmt), 54.f, "AMOUNT", "-", "+");
     lfoAmt_->bipolar = true;
     lfoAmt_->help = "How far the LFO moves its target, both ways. Centre: no LFO.";
     lfoStereo_ = std::make_unique<Lever>(P(p, pid::lfoStereo), "STEREO");
@@ -223,10 +240,10 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     target_->optionHelp = {"The shift, up to +/- 400 Hz: sirens and trills.", "The phase of the shifter, up to +/- 180 degrees: hollow sweeps.",
                            "The loop low-pass, up to +/- 3 octaves: embers that flicker.", "The delay time, up to +/- 25 %: a melting tape."};
     shape_->placeAt(150, kLfoY0 + 22);
-    lfoRate_->placeAt(302, 506);
-    lfoNote_->placeAt(302, 506);
+    lfoRate_->placeAt(302, 505);
+    lfoNote_->placeAt(302, 505);
     lfoSync_->placeAt(388, 498);
-    lfoAmt_->placeAt(472, 506);
+    lfoAmt_->placeAt(472, 505);
     lfoStereo_->placeAt(556, 498);
     target_->placeAt(700, kLfoY0 + 22);
     vu_.setBounds(812, juce::roundToInt(kLfoY0 + 10), 144, 100);
@@ -237,7 +254,7 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     // ---- la banque ----
     presets_.onLoad = [this](int i) { proc_.loadPreset(i); };
     presets_.getProperties().set("title", "PRESETS");
-    presets_.getProperties().set("help", "The MM-HELL bank: 24 presets. Click to open the list. A preset sets everything except MIX.");
+    presets_.getProperties().set("help", "The MM-HELL bank: 72 presets in 8 families. Click to open the list. A preset sets everything except MIX.");
     presets_.setBounds(576, 8, 284, 58);
     prev_ = std::make_unique<KeyButton>("PREV", [this] { step(-1); });
     prev_->help = "The previous preset.";
@@ -252,12 +269,29 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     info_.setBounds(juce::roundToInt(kDelayX0), juce::roundToInt(kInfoY), juce::roundToInt(kHellX1 - kDelayX0), 30);
     info_.setInterceptsMouseClicks(false, false);
 
+    // ---- le menu, en haut a gauche ----
+    burger_.setBounds(46, 22, 30, 26);
+    burger_.onClick = [this] { openMenu(); };
+    burger_.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    burger_.getProperties().set("title", "MENU");
+    burger_.getProperties().set("help", "SETTINGS (leather, panel light, accent colour) and WINDOW SIZE.");
+    scrim_.setBounds(0, 0, static_cast<int>(W), static_cast<int>(H));
+    scrim_.onClick = [this] { showSettings(false); };
+    settings_.setTopLeftPosition(40, 54);
+    settings_.getProperties().set("title", "SETTINGS");
+    settings_.getProperties().set("help", "The look of every MM-HELL: drag a rail, double-click for its starting value. RESET: all back.");
+
     for (juce::Component* c : std::initializer_list<juce::Component*>{
              delayTime_.get(), delayNote_.get(), feedback_.get(), sync_.get(), cross_.get(), hp_.get(), lp_.get(), smear_.get(), range_.get(), shift_.get(),
              sideband_.get(), phase_.get(), antiRefl_.get(), spread_.get(), mix_.get(), shape_.get(), lfoRate_.get(), lfoNote_.get(), lfoSync_.get(),
-             lfoAmt_.get(), lfoStereo_.get(), target_.get(), prev_.get(), next_.get(), init_.get(), &presets_, &map_, &vu_, &shiftValue_, &hellLed_, &info_})
+             lfoAmt_.get(), lfoStereo_.get(), target_.get(), prev_.get(), next_.get(), init_.get(), &presets_, &map_, &vu_, &shiftValue_, &hellLed_, &info_,
+             &burger_})
         add(*c);
+    // par-dessus tout : le voile puis le panneau, caches au depart
+    panel_.addChildComponent(scrim_);
+    panel_.addChildComponent(settings_);
     panel_.addMouseListener(this, true);
+    lookState_->addChangeListener(this);
 
     // La taille : celle du projet, jamais plus grande que l'ecran ; proportions fixes
     setResizable(true, true);
@@ -276,6 +310,7 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
 
 MMHellEditor::~MMHellEditor() {
     stopTimer();
+    lookState_->removeChangeListener(this);
     panel_.removeMouseListener(this);
     setLookAndFeel(nullptr);
 }
@@ -287,6 +322,57 @@ void MMHellEditor::resized() {
     panel_.setBounds(0, 0, static_cast<int>(W), static_cast<int>(H));
     panel_.setTransform(juce::AffineTransform::scale(s));
     if (getWidth() >= MMHellProcessor::kEditorMinW) proc_.setEditorWidth(getWidth());
+}
+
+void MMHellEditor::changeListenerCallback(juce::ChangeBroadcaster*) {
+    // LEATHER TEXTURE, PANEL LIGHT : le fond est refait ; ACCENT COLOR : tout se redessine
+    panel_.bg.clear();
+    panel_.repaint();
+}
+
+void MMHellEditor::showSettings(bool on) {
+    scrim_.setVisible(on);
+    settings_.setVisible(on);
+    if (on) {
+        scrim_.toFront(false);
+        settings_.toFront(false);
+    }
+    burger_.open = on;
+    burger_.repaint();
+}
+
+void MMHellEditor::setScalePercent(int pct) {
+    int w = juce::roundToInt(W * pct / 100.f);
+    if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        w = juce::jmin(w, d->userArea.getWidth() - 40, juce::roundToInt((d->userArea.getHeight() - 90) * W / H));
+    w = juce::jlimit(MMHellProcessor::kEditorMinW, MMHellProcessor::kEditorMaxW, w);
+    setSize(w, juce::roundToInt(w * H / W));
+}
+
+void MMHellEditor::openMenu() {
+    if (settings_.isVisible()) {
+        showSettings(false);
+        return;
+    }
+    juce::PopupMenu sizes;
+    const int now = juce::roundToInt(getWidth() * 100.f / W);
+    for (int pct : {80, 100, 120, 150, 200}) sizes.addItem(100 + pct, juce::String(pct) + " %", true, std::abs(now - pct) <= 2);
+    juce::PopupMenu m;
+    m.addSectionHeader("MM-HELL");
+    m.addItem(1, "SETTINGS");
+    m.addSubMenu("WINDOW SIZE", sizes);
+    m.addSeparator();
+    m.addItem(2, "FIRMWARE V." MMHELL_VERSION " / 2026", false, false);
+    burger_.open = true;
+    burger_.repaint();
+    juce::Component::SafePointer<MMHellEditor> safe(this);
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&burger_).withMinimumWidth(170), [safe](int r) {
+        if (!safe) return;
+        safe->burger_.open = false;
+        safe->burger_.repaint();
+        if (r == 1) safe->showSettings(true);
+        else if (r > 100) safe->setScalePercent(r - 100);
+    });
 }
 
 void MMHellEditor::step(int d) {
