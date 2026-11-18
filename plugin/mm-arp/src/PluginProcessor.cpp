@@ -347,10 +347,11 @@ juce::File MMArpProcessor::arpMidiFile(int cycles) const {
 // v32 (Mika : "fait comme les autres plugins", u-he Diva : la precision temps reel et celle de l'export) : QUALITY a trois
 // crans, ECO x2 (le plugin seul), STD x4 (le moteur du site, au bit pres, le depart), HQ x8 ; au-dela de 60 kHz, la moitie.
 // Le rendu hors ligne (l'export de l'hote) passe en HQ si EXPORT HQ est engage.
-int MMArpProcessor::osFor(double sr, double quality, bool exportHq) {
+int MMArpProcessor::osFor(double sr, double quality, bool exportHq, bool pro) {
     const int step = exportHq ? 2 : static_cast<int>(std::lround(std::clamp(quality, 0.0, 1.0) * 2));
-    const int os = step == 0 ? 2 : step == 1 ? 4 : 8;
-    return sr > 60000 ? os / 2 : os;
+    // v34 : PRO (les oscillateurs au taux de base) : le filtre et la saturation a x1 (ECO), x2 (STD), x4 (HQ)
+    const int os = pro ? (step == 0 ? 1 : step == 1 ? 2 : 4) : (step == 0 ? 2 : step == 1 ? 4 : 8);
+    return sr > 60000 ? std::max(1, os / 2) : os;
 }
 
 // Thread du message (il tourne fenetre fermee) : SIZE, TONE ou PRE DELAY ont bouge, une nouvelle reponse se calcule
@@ -536,6 +537,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         // v32 : QUALITY passe de deux crans (STD, HQ) a trois (ECO, STD, HQ) : un projet d'avant (sans EXPORT HQ) garde
         // son reglage, HQ reste HQ (1), STD (0) devient le cran du milieu ; sans QUALITY du tout : HQ, son depart d'alors
         const bool hadExport = params.getChildWithProperty("id", "xExportHq").isValid();
+        // v34 : un projet d'avant le moteur PRO (sans ENGINE) s'ouvre en CLASSIC, son moteur au bit pres
+        const bool hadEngine = params.getChildWithProperty("id", "xEngine").isValid();
         const bool hadQuality = params.getChildWithProperty("id", "xQuality").isValid();
         // les reglages du VST3 seul que le projet ne connaissait pas : leur depart (le son d'avant), quelle que soit la
         // valeur que l'instance avait avant l'ouverture
@@ -553,6 +556,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         if (!hadEcho) convertDelay();
         if (!hadExport)
             if (auto* prm = apvts.getParameter("xQuality")) prm->setValueNotifyingHost(!hadQuality || prm->getValue() >= 0.5f ? 1.f : 0.5f);
+        if (!hadEngine)
+            if (auto* prm = apvts.getParameter("xEngine")) prm->setValueNotifyingHost(0.f);
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -935,7 +940,8 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     frame_ = 0;
     mmarp::VoyagerOptions o;
     o.sampleRate = sampleRate;
-    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()), isNonRealtime() && exRaw_[mmx::ex_xExportHq]->load() >= 0.5f);
+    const bool pro = exRaw_[mmx::ex_xEngine]->load() >= 0.5f;
+    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()), isNonRealtime() && exRaw_[mmx::ex_xExportHq]->load() >= 0.5f, pro);
     o.softVoices = 8; // v32 (Mika : "8 voix") : 8 voix pleines au plus, la neuvieme note efface la plus faible en ~5 ms
 #if MMARP_HEADLESS
     // le banc CPU seulement : MMARP_SOFT_VOICES=0 mesure l'avant (12 voix)
@@ -944,6 +950,8 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     osAsked_ = o.os;
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
+    voy_->setPro(pro);
+    cpuPro_.store(pro, std::memory_order_relaxed);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
     hell_.prepare(sampleRate);
     decap_.prepare(sampleRate);
@@ -1091,11 +1099,14 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
     // QUALITY : x8 en HQ (x4 au-dela de 60 kHz), le taux du site en STD ; le moteur change sans allocation (setOs)
     {
-        const int os = osFor(sr, ex_[mmx::ex_xQuality], isNonRealtime() && ex_[mmx::ex_xExportHq] >= 0.5);
+        const bool pro = ex_[mmx::ex_xEngine] >= 0.5;
+        const int os = osFor(sr, ex_[mmx::ex_xQuality], isNonRealtime() && ex_[mmx::ex_xExportHq] >= 0.5, pro);
         if (os != osAsked_) {
             voy_->setOs(os);
             osAsked_ = os;
         }
+        if (pro != voy_->pro()) voy_->setPro(pro);
+        cpuPro_.store(pro, std::memory_order_relaxed);
     }
     // Une nouvelle reponse de reverb (SIZE, TONE, PRE DELAY), calculee par le thread du message
     if (revLock_.tryEnter()) {

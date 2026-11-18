@@ -19,6 +19,8 @@ export interface CpuFrame {
   pk: number;
   os: number;
   voices: number;
+  /** v34 : le moteur PRO (sinon CLASSIC) */
+  pro: boolean;
   sr: number;
   block: number;
   /** performance.now() a la reception */
@@ -43,7 +45,7 @@ export const cpuStore = {
     const r = o as Record<string, unknown>;
     const s = Array.isArray(r.s) ? r.s.map((v) => num(v)) : [];
     if (s.length <= CPU_TOTAL) return;
-    cur = { s, pk: num(r.pk), os: num(r.os, 1), voices: num(r.voices), sr: num(r.sr), block: num(r.block), at: performance.now() };
+    cur = { s, pk: num(r.pk), os: num(r.os, 1), voices: num(r.voices), pro: r.pro === true, sr: num(r.sr), block: num(r.block), at: performance.now() };
     listeners.forEach((fn) => fn());
   },
 };

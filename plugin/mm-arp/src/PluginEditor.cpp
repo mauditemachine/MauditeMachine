@@ -217,6 +217,7 @@ void MMArpEditor::timerCallback() {
         o->setProperty("pk", std::round(static_cast<double>(proc_.cpuPeak()) * 100.0) / 100.0);
         o->setProperty("os", proc_.cpuOs());
         o->setProperty("voices", proc_.cpuVoices());
+        o->setProperty("pro", proc_.cpuPro());
         o->setProperty("sr", proc_.getSampleRate());
         o->setProperty("block", proc_.getBlockSize());
         browser_->emitEventIfBrowserIsVisible("mm_cpu", juce::var(o));

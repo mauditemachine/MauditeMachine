@@ -130,6 +130,7 @@ public:
     // le surechantillonnage du moteur (8 en HQ) et les voix qui sonnent, pour le detail du compteur
     int cpuOs() const { return cpuOs_.load(std::memory_order_relaxed); }
     int cpuVoices() const { return cpuVoices_.load(std::memory_order_relaxed); }
+    bool cpuPro() const { return cpuPro_.load(std::memory_order_relaxed); }
 
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
@@ -187,6 +188,7 @@ private:
     std::array<std::atomic<float>, kCpuN> cpu_{};
     std::atomic<float> cpuPeak_{0};
     std::atomic<int> cpuOs_{1}, cpuVoices_{0};
+    std::atomic<bool> cpuPro_{false};
     std::array<double, kCpuN> cpuSm_{};
     double cpuPk_ = 0, cpuHold_ = 0;
     const double tickS_ = 1.0 / static_cast<double>(juce::Time::getHighResolutionTicksPerSecond());
@@ -233,7 +235,7 @@ private:
     std::array<int, 22> mId_{};
     void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
     int osAsked_ = 4;
-    static int osFor(double sr, double quality, bool exportHq);
+    static int osFor(double sr, double quality, bool exportHq, bool pro);
     void timerCallback() override;
     juce::SpinLock revLock_;
     std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;

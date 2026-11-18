@@ -683,7 +683,7 @@ struct Voice {
   StackPair pr[MAX_UNI];
   double subPh = 0;
   // v34 (le moteur PRO) : les deux dernieres sorties des oscillateurs au taux de base (gauche, droite), interpolees
-  double pO0 = 0, pO1 = 0, pR0 = 0, pR1 = 0;
+  double pO[4] = {0, 0, 0, 0}, pR[4] = {0, 0, 0, 0};
   int n = 1, nLoop = 1;
   LadderR fr;
   bool wl = false, wideOK = true;
@@ -1627,7 +1627,7 @@ struct Voyager::Impl {
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
       for (int j = 0; j < MAX_UNI; j += 1) v->pr[j].sb = v->pr[j].sf = 0;
       for (int j = 0; j < VX_SIZE; j += 1) v->x[j] = 0;
-      v->pO0 = v->pO1 = v->pR0 = v->pR1 = 0;
+      for (int q = 0; q < 4; q += 1) v->pO[q] = v->pR[q] = 0;
     }
     v->g = 0;
     for (int j = 0; j < MAX_UNI; j += 1) {
@@ -3674,17 +3674,23 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         if (v.subPh >= 1) v.subPh -= jsm::floor(v.subPh);
       }
       if (kOsc > 1) {
-        v.pO0 = v.pO1;
-        v.pR0 = v.pR1;
-        v.pO1 = o;
-        v.pR1 = oR;
+        for (int q = 0; q < 3; q += 1) {
+          v.pO[q] = v.pO[q + 1];
+          v.pR[q] = v.pR[q + 1];
+        }
+        v.pO[3] = o;
+        v.pR[3] = oR;
       }
       }
       if (kOsc > 1) {
-        // v34 PRO : entre deux echantillons du taux de base, la droite qui les joint (un echantillon de retard)
+        // v34 PRO : entre deux echantillons du taux de base, une Catmull-Rom (deux echantillons de retard, 42 us a 48 kHz) :
+        // a 16 kHz, -1.4 dB au lieu des -3.3 dB de la droite
         const double t = static_cast<double>(oscAt + 1) / kOsc;
-        o = v.pO0 + (v.pO1 - v.pO0) * t;
-        oR = v.pR0 + (v.pR1 - v.pR0) * t;
+        const auto cr = [t](const double* q) {
+          return q[1] + 0.5 * t * (q[2] - q[0] + t * (2 * q[0] - 5 * q[1] + 4 * q[2] - q[3] + t * (3 * (q[1] - q[2]) + q[3] - q[0])));
+        };
+        o = cr(v.pO);
+        oR = cr(v.pR);
       }
       if (nGain > 1e-6) {
         if (newNoise) {

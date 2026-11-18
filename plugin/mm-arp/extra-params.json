@@ -2299,6 +2299,17 @@
         "ON"
       ],
       "help": "v32 : le rendu hors ligne (l'export de l'hote, isNonRealtime) passe en HQ x8, quelle que soit QUALITY"
+    },
+    {
+      "id": "xEngine",
+      "label": "ENGINE",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "CLASSIC",
+        "PRO"
+      ],
+      "help": "v34 (Mika : \"CPU B\") : PRO, le moteur rapide (oscillateurs anti-replies au taux de base, filtre et saturation suresechantillonnes : ECO x1, STD x2, HQ x4) ; CLASSIC, le moteur du site au bit pres (ECO x2, STD x4, HQ x8). Les instances neuves : PRO ; un projet d'avant : CLASSIC."
     }
   ]
 }

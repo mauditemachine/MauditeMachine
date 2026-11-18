@@ -326,7 +326,8 @@
     "xCrMix": 1,
     "xPuAttack": 0.5,
     "xPuCurve": 0.5,
-    "xExportHq": 1
+    "xExportHq": 1,
+    "xEngine": 1
   },
   "steps": {
     "acc": [

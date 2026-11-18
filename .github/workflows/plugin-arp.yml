@@ -60,6 +60,8 @@ jobs:
         run: ./build-dsp/mmarp_decap_test
       - name: "DELAY v27 : l'ancien DELAY converti au bit pres, temps exact, PING-PONG, RHYTHM, DUCKING, FEEDBACK stable, 8 styles x 5 modes, blocs, MIX 0 ; EQ 6 bandes mesuree et neutre ; rack enrichi ; cout"
         run: ./build-dsp/mmarp_echo_test
+      - name: "Moteur PRO (v34) : stabilite, blocs au bit pres, niveaux et repliement contre CLASSIC, cout"
+        run: ./build-dsp/mmarp_pro_test
       - name: "Arc lumineux de la face : ce que le moteur dit des modulations (LFO, matrice)"
         run: ./build-dsp/mmarp_modview_test
       - name: "Banque d'usine a jour (FILTER +, DISTO, EQ et rack neutres partout, DELAY converti, sans la pedale)"

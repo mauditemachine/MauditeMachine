@@ -350,7 +350,7 @@ function applyExtra(raw: unknown): void {
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
     // un preset d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
     else if (id === 'xSkyType') arpExtra.set(id, 0);
-    else if (id !== 'xQuality') arpExtra.set(id, arpExtra.def(id));
+    else if (id !== 'xQuality' && id !== 'xEngine') arpExtra.set(id, arpExtra.def(id));
   }
 }
 
@@ -652,6 +652,7 @@ export const arpBridge = {
   factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown; steps?: unknown }): boolean {
     const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
     delete extra.xQuality;
+    delete extra.xEngine; // v34 : un preset d'usine ne change pas le moteur de l'instance
     const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra, ...(p.steps ? { steps: p.steps } : {}) }));
     if (ok) arpDisk.set({ current: null });
     return ok;

@@ -676,7 +676,7 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::kExtra == 228, "v32 : EXPORT HQ ajoute en fin de liste (les 227 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::kExtra == 229, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
@@ -805,7 +805,9 @@ int main() {
         char buf[200];
         std::snprintf(buf, sizeof buf, "v31 compteur CPU : total %.2f %% (etages %.2f %%), pic %.2f %%, moteur %.2f %%, %d voix, x%d (STD)", tot, parts, static_cast<double>(p.cpuPeak()),
                       static_cast<double>(p.cpu(MMArpProcessor::kCpuEngine)), p.cpuVoices(), p.cpuOs());
-        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 4, buf);
+        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 2 && p.cpuPro(), buf);
+        // v34 : en CLASSIC, les crans de la v32 (STD x4, EXPORT HQ x8, ECO x2)
+        p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
         // v32 : EXPORT HQ : le rendu hors ligne passe en HQ x8 (QUALITY reste STD), le temps reel revient a x4
         p.setNonRealtime(true);
         run(p, h, 4800, 128, nullptr, nullptr);
@@ -821,7 +823,21 @@ int main() {
         run(p, h, 4800, 128, nullptr, nullptr);
         const int osEco = p.cpuOs();
         check(osOff == 8 && osOffNo == 4 && osRt == 4 && osEco == 2,
-              "v32 QUALITY : STD x4 au depart, EXPORT HQ hors ligne x" + std::to_string(osOff) + " (coupe : x" + std::to_string(osOffNo) + "), temps reel x" + std::to_string(osRt) + ", ECO x" + std::to_string(osEco));
+              "v32 QUALITY (CLASSIC) : STD x4, EXPORT HQ hors ligne x" + std::to_string(osOff) + " (coupe : x" + std::to_string(osOffNo) + "), temps reel x" + std::to_string(osRt) + ", ECO x" + std::to_string(osEco));
+        // v34 PRO : ECO x1, STD x2, HQ x4, EXPORT HQ x4
+        p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(1.f);
+        const auto osAt = [&](float q) {
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+            run(p, h, 4800, 128, nullptr, nullptr);
+            return p.cpuOs();
+        };
+        const int pe = osAt(0.f), ps = osAt(0.5f), ph = osAt(1.f);
+        p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+        p.setNonRealtime(true);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int px = p.cpuOs();
+        p.setNonRealtime(false);
+        check(pe == 1 && ps == 2 && ph == 4 && px == 4 && p.cpuPro(), "v34 PRO : ECO x" + std::to_string(pe) + ", STD x" + std::to_string(ps) + ", HQ x" + std::to_string(ph) + ", EXPORT HQ x" + std::to_string(px));
     }
     {
         // v32 : un projet d'avant (QUALITY a deux crans, sans EXPORT HQ) : HQ reste HQ, STD reste STD ; une instance neuve : STD
@@ -847,6 +863,23 @@ int main() {
         const auto hqOld = reload(1.f), stdOld = reload(0.f);
         check(fresh.knobParam(mmx::allIndex("xQuality"))->getValue() == 0.5f && hqOld.first == 1.f && stdOld.first == 0.5f && hqOld.second == 1.f,
               "v32 : instance neuve en STD ; projet d'avant en HQ : HQ ; en STD : STD ; EXPORT HQ engage");
+        // v34 : instance neuve en PRO ; un projet d'avant (sans ENGINE) en CLASSIC
+        {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;)
+                if (params.getChild(i).getProperty("id").toString() == "xEngine") params.removeChild(i, nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            MMArpProcessor b;
+            b.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            check(fresh.knobParam(mmx::allIndex("xEngine"))->getValue() == 1.f && b.knobParam(mmx::allIndex("xEngine"))->getValue() == 0.f,
+                  "v34 : instance neuve en PRO ; projet d'avant (sans ENGINE) en CLASSIC");
+        }
     }
     {
         // v32 (Mika : "8 voix") : un arpege rapide au release long ; le moteur seul (la limite du plugin, softVoices 8) :

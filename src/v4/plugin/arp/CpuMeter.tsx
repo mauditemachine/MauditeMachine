@@ -17,8 +17,9 @@ const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get,
 
 /** v32 : ECO x2, STD x4, HQ x8 (au-dela de 60 kHz, la moitie) */
 const qualityOf = (c: CpuFrame): string => {
-  const eff = c.sr > 60000 ? c.os * 2 : c.os;
-  return `${eff >= 8 ? 'HQ' : eff >= 4 ? 'STD' : 'ECO'} x${c.os}`;
+  // v34 : PRO : ECO x1, STD x2, HQ x4 (le filtre et la saturation) ; CLASSIC : ECO x2, STD x4, HQ x8
+  const eff = (c.sr > 60000 ? c.os * 2 : c.os) * (c.pro ? 2 : 1);
+  return `ENGINE ${c.pro ? 'PRO' : 'CLASSIC'} ${eff >= 8 ? 'HQ' : eff >= 4 ? 'STD' : 'ECO'} x${c.os}`;
 };
 
 /** une seule fenetre de detail a la fois (la face ou OPEN) */
@@ -89,7 +90,7 @@ const Meter: React.FC<{ where: 'face' | 'hood'; style?: React.CSSProperties; btn
       style={style}
       onClick={() => detail.set(open === where ? null : where)}
     >
-      <span className="mm-cpu-k">CPU</span>
+      <span className="mm-cpu-k">{live && c ? `CPU · ${c.pro ? 'PRO' : 'CLASSIC'}` : 'CPU'}</span>
       <span className="mm-cpu-v">{live ? cpuText(tot) : '--'}</span>
       <span className="mm-cpu-u">%</span>
       <span className="mm-cpu-bar" aria-hidden="true">

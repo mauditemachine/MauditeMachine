@@ -43,6 +43,7 @@ struct Scene {
     const char* seq = nullptr;                          // la suite (JSON), sinon celle du preset ou la suite par defaut
 };
 
+static int gEngine = 1; // v34 : 1 PRO, 0 CLASSIC
 Result play(const Scene& sc, int quality, double seconds) {
     MMArpProcessor p;
     Head h;
@@ -64,6 +65,7 @@ Result play(const Scene& sc, int quality, double seconds) {
     }
     // v32 : QUALITY a trois crans (0 ECO, 0.5 STD, 1 HQ)
     p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(static_cast<float>(quality) * 0.5f);
+    p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(static_cast<float>(gEngine));
     // le programme de la face : la suite et la progression du preset (sinon celles de la face par defaut)
     juce::DynamicObject::Ptr prog = new juce::DynamicObject();
     prog->setProperty("v", 2);
@@ -127,6 +129,8 @@ int main(int argc, char** argv) {
     const std::string filter = argc > 2 ? argv[2] : "";
     // les crans de QUALITY a mesurer (argv[3], ex. "21" : HQ puis STD ; 2 HQ, 1 STD, 0 ECO)
     const std::string qs = argc > 3 ? argv[3] : "210";
+    // v34 : le moteur (argv[4] : pro, classic ; par defaut pro)
+    gEngine = argc > 4 && std::string(argv[4]) == "classic" ? 0 : 1;
     std::vector<Scene> scenes;
     // v32 : le cas de Mika (58.jpg) : un RANDOM ARP retouche, arpege 1/16 UP/DN a 116 BPM, YOUR NOTES, release long (12 voix
     // sans limite), blocs de 256 ; la voix de la famille ARP (hypno.ts : OCTAVE -1, filtre moyen, un peu de FM, STACK et
@@ -165,7 +169,7 @@ int main(int argc, char** argv) {
             }
         scenes.insert(scenes.end(), more.begin(), more.end());
     }
-    static const char* const QN[3] = {"ECO", "STD", "HQ"};
+    static const char* const QN[3] = {gEngine ? "pECO" : "ECO", gEngine ? "pSTD" : "STD", gEngine ? "pHQ" : "HQ"};
     std::printf("Banc CPU MM-ARP : 48 kHz, blocs de 128 (le cas de Mika : 256), %.0f s par passage (aucun son joue) ; %% d'un coeur\n\n", seconds);
     std::printf("%-24s %4s %7s %7s | %6s %6s %6s %6s %6s %6s %6s | %s\n", "SCENE", "Q", "TOTAL", "COMPT.", "MOTEUR", "DISTO", "DELAY", "REVERB", "HELL", "EQ+RCK", "RESTE", "VOIX MAX/MOY");
     double sum[3] = {0, 0, 0};
