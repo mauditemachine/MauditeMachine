@@ -1,0 +1,135 @@
+name: Plugin MM-RAGE
+# 2026-11-18 (Mika : "l'equivalent de DISTO que j'ai mis dans ARP VST3, en VST3 aussi seul, avec une interface optimisee
+# epuree de la taille de MM-HELL") : la DISTO du MM-ARP en effet audio seul (plugin/mm-rage). 1) le DSP et la banque, sur
+# Linux (les 20 presets du MM-ARP compares a disto.ts quand sa branche est la) ; 2) le vrai processeur et la vraie fenetre
+# sans hote (gestes de la souris, captures PNG en artefact) ; 3) le VST3 macOS universel, signe ad hoc, en artefact et dans
+# la release mm-rage-latest. Pas de face web a construire (interface native JUCE). Rien ne touche au site ni a GitHub Pages,
+# ni aux releases du MM-RYTM, du MM-ARP et de MM-HELL.
+on:
+  push:
+    paths:
+      - 'plugin/mm-rage/**'
+      - '.github/workflows/plugin-rage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-rage-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dsp:
+    name: DSP et banque
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Construire le DSP et ses tests (sans JUCE)
+        run: |
+          cmake -S plugin/mm-rage -B build-dsp -DMM_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp -j
+      - name: "DISTO (copie conforme du MM-ARP) : contournement, platitude, MIX, repliement, AUTO, MORPH, bandes, BOX, filtres, FEEDBACK, LFO, blocs, cout"
+        run: ./build-dsp/mmrage_decap_test
+      - name: "Banque : 85 presets (INIT, les 20 du MM-ARP, 64 du MM-RAGE), niveaux, diversite, stabilite, textes"
+        run: ./build-dsp/mmrage_presets_test
+      # La reference des 20 presets (tests/presets_ref.inc) tiree du vrai disto.ts de la branche du MM-ARP : si la DISTO
+      # du MM-ARP change ses presets, ce controle le dit. Sans la branche (fusionnee, renommee) : rien a comparer.
+      - name: "Reference : presets_ref.inc = disto.ts du MM-ARP"
+        run: |
+          if git fetch --no-tags --depth=1 origin claude/nifty-bohr-7ixmpf:refs/remotes/origin/claude/nifty-bohr-7ixmpf 2>/dev/null; then
+            node plugin/mm-rage/tests/presets-ref.mjs --check
+          else
+            echo "La branche du MM-ARP n'est plus la : pas de comparaison."
+          fi
+
+  host:
+    name: Processeur et fenetre sans hote
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependances de JUCE (Linux) et ecran virtuel
+        run: sudo apt-get update -q && sudo apt-get install -y -q libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libxcomposite-dev libasound2-dev libfreetype-dev libfontconfig1-dev xvfb
+      - name: Construire les bancs
+        run: |
+          cmake -S plugin/mm-rage -B build-host -DMM_HOST_TEST=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host -j 4 --target mmrage_host_test mmrage_ui_test mmrage_snapshot
+      - name: "Processeur : INIT, 54 parametres, 85 programmes, latence, MIX 0 au bit pres, blocs, entree mono, etat du projet, textes"
+        run: ./build-host/mmrage_host_test_artefacts/Release/mmrage_host_test
+      - name: "Fenetre : potards, leviers, STYLE, onglets, gris, carte des bandes, MORPH TO, SYNC, PREV / NEXT / INIT, automation, tailles, rotation, SETTINGS"
+        run: xvfb-run -a ./build-host/mmrage_ui_test_artefacts/Release/mmrage_ui_test
+      - name: Captures de la fenetre (PNG)
+        run: xvfb-run -a ./build-host/mmrage_snapshot_artefacts/Release/mmrage_snapshot snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-RAGE-captures
+          path: snapshots/*.png
+          retention-days: 14
+
+  mac:
+    name: Plugin macOS (VST3)
+    runs-on: macos-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+    steps:
+      - uses: actions/checkout@v4
+      - name: ccache
+        run: brew install ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-mac-rage-${{ github.sha }}
+          restore-keys: ccache-mac-rage-
+      - name: Configurer (universel arm64 + x86_64)
+        run: cmake -S plugin/mm-rage -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Construire
+        run: |
+          cmake --build build --config Release -j 4 --target MM_RAGE_VST3
+          ccache -s | head -20
+      # Le paquet dans pkg/, jamais dans dist/ (le build du site commite dans le repo)
+      - name: Signer ad hoc et empaqueter
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-RAGE
+          B=build/MM_RAGE_artefacts/Release/VST3/MM-RAGE.vst3
+          codesign --force --deep --sign - "$B"
+          codesign --verify --deep --strict "$B"
+          lipo -info "$B/Contents/MacOS/MM-RAGE"
+          ditto "$B" pkg/MM-RAGE/MM-RAGE.vst3
+          cp plugin/mm-rage/INSTALL.md plugin/mm-rage/update.sh pkg/MM-RAGE/
+          printf 'commit %s, branche %s, %s\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-RAGE/BUILD.txt
+          ditto -c -k --keepParent pkg/MM-RAGE MM-RAGE-macOS.zip
+          unzip -l MM-RAGE-macOS.zip | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-RAGE-macOS
+          path: MM-RAGE-macOS.zip
+          retention-days: 30
+
+  # La publication : seulement si les tests (dsp, host) et le Mac sont verts
+  publish:
+    name: Publier (release mm-rage-latest)
+    needs: [dsp, host, mac]
+    runs-on: ubuntu-latest
+    # La release mm-rage-latest : le seul droit d'ecriture du workflow
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MM-RAGE-macOS
+      # Le dernier build en release mm-rage-latest, a une adresse fixe : plugin/mm-rage/update.sh la telecharge et
+      # l'installe par-dessus l'ancien. Ses fichiers sont remplaces, son etiquette avance au commit construit.
+      - name: Publier le dernier build (release mm-rage-latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view mm-rage-latest >/dev/null 2>&1; then
+            gh release create mm-rage-latest --prerelease --target "$GITHUB_SHA" --title "MM-RAGE (dernier build)" --notes "Le VST3 macOS du dernier build."
+          fi
+          gh release upload mm-rage-latest MM-RAGE-macOS.zip plugin/mm-rage/update.sh --clobber
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-rage-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          gh release edit mm-rage-latest --notes "MM-RAGE, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rage-latest/update.sh | bash"
