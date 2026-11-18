@@ -321,8 +321,8 @@ const STUDIO = (() => {
  * du press kit gardent leurs valeurs, sauf un genre ou une base de l'ancien
  * positionnement.
  */
-const LEAD = `${POSITIONING.en} · DJ and hybrid live · Montpellier, south of France`;
-const FACTS = { Genre: POSITIONING_SHORT, Base: 'Montpellier, south of France' };
+const LEAD = `${POSITIONING.en} · DJ and hybrid live · International`;
+const FACTS = { Genre: POSITIONING_SHORT, Base: 'International' };
 const STALE_FACT = /psy ?-?prog|Canada · France · Spain/i;
 const factOf = (k, v) => (STALE_FACT.test(v) ? FACTS[k] ?? v : v);
 /** Les en-tetes de format de la fiche technique (brief A3). */
@@ -1163,7 +1163,7 @@ const T = {
   fr: {
     htmlLang: 'fr',
     dateLocale: 'fr-FR',
-    lead: `${POSITIONING.fr} · DJ et live hybride · Montpellier, Sud de la France`,
+    lead: `${POSITIONING.fr} · DJ et live hybride · International`,
     bio: BIO_LONG.fr,
     soundTitle: 'Le son',
     sound: [
@@ -1187,7 +1187,7 @@ const T = {
   es: {
     htmlLang: 'es',
     dateLocale: 'es-ES',
-    lead: `${POSITIONING.es} · DJ y live híbrido · Montpellier, sur de Francia`,
+    lead: `${POSITIONING.es} · DJ y live híbrido · Internacional`,
     bio: BIO_LONG.es,
     soundTitle: 'El sonido',
     sound: [

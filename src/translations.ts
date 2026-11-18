@@ -114,18 +114,18 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.\n\nHe has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.\n\nHe runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).",
+      bio: "Maudite Machine is an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.\n\nHe has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.\n\nHe runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).",
     },
     signature: {
       role: 'DJ & Producer',
-      location: 'Montpellier · South of France',
+      location: 'International',
       genres: 'Indie Dance, Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     // H1 de chaque page. Rendus en sr-only (lus par Google + lecteurs d'ecran,
     // invisibles a l'oeil) pour ne pas casser le design minimaliste.
     headings: {
-      home: 'Maudite Machine, indie dance and dark disco DJ and producer, Montpellier, south of France',
+      home: 'Maudite Machine, indie dance and dark disco DJ and producer',
       about: 'Maudite Machine biography',
       shows: 'Maudite Machine shows and tour dates',
       merch: 'Maudite Machine official merch',
@@ -194,10 +194,10 @@ export const translations = {
       catchphrase: 'DEEP. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producer · Live · VRSTL Records',
-      metaLine2: 'Montpellier · South of France',
+      metaLine2: 'International',
 
       bioLabel: 'Biography',
-      bioMain: "Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.",
+      bioMain: "Maudite Machine is an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.",
       bioSecondary: "He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger. He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
@@ -406,16 +406,16 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine est DJ et producteur, installé à Montpellier dans le Sud de la France après quinze ans dans l'underground montréalais. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.\n\nIl a joué à la Techno Parade de Paris, à Okami Festival en France, à Groove and Bass au Québec, et dans les salles de Montréal, de la SAT au Piknic Électronik, sur des plateaux avec Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox et Perfect Stranger.\n\nIl dirige VRSTL Records, label indépendant de 21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe. Ses propres sorties comptent Limbos (2025) et Voodoo (2026).",
+      bio: "Maudite Machine est DJ et producteur international. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.\n\nIl a joué à la Techno Parade de Paris, à Okami Festival en France, à Groove and Bass au Québec, et dans les salles de Montréal, de la SAT au Piknic Électronik, sur des plateaux avec Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox et Perfect Stranger.\n\nIl dirige VRSTL Records, label indépendant de 21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe. Ses propres sorties comptent Limbos (2025) et Voodoo (2026).",
     },
     signature: {
       role: 'DJ & Producteur',
-      location: 'Montpellier · Sud de la France',
+      location: 'International',
       genres: 'Indie Dance, Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ et producteur indie dance et dark disco, Montpellier, Sud de la France',
+      home: 'Maudite Machine, DJ et producteur indie dance et dark disco',
       about: 'Biographie de Maudite Machine',
       shows: 'Concerts et dates de Maudite Machine',
       merch: 'Merch officiel Maudite Machine',
@@ -483,10 +483,10 @@ export const translations = {
       catchphrase: 'DEEP. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producteur · Live · VRSTL Records',
-      metaLine2: 'Montpellier · Sud de la France',
+      metaLine2: 'International',
 
       bioLabel: 'Biographie',
-      bioMain: "Maudite Machine est DJ et producteur, installé à Montpellier dans le Sud de la France après quinze ans dans l'underground montréalais. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.",
+      bioMain: "Maudite Machine est DJ et producteur international. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.",
       bioSecondary: "Il a joué à la Techno Parade de Paris, à Okami Festival en France, à Groove and Bass au Québec, et dans les salles de Montréal, de la SAT au Piknic Électronik, sur des plateaux avec Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox et Perfect Stranger. Il dirige VRSTL Records, label indépendant de 21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe. Ses propres sorties comptent Limbos (2025) et Voodoo (2026).",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
@@ -694,16 +694,16 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine es DJ y productor, con base en Montpellier, en el sur de Francia, tras quince años en el underground de Montreal. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.\n\nHa tocado en la Techno Parade de París, en Okami Festival en Francia y en Groove and Bass en Quebec, y en las salas de Montreal, de la SAT al Piknic Électronik, junto a Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox y Perfect Stranger.\n\nDirige VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa. Sus lanzamientos propios incluyen Limbos (2025) y Voodoo (2026).",
+      bio: "Maudite Machine es DJ y productor internacional. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.\n\nHa tocado en la Techno Parade de París, en Okami Festival en Francia y en Groove and Bass en Quebec, y en las salas de Montreal, de la SAT al Piknic Électronik, junto a Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox y Perfect Stranger.\n\nDirige VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa. Sus lanzamientos propios incluyen Limbos (2025) y Voodoo (2026).",
     },
     signature: {
       role: 'DJ & Productor',
-      location: 'Montpellier · Sur de Francia',
+      location: 'Internacional',
       genres: 'Indie Dance, Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ y productor indie dance y dark disco, Montpellier, sur de Francia',
+      home: 'Maudite Machine, DJ y productor indie dance y dark disco',
       about: 'Biografía de Maudite Machine',
       shows: 'Shows y fechas de Maudite Machine',
       merch: 'Merch oficial de Maudite Machine',
@@ -771,10 +771,10 @@ export const translations = {
       catchphrase: 'DEEP. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Productor · Live · VRSTL Records',
-      metaLine2: 'Montpellier · Sur de Francia',
+      metaLine2: 'Internacional',
 
       bioLabel: 'Biografía',
-      bioMain: "Maudite Machine es DJ y productor, con base en Montpellier, en el sur de Francia, tras quince años en el underground de Montreal. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.",
+      bioMain: "Maudite Machine es DJ y productor internacional. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.",
       bioSecondary: "Ha tocado en la Techno Parade de París, en Okami Festival en Francia y en Groove and Bass en Quebec, y en las salas de Montreal, de la SAT al Piknic Électronik, junto a Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox y Perfect Stranger. Dirige VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa. Sus lanzamientos propios incluyen Limbos (2025) y Voodoo (2026).",
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 

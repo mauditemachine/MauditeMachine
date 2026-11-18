@@ -4,7 +4,7 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://mauditemachine.com/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
@@ -17,7 +17,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
@@ -27,7 +27,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
@@ -37,9 +37,13 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/press/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/press/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/press/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/press/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/press/" />
     <image:image>
       <image:loc>https://mauditemachine.com/press/maudite-machine-2027-booth-blue.jpg</image:loc>
     </image:image>
@@ -72,26 +76,46 @@
     </image:image>
   </url>
   <url>
+    <loc>https://mauditemachine.com/fr/press/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/press/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/press/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/press/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/press/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/press/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/press/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/press/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/press/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/press/" />
+  </url>
+  <url>
     <loc>https://mauditemachine.com/presskit/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/techrider/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/shows/</loc>
-    <lastmod>2026-11-01</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -139,43 +163,43 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mixtapes/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/contact/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/goodies/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/merch/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/studio/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/radar/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
@@ -188,7 +212,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
@@ -201,7 +225,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
@@ -214,7 +238,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-machine/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
@@ -227,7 +251,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/boite-a-rythmes/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
@@ -240,7 +264,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/caja-de-ritmos/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
@@ -253,7 +277,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/synth/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
@@ -266,7 +290,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/synthe/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
@@ -279,7 +303,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/sintetizador/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
@@ -292,7 +316,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/dj-decks/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
@@ -302,7 +326,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/platines-dj/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
@@ -312,7 +336,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/platos-dj/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
@@ -322,7 +346,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
@@ -332,7 +356,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/acid-house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
@@ -345,7 +369,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
@@ -358,7 +382,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
@@ -371,7 +395,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/minimal/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
@@ -384,7 +408,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
@@ -397,7 +421,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
@@ -410,7 +434,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
@@ -423,7 +447,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/electro/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
@@ -436,7 +460,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/ebm/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
@@ -449,7 +473,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
@@ -462,7 +486,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
@@ -472,7 +496,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
@@ -485,7 +509,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/dark-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
@@ -498,7 +522,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/indie-dance/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
@@ -511,7 +535,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/minimal/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
@@ -524,7 +548,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/rolling-techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
@@ -537,7 +561,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
@@ -550,7 +574,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
@@ -563,7 +587,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/electro/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
@@ -576,7 +600,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/ebm/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
@@ -589,7 +613,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/mm-studio/rythmes/italo-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
@@ -602,7 +626,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
@@ -612,7 +636,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/acid-house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
@@ -625,7 +649,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/dark-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
@@ -638,7 +662,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/indie-dance/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
@@ -651,7 +675,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/minimal/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
@@ -664,7 +688,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/rolling-techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
@@ -677,7 +701,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/techno/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
@@ -690,7 +714,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/house/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
@@ -703,7 +727,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/electro/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
@@ -716,7 +740,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/ebm/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
@@ -729,7 +753,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/es/mm-studio/ritmos/italo-disco/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
@@ -742,7 +766,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/voodoo/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -751,7 +775,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/abyss/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -760,7 +784,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/cephal/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -769,7 +793,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/limbos/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -778,7 +802,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/reaper/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -787,7 +811,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/nortkele/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -796,7 +820,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/muld/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -805,7 +829,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/simetra/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -814,7 +838,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/zenith/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -823,7 +847,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/chimie-electrique-emotional-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -832,7 +856,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/tati-cardi-ep/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -841,7 +865,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/kouklikou/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -850,7 +874,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/where-is-the-sync-button/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -859,7 +883,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/anarchic/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -868,7 +892,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/autopsynth/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -877,7 +901,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/back-on-track/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -886,7 +910,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/nocturne/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -895,7 +919,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/coagule/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -904,7 +928,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/richie/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -913,7 +937,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/crush-on-you/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -922,7 +946,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/drama-queen/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -931,7 +955,7 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/discowriders/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
     <image:image>
@@ -940,91 +964,91 @@
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/alan-parsons-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/electrochimie-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/montreal-calling/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/north-river/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/digital-ep/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/dvs1-plaid-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/robots-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/cupertino/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/origan/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/so-hard/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/timeout/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/laurent-garnier-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/big-babou-remix/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/fuck-that/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/strange-effect/</loc>
-    <lastmod>2026-10-23</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>

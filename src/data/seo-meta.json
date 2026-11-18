@@ -6,7 +6,7 @@
     },
     "/about": {
       "title": "About Maudite Machine | DJ, Producer, VRSTL Records",
-      "description": "Maudite Machine, indie dance and dark disco DJ and producer based in Montpellier, founder of VRSTL Records. Biography, sound, shows and booking."
+      "description": "Maudite Machine, indie dance and dark disco DJ and producer, founder of VRSTL Records. Biography, sound, shows, hybrid live and booking."
     },
     "/shows": {
       "title": "Shows and Tour Dates | Maudite Machine",
@@ -55,12 +55,12 @@
   },
   "fr": {
     "/": {
-      "title": "Maudite Machine | DJ dark disco et indie dance, Montpellier",
-      "description": "Maudite Machine, DJ et producteur indie dance et dark disco à Montpellier, fondateur de VRSTL Records. Dates, sorties, booking et MM-STUDIO, son studio gratuit."
+      "title": "Maudite Machine | DJ dark disco et indie dance",
+      "description": "Maudite Machine, DJ et producteur indie dance et dark disco, fondateur de VRSTL Records. Dates, sorties, booking et MM-STUDIO, son studio gratuit."
     },
     "/about": {
       "title": "Maudite Machine | Biographie du DJ et producteur",
-      "description": "Maudite Machine, DJ et producteur indie dance et dark disco installé à Montpellier, fondateur de VRSTL Records. Biographie, son, dates et booking."
+      "description": "Maudite Machine, DJ et producteur indie dance et dark disco, fondateur de VRSTL Records. Biographie, son, dates, live hybride et booking."
     },
     "/shows": {
       "title": "Dates et concerts | Maudite Machine",
@@ -110,11 +110,11 @@
   "es": {
     "/": {
       "title": "Maudite Machine | DJ de dark disco e indie dance",
-      "description": "Maudite Machine, DJ y productor de indie dance y dark disco en Montpellier, fundador de VRSTL Records. Fechas, lanzamientos, booking y su estudio MM-STUDIO."
+      "description": "Maudite Machine, DJ y productor de indie dance y dark disco, fundador de VRSTL Records. Fechas, lanzamientos, booking y su estudio MM-STUDIO."
     },
     "/about": {
       "title": "Maudite Machine | Biografía del DJ y productor",
-      "description": "Maudite Machine, DJ y productor de indie dance y dark disco con base en Montpellier, fundador de VRSTL Records. Biografía, sonido, fechas y booking."
+      "description": "Maudite Machine, DJ y productor de indie dance y dark disco, fundador de VRSTL Records. Biografía, sonido, fechas, live híbrido y booking."
     },
     "/shows": {
       "title": "Fechas y conciertos | Maudite Machine",
