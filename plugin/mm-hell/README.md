@@ -1,6 +1,6 @@
 # MM-HELL
 
-Le HELL du MM-ARP (2026-11-13, "façon Echobode" : un décaleur de fréquence de Bode dans la boucle d'un delay) en effet audio VST3 seul, avec une interface native. Usage perso. Installation : [INSTALL.md](INSTALL.md).
+Un plugin Maudite Machine, dans la famille de MM-RYTM et MM-ARP : un delay infernal façon Echobode (un décaleur de fréquence de Bode dans la boucle d'un delay), en effet audio VST3, avec une interface native. Dans Ableton : **Plug-Ins > Maudite Machine > MM-HELL**. Son moteur est celui du module HELL du MM-ARP (2026-11-13). Usage perso. Installation : [INSTALL.md](INSTALL.md).
 
 ## Ce qu'il y a dedans
 
@@ -13,7 +13,7 @@ Le HELL du MM-ARP (2026-11-13, "façon Echobode" : un décaleur de fréquence de
 | `assets/` | Les images `retro/` de la face du MM-ARP (png, jpg), SF Pro Display (converties des `.woff2` du site en `.otf`), Robot Radicals. |
 | `tests/` | `hell_test` (copie de celui du MM-ARP), `presets_test` (banque = MM-ARP, sens des décalages, stabilité, textes ; référence `presets_ref.inc` tirée de `hell.ts`), `host_test` (le processeur), `ui_test` (la fenêtre, gestes de la souris), `snapshot` (captures PNG). |
 
-## Écarts avec le HELL du MM-ARP
+## Écarts avec le module HELL du MM-ARP
 
 - **Cinq presets corrigés** : BARBER DOWN, ABYSS, DEEP STAIRS, SULFUR RAIN, HELLFIRE SWELL avaient un décalage négatif ET la bande DOWN ; les deux signes s'annulent et ils montaient. Ici SIDEBAND est sur UP : ils descendent (`presets_test` le mesure).
 - **SYNC et la note du DELAY, SYNC et la note du LFO** sont des paramètres séparés (dans le MM-ARP, un seul réglage à crans) : l'automation est plus lisible. Les valeurs et les lois sont les mêmes.

@@ -23,6 +23,7 @@ Demande de Mika : « Echobod VST3 : je voudrais que tu fasses l'équivalent de E
 - **CI** `.github/workflows/plugin-hell.yml` : DSP et banque (Linux), processeur et fenêtre sans hôte (Linux, Xvfb, captures en artefact `MM-HELL-captures`), VST3 macOS universel signé ad hoc (artefact `MM-HELL-macOS`), puis la release `mm-hell-latest` si tout est vert.
 - `plugin/mm-hell/INSTALL.md`, `update.sh`, `README.md`.
 - `.github/workflows/plugin.yml` (MM-RYTM) : n'est plus déclenché par `plugin/mm-hell/**` (commit séparé, poussé seul avec `[skip ci]`).
+- **Identité (précision de Mika : « c'est un plugin Maudite Machine, au lieu de MM-ARP, MM-RYTM, ce sera MM-HELL »)** : MM-HELL est un produit de la famille, au même titre que MM-RYTM et MM-ARP. Éditeur « Maudite Machine » et code fabricant `Mmch` comme eux, produit « MM-HELL » (Ableton : Plug-Ins > Maudite Machine > MM-HELL), release `mm-hell-latest`. L'en-tête porte la ligne de firmware des machines : « FIRMWARE V.1.0 / 2026 » (version du projet CMake, `MMHELL_VERSION`). L'interface ne cite plus le MM-ARP (aide de la banque : « The MM-HELL bank »), INSTALL.md et README présentent MM-HELL comme le produit, et le MM-ARP seulement comme l'origine du moteur.
 
 ## 2. Décisions prises et pourquoi
 

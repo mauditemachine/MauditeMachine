@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 
-# MM-HELL (2026-11-18) : le HELL du MM-ARP (facon Echobode : un decaleur de frequence de Bode dans la boucle d'un delay) en
-# effet audio VST3 seul, avec une interface native (JUCE, sans WebView). Usage perso.
+# MM-HELL (2026-11-18), un plugin Maudite Machine (la famille de MM-RYTM et MM-ARP) : un delay infernal facon Echobode (un
+# decaleur de frequence de Bode dans la boucle), effet audio VST3 avec une interface native (JUCE, sans WebView). Son moteur
+# est celui du module HELL du MM-ARP. Usage perso.
 project(MM_HELL VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -53,7 +54,9 @@ juce_add_binary_data(mmhell_assets HEADER_NAME HellAssets.h NAMESPACE HellAssets
   assets/SF-Pro-Display-Medium.otf assets/SF-Pro-Display-Semibold.otf assets/SF-Pro-Display-Bold.otf assets/RobotRadicals.ttf)
 
 set(MM_UI_SOURCES src/PluginEditor.cpp src/HellLook.cpp src/HellControls.cpp src/HellViews.cpp)
-set(MM_JUCE_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0)
+# MMHELL_VERSION : la version du projet (FIRMWARE V.1.0 dans l'en-tete, comme les autres machines Maudite Machine)
+set(MM_JUCE_DEFS JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0
+  MMHELL_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
 # Le banc du processeur et la capture de l'interface (Linux ou Mac, sans hote ni son)
 if(MM_HOST_TEST)

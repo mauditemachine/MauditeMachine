@@ -71,7 +71,10 @@ void MMHellEditor::Panel::paint(juce::Graphics& g) {
         hl::paintPanel(b, {0, 0, W, H});
         // l'en-tete : le wordmark et le nom, comme la face du MM-ARP
         hl::text(b, "MAUDITE MACHINE", {56, 20, 300, 30}, hl::logoFont(23.f), hl::kSilk.withAlpha(0.92f), juce::Justification::centredLeft);
-        hl::text(b, "MM-HELL", {330, 22, 200, 26}, hl::font(16.f, hl::Weight::Medium, 0.32f), hl::kSilk, juce::Justification::centredLeft);
+        hl::text(b, "MM-HELL", {330, 16, 200, 26}, hl::font(16.f, hl::Weight::Medium, 0.32f), hl::kSilk, juce::Justification::centredLeft);
+        // la ligne de firmware des machines Maudite Machine (MM-RYTM, MM-ARP : "FIRMWARE V.2.5 / 2026")
+        hl::text(b, "FIRMWARE V." MMHELL_VERSION " / 2026", {331, 42, 200, 10}, hl::font(6.5f, hl::Weight::Semibold, 0.24f), hl::kSilkDim,
+                 juce::Justification::centredLeft);
         // les cadres : les titres, les filets entre eux
         sectionTitle(b, "DELAY", (kDelayX0 + kDelayX1) / 2, kTop + 4);
         sectionTitle(b, "FREQUENCY SHIFTER", (kShiftX0 + kShiftX1) / 2, kTop + 4);
@@ -234,7 +237,7 @@ MMHellEditor::MMHellEditor(MMHellProcessor& p) : AudioProcessorEditor(&p), proc_
     // ---- la banque ----
     presets_.onLoad = [this](int i) { proc_.loadPreset(i); };
     presets_.getProperties().set("title", "PRESETS");
-    presets_.getProperties().set("help", "The HELL bank of MM-ARP: 24 presets. Click to open the list. A preset sets everything except MIX.");
+    presets_.getProperties().set("help", "The MM-HELL bank: 24 presets. Click to open the list. A preset sets everything except MIX.");
     presets_.setBounds(576, 8, 284, 58);
     prev_ = std::make_unique<KeyButton>("PREV", [this] { step(-1); });
     prev_->help = "The previous preset.";

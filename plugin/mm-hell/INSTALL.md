@@ -1,6 +1,6 @@
 # MM-HELL, installation sur Mac (VST3)
 
-Le HELL du MM-ARP (le delay façon Echobode : un décaleur de fréquence de Bode dans la boucle) en effet audio seul, avec sa propre fenêtre.
+MM-HELL, un plugin Maudite Machine, dans la famille de MM-RYTM et MM-ARP : un delay infernal façon Echobode, avec un décaleur de fréquence de Bode dans la boucle (chaque répétition monte ou descend encore : spirales, escaliers sans fin). Son moteur est celui du module HELL du MM-ARP.
 
 ## Installer ou mettre à jour
 
@@ -24,11 +24,11 @@ P=/Library/Audio/Plug-Ins/VST3/MM-HELL.vst3; [ -d "$P" ] || P=~/Library/Audio/Pl
 
 ## Utilisation
 
-- **Le son** : le même HELL que dans le MM-ARP, au bit près (même code, mêmes réglages, mêmes presets). **MIX** dose l'effet : 0 = contourné au bit près ; à mi-course, le sec et le mouillé sont pleins. Sur une piste de retour, mets MIX à fond.
+- **Le son** : le même moteur que le module HELL du MM-ARP, au bit près (même code, mêmes réglages ; les presets aussi, cinq corrigés pour descendre vraiment). **MIX** dose l'effet : 0 = contourné au bit près ; à mi-course, le sec et le mouillé sont pleins. Sur une piste de retour, mets MIX à fond.
 - **La fenêtre** : de gauche à droite, le chemin du son. **DELAY** (le temps, en ms ou en notes avec SYNC ; FEEDBACK ; CROSS ; dans la boucle HIGH-PASS, LOW-PASS, SMEAR), **FREQUENCY SHIFTER** (RANGE en touches, le gros potard, SIDEBAND, PHASE, ANTI REFL, SPREAD), **HELL** (MIX et l'**ECHO MAP**), et le **LFO** avec son VU.
 - **ECHO MAP** : chaque répétition, sa hauteur et son niveau, calculés depuis les réglages (un La 440, ou la dernière note MIDI reçue). On voit la spirale monter ou descendre, ce que les filtres de la boucle retirent (zones assombries), et ce qui se replie sous 0 Hz (anneaux, à corriger avec ANTI REFL).
 - **Les gestes** : glisser vers le haut ou le bas (Maj : 4 fois plus fin), molette, double-clic ou Alt + clic = valeur par défaut. Un clic sur un levier ou une touche. La bande du bas dit ce que fait la pièce survolée, avec sa valeur.
-- **Les presets** : les 24 du HELL du MM-ARP. PREV / NEXT, un clic sur la fenêtre déroule la banque, INIT = un delay simple. Un preset règle tout sauf MIX (s'il était à 0, il passe à 35 %). Tes propres réglages se sauvent comme presets d'Ableton (l'icône disquette de la barre du plugin).
+- **Les presets** : 24 presets d'usine. PREV / NEXT, un clic sur la fenêtre déroule la banque, INIT = un delay simple. Un preset règle tout sauf MIX (s'il était à 0, il passe à 35 %). Tes propres réglages se sauvent comme presets d'Ableton (l'icône disquette de la barre du plugin).
 - **RANGE MIDI** : le décalage suit la dernière note reçue. Sur une piste MIDI, **MIDI To** : la piste où est MM-HELL, puis **MM-HELL** dans le second menu. Sans note reçue, le décalage reste à 0 (l'écran dit "WAITING FOR A MIDI NOTE").
 - **Les paramètres** : déplie le plugin (le triangle de sa barre) : les 22 réglages, avec leur texte (Hz, ms, notes). Automation, MIDI Map (Cmd + M), même fenêtre fermée. SYNC et RANGE SYNC suivent le tempo d'Ableton.
 - **La taille** : tire le coin en bas à droite (80 % à 200 %) ; elle est gardée dans le projet.
