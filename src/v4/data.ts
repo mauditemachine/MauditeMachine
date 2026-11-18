@@ -316,7 +316,7 @@ export const FEATURED_MERCH = {
  */
 export const MENU_ABOUT = {
   kicker: 'Behind the machines',
-  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
+  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.',
   note: 'I built this website and every machine on it myself. If you like playing with them, you can support me: grab a tee or the new hoodie in the shop, or pick up some music on Bandcamp. Thank you!',
   sign: 'Mika',
 } as const;

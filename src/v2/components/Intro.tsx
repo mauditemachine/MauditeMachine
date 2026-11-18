@@ -25,7 +25,7 @@ const Intro: React.FC = () => (
 
     <div className="v2-intro-main">
       <p className="v2-intro-lead">
-        <strong>Indie dance</strong> and <strong>dark disco</strong> with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.
+        <strong>Indie dance</strong> and <strong>dark disco</strong> with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.
       </p>
 
       <div className="v2-intro-cols">

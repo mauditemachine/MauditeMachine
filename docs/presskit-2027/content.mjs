@@ -94,7 +94,7 @@ export const C = {
     'Akufen', 'D-Nox', 'Perfect Stranger', 'Riva Starr', 'Alle Farben', 'FM Radio Gods', 'Tom Baker', 'Kassian', 'Mateo Murphy',
   ],
   labelTitle: 'VRSTL Records',
-  labelText: 'Independent label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. Montréal, Canada.',
+  labelText: 'Independent label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.',
   rosterTitle: 'Roster',
   roster: ['Julian Rocci', 'Alex Decker', 'Lealtica', 'Jabba2.3', 'Manüman', 'COACH', 'Maudite Machine'],
 
@@ -213,7 +213,7 @@ export const C = {
     [
       'Travel',
       [
-        'Departure: Canada, France or Spain.',
+        'Departure: International (Worldwide).',
         'Flights: economy class, booked by the promoter and confirmed at least 3 weeks before the show. The artist travels alone.',
         'Ground transport: airport to hotel, hotel to venue and back, arranged by the promoter.',
         'Hotel: 3 stars minimum, single room, non smoking, quiet floor. Late check-out when the set ends after 4 am.',

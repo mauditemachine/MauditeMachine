@@ -9,9 +9,9 @@
     <!-- 2026-10-21 (audit SEO F2 et F3) : chaque page a son titre et sa description (src/data/seo-meta.json) ;
          l'accueil, qui est MM-STUDIO, parle de l'outil gratuit et de l'artiste (avant, un seul titre pour
          tout le site, brief B2 du 2026-10-10). Titre, Open Graph et MusicGroup : scripts/seo-shared.mjs -->
-    <title>MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth</title>
-    <meta name="description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
-    <meta name="keywords" content="MM-STUDIO, online drum machine, free drum machine, drum machine online, online synth, arpeggiator, online DJ mixer, boîte à rythmes en ligne, caja de ritmos online, Maudite Machine, DJ dark disco, DJ indie dance, VRSTL Records, DJ Montpellier" />
+    <title>Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO</title>
+    <meta name="description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
+    <meta name="keywords" content="Maudite Machine, dark disco DJ, indie dance DJ, DJ dark disco, DJ indie dance, dark disco producer, hybrid live electronic, VRSTL Records, MM-STUDIO, online drum machine, free drum machine, online synth, arpeggiator, online DJ mixer, boîte à rythmes en ligne, caja de ritmos online" />
     <meta name="author" content="Maudite Machine" />
     <meta name="robots" content="index, follow" />
     <meta name="googlebot" content="index, follow" />
@@ -44,7 +44,6 @@
          premiere peinture ; la v4 le repose ensuite selon l'apparence (Dark / Light) -->
     <meta name="theme-color" content="#0c0b09" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="geo.placename" content="Montpellier, Occitanie, France" />
 
     <!-- Données structurées JSON-LD pour le SEO
          2026-10-10 (brief de Mika : un seul MusicGroup par page, valeurs strictes du brief) :
@@ -64,25 +63,20 @@
           "Indie Dance",
           "Indie Electronic"
         ],
-        "location": {
-          "@type": "Place",
-          "name": "Montpellier, France",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Montpellier",
-            "addressRegion": "Occitanie",
-            "addressCountry": "FR"
-          }
+        "image": "https://mauditemachine.com/press/og-maudite-machine.jpg",
+        "member": {
+          "@type": "Person",
+          "@id": "https://mauditemachine.com/#mika",
+          "name": "Michael Sanchez",
+          "alternateName": "Mika",
+          "jobTitle": "DJ and Music Producer",
+          "url": "https://mauditemachine.com/"
         },
-        "foundingLocation": {
-          "@type": "Place",
-          "name": "Montreal, Canada"
-        },
-        "areaServed": [
-          "France",
-          "Spain",
-          "Europe",
-          "Canada"
+        "areaServed": "Worldwide",
+        "knowsLanguage": [
+          "fr",
+          "en",
+          "es"
         ],
         "album": [
           {
@@ -97,7 +91,7 @@
             "url": "https://mauditemachine.com/tracks/voodoo/"
           }
         ],
-        "description": "Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.",
+        "description": "Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.",
         "url": "https://mauditemachine.com",
         "sameAs": [
           "https://soundcloud.com/mauditemachine",
@@ -128,27 +122,25 @@
         "founder": {
           "@id": "https://mauditemachine.com/#artist"
         },
+        "areaServed": "Worldwide",
         "sameAs": [
           "https://vrstlrecords.bandcamp.com",
           "https://www.discogs.com/label/3752945-VRSTL-Records",
           "https://soundcloud.com/vrstlrecords"
         ],
-        "email": "vrstlrecords@gmail.com",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Montréal",
-          "addressRegion": "QC",
-          "addressCountry": "CA"
-        }
+        "email": "vrstlrecords@gmail.com"
       },
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "@id": "https://mauditemachine.com/#website",
         "name": "Maudite Machine",
-        "alternateName": "mauditemachine.com",
+        "alternateName": [
+          "MM-STUDIO",
+          "mauditemachine.com"
+        ],
         "url": "https://mauditemachine.com/",
-        "description": "Official website of Maudite Machine, DJ and producer",
+        "description": "Official website of Maudite Machine, international dark disco and indie dance DJ and producer, and MM-STUDIO.",
         "inLanguage": [
           "en",
           "fr",
@@ -418,8 +410,8 @@
          la langue de la page (en_GB ici). scripts/prerender-seo.mjs les remplace page par page -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maudite Machine" />
-    <meta property="og:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
-    <meta property="og:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta property="og:title" content="Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO" />
+    <meta property="og:description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
     <meta property="og:url" content="https://mauditemachine.com/" />
     <meta property="og:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
     <meta property="og:image:width" content="1200" />
@@ -435,8 +427,8 @@
          audit SEO F19) : le compte x.com/mauditemachine de src/v4/data/socials.ts -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@mauditemachine" />
-    <meta name="twitter:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
-    <meta name="twitter:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta name="twitter:title" content="Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO" />
+    <meta name="twitter:description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
     <meta name="twitter:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
     <meta name="twitter:image:alt" content="MM-STUDIO by Maudite Machine: a free drum machine, synth and DJ decks you play in your browser" />
     <!-- Feuilles externes NON bloquantes (2026-10-03, referencement : 2 s de

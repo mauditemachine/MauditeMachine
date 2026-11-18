@@ -2,6 +2,9 @@
   {
     "date": "2026-12-19",
     "title": "PRISM",
+    "venue": "PRISM",
+    "city": "Québec",
+    "country": "CA",
     "location": "Québec, QC",
     "color": "#00d4ff"
   },

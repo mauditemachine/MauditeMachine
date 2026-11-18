@@ -14,6 +14,9 @@
     <image:image>
       <image:loc>https://mauditemachine.com/press/og-maudite-machine.jpg</image:loc>
     </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/fr/</loc>
