@@ -162,23 +162,23 @@ export const POSITIONING_SHORT = 'Indie Dance, Dark Disco';
 
 /** Les bios du brief (A2), mot pour mot. */
 export const BIO_SHORT = {
-  en: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
-  fr: "Indie dance et dark disco, à tendance psychédélique. DJ, producteur, fondateur de VRSTL Records. Quinze ans dans l'underground montréalais, maintenant basé dans le Sud de la France.",
-  es: 'Indie dance y dark disco con un toque psicodélico. DJ, productor, fundador de VRSTL Records. Quince años en el underground de Montreal, ahora con base en el sur de Francia.',
+  en: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.',
+  fr: "Indie dance et dark disco, à tendance psychédélique. DJ, producteur, fondateur de VRSTL Records. Quinze ans dans l'underground.",
+  es: 'Indie dance y dark disco con un toque psicodélico. DJ, productor, fundador de VRSTL Records. Quince años en el underground.',
 };
 export const BIO_LONG = {
   en: [
-    'Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
+    'Maudite Machine is an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
     'He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.',
     'He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).',
   ],
   fr: [
-    "Maudite Machine est DJ et producteur, installé à Montpellier dans le Sud de la France après quinze ans dans l'underground montréalais. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.",
+    "Maudite Machine est DJ et producteur international. Il joue de l'indie dance et de la dark disco à tendance psychédélique : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set. Il joue en DJ set sur CDJ ou en live hybride avec synthés et grooveboxes.",
     'Il a joué à la Techno Parade de Paris, à Okami Festival en France, à Groove and Bass au Québec, et dans les salles de Montréal, de la SAT au Piknic Électronik, sur des plateaux avec Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox et Perfect Stranger.',
     "Il dirige VRSTL Records, label indépendant de 21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe. Ses propres sorties comptent Limbos (2025) et Voodoo (2026).",
   ],
   es: [
-    'Maudite Machine es DJ y productor, con base en Montpellier, en el sur de Francia, tras quince años en el underground de Montreal. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.',
+    'Maudite Machine es DJ y productor internacional. Pincha indie dance y dark disco con un toque psicodélico: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set, en DJ set con CDJ o en live híbrido con sintes y grooveboxes.',
     'Ha tocado en la Techno Parade de París, en Okami Festival en Francia y en Groove and Bass en Quebec, y en las salas de Montreal, de la SAT al Piknic Électronik, junto a Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox y Perfect Stranger.',
     'Dirige VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa. Sus lanzamientos propios incluyen Limbos (2025) y Voodoo (2026).',
   ],
