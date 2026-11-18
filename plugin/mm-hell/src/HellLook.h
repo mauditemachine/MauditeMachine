@@ -27,7 +27,7 @@ juce::Colour hueColour(float hueDeg);
 
 /**
  * Les reglages d'aspect (2026-11-18, v1.1, Mika : "un bouton settings dans un menu hamburger, a gauche", comme les SETTINGS
- * du MM-ARP, look.ts) : LEATHER TEXTURE (0 la laque lisse a 1 le cuir plein ; 0.7), PANEL LIGHT (0.5 neutre), ACCENT COLOR
+ * du MM-ARP, look.ts) : LEATHER TEXTURE (0 la laque lisse a 1 le cuir plein ; 1 au depart depuis la v1.2), PANEL LIGHT (0.5 neutre), ACCENT COLOR
  * (une teinte, 336 = #FF0066). Pas des parametres de l'hote : un reglage de l'atelier, le meme pour toutes les instances
  * de MM-HELL, garde sur le Mac (~/Library/Application Support/Maudite Machine/MM-HELL.settings). Les fenetres ouvertes
  * l'ecoutent (ChangeBroadcaster) et se redessinent.
@@ -35,7 +35,7 @@ juce::Colour hueColour(float hueDeg);
 class Look final : public juce::ChangeBroadcaster {
 public:
     struct State {
-        float leather = 0.7f;
+        float leather = 1.f; // v1.2 : le cuir plein par defaut (0.7 au MM-ARP)
         float light = 0.5f;
         int hue = 336;
     };
@@ -55,10 +55,22 @@ using SharedLook = juce::SharedResourcePointer<Look>;
 enum class Weight { Medium, Semibold, Bold };
 /** La police de la face (SF Pro Display), en points (comme le font-size du CSS), tracking en em. */
 juce::Font font(float pt, Weight w = Weight::Semibold, float tracking = 0.f);
-/** Le wordmark MAUDITE MACHINE (Robot Radicals). */
-juce::Font logoFont(float pt);
+/**
+ * Le nom de la machine (v1.2, Mika : "pour le nom des machines, la police Montserrat, bold, -3 px de letterspacing") :
+ * Montserrat Bold, l'interlettrage de sa maquette Figma (-3 px pour 60 px, -5 %), proportionnel a la taille.
+ */
+juce::Font nameFont(float pt);
 
-enum class Img { Knob, KnobCap, Key, Leather, ToggleBody, LeverOff, LeverOn, WoodL, WoodR };
+/**
+ * Les logos Maudite Machine (public/logo, v1.2, Mika : "les logos que tu dois utiliser pour toutes les machines") :
+ * Stack, MAUDITE / MACHINE sur deux lignes (mauditemachine-logo.svg) ; Mark, le M (mauditemachine-logotype.svg), un peu
+ * partout ou il y a de la place. Vectoriels, dans la couleur voulue, places dans area.
+ */
+enum class Logo { Stack, Mark };
+void drawLogo(juce::Graphics& g, Logo which, juce::Rectangle<float> area, juce::Colour c,
+              juce::RectanglePlacement placement = juce::RectanglePlacement::centred);
+
+enum class Img { Key, Leather, ToggleBody, LeverOff, LeverOn, WoodL, WoodR };
 const juce::Image& image(Img id);
 
 /** L'echelle physique du contexte (fenetre x ecran) : la resolution des caches. */

@@ -1,4 +1,4 @@
-// MM-HELL, les pieces de la face : le potard du MM-RYTM (retro/knob.png, son repere, son capuchon), le petit knob fin,
+// MM-HELL, les pieces de la face : le potard facon Moog (dessine, v1.2),
 // le levier chrome et sa LED, les touches de caoutchouc a LED (un choix parmi plusieurs), les touches d'action. Chacune est
 // branchee sur un parametre de l'hote (juce::ParameterAttachment : l'automation suit, un geste s'enregistre).
 // Les gestes de la face du MM-ARP : glisser vertical (160 points pour toute la course, Maj : quatre fois plus fin), molette,
@@ -27,10 +27,10 @@ protected:
 };
 
 /**
- * Le potard du MM-RYTM (retro/knob.png) en toutes tailles, selon l'importance du reglage (v1.1, Mika : "des knobs comme
- * l'image 1 de tailles differentes selon l'importance, et que les knobs tournent vraiment") : le corps (base, prise a six
- * lobes, repere) tourne avec la valeur ; le capuchon de metal brosse (retro/knob-cap.png) reste fixe par-dessus, sa lumiere
- * ne tourne pas (comme un vrai potard eclaire d'en haut). hero : le gros potard du decaleur, son echelle autour.
+ * Le potard en toutes tailles, selon l'importance du reglage (v1.1 : "des knobs de tailles differentes selon l'importance,
+ * et qui tournent vraiment") ; v1.2 : facon Moog, dessine en vectoriel (sans aliasing) : jupe noire, prise cannelee qui
+ * tourne sous une lumiere fixe (les reflets defilent sur les cannelures), capuchon d'alu brosse, repere blanc
+ * (HellControls.cpp paintMoogKnob). hero : le gros potard du decaleur, son echelle autour.
  */
 class Knob final : public Control {
 public:

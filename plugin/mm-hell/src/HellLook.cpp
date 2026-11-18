@@ -91,15 +91,29 @@ juce::Font font(float pt, Weight w, float tracking) {
     return juce::Font(juce::FontOptions{}.withTypeface(tf).withPointHeight(pt).withKerningFactor(tracking));
 }
 
-juce::Font logoFont(float pt) {
-    static const juce::Typeface::Ptr rr = typeface("RobotRadicals.ttf");
-    return juce::Font(juce::FontOptions{}.withTypeface(rr).withPointHeight(pt));
+juce::Font nameFont(float pt) {
+    static const juce::Typeface::Ptr mont = typeface("Montserrat-Bold.ttf");
+    // l'interlettrage de JUCE est une part de la hauteur de la police (1.219 em pour Montserrat) : -0.05 em
+    return juce::Font(juce::FontOptions{}.withTypeface(mont).withPointHeight(pt).withKerningFactor(-0.05f / 1.219f));
+}
+
+void drawLogo(juce::Graphics& g, Logo which, juce::Rectangle<float> area, juce::Colour c, juce::RectanglePlacement placement) {
+    static const auto parse = [](const char* file) {
+        int n = 0;
+        const void* d = bytes(file, n);
+        return d ? juce::Drawable::createFromImageData(d, static_cast<size_t>(n)) : nullptr;
+    };
+    static const std::unique_ptr<juce::Drawable> stack = parse("mauditemachine-logo.svg"), mark = parse("mauditemachine-logotype.svg");
+    const auto& src = which == Logo::Stack ? stack : mark;
+    if (!src) return;
+    auto d = src->createCopy();
+    d->replaceColour(juce::Colours::white, c);
+    d->drawWithin(g, area, placement, 1.f);
 }
 
 const juce::Image& image(Img id) {
-    static const juce::Image imgs[] = {load("knob.png"),        load("knob-cap.png"),         load("key.png"),
-                                       load("leather.png"),     load("toggle-body.png"),      load("toggle-lever-off.png"),
-                                       load("toggle-lever-on.png"), load("wood-l.jpg"),       load("wood-r.jpg")};
+    static const juce::Image imgs[] = {load("key.png"),          load("leather.png"),        load("toggle-body.png"), load("toggle-lever-off.png"),
+                                       load("toggle-lever-on.png"), load("wood-l.jpg"),         load("wood-r.jpg")};
     return imgs[static_cast<int>(id)];
 }
 
@@ -186,11 +200,30 @@ void paintPanel(juce::Graphics& g, juce::Rectangle<float> a, const Look::State& 
         g.beginTransparencyLayer(look.leather);
         g.setColour(juce::Colour(0xff161618));
         g.fillRect(a);
-        const int tp = juce::jmax(16, juce::roundToInt(256 * phys));
+        // v1.2 (Mika : "je veux que le cuir noir soit plus apparent") : le grain de retro/leather.png est presque invisible
+        // (gris de 15 a 27) ; il est contraste x3.2 autour de sa moyenne, et la tuile passe de 256 a 320 points (un grain
+        // un peu plus gros)
+        static const juce::Image grain = [] {
+            juce::Image src = image(Img::Leather).convertedToFormat(juce::Image::RGB);
+            juce::Image::BitmapData d(src, juce::Image::BitmapData::readWrite);
+            double sum = 0;
+            for (int y = 0; y < d.height; ++y)
+                for (int x = 0; x < d.width; ++x) sum += d.getPixelColour(x, y).getPerceivedBrightness();
+            const float mean = static_cast<float>(sum / (d.width * d.height));
+            for (int y = 0; y < d.height; ++y)
+                for (int x = 0; x < d.width; ++x) {
+                    // la luminance seule (le contraste amplifiait une pointe de bleu) ; la teinte vient de la laque
+                    const float u = mean + (d.getPixelColour(x, y).getPerceivedBrightness() - mean) * 3.2f;
+                    const auto v = static_cast<juce::uint8>(juce::jlimit(0, 255, juce::roundToInt(u * 255.f)));
+                    d.setPixelColour(x, y, juce::Colour(v, v, v));
+                }
+            return src;
+        }();
+        const int tp = juce::jmax(16, juce::roundToInt(320 * phys));
         static juce::Image tile;
         static int tileSize = 0;
         if (tileSize != tp) {
-            tile = rescale(image(Img::Leather), tp, tp);
+            tile = rescale(grain, tp, tp);
             tileSize = tp;
         }
         g.setFillType(juce::FillType(tile, juce::AffineTransform::scale(1.f / phys)));

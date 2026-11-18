@@ -165,14 +165,14 @@ int main() {
         const bool dbl = std::fabs(look->state().light - 0.5f) < 1e-6f;
         click(&sp, sp.resetArea().getCentre());
         const auto d = look->state();
-        const bool reset = std::fabs(d.leather - 0.7f) < 1e-6f && std::fabs(d.light - 0.5f) < 1e-6f && d.hue == 336 && hl::accent() == juce::Colour(0xffff0066);
+        const bool reset = std::fabs(d.leather - 1.f) < 1e-6f && std::fabs(d.light - 0.5f) < 1e-6f && d.hue == 336 && hl::accent() == juce::Colour(0xffff0066);
         // le voile sous le panneau : un clic dehors le ferme
         juce::Component* scrim = nullptr;
         for (auto* c : sp.getParentComponent()->getChildren())
             if (c != &sp && c->isVisible() && c->getBounds() == sp.getParentComponent()->getLocalBounds()) scrim = c;
         if (scrim) click(scrim, {600, 300});
         char msg[200];
-        std::snprintf(msg, sizeof msg, "SETTINGS : ouvert %d, rails (cuir 0, lumiere 100, teinte 180) %d, double-clic %d, RESET (70, 50, #FF0066) %d, clic dehors ferme %d",
+        std::snprintf(msg, sizeof msg, "SETTINGS : ouvert %d, rails (cuir 0, lumiere 100, teinte 180) %d, double-clic %d, RESET (100, 50, #FF0066) %d, clic dehors ferme %d",
                       shown, set, dbl, reset, !he->settingsShown());
         check(shown && set && dbl && reset && scrim && !he->settingsShown(), msg);
     }

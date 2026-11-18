@@ -95,3 +95,27 @@ Demande de Mika : « que les knobs tournent vraiment ; plus de presets, vraiment
 
 - **Mika** : installer la v1.1 (même commande `update.sh`), tourner les potards, ouvrir le menu, essayer SETTINGS, et **écouter les 48 nouveaux presets** (réglés et mesurés, jamais écoutés). Dire lesquels garder, lesquels refaire.
 - Les presets HARMONIC ont besoin d'une note MIDI routée vers MM-HELL.
+
+## Suite (v1.2) : logos Maudite Machine, Montserrat, potards Moog, cuir
+
+Demandes de Mika : « ce sont les logos que tu dois utiliser pour toutes les machines (image 1 : le logo, image 2 : le M, un peu n'importe où dès qu'il y a de la place) ; pour le nom des machines, Montserrat, bold, -3 px de letterspacing » ; puis « de l'aliasing sur les knobs, je n'aime pas ; je veux des beaux knobs Moog qui tournent bien avec des reflets ; je veux que le cuir noir soit plus apparent ».
+
+### 1. Ce qui a été fait
+
+- **Logos** : les fichiers du site (`public/logo/mauditemachine-logo.svg`, le logo sur deux lignes, et `mauditemachine-logotype.svg`, le M) copiés dans `assets/`, dessinés en vectoriel (`hl::drawLogo`). Le logo empilé remplace le wordmark en police Robot Radicals dans l'en-tête ; il signe aussi le VU (à la place du texte MAUDITE MACHINE). Le M : en haut à gauche du FREQUENCY SHIFTER (une place libre) et au bout de la bande d'info.
+- **Le nom MM-HELL** en Montserrat Bold (`assets/Montserrat-Bold.ttf`, licence OFL jointe), serré (`hl::nameFont`), avec FIRMWARE V.1.2 dessous.
+- **Potards façon Moog** (`paintMoogKnob`, `HellControls.cpp`), dessinés en vectoriel à la résolution de l'écran : plus d'image tournée (c'est elle qui crénelait). Jupe noire mate éclairée en haut à gauche, prise cannelée (28 à 40 cannelures selon la taille) qui tourne : chaque arête s'éclaire selon son orientation face à la lumière fixe, les reflets défilent quand on tourne ; plateau satiné, repère blanc et son ombre ; capuchon d'alu brossé calculé pixel par pixel (reflets coniques, brossage radial), fixe. Les images `knob.png` et `knob-cap.png` sont retirées.
+- **Cuir plus apparent** : le grain de `leather.png` (gris de 15 à 27 sur 255) est contrasté x3.2 au chargement, en luminance seule (la teinte vient de la laque), la tuile passe de 256 à 320 points, et LEATHER TEXTURE est à 100 par défaut.
+- Version 1.2.0, bancs à jour (`ui_test` : RESET ramène le cuir à 100).
+
+### 2. Décisions prises et pourquoi
+
+- **L'interlettrage** : -3 px sur un nom de 30 px collait les lettres (HELL se touchait). Ta maquette Figma montre -5 %, soit -3 px pour 60 px : c'est cette proportion qui est appliquée (-0,05 em), quelle que soit la taille.
+- **Les noms des fichiers** : `mauditemachine-logo.svg` est le logo sur deux lignes (ton image 1), `mauditemachine-logotype.svg` est le M (ton image 2).
+- **Le capuchon** : les secteurs tracés et les anneaux de brossage fins moiraient (des tourbillons « empreinte digitale ») ; le calcul pixel par pixel donne un alu propre. Il n'est fait qu'une fois par taille.
+- **MM-ARP et MM-RYTM** ne sont pas touchés ici : MM-ARP vit sur sa branche, et la face du MM-RYTM est aussi celle du site. Une tâche séparée est proposée (« Apply Maudite Machine logos and Montserrat names to MM-ARP and MM-RYTM »).
+
+### 3. Ce qui reste à faire / points en suspens
+
+- **Mika** : réinstaller (même commande `update.sh`) et juger les potards, le cuir, les logos et leurs places.
+- La tâche des logos pour MM-ARP et MM-RYTM, et la question : faut-il changer aussi les faces du site, ou seulement les plugins ?

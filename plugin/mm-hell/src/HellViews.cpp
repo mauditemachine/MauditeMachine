@@ -174,7 +174,7 @@ void LfoVu::paint(juce::Graphics& g) {
                 ++idx;
             }
             text(fg, "LFO", {px - 40, py - 26 - 8, 80, 13}, font(11.f, Weight::Bold, 0.2f), ink);
-            text(fg, "MAUDITE MACHINE", {px - 40, py - 15 - 4, 80, 7}, font(4.5f, Weight::Semibold, 0.3f), ink.withAlpha(0.6f));
+            drawLogo(fg, Logo::Stack, {px - 20, py - 19.5f, 40, 9}, ink.withAlpha(0.62f));
         }
     });
     const int lit = on_ ? 1 : 0;

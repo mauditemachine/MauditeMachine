@@ -71,11 +71,14 @@ void MMHellEditor::Panel::paint(juce::Graphics& g) {
     const auto& img = bg.get(W, H, phys, [look](juce::Graphics& b) {
         hl::paintPanel(b, {0, 0, W, H}, look);
         // l'en-tete : le wordmark et le nom, comme la face du MM-ARP
-        hl::text(b, "MAUDITE MACHINE", {86, 20, 300, 30}, hl::logoFont(23.f), hl::kSilk.withAlpha(0.92f), juce::Justification::centredLeft);
-        hl::text(b, "MM-HELL", {352, 16, 180, 26}, hl::font(16.f, hl::Weight::Medium, 0.32f), hl::kSilk, juce::Justification::centredLeft);
-        // la ligne de firmware des machines Maudite Machine (MM-RYTM, MM-ARP : "FIRMWARE V.2.5 / 2026")
-        hl::text(b, "FIRMWARE V." MMHELL_VERSION " / 2026", {353, 42, 180, 10}, hl::font(6.5f, hl::Weight::Semibold, 0.24f), hl::kSilkDim,
+        // v1.2 (Mika : "les logos a utiliser pour toutes les machines") : le logo MAUDITE / MACHINE sur deux lignes, puis le
+        // nom de la machine en Montserrat Bold serre, la ligne de firmware dessous
+        hl::drawLogo(b, hl::Logo::Stack, {88, 20, 148, 33}, hl::kSilk.withAlpha(0.95f), juce::RectanglePlacement::xLeft | juce::RectanglePlacement::yMid);
+        hl::text(b, "MM-HELL", {252, 13, 220, 34}, hl::nameFont(29.f), juce::Colour(0xfff3eee6), juce::Justification::centredLeft);
+        hl::text(b, "FIRMWARE V." MMHELL_VERSION " / 2026", {254, 47, 200, 10}, hl::font(6.5f, hl::Weight::Semibold, 0.24f), hl::kSilkDim,
                  juce::Justification::centredLeft);
+        // le M, la ou il y a de la place : en haut a gauche du FREQUENCY SHIFTER
+        hl::drawLogo(b, hl::Logo::Mark, {kShiftX0 + 18, kTop + 28, 38, 33}, hl::kSilk.withAlpha(0.8f), juce::RectanglePlacement::xLeft | juce::RectanglePlacement::yTop);
         // les cadres : les titres, les filets entre eux
         sectionTitle(b, "DELAY", (kDelayX0 + kDelayX1) / 2, kTop + 4);
         sectionTitle(b, "FREQUENCY SHIFTER", (kShiftX0 + kShiftX1) / 2, kTop + 4);
@@ -137,8 +140,12 @@ void MMHellEditor::Info::paint(juce::Graphics& g) {
         hl::text(g, s, {x, b.getY(), w, b.getHeight()}, f, c, juce::Justification::centredLeft);
         x += w + gap;
     };
-    const float sw = status.isEmpty() ? 0 : juce::GlyphArrangement::getStringWidth(vf, status) + 16;
-    hl::text(g, status, b.withTrimmedLeft(b.getWidth() - sw), hl::font(7.5f, hl::Weight::Semibold, 0.14f), hl::kSilkDim, juce::Justification::centredRight);
+    // le M de Maudite Machine au bout de la bande, le tempo et la note a sa gauche
+    const float mw = 18;
+    hl::drawLogo(g, hl::Logo::Mark, {b.getRight() - mw, b.getCentreY() - 7.5f, mw, 15}, hl::kSilk.withAlpha(0.8f), juce::RectanglePlacement::xRight | juce::RectanglePlacement::yMid);
+    const float sw = (status.isEmpty() ? 0 : juce::GlyphArrangement::getStringWidth(vf, status) + 16) + mw + 12;
+    hl::text(g, status, b.withTrimmedLeft(b.getWidth() - sw).withTrimmedRight(mw + 12), hl::font(7.5f, hl::Weight::Semibold, 0.14f), hl::kSilkDim,
+             juce::Justification::centredRight);
     put(title, tf, hl::kSilk, 10);
     put(value, vf, hl::accent(), 14);
     hl::text(g, help, {x, b.getY(), b.getRight() - sw - x - 8, b.getHeight()}, hf, hl::kSilk.withAlpha(0.62f), juce::Justification::centredLeft);
