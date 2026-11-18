@@ -654,3 +654,22 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Multicoeur facon Diva evalue, non conseille pour l'instant.
 - ECO non ecoute (repliement plus fort a x2 avec FM et SYNC).
 - Une automation de QUALITY d'un ancien projet relirait 0 comme ECO.
+
+## 2026-11-18 (suite 6) : v33, knobs a reflets, rotation fluide, cuir A
+
+### Ce qui a ete fait
+- Knobs de la face (voyager/knobs.ts, rytmKnob.ts, scene/renderer.ts, gates PLUGIN_ARP) : carte d'environnement studio (softboxes) reservee aux knobs, jupe vernie (clearcoat 1), capuchon d'alu plus metallique, cannelures au profil arrondi (fini le scintillement des aretes), anisotropie 16 sur le brossage.
+- Rotation : 60 i/s pendant un mouvement de knob, une automation ou la bascule du capot, retour au plafond bas 250 ms apres ; l'angle glisse vers sa cible (~35 ms).
+- Cuir : relief jusqu'a 2,6 x et satine ; LEATHER TEXTURE par defaut 0,45 (niveau A choisi par Mika).
+- Inclus : f6ceb907 (autre session) : 5 presets HELL qui montaient descendent (SIDEBAND UP).
+- CLAUDE.md : regle de clarte pour les choix A / B / C (une image par option, lettre sur l'image et en legende).
+- Tests : tsc 105 ; MSAA x4 deja actif (pas la cause) ; cout de la face 1,2 ms/image au repos, 1,3 en rotation.
+
+### Decisions prises et pourquoi
+- Mika : knobs valides, cuir A, "code et publie" ; piste CPU B (moteur PRO partout, CLASSIC garde pour les anciens projets) lancee a part.
+- Aliasing : cause principale probable le plafond a 30 i/s de la v31 (rotation par a-coups) et les aretes vives des cannelures.
+
+### Ce qui reste a faire / points en suspens
+- Juger l'aliasing a l'oeil sur Mac ; capuchon un peu plus sombre qu'avant (a eclaircir si besoin).
+- Un projet qui a enregistre LEATHER a 0,7 le garde : RESET dans SETTINGS pour revenir au niveau A.
+- Moteur PRO (piste CPU B) en cours.

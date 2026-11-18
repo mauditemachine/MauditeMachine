@@ -63,3 +63,10 @@ laisser faire.
 - Chaque mission se termine par un bloc copiable
   « 📋 RAPPORT POUR CLAUDE DESKTOP ».
 - Commit + push apres chaque modification validee (deploy auto ~1 min).
+- Quand Mika doit CHOISIR entre des options (A / B / C), chaque option est
+  clairement etiquetee sur son image : une image par option, envoyee
+  separement avec la legende « A : ... », « B : ... », « C : ... », et la
+  lettre ecrite en gros SUR l'image elle-meme. Dans le texte, la meme lettre,
+  le meme ordre, une ligne par option. Jamais un lot d'images sans lettre
+  (Mika, 2026-11-18 : "je suis toujours en train de deviner lequel est le
+  a b ou c").

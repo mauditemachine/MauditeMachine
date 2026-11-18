@@ -1,6 +1,6 @@
 /**
  * Les reglages d'aspect du plugin MM-ARP (2026-11-16, Mika : "un parametre dans les settings pour attenuer le cuir") :
- * - leather : la texture du cuir, 0 (la laque lisse d'avant) a 1 (le cuir plein) ; 0.7 au depart ;
+ * - leather : la texture du cuir, 0 (la laque lisse d'avant) a 1 (le cuir le plus marque) ; 0.45 au depart (v33, Mika : niveau A) ;
  * - light : la lumiere du panneau, 0 a 1 (0.5 : neutre) ;
  * - hue (v31, 2026-11-18) : la teinte de la couleur d'accent, en degres (336 : #FF0066), a saturation et luminosite fixes
  *   (accent.ts).
@@ -19,7 +19,7 @@ export interface Look {
   hue: number;
 }
 
-export const LOOK_DEFAULTS: Look = { leather: 0.7, light: 0.5, hue: ACCENT_HUE_DEFAULT };
+export const LOOK_DEFAULTS: Look = { leather: 0.45, light: 0.5, hue: ACCENT_HUE_DEFAULT };
 
 /** Borne a 0..1, au centieme (le curseur montre 0 a 100). */
 const clamp = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : d);
