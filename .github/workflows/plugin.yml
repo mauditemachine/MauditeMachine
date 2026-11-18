@@ -6,6 +6,9 @@ on:
   push:
     paths:
       - 'plugin/**'
+      # 2026-11-18 : MM-HELL a son propre workflow (plugin-hell.yml) ; sans cette exclusion, un push de MM-HELL
+      # reconstruisait le MM-RYTM de sa branche et ecrasait la release mm-rytm-latest
+      - '!plugin/mm-hell/**'
       - 'public/samples/rytm/**'
       - 'src/v4/**'
       - 'package.json'
