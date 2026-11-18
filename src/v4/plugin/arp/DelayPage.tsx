@@ -16,7 +16,7 @@ import { pattern } from '../../audio/pattern';
 import { voyParams } from '../../voyager/params';
 import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayLoad, delayStep, delayTimeText, dlIdx } from './delay';
 import { arpExtra } from './extra';
-import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC } from './pcbui';
+import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC, useRaise } from './pcbui';
 
 const Row: React.FC<{ top: number; left?: number; w: number; children: React.ReactNode }> = ({ top, left, w, children }) => (
   <div className="mm-p2-cells mm-hell-row" style={{ top, left: left ?? undefined, width: w }}>
@@ -164,9 +164,11 @@ const PresetBox: React.FC = () => {
   useAll();
   const [list, setList] = useState(false);
   const cur = delayCurrent();
+  const pbox = useRef<HTMLDivElement>(null);
+  useRaise(list, pbox);
   const i = cur ? DELAY_PRESETS.indexOf(cur) : -1;
   return (
-    <div className="mm-hell-presets mm-dm-presets">
+    <div ref={pbox} className="mm-hell-presets mm-dm-presets">
       <button type="button" className="mm-hell-pwin mm-dm-pwin" aria-haspopup="listbox" aria-expanded={list} onClick={() => setList((o) => !o)}>
         <span className="mm-hell-pnum">{i >= 0 ? `${String(i + 1).padStart(2, '0')} / ${DELAY_PRESETS.length}` : `-- / ${DELAY_PRESETS.length}`}</span>
         <b>{cur ? cur.name : 'YOUR DELAY'}</b>

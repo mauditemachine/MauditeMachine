@@ -223,6 +223,22 @@ export const HELL_PRESETS: readonly HellPreset[] = [
 const KEYS = Object.keys(HELL_PRESETS[0].v);
 
 /** Le preset dont les reglages sont ceux du moment (a un millieme pres), sinon null. */
+/**
+ * v28 (Mika : "quand on fait random ou pour les presets ce serait bien d'utiliser une toute petite partie de Hell sinon ca
+ * denature tous les sons") : un reglage HELL doux pour RANDOM (hypno.ts) : peu de reinjection, un decalage de quelques Hz,
+ * filtre et flou ; MIX a part (0.03 a 0.10, tire par RANDOM).
+ */
+export function hellGentle(rnd: () => number = Math.random): Readonly<Record<string, number>> {
+  const sgn = rnd() < 0.5 ? -1 : 1;
+  const kinds: Units[] = [
+    { t: 90 + Math.round(rnd() * 60), fb: 0.3 + rnd() * 0.12, sh: sgn * (2 + rnd() * 3), ud: 0.5, smear: 0.35, lp: 6000, hp: 150 },
+    { t: '1/4.', fb: 0.38 + rnd() * 0.1, sh: sgn * (3 + rnd() * 4), smear: 0.2, lp: 2600, hp: 140 },
+    { t: '1/4', fb: 0.35 + rnd() * 0.1, sh: 4 + rnd() * 6, sp: 0.3, smear: 0.15, lp: 5000 },
+    { t: '1/8.', fb: 0.32 + rnd() * 0.1, sh: sgn * (1.5 + rnd() * 2), ud: 0.5, smear: 0.5, lp: 4500, hp: 180 },
+  ];
+  return P('GENTLE', 'RANDOM', kinds[Math.min(kinds.length - 1, Math.floor(rnd() * kinds.length))]).v;
+}
+
 export function hellCurrent(): HellPreset | null {
   const v = arpExtra.get();
   return HELL_PRESETS.find((p) => KEYS.every((k) => Math.abs((v[k] ?? 0) - Math.round((p.v[k] ?? 0) * 1000) / 1000) < 0.0015)) ?? null;

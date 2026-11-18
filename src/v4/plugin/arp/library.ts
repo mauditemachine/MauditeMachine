@@ -8,7 +8,7 @@
 import bank from '../../../../plugin/mm-arp/presets/factory.json';
 import { arpBridge } from './bridge';
 
-export type LibCat = 'DISCO' | 'HYPNOTIC' | 'DARK' | 'TEXTURE';
+export type LibCat = 'BASS' | 'ARP' | 'PAD' | 'DARK';
 
 export interface FactoryPreset {
   name: string;
@@ -23,7 +23,7 @@ export interface FactoryPreset {
 }
 
 export const LIB_PRESETS = (bank as unknown as { presets: FactoryPreset[] }).presets;
-export const LIB_CATS: readonly LibCat[] = ['DISCO', 'HYPNOTIC', 'DARK', 'TEXTURE'];
+export const LIB_CATS: readonly LibCat[] = ['BASS', 'ARP', 'PAD', 'DARK'];
 export const libOfCat = (c: LibCat): FactoryPreset[] => LIB_PRESETS.filter((p) => p.cat === c);
 
 /** Le preset charge depuis l'ouverture de la fenetre (son nom ; null : aucun). */

@@ -801,8 +801,18 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   };
   const sb = bands[sel - 1];
   const head = `${sel} · ${sb.type} · ${extraTextOf(qid(sel, 'Freq')).toUpperCase()}${sb.type === 'HP' || sb.type === 'LP' ? ` · ${[12, 24, 48][sb.slope]} DB/OCT` : sb.type === 'NOTCH' ? '' : ` · ${extraTextOf(qid(sel, 'Gain')).toUpperCase()}`} · Q ${sb.q.toFixed(2)}${sb.on ? '' : ' · OFF'}`;
+  // l'ancien EQ 4 bandes d'un projet d'avant, encore actif (v27, OLD EQ) : dit dans l'en-tete de l'ecran, RESET a cote (v28)
+  const oldEq = OLD_EQ.some((id) => Math.abs(X(id) - 0.5) > 0.0005);
   return (
-    <div className="mm-dm-glass mm-eq-screen" style={{ width: w, height: h }}>
+    <div className="mm-dm-glass mm-eq-screen" style={{ width: w, height: h, position: 'relative' }}>
+      {oldEq && (
+        <div className="mm-eq-old">
+          <span className="mm-eq-old-t">OLD EQ ON</span>
+          <button type="button" className="mm-eq-old-k" onClick={() => OLD_EQ.forEach((id) => arpExtra.set(id, 0.5))} aria-label="Reset the old 4 band EQ of this project" title="The old 4 band EQ of this project is still on">
+            RESET
+          </button>
+        </div>
+      )}
       <svg ref={svg} width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         {[50, 100, 200, 500, 1000, 2000, 5000, 10000].map((f) => (
           <g key={f}>
@@ -846,6 +856,7 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
 };
 
 const extraTextOf = (id: string): string => SRC.text(id);
+const OLD_EQ = ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'] as const;
 
 /** BAND 1 a 6 (la LED : allumee), ON de la bande choisie. */
 const EqBandKeys: React.FC = () => {
@@ -902,7 +913,6 @@ const SoundPage: React.FC = () => {
       {kids}
     </div>
   );
-  const oldEq = ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'].some((id) => Math.abs(X(id) - 0.5) > 0.0005);
   return (
     <>
       <PcbFrame title="EQ" x={EQ.x} y={60} w={EQ.w} h={262} sep className="mm-hell-frame" led={[1, 2, 3, 4, 5, 6].some((b) => X(qid(b, 'On')) >= 0.5 && (Math.abs(X(qid(b, 'Gain')) - 0.5) > 0.0005 || X(qid(b, 'Type')) === 0 || X(qid(b, 'Type')) === 1 || Math.round(X(qid(b, 'Type')) * 5) === 3))}>
@@ -910,12 +920,6 @@ const SoundPage: React.FC = () => {
           <EqScreen w={EQ.w - 24} h={150} />
         </div>
         <EqBandKeys />
-        {oldEq && (
-          <div className="mm-eq-old">
-            <span>OLD EQ ON</span>
-            <PcbKey name="RESET" w={40} h={13} onClick={() => ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'].forEach((id) => arpExtra.set(id, 0.5))} aria-label="Reset the old 4 band EQ of this project" />
-          </div>
-        )}
         {R(
           176,
           EQ.w - 186,
@@ -979,8 +983,8 @@ const SoundPage: React.FC = () => {
             <PcbKnob id="xFlFb" name="FEEDBACK" ref_="" lo="" hi="" fine />
             <PcbKnob id="xFlDelay" name="DELAY" ref_="" lo="" hi="" fine />
             <PcbKnob id="xFlSpread" name="SPREAD" ref_="" lo="" hi="" fine />
-            <PcbToggle id="xFlSync" name="SYNC" ref_="" w={70} />
-            <PcbToggle id="xFlThru" name="THRU-0" ref_="" w={70} />
+            <PcbToggle id="xFlSync" name="SYNC" ref_="" w={80} />
+            <PcbToggle id="xFlThru" name="THRU-0" ref_="" w={80} />
           </>,
         )}
       </PcbFrame>
@@ -1029,6 +1033,7 @@ const SoundPage: React.FC = () => {
 /* ---------------- les volets : LIBRARY, MIDI ---------------- */
 
 const LIB_W = 1000;
+const LIB_H = 380;
 const LIB_COL = (LIB_W - 20 - 3 * 14) / 4;
 
 const LibraryPanel: React.FC = () => {
@@ -1037,7 +1042,8 @@ const LibraryPanel: React.FC = () => {
   const x0 = ZONE.x + Math.round((ZONE.w - LIB_W) / 2);
   return (
     <>
-      <PcbFrame title={`FACTORY BANK · ${LIB_PRESETS.length} SOUNDS`} x={x0} y={70} w={LIB_W - 270} h={330} className="mm-p2-lib">
+      {/* v28 : 380 de haut (16 BASS dans une colonne : a 330, la derniere touchait la legende du dessous) */}
+      <PcbFrame title={`FACTORY BANK · ${LIB_PRESETS.length} SOUNDS`} x={x0} y={70} w={LIB_W - 270} h={LIB_H} className="mm-p2-lib">
         {LIB_CATS.map((c, k) => {
           const list = libOfCat(c);
           const cw = (LIB_W - 270 - 20 - 3 * 12) / 4;
@@ -1061,10 +1067,10 @@ const LibraryPanel: React.FC = () => {
           );
         })}
       </PcbFrame>
-      <PcbFrame title="DISK" x={x0 + LIB_W - 254} y={70} w={254} h={330} className="mm-p2-panel">
+      <PcbFrame title="DISK" x={x0 + LIB_W - 254} y={70} w={254} h={LIB_H} className="mm-p2-panel">
         <DiskPresets />
       </PcbFrame>
-      <div className="mm-p2-lib-now" style={{ left: x0, top: 416, width: LIB_W }} role="status" aria-live="polite">
+      <div className="mm-p2-lib-now" style={{ left: x0, top: 70 + LIB_H + 16, width: LIB_W }} role="status" aria-live="polite">
         <p>
           <b>{p ? p.name : 'PICK A SOUND'}</b>
           <span>{p ? `${p.cat} · ${p.bpm} BPM · ${p.desc}` : 'It loads at once, UNDO brings your sound back. The tempo shown is the one it was made at.'}</span>
@@ -1120,7 +1126,7 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
  * aucun reglage ne les prend (HoodBody, hoodPageStep). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
  * (le bandeau du bas).
  */
-const PageKeys: React.FC = () => {
+const PageKeys: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const st = useHoodPage();
   const cur = st.overlay ? -1 : hoodPageIndex(st);
   return (
@@ -1133,7 +1139,8 @@ const PageKeys: React.FC = () => {
           aria-selected={i === cur}
           className="mm-r-nav-key"
           data-on={i === cur ? '1' : undefined}
-          onClick={() => hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null })}
+          // v28 : un re-clic sur la page montree ramene a la face (anime, comme CLOSE)
+          onClick={() => (i === cur ? onClose() : hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null }))}
         >
           {p.label}
         </button>
@@ -1161,7 +1168,7 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <span className="mm-r-word" />
           <span className="mm-r-model">MM-ARP</span>
         </button>
-        <PageKeys />
+        <PageKeys onClose={onClose} />
         {/* Les reglages d'aspect (2026-11-16) : le cuir, la lumiere du panneau */}
         <HoodLookButton />
         {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
@@ -1206,14 +1213,35 @@ function useScale(): number {
   return s;
 }
 
-/** Le capot : monte de l'ouverture a la fin de la fermeture. */
+/**
+ * La bascule face <-> OPEN (v28, Mika : "la bascule doit etre rapide mais encore avec l'animation") : la carte arrive et
+ * repart en CARD_MS (hood.css mm-p2-open / mm-p2-close), quel que soit le declencheur (OPEN, CLOSE, la croix, Echap, le
+ * logo, le re-clic de la page montree, le clic d'un potard de la face) et meme si le capot 3D se pose d'un coup (mouvement
+ * reduit) : la carte reste montee le temps de son depart.
+ */
+export const CARD_MS = 220;
+
+/** Le capot : monte de l'ouverture a la fin de la fermeture (et de l'animation de depart de la carte). */
 export const HoodBoard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
-  if (hood === 'closed') return null;
-  return <HoodBody stage={stage} />;
+  const shown = useRef(false);
+  const [, force] = useState(0);
+  if (hood === 'opening' || hood === 'open') shown.current = true;
+  useEffect(() => {
+    if (hood !== 'closing' && hood !== 'closed') return undefined;
+    if (!shown.current) return undefined;
+    const t = window.setTimeout(() => {
+      if (voyExplode.get() !== 'closed' && voyExplode.get() !== 'closing') return;
+      shown.current = false;
+      force((n) => n + 1);
+    }, CARD_MS + 30);
+    return () => window.clearTimeout(t);
+  }, [hood]);
+  if (hood === 'closed' && !shown.current) return null;
+  return <HoodBody stage={stage} leaving={hood === 'closing' || hood === 'closed'} />;
 };
 
-const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
+const HoodBody: React.FC<{ stage: Stage | null; leaving: boolean }> = ({ stage, leaving }) => {
   const hood = useHood();
   const { tab, overlay } = useHoodPage();
   const midi = useArpMidi();
@@ -1257,7 +1285,7 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
   return (
-    <div className="mm-p2" style={{ position: 'fixed' }} data-phase={hood} aria-label="MM-ARP hood">
+    <div className="mm-p2" style={{ position: 'fixed' }} data-phase={leaving ? 'closing' : hood} aria-label="MM-ARP hood">
       <div className="mm-p2-page" style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}>
         <PcbDefs />
         <div className="mm-p2-fade">

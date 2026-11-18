@@ -33,7 +33,7 @@ import { Pcb } from '../scene/pcb';
 import { fontsReady, onFonts } from '../scene/silk';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
-import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
+import { EXPLODE, PCB, PCB_TURN, PLUGIN_ARP, PORTRAIT, type SectionId } from '../theme';
 import { VoySeqScreen } from './seqscreen';
 import { arp, arpNow } from './arp';
 import { VoyBackPlate } from './backplate';
@@ -202,6 +202,9 @@ export class VoyagerRig {
       plateauY: B.deckY,
       pcbY: VOY_PCB_Y,
       tilt: 0,
+      // v28 (Mika : "la bascule doit etre rapide mais encore avec l'animation") : le capot du plugin en 240 + 30 ms, au
+      // pas de la carte d'OPEN (HoodBoard CARD_MS 220) ; le site garde ses 900 + 80 ms
+      ...(PLUGIN_ARP ? { ms: 240, staggerMs: 30 } : {}),
     };
     this.explode = new Explode({ plateau: this.lid, pcb: this.pcbGroup, parts: this.pcb.parts }, (open) => voyExplode.settle(open), this.cfg);
 

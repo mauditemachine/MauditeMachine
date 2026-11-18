@@ -48,11 +48,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mm-plugin-arp .mm-p2 .mm-p2-fade {
-    animation: none !important;
-  }
-}
 
 /* ---------- la carte ---------- */
 .mm-plugin-arp .mm-p2-board {
@@ -3937,17 +3932,7 @@
   background: var(--mm-accent);
   box-shadow: 0 0 4px var(--mm-accent);
 }
-.mm-eq-old {
-  position: absolute;
-  right: 14px;
-  top: 178px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 700 7px/1 var(--mm-font, inherit);
-  letter-spacing: 0.12em;
-  color: #ff5a3c;
-}
+
 .mm-eq-node-drag {
   cursor: grabbing;
 }
@@ -3983,4 +3968,128 @@
 }
 .mm-plugin-arp .mm-eq-bands {
   z-index: 3;
+}
+
+/* v28 : une liste ouverte passe au-dessus de tout (pcbui.tsx useRaise : son cadre, sa rangee montent) */
+.mm-plugin-arp .mm-p2-frame[data-menu='1'],
+.mm-plugin-arp .mm-p2-cells[data-menu='1'],
+.mm-plugin-arp .mm-dm-place[data-menu='1'] {
+  z-index: 60;
+}
+.mm-plugin-arp .mm-p2-menu,
+.mm-plugin-arp .mm-hell-plist {
+  z-index: 61;
+}
+
+/* v28 : OLD EQ ON dans l'en-tete de l'ecran de l'EQ, au gabarit de la serigraphie de l'ecran ; RESET a cote */
+.mm-plugin-arp .mm-eq-old {
+  position: absolute;
+  left: 178px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+}
+.mm-plugin-arp .mm-eq-old-t {
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 9px;
+  letter-spacing: 0.14em;
+  color: #ff6a4b;
+  text-shadow: 0 0 6px rgba(255, 106, 75, 0.45);
+}
+.mm-plugin-arp .mm-eq-old-k {
+  margin: 0;
+  padding: 1px 5px;
+  border: 1px solid rgba(240, 234, 224, 0.35);
+  border-radius: 2px;
+  background: #12100f;
+  color: rgba(240, 234, 224, 0.84);
+  font: inherit;
+  font-size: 6.5px;
+  font-weight: 700;
+  line-height: 9px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+.mm-plugin-arp .mm-eq-old-k:hover {
+  border-color: var(--mm-accent);
+  color: #fff8ee;
+}
+
+/* v28 (Mika, 56.png : "le logo devrait etre a la meme taille que le front") : le wordmark et MM-ARP d'OPEN a la taille et
+   a la hauteur de ceux de la face (encre relevee sur la face rendue a 1100 px : wordmark x 70 a 313.5, y 34 a 48 ; MM-ARP
+   x 339.5 a 419.5, y 35.5 a 46.5) ; les touches des pages ne bougent pas. Le masque en 100 % auto (largeur exacte, le
+   ratio du SVG) : en contain, Chromium le rendait 2 % plus etroit sous 248 px de large */
+.mm-plugin-arp .mm-r-logo {
+  margin-left: 2px;
+  gap: 25px;
+  transform: translateY(12px);
+}
+.mm-plugin-arp .mm-r-word {
+  flex: none;
+  width: 243.5px;
+  height: 18px;
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+}
+.mm-plugin-arp .mm-r-model {
+  flex: none;
+  font-size: 15.3px;
+  line-height: 16px;
+  letter-spacing: 0.274em;
+}
+
+/* v28 : la bascule face <-> OPEN, rapide et animee dans les deux sens (HoodBoard.tsx CARD_MS : 220 ms), quel que soit le
+   declencheur ; mouvement reduit : un fondu seul, plus court */
+.mm-plugin-arp .mm-p2 .mm-p2-fade {
+  animation: mm-p2-open 220ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transform-origin: 50% 40%;
+}
+.mm-plugin-arp .mm-p2[data-phase='closing'] .mm-p2-fade {
+  animation: mm-p2-close 200ms cubic-bezier(0.5, 0, 0.75, 0.4) both;
+  pointer-events: none;
+}
+@keyframes mm-p2-open {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mm-p2-close {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mm-plugin-arp .mm-p2 .mm-p2-fade {
+    animation: mm-p2-in 160ms linear both;
+  }
+  .mm-plugin-arp .mm-p2[data-phase='closing'] .mm-p2-fade {
+    animation: mm-p2-out 160ms linear both;
+  }
+}
+.mm-plugin-arp .mm-p2-cell[data-menu='1'],
+.mm-plugin-arp .mm-p2-selbox[data-menu='1'],
+.mm-plugin-arp .mm-hell-presets[data-menu='1'] {
+  z-index: 60;
+}
+
+/* v28 (revue des chevauchements) : les CLR des pistes de SEQ, la touche et son nom cote a cote et centres sur leur
+   piste ; empiles, le nom de chaque CLR touchait la touche de la piste de dessous */
+.mm-plugin-arp .mm-p2-st-clr {
+  position: absolute;
+  flex-direction: row;
+  gap: 5px;
+  top: 5.5px;
 }

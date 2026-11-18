@@ -13,7 +13,7 @@
 // - cale sur le transport depuis ppq 0, le moteur par blocs de 128. 8 mesures a son bpm, puis 3 s de queue (le WAV).
 //
 // Mesures (sur les 8 mesures) : crete (dBFS), sonie RMS (stereo, dBFS, mesures 2 a 8), sonie ponderee K (LUFS sans
-// porte : la cible, -23, les TEXTURE -25), centroide spectral (Hz), largeur stereo (cote / milieu, %), part des basses
+// porte : la cible, -23, les PAD -25 ; v28 : les TEXTURE devenues PAD), centroide spectral (Hz), largeur stereo (cote / milieu, %), part des basses
 // (< 150 Hz, %), densite de notes (par mesure), NaN / infini.
 //
 // Descripteurs de caractere (le controle de diversite, 2026-11-11, Mika : "encore un peu trop similaires") :
@@ -42,7 +42,7 @@
 //   --calibrate : ecrit { "NOM": volume } , le VOLUME qui met chaque preset sur sa cible de sonie (presets/volumes.json,
 //                 lu par presets/build.mjs)
 // Code de sortie : 0 si tout passe (crete sous -1 dBFS et au-dessus de -20, sonie K a +/-0.7 LU de sa cible, sonie RMS
-// a +/-4 dB de la mediane des presets hors TEXTURE ; les TEXTURE peuvent etre plus douces, jamais plus fortes ; aucun
+// a +/-4 dB de la mediane des presets hors PAD ; les PAD peuvent etre plus douces, jamais plus fortes ; aucun
 // NaN ; aucune paire trop proche).
 #include "Params.h"
 #include "../src/ExtraParams.h"
@@ -775,10 +775,10 @@ int main(int argc, char** argv) {
       if (done[i]) std::printf("%-24s%s\n", ps[i].name.c_str(), noteLine[i].c_str());
 
   std::printf("%-3s %-24s %-8s %4s %7s %7s %7s %7s %6s %6s %6s %3s  %s\n", "#", "NOM", "CAT", "BPM", "CRETE", "RMS", "LUFS", "CENTR", "LARG", "BAS", "NOTES", "NaN", "VOL / ECART A LA CIBLE");
-  // la reference de sonie RMS : la mediane des presets hors TEXTURE
+  // la reference de sonie RMS : la mediane des presets hors PAD
   std::vector<double> ref;
   for (size_t i = 0; i < ps.size(); ++i)
-    if (done[i] && ps[i].cat != "TEXTURE") ref.push_back(st[i].rmsDb);
+    if (done[i] && ps[i].cat != "PAD") ref.push_back(st[i].rmsDb);
   std::sort(ref.begin(), ref.end());
   const double med = ref.empty() ? 0 : ref[ref.size() / 2];
   int bad = 0;
@@ -787,7 +787,7 @@ int main(int argc, char** argv) {
     if (!done[i]) continue;
     const Stats& s = st[i];
     const double dev = s.rmsDb - med;
-    const bool tex = ps[i].cat == "TEXTURE";
+    const bool tex = ps[i].cat == "PAD";
     const double target = tex ? -25.0 : -23.0;  // la sonie K visee
     const double off = s.lufs - target;
     std::string why;
@@ -808,7 +808,7 @@ int main(int argc, char** argv) {
     std::printf("%-3zu %-24s %-8s %4.0f %7.1f %7.1f %7.1f %7.0f %5.0f%% %5.1f%% %6.2f %3s  %.3f (%+.1f LU -> %.3f)%s\n", i + 1, ps[i].name.c_str(), ps[i].cat.c_str(), ps[i].bpm, s.peakDb,
                 s.rmsDb, s.lufs, s.centroid, s.width, s.bass, s.notesPerBar, s.nan ? "OUI" : "non", vol, off, volFix, why.c_str());
   }
-  std::printf("\nSonie visee : -23 LUFS (TEXTURE : -25) ; sonie RMS de reference (mediane hors TEXTURE) : %.1f dBFS\n", med);
+  std::printf("\nSonie visee : -23 LUFS (PAD : -25) ; sonie RMS de reference (mediane hors PAD) : %.1f dBFS\n", med);
   if (!calib.empty()) {
     if (calibJson.size() > 2) calibJson.erase(calibJson.size() - 2, 1);  // la derniere virgule
     calibJson += "}\n";

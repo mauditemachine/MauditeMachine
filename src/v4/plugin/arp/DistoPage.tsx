@@ -19,7 +19,7 @@ import { voyParams } from '../../voyager/params';
 import { DISTO_CURVES, DISTO_LONG, DISTO_PRESETS, DISTO_STYLES, distoCurrent, distoCurve, distoInert, distoInit, distoLaws, distoLoad, distoStep } from './disto';
 import { arpExtra } from './extra';
 import { arpMod } from './modview';
-import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle } from './pcbui';
+import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, useRaise } from './pcbui';
 
 const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
 const useVoy = () => useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
@@ -189,8 +189,10 @@ const PresetBox: React.FC = () => {
   const cur = distoCurrent();
   const [list, setList] = useState(false);
   const n = cur ? DISTO_PRESETS.indexOf(cur) + 1 : 0;
+  const pbox = useRef<HTMLDivElement>(null);
+  useRaise(list, pbox);
   return (
-    <div className="mm-hell-presets mm-dm-presets">
+    <div ref={pbox} className="mm-hell-presets mm-dm-presets">
       <button type="button" className="mm-hell-pwin mm-dm-pwin" aria-haspopup="listbox" aria-expanded={list} onClick={() => setList((o) => !o)} title="The DISTO bank">
         <span className="mm-hell-pnum">{cur ? `${String(n).padStart(2, '0')} / ${DISTO_PRESETS.length}` : `-- / ${DISTO_PRESETS.length}`}</span>
         <b>{cur ? cur.name : 'YOUR SETTING'}</b>

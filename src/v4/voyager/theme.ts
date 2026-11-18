@@ -454,12 +454,17 @@ export const VOY_HELL_PLACE = (() => {
   return { x: (DESK_FX[0] + DESK_FX[1]) / 2, z, s, labelZ: z + VOY_KNOB.skirt.r * s + 0.13 };
 })();
 
-/** v27 (le plugin) : DETUNE et SPREAD (Mika, 49.jpg) dans la colonne OUTPUT, sur la rangee du bas, sous le logotype. */
+/**
+ * v27 (le plugin) : DETUNE et SPREAD (Mika, 49.jpg) dans la colonne OUTPUT, sur la rangee du bas, sous le logotype.
+ * v28 : la paire resserree (0.32) et centree entre le filet EFFECTS | OUTPUT et le bois (DS_DX) : le D de DETUNE
+ * frolait le filet (1.5 px).
+ */
+const DS_DX = 0.025;
 export const VOY_DS_PLACE = (() => {
   const s = VOY_KNOB.panelScale * 0.9;
   const z = RC;
   const lz = z + 0.24 * s + 0.13;
-  return { detune: { x: DESK_OUT_X - 0.34, z, s, labelZ: lz }, spread: { x: DESK_OUT_X + 0.34, z, s, labelZ: lz } };
+  return { detune: { x: DESK_OUT_X + DS_DX - 0.32, z, s, labelZ: lz }, spread: { x: DESK_OUT_X + DS_DX + 0.32, z, s, labelZ: lz } };
 })();
 
 /**
@@ -505,7 +510,7 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
   : [
       ...DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]),
       // v27 (le plugin) : le petit trait entre DETUNE et SPREAD
-      ...(PLUGIN_ARP ? [[DESK_OUT_X - 0.1, RC + 0.24 * 0.9 + 0.13, DESK_OUT_X + 0.1, RC + 0.24 * 0.9 + 0.13]] : []),
+      ...(PLUGIN_ARP ? [[DESK_OUT_X + DS_DX - 0.085, RC + 0.24 * 0.9 + 0.13, DESK_OUT_X + DS_DX + 0.085, RC + 0.24 * 0.9 + 0.13]] : []),
     ];
 
 /**

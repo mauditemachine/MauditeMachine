@@ -63,6 +63,23 @@ export const registerVirtual = (id: string, v: VirtualSrc): void => {
 };
 const virt = (id: string): VirtualSrc | undefined => VIRT.get(id);
 
+/**
+ * v28 : une liste ouverte (TYPE de l'EQ, les presets de DISTO, HELL, DELAY...) passe au-dessus de tout : son cadre monte
+ * au premier plan tant qu'elle est ouverte (les cadres suivants se peignaient par-dessus : 54.jpg).
+ */
+export function useRaise(open: boolean, ref: React.RefObject<HTMLElement | null>): void {
+  useEffect(() => {
+    if (!open) return undefined;
+    const raised: HTMLElement[] = [];
+    for (let el = ref.current ?? null; el && !el.classList.contains('mm-p2-tab'); el = el.parentElement)
+      if (el === ref.current || ['mm-p2-frame', 'mm-p2-cells', 'mm-dm-place', 'mm-p2-cell'].some((c) => el?.classList.contains(c))) {
+        el.dataset.menu = '1';
+        raised.push(el);
+      }
+    return () => raised.forEach((el) => delete el.dataset.menu);
+  }, [open, ref]);
+}
+
 /** La valeur, la valeur de depart, le texte, les crans d'un reglage, ou qu'il vive. */
 export const SRC = {
   of: (id: string): number => virt(id)?.of() ?? (isVoy(id) ? voyParams.of(id) : arpExtra.of(id)),
@@ -812,6 +829,7 @@ export const PcbSelect: React.FC<CellProps & { w?: number; bare?: boolean; up?: 
   const face = useRef<HTMLButtonElement>(null);
   useWheel(face, (t) => pick(stepOf(id, SRC.of(id)) + t));
   const g = useStepDrag(id, idx, last, pick, () => setOpen((o) => !o));
+  useRaise(open, box);
 
   useEffect(() => {
     if (!open) return undefined;

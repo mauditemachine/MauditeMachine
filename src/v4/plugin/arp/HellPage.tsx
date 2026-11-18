@@ -28,7 +28,7 @@ import {
   hellStep,
 } from './hell';
 import { arpMod } from './modview';
-import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbToggle, registerVirtual } from './pcbui';
+import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbToggle, registerVirtual, useRaise } from './pcbui';
 
 registerVirtual('vHellDelay', { ...HELL_DELAY, name: 'HELL DELAY' });
 registerVirtual('vHellSync', { ...HELL_SYNC_LEVER, def: () => 0, text: (v) => (v >= 0.5 ? 'SYNC' : 'FREE'), name: 'HELL SYNC' });
@@ -190,8 +190,10 @@ const HellPresetBox: React.FC = () => {
   const cur = hellCurrent();
   const [list, setList] = useState(false);
   const n = cur ? HELL_PRESETS.indexOf(cur) + 1 : 0;
+  const pbox = useRef<HTMLDivElement>(null);
+  useRaise(list, pbox);
   return (
-    <div className="mm-hell-presets">
+    <div ref={pbox} className="mm-hell-presets">
       <button type="button" className="mm-hell-pwin" aria-haspopup="listbox" aria-expanded={list} onClick={() => setList((o) => !o)} title="The HELL bank">
         <span className="mm-hell-pnum">{cur ? `${String(n).padStart(2, '0')} / ${HELL_PRESETS.length}` : `-- / ${HELL_PRESETS.length}`}</span>
         <b>{cur ? cur.name : 'YOUR SETTING'}</b>

@@ -550,6 +550,8 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         },
         pick: (x: number, y: number) => stage.hit.pick(x, y, false)?.id ?? null,
         ids: () => stage.hit.list().map((h) => h.id),
+        params: () => ({ ...voyParams.get(), ...arpExtra.get() }),
+        msg: () => voyMsg.get(),
       };
     const turn = (): void => {
       for (const t of turns) t();

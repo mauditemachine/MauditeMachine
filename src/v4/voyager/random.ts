@@ -494,6 +494,11 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
   return { style: 'ARP', patch: base, seq: null, prog: null };
 }
 
+/** Le tirage d'un style donne (le plugin MM-ARP, v28 : il choisit lui-meme ses familles ; le site ne s'en sert pas). */
+export function randomVoyOf(style: VoyStyle, rnd: Rnd = Math.random): VoyRandom {
+  return styled(style, rnd);
+}
+
 /** RANDOM : un style au hasard (jamais le meme deux fois de suite), et son patch. */
 export function randomVoyStyle(last: VoyStyle | null = null, rnd: Rnd = Math.random): VoyRandom {
   const pool = STYLES.filter((s) => s.style !== last);

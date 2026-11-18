@@ -13,7 +13,7 @@
  * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, bpm ; desc : une
  *   phrase en anglais (ASCII, sans tiret cadratin) ;
  * - chaque .mmarp : NN NOM.mmarp, format mm-arp-preset v1, le meme contenu que factory.json ;
- * - la repartition demandee : 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE (40 presets).
+ * - la repartition demandee : BASS 16, ARP 12, PAD 6, DARK 6 (40 presets ; v28, avant 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE).
  *
  *   node plugin/mm-arp/tests/presets-check.mjs
  */
@@ -49,7 +49,7 @@ for (const p of bank.presets ?? []) {
   if (typeof p.name !== 'string' || !/^[A-Z0-9-][A-Z0-9 -]{0,23}$/.test(p.name) || p.name.endsWith(' ') || p.name.includes('  ')) err(who, 'nom invalide');
   if (names.has(p.name)) err(who, 'nom en double');
   names.add(p.name);
-  if (!['DISCO', 'HYPNOTIC', 'DARK', 'TEXTURE'].includes(p.cat)) err(who, `cat ${p.cat}`);
+  if (!['BASS', 'ARP', 'PAD', 'DARK'].includes(p.cat)) err(who, `cat ${p.cat}`);
   cats[p.cat] = (cats[p.cat] ?? 0) + 1;
   if (typeof p.desc !== 'string' || p.desc.length < 20) err(who, 'desc manquante');
   if (/[^\x20-\x7e]/.test(p.desc ?? '')) err(who, 'desc : accent, tiret cadratin ou caractere hors ASCII');
@@ -85,7 +85,8 @@ for (const p of bank.presets ?? []) {
   if (s.edit && !s.has) err(who, 'EDIT sans has');
   if (!Array.isArray(p.prog) || p.prog.length < 1 || p.prog.length > 8 || !p.prog.every((c) => Number.isInteger(c) && c >= 0 && c <= 7)) err(who, 'prog');
 }
-const want = { DISCO: 12, HYPNOTIC: 12, DARK: 8, TEXTURE: 8 };
+// v28 : BASS 16 (40 %), ARP 12, PAD 6, DARK 6 ; HELL MIX 0.10 au plus
+const want = { BASS: 16, ARP: 12, PAD: 6, DARK: 6 };
 if (heavy.length > 3) err('CPU', `UNISON 7 avec WIDE dans ${heavy.length} presets (3 au plus) : ${heavy.join(', ')}`);
 for (const [c, n] of Object.entries(want)) if (cats[c] !== n) err('repartition', `${c} : ${cats[c] ?? 0} au lieu de ${n}`);
 

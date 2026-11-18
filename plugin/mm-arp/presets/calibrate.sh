@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MM-ARP : cale le VOLUME de chaque preset d'usine sur sa cible de sonie (-23 LUFS, les TEXTURE -25), sans aucun son.
+# MM-ARP : cale le VOLUME de chaque preset d'usine sur sa cible de sonie (-23 LUFS, les PAD -25), sans aucun son.
 # Le rendu hors ligne (tests/presets_render.cpp, moteur x8 comme les presets) ecrit presets/volumes.json, presets/build.mjs
 # le relit ; trois tours (la saturation et la colle font que le gain ne suit pas exactement VOLUME au carre).
 #
