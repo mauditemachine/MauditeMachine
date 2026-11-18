@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include <cstdlib>
+
 #if !MMARP_HEADLESS
 #include "PluginEditor.h"
 #endif
@@ -342,9 +344,13 @@ juce::File MMArpProcessor::arpMidiFile(int cycles) const {
 
 /* ---------------- QUALITY, la reverb du VST3 ---------------- */
 
-int MMArpProcessor::osFor(double sr, double quality) {
-    const bool hq = quality >= 0.5;
-    return sr > 60000 ? (hq ? 4 : 2) : (hq ? 8 : 4);
+// v32 (Mika : "fait comme les autres plugins", u-he Diva : la precision temps reel et celle de l'export) : QUALITY a trois
+// crans, ECO x2 (le plugin seul), STD x4 (le moteur du site, au bit pres, le depart), HQ x8 ; au-dela de 60 kHz, la moitie.
+// Le rendu hors ligne (l'export de l'hote) passe en HQ si EXPORT HQ est engage.
+int MMArpProcessor::osFor(double sr, double quality, bool exportHq) {
+    const int step = exportHq ? 2 : static_cast<int>(std::lround(std::clamp(quality, 0.0, 1.0) * 2));
+    const int os = step == 0 ? 2 : step == 1 ? 4 : 8;
+    return sr > 60000 ? os / 2 : os;
 }
 
 // Thread du message (il tourne fenetre fermee) : SIZE, TONE ou PRE DELAY ont bouge, une nouvelle reponse se calcule
@@ -527,6 +533,10 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         const bool hadRange = params.getChildWithProperty("id", "xHellRange").isValid();
         // v27 : un projet d'avant la page DELAY (sans DELAY STYLE) : l'ancien DELAY y est converti, au bit pres
         const bool hadEcho = params.getChildWithProperty("id", "xDlStyle").isValid();
+        // v32 : QUALITY passe de deux crans (STD, HQ) a trois (ECO, STD, HQ) : un projet d'avant (sans EXPORT HQ) garde
+        // son reglage, HQ reste HQ (1), STD (0) devient le cran du milieu ; sans QUALITY du tout : HQ, son depart d'alors
+        const bool hadExport = params.getChildWithProperty("id", "xExportHq").isValid();
+        const bool hadQuality = params.getChildWithProperty("id", "xQuality").isValid();
         // les reglages du VST3 seul que le projet ne connaissait pas : leur depart (le son d'avant), quelle que soit la
         // valeur que l'instance avait avant l'ouverture
         std::vector<int> missing;
@@ -541,6 +551,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         if (!hadRange) migrateHell();
         convertPedal();
         if (!hadEcho) convertDelay();
+        if (!hadExport)
+            if (auto* prm = apvts.getParameter("xQuality")) prm->setValueNotifyingHost(!hadQuality || prm->getValue() >= 0.5f ? 1.f : 0.5f);
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -923,7 +935,12 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     frame_ = 0;
     mmarp::VoyagerOptions o;
     o.sampleRate = sampleRate;
-    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()));
+    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()), isNonRealtime() && exRaw_[mmx::ex_xExportHq]->load() >= 0.5f);
+    o.softVoices = 8; // v32 (Mika : "8 voix") : 8 voix pleines au plus, la neuvieme note efface la plus faible en ~5 ms
+#if MMARP_HEADLESS
+    // le banc CPU seulement : MMARP_SOFT_VOICES=0 mesure l'avant (12 voix)
+    if (const char* e = std::getenv("MMARP_SOFT_VOICES")) o.softVoices = std::atoi(e);
+#endif
     osAsked_ = o.os;
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
@@ -1074,7 +1091,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
     // QUALITY : x8 en HQ (x4 au-dela de 60 kHz), le taux du site en STD ; le moteur change sans allocation (setOs)
     {
-        const int os = osFor(sr, ex_[mmx::ex_xQuality]);
+        const int os = osFor(sr, ex_[mmx::ex_xQuality], isNonRealtime() && ex_[mmx::ex_xExportHq] >= 0.5);
         if (os != osAsked_) {
             voy_->setOs(os);
             osAsked_ = os;

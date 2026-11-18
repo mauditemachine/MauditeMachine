@@ -276,7 +276,7 @@ Render render(const Preset& p, int osWanted) {
   Render r;
   VoyagerOptions o;
   o.sampleRate = SR;
-  o.os = osWanted == 8 ? (mmx::exStep(mmx::ex_xQuality, p.extra[mmx::ex_xQuality]) == 1 ? 8 : 4) : osWanted;
+  o.os = osWanted == 8 ? (mmx::exStep(mmx::ex_xQuality, p.extra[mmx::ex_xQuality]) == 2 ? 8 : 4) : osWanted; // v32 : ECO, STD, HQ
   o.seed = 808;
   Voyager v(o);
   // update() du plugin : les reglages du moteur, le tempo, le VST3 seul

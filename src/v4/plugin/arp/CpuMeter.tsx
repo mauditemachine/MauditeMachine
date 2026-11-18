@@ -15,6 +15,12 @@ import { iconPoint } from './LookPanel';
 const useCpu = (): CpuFrame | null => useSyncExternalStore(cpuStore.subscribe, cpuStore.get, cpuStore.get);
 const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
 
+/** v32 : ECO x2, STD x4, HQ x8 (au-dela de 60 kHz, la moitie) */
+const qualityOf = (c: CpuFrame): string => {
+  const eff = c.sr > 60000 ? c.os * 2 : c.os;
+  return `${eff >= 8 ? 'HQ' : eff >= 4 ? 'STD' : 'ECO'} x${c.os}`;
+};
+
 /** une seule fenetre de detail a la fois (la face ou OPEN) */
 let detailOpen: 'face' | 'hood' | null = null;
 const detailL = new Set<() => void>();
@@ -144,13 +150,13 @@ const Detail: React.FC<{ stage: Stage | null; style: React.CSSProperties; anchor
         </li>
       </ul>
       <p className="mm-cpu-line">
-        {live && c ? `PEAK ${c.pk.toFixed(1)} % · ${c.voices} VOICE${c.voices === 1 ? '' : 'S'} · ${c.os >= 8 ? 'HQ x8' : `STD x${c.os}`} · ${Math.round(c.sr / 100) / 10} KHZ / ${c.block}` : 'NO AUDIO FROM THE HOST'}
+        {live && c ? `PEAK ${c.pk.toFixed(1)} % · ${c.voices} VOICE${c.voices === 1 ? '' : 'S'} · ${qualityOf(c)} · ${Math.round(c.sr / 100) / 10} KHZ / ${c.block}` : 'NO AUDIO FROM THE HOST'}
       </p>
       <p className="mm-cpu-line">
         {!ui ? 'FACE ...' : ui.fps < 0.5 ? `FACE IDLE (DRAWN ON DEMAND) · DPR ${ui.dpr}` : `FACE ${ui.fps.toFixed(0)} FPS · ${ui.ms.toFixed(1)} MS / FRAME · DPR ${ui.dpr}`}
       </p>
       <p className="mm-cpu-note">
-        % of one core, in real time: 100 % is the whole buffer for this track alone. QUALITY STD (SOUND, ENGINE) halves the engine.
+        % of one core, in real time: 100 % is the whole buffer for this track alone. QUALITY (SOUND, ENGINE) : ECO x2 is about half of STD x4, HQ x8 about twice.
       </p>
     </div>
   );

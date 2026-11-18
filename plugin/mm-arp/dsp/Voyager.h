@@ -244,6 +244,9 @@ struct VoyagerOptions {
   int maxVoices = 12;  // 1..12 (autre valeur : 12)
   int maxStack = 3;    // 1..3 (autre valeur : 3)
   int wideVoices = 8;  // >= 0 (negatif : 12) ; le site sur ordinateur : 8
+  // v32 (le plugin, Mika : "8 voix") : au plus softVoices voix pleines (0 : pas de limite, le site) ; la neuvieme note
+  // efface en ~5 ms la voix la plus faible en release (sinon la plus vieille) et prend un emplacement libre des 12
+  int softVoices = 0;
   uint32_t seed = 808;
   bool seeded = true;  // false : comme unseeded() du JS (graine tiree de std::random_device, non reproductible)
 };
@@ -315,6 +318,8 @@ class Voyager {
   /** Diagnostics : la valeur courante d'un reglage, les voix allumees, les remises au repos des gardes (heals). */
   double param(int id) const;
   int activeVoices() const;
+  /** v32 : les voix pleines (qui sonnent et ne s'effacent pas : la limite softVoices les compte) */
+  int fullVoices() const;
   int heals() const;
 
   /** QUALITY : change le surechantillonnage (1, 2, 4, 8) depuis le thread audio, sans allocation (voir en tete). */

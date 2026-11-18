@@ -5,12 +5,13 @@
       "id": "xQuality",
       "label": "QUALITY",
       "section": "engine",
-      "def": 1,
+      "def": 0.5,
       "steps": [
+        "ECO",
         "STD",
         "HQ"
       ],
-      "help": "STD : le moteur du site (x4). HQ : surechantillonnage x8."
+      "help": "v32 (comme Diva : la precision temps reel n'est pas celle de l'export) : ECO x2 (le plugin seul), STD x4 (le moteur du site, au bit pres, le depart des instances neuves), HQ x8. Un projet d'avant en HQ le garde ; un projet en STD reste STD."
     },
     {
       "id": "xLfo1Dest2",
@@ -2287,6 +2288,17 @@
       "section": "pump",
       "def": 0.5,
       "help": "la courbe de la remontee : creuse a bombee"
+    },
+    {
+      "id": "xExportHq",
+      "label": "EXPORT HQ",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v32 : le rendu hors ligne (l'export de l'hote, isNonRealtime) passe en HQ x8, quelle que soit QUALITY"
     }
   ]
 }

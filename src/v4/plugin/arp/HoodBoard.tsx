@@ -940,8 +940,11 @@ const SoundPage: React.FC = () => {
           14,
           RW,
           <>
-            <PcbStep id="xQuality" name="QUALITY" ref_="" />
-            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={120} />
+            {/* v32 (Mika : "comme les autres plugins") : QUALITY a trois crans (ECO x2, STD x4 le site, HQ x8), EXPORT HQ :
+                l'export de l'hote en HQ, comme la precision hors ligne de Diva */}
+            <PcbStep id="xQuality" name="QUALITY" ref_="" w={88} />
+            <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={78} />
+            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={98} />
           </>,
         )}
       </PcbFrame>

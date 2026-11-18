@@ -170,13 +170,21 @@ int main() {
         // SOUND+ (le VST3 seul) : QUALITY STD / HQ, le LFO 2, le master
         {
             auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
-            const Stats hq = run(p, h, 48000, 512);
-            X("xQuality")->setValueNotifyingHost(0.f);
-            run(p, h, 24000, 512);
-            const Stats stdq = run(p, h, 48000, 512);
+            // v32 : trois crans, ECO (0, x2), STD (0.5, x4, le depart), HQ (1, x8)
             X("xQuality")->setValueNotifyingHost(1.f);
             run(p, h, 24000, 512);
-            check(hq.finite && stdq.finite && std::fabs(db(hq.rms) - db(stdq.rms)) < 1.5, "QUALITY : HQ (x8) et STD (x4) au meme niveau (" + juce::String(db(hq.rms), 1).toStdString() + " / " + juce::String(db(stdq.rms), 1).toStdString() + " dBFS)");
+            const Stats hq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.5f);
+            run(p, h, 24000, 512);
+            const Stats stdq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.f);
+            run(p, h, 24000, 512);
+            const Stats eco = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(1.f);
+            run(p, h, 24000, 512);
+            check(hq.finite && stdq.finite && eco.finite && std::fabs(db(hq.rms) - db(stdq.rms)) < 1.5 && std::fabs(db(eco.rms) - db(stdq.rms)) < 1.5,
+                  "QUALITY : HQ (x8), STD (x4) et ECO (x2) au meme niveau (" + juce::String(db(hq.rms), 1).toStdString() + " / " + juce::String(db(stdq.rms), 1).toStdString() + " / " +
+                      juce::String(db(eco.rms), 1).toStdString() + " dBFS)");
             // LFO 2 sur AMP, plein : le niveau baisse (tremolo)
             X("xLfo2Dest")->setValueNotifyingHost(6.f / 14.f);
             X("xLfo2Depth")->setValueNotifyingHost(1.f);
@@ -666,7 +674,9 @@ int main() {
                   p.knobParam(mmx::allIndex("xDlStyle"))->getName(64) == "DELAY STYLE" && p.knobParam(mmx::allIndex("xQ3Gain"))->getName(64) == "EQ 3 GAIN",
               "DELAY v27 : dans l'hote, OLD TAPE, OLD DLY TIME, OLD DLY MODE, OLD EQ LOW ; les neufs en fin de liste (DELAY STYLE, EQ 3 GAIN)");
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
-        check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == mmx::kExtra - 1 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
+        check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
+        // v32 : EXPORT HQ, le seul neuf, en fin de liste
+        check(mmx::ex_xExportHq == 227 && mmx::kExtra == 228, "v32 : EXPORT HQ ajoute en fin de liste (les 227 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
@@ -793,9 +803,83 @@ int main() {
         }
         const double tot = p.cpu(MMArpProcessor::kCpuTotal);
         char buf[200];
-        std::snprintf(buf, sizeof buf, "v31 compteur CPU : total %.2f %% (etages %.2f %%), pic %.2f %%, moteur %.2f %%, %d voix, x%d", tot, parts, static_cast<double>(p.cpuPeak()),
+        std::snprintf(buf, sizeof buf, "v31 compteur CPU : total %.2f %% (etages %.2f %%), pic %.2f %%, moteur %.2f %%, %d voix, x%d (STD)", tot, parts, static_cast<double>(p.cpuPeak()),
                       static_cast<double>(p.cpu(MMArpProcessor::kCpuEngine)), p.cpuVoices(), p.cpuOs());
-        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 8, buf);
+        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 4, buf);
+        // v32 : EXPORT HQ : le rendu hors ligne passe en HQ x8 (QUALITY reste STD), le temps reel revient a x4
+        p.setNonRealtime(true);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osOff = p.cpuOs();
+        p.knobParam(mmx::allIndex("xExportHq"))->setValueNotifyingHost(0.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osOffNo = p.cpuOs();
+        p.setNonRealtime(false);
+        p.knobParam(mmx::allIndex("xExportHq"))->setValueNotifyingHost(1.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osRt = p.cpuOs();
+        p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osEco = p.cpuOs();
+        check(osOff == 8 && osOffNo == 4 && osRt == 4 && osEco == 2,
+              "v32 QUALITY : STD x4 au depart, EXPORT HQ hors ligne x" + std::to_string(osOff) + " (coupe : x" + std::to_string(osOffNo) + "), temps reel x" + std::to_string(osRt) + ", ECO x" + std::to_string(osEco));
+    }
+    {
+        // v32 : un projet d'avant (QUALITY a deux crans, sans EXPORT HQ) : HQ reste HQ, STD reste STD ; une instance neuve : STD
+        const auto reload = [&](float oldQ) {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;) {
+                juce::ValueTree c = params.getChild(i);
+                if (c.getProperty("id").toString() == "xExportHq") params.removeChild(i, nullptr);
+                else if (c.getProperty("id").toString() == "xQuality") c.setProperty("value", oldQ, nullptr);
+            }
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            MMArpProcessor b;
+            b.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            return std::make_pair(b.knobParam(mmx::allIndex("xQuality"))->getValue(), b.knobParam(mmx::allIndex("xExportHq"))->getValue());
+        };
+        MMArpProcessor fresh;
+        const auto hqOld = reload(1.f), stdOld = reload(0.f);
+        check(fresh.knobParam(mmx::allIndex("xQuality"))->getValue() == 0.5f && hqOld.first == 1.f && stdOld.first == 0.5f && hqOld.second == 1.f,
+              "v32 : instance neuve en STD ; projet d'avant en HQ : HQ ; en STD : STD ; EXPORT HQ engage");
+    }
+    {
+        // v32 (Mika : "8 voix") : un arpege rapide au release long ; le moteur seul (la limite du plugin, softVoices 8) :
+        // jamais plus de 8 voix pleines, les volees s'effacent en ~5 ms ; sans limite, 12
+        const auto play = [](int soft, int& maxFull, int& maxOn, double& rms) {
+            mmarp::VoyagerOptions o;
+            o.os = 4;
+            o.softVoices = soft;
+            mmarp::Voyager v(o);
+            const mmarp::ParamKV kv[] = {{mmarp::Voyager::paramIndex("aR"), 0.9}, {mmarp::Voyager::paramIndex("aS"), 0.7}};
+            v.params(kv, 2);
+            std::vector<float> L(128), R(128);
+            maxFull = maxOn = 0;
+            double sum = 0;
+            int n = 0;
+            for (int b = 0; b < 48000 * 3 / 128; ++b) {
+                const double t = b * 128 / 48000.0;
+                if (b % 12 == 0) v.note(t, 48 + (b / 12) % 24, 0.05, 1, std::numeric_limits<double>::quiet_NaN(), 0, 0.8);
+                v.process(L.data(), R.data(), 128);
+                maxFull = std::max(maxFull, v.fullVoices());
+                maxOn = std::max(maxOn, v.activeVoices());
+                for (int i = 0; i < 128; ++i) sum += static_cast<double>(L[static_cast<size_t>(i)]) * L[static_cast<size_t>(i)];
+                n += 128;
+            }
+            rms = std::sqrt(sum / n);
+        };
+        int f8, o8, f0, o0;
+        double r8, r0;
+        play(8, f8, o8, r8);
+        play(0, f0, o0, r0);
+        check(f8 <= 8 && o8 <= 12 && f0 == 12 && r8 > 0 && std::fabs(20 * std::log10(r8 / r0)) < 3,
+              "v32 voix : limite 8 : " + std::to_string(f8) + " pleines (" + std::to_string(o8) + " avec celles qui s'effacent) ; sans limite : " + std::to_string(f0) +
+                  " ; niveau " + juce::String(20 * std::log10(r8 / r0), 1).toStdString() + " dB");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

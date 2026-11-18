@@ -233,7 +233,7 @@ private:
     std::array<int, 22> mId_{};
     void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
     int osAsked_ = 4;
-    static int osFor(double sr, double quality);
+    static int osFor(double sr, double quality, bool exportHq);
     void timerCallback() override;
     juce::SpinLock revLock_;
     std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;

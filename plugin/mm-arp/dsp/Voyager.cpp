@@ -696,6 +696,7 @@ struct Voice {
   double off = 0, start = 0, accent = 1;
   int64_t age = 0;
   bool quick = false;
+  bool stolen = false;  // v32 : volee par la limite de voix (softVoices) : s'efface en ~5 ms
   double vCut = 1, vCutE = 0, accN = 1, kLam = K35_LAM, kIlam = 1 / K35_LAM, vEnv = 1, vTune = 0;
   double gL = 1, gR = 1, tL = 1, tR = 1;
   double envAcc = 1, cutAcc = 0, fdm = 1, ampAcc = 1;
@@ -908,6 +909,7 @@ struct Voyager::Impl {
   double rndBuf[6 * MAX_VOICES];
   Voice voices[MAX_VOICES];
   int nv = MAX_VOICES;
+  int softVoices = 0;  // v32 (le plugin) : la limite douce de voix pleines, 0 : aucune
   int maxStack = MAX_STACK;
   int wideVoices = MAX_VOICES;
   double stD = 0, stDK = 0;
@@ -1006,7 +1008,7 @@ struct Voyager::Impl {
   } sm;
   double smK;
   struct Coefs {
-    double aAtk, fAtk, aDec, fDec, aRel, fRel, quick, glide;
+    double aAtk, fAtk, aDec, fDec, aRel, fRel, quick, glide, steal;
   } c;
   int heals = 0;
   double rT[3], rS[3], rF[3], rI[3], rOld[3];
@@ -1029,6 +1031,7 @@ struct Voyager::Impl {
     }
     for (double& x : rndBuf) x = 0;
     nv = o.maxVoices >= 1 && o.maxVoices <= MAX_VOICES ? o.maxVoices : MAX_VOICES;
+    softVoices = o.softVoices >= 1 && o.softVoices < nv ? o.softVoices : 0;
     for (int i = 0; i < nv; i += 1) voices[i].init(rnd);
     {
       // COMB : deux lignes par voix (G, D), pour la note la plus grave au taux x8 (une puissance de 2 : un masque)
@@ -1368,6 +1371,7 @@ struct Voyager::Impl {
     c.aRel = coef(p[P_aR] / 4.6, sr);
     c.fRel = coef(p[P_fR] / 4.6, sr);
     c.quick = coef(0.012, sr);
+    c.steal = coef(0.0012, sr);  // v32 : la voix volee, -36 dB en 5 ms, sans marche
     c.glide = p[P_glide] > 0 ? coef(p[P_glide] / 3, sr) : 1;
   }
   void add(double time, double midi, double gate, double accent, double from, double glide, double velocity) {
@@ -1556,6 +1560,31 @@ struct Voyager::Impl {
       mono.voice = -1;
     }
     const bool held = v != nullptr;  // (MONO : la voix sonne encore, elle est reprise telle quelle)
+    // v32 (le plugin) : softVoices voix pleines au plus en POLY ; au-dela, la plus faible en release (sinon la plus
+    // vieille) s'efface en ~5 ms, la note neuve prend un emplacement libre (les voix qui s'effacent n'y comptent pas)
+    if (!held && vmode == 0 && softVoices > 0) {
+      int full = 0;
+      for (int i = 0; i < nv; i += 1)
+        if (voices[i].on && !voices[i].quick) full += 1;
+      if (full >= softVoices) {
+        Voice* w = nullptr;
+        for (int i = 0; i < nv; i += 1) {
+          Voice& x = voices[i];
+          if (x.on && !x.quick && x.aStage == 3 && (!w || x.aV < w->aV)) w = &x;
+        }
+        if (!w)
+          for (int i = 0; i < nv; i += 1) {
+            Voice& x = voices[i];
+            if (x.on && !x.quick && (!w || x.age < w->age)) w = &x;
+          }
+        if (w) {
+          w->aStage = 3;
+          w->fStage = 3;
+          w->quick = true;
+          w->stolen = true;
+        }
+      }
+    }
     if (!held)
       for (int i = 0; i < nv; i += 1) {
         Voice* x = &voices[i];
@@ -1605,6 +1634,7 @@ struct Voyager::Impl {
     v->d1 = 0;
     v->on = true;
     v->quick = false;
+    v->stolen = false;
     v->aStage = 1;
     v->fStage = 1;
     v->off = frame + jsm::max(64, jsm::round(n.gate * sampleRate));
@@ -2983,7 +3013,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       } else if (v.aStage == 2)
         v.aV += (pAS - v.aV) * cc.aDec * ve;
       else {
-        v.aV -= v.aV * (v.quick ? cc.quick : cc.aRel * ve);
+        v.aV -= v.aV * (v.quick ? (v.stolen ? cc.steal : cc.quick) : cc.aRel * ve);
         if (v.aV < VOICE_OFF) {
           v.on = false;
           rest(v);
@@ -4277,6 +4307,12 @@ int Voyager::activeVoices() const {
   int a = 0;
   for (int i = 0; i < m_->nv; i += 1)
     if (m_->voices[i].on) a += 1;
+  return a;
+}
+int Voyager::fullVoices() const {
+  int a = 0;
+  for (int i = 0; i < m_->nv; i += 1)
+    if (m_->voices[i].on && !m_->voices[i].quick) a += 1;
   return a;
 }
 int Voyager::heals() const { return m_->heals; }
