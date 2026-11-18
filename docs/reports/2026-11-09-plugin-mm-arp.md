@@ -590,3 +590,14 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - Verifier la lisibilite a 1496 de large sur l'ecran de Mika ; la face suit seule (pas de borne cote web).
+
+## 2026-11-18 (suite 2) : CI plus rapide
+
+### Ce qui a ete fait
+- plugin-arp.yml : le job mac ne attend plus dsp et host (il compile en parallele des tests) et passe par ccache (cache actions/cache ccache-mac-*) ; nouveau job publish (ubuntu) qui attend dsp, host et mac, recupere l'artefact et publie la release mm-arp-latest.
+
+### Decisions prises et pourquoi
+- Mika : 15 minutes pour une reduction de taille, c'est trop. Avant : 6,5 min de tests PUIS 6,5 min de compilation Mac. Maintenant : en parallele, et la compilation Mac ne refait que les fichiers touches. La publication reste bloquee si un test echoue.
+
+### Ce qui reste a faire / points en suspens
+- Premier run sans cache (~8 min) ; mesurer les suivants (attendu ~6-7 min, borne par les tests DSP).
