@@ -743,24 +743,29 @@ int main() {
         check(idle && got && top > -60, "EQ ANALYZER : rien tant que la page est fermee ; page ouverte, 96 bandes (crete " + juce::String(top, 1).toStdString() + " dB)");
     }
     {
-        // La taille de la fenetre (2026-11-17, v26) : 1870 par defaut ; un projet d'avant (editorW5) rouvre une fois a
-        // 1870 ; la taille choisie reste dans le projet (editorW6)
+        // La taille de la fenetre (2026-11-18, v29) : 1496 par defaut ; la taille choisie reste dans le projet (editorW7) ;
+        // un projet v26-v28 (editorW6) rouvre a 80 % ; un plus ancien (editorW5) a 1496
         MMArpProcessor a;
         const int def = a.editorWidth();
-        a.setEditorWidth(1500);
+        a.setEditorWidth(1300);
         juce::MemoryBlock mb;
         a.getStateInformation(mb);
         MMArpProcessor b;
         b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
-        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
-        xml->removeAttribute("editorW6");
-        xml->setAttribute("editorW5", 2500);
-        juce::MemoryBlock m2;
-        juce::AudioProcessor::copyXmlToBinary(*xml, m2);
-        MMArpProcessor c;
-        c.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
-        check(def == 1870 && b.editorWidth() == 1500 && c.editorWidth() == 1870,
-              "taille : 1870 par defaut, la taille choisie gardee (1500), un projet d'avant (editorW5 2500) rouvre a " + std::to_string(c.editorWidth()));
+        auto reopen = [&](const char* key, int w) {
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            xml->removeAttribute("editorW7");
+            xml->setAttribute(key, w);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*xml, m2);
+            MMArpProcessor c;
+            c.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            return c.editorWidth();
+        };
+        const int w6 = reopen("editorW6", 1870), w6b = reopen("editorW6", 3300), w5 = reopen("editorW5", 2500);
+        check(def == 1496 && b.editorWidth() == 1300 && w6 == 1496 && w6b == 2640 && w5 == 1496,
+              "taille : 1496 par defaut, la taille choisie gardee (1300), un projet v26-v28 a 1870 rouvre a " + std::to_string(w6) +
+                  ", a 3300 a " + std::to_string(w6b) + ", un plus ancien (editorW5 2500) a " + std::to_string(w5));
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

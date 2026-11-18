@@ -138,6 +138,10 @@ public:
     bool clipActive() const { return clipActive_.load(); }
 
     // La largeur de la fenetre choisie par Mika (gardee dans le projet)
+    // La taille de la fenetre (2026-11-18, v29, Mika : "20% moins grand") : 1496 par defaut, de 704 a 2640
+    static constexpr int kEditorDefaultW = 1496;
+    static constexpr int kEditorMinW = 704;
+    static constexpr int kEditorMaxW = 2640;
     int editorWidth() const { return editorW_.load(); }
     void setEditorWidth(int w) { editorW_.store(w); }
 
@@ -225,7 +229,7 @@ private:
     std::shared_ptr<const MMArpProgram> retired_;
     std::shared_ptr<const MMArpProgram> current_;
     std::atomic<bool> knobsKnown_{false};
-    std::atomic<int> editorW_{1870};
+    std::atomic<int> editorW_{kEditorDefaultW};
 
     // Le transport
     std::atomic<bool> runInternal_{false};

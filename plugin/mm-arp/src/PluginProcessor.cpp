@@ -445,7 +445,7 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMARP1");
     state.setProperty("v", 2, nullptr);
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
-    state.setProperty("editorW6", editorW_.load(), nullptr);
+    state.setProperty("editorW7", editorW_.load(), nullptr);
     // Les parametres (les potards, Master, Arpeggiator)
     state.appendChild(apvts.copyState(), nullptr);
     // MIDI LEARN : les CC assignes
@@ -477,9 +477,13 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     // (un projet d'avant le format large gardait 1100 : il rouvre a la taille par defaut ; 2026-11-17, v26, Mika : la
     // taille par defaut 15 % plus petite, 1870 ; la cle passe a editorW6 : un projet d'avant (editorW5) rouvre une fois a
     // 1870, puis garde la taille choisie)
+    // 2026-11-18 (v29, Mika : "20% moins grand quand on ouvre le vst et 20% moins grand tout court") : 1496 par defaut,
+    // la cle passe a editorW7 ; un projet v26-v28 (editorW6) rouvre a 80 % de sa taille, un plus ancien a 1496
     {
-        const int w = static_cast<int>(state.getProperty("editorW6", 1870));
-        editorW_.store(juce::jlimit(880, 3300, w));
+        int w = kEditorDefaultW;
+        if (state.hasProperty("editorW7")) w = static_cast<int>(state.getProperty("editorW7"));
+        else if (state.hasProperty("editorW6")) w = juce::roundToInt(0.8 * static_cast<int>(state.getProperty("editorW6")));
+        editorW_.store(juce::jlimit(kEditorMinW, kEditorMaxW, w));
     }
     const juce::String ls = state.getProperty("ls", "").toString();
     {

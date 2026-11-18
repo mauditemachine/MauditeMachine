@@ -10,6 +10,8 @@ namespace {
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
 constexpr int kW = 1100;
 constexpr int kH = 704;
+constexpr int kMinW = MMArpProcessor::kEditorMinW;
+constexpr int kMaxW = MMArpProcessor::kEditorMaxW;
 const juce::Colour kInk(0xff0b0b0c);
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.
@@ -138,15 +140,16 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     setResizable(true, true);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
     // 2026-11-13 (Mika : "par defaut grossis l'app 2x") : 2200 de large par defaut, de 880 a 3300 ; 2026-11-17 (v26) :
-    // 1870 par defaut (15 % plus petit, PluginProcessor editorW6) ; jamais plus grand
+    // 1870 par defaut (15 % plus petit) ; 2026-11-18 (v29, Mika : "20% moins grand quand on ouvre le vst et 20% moins
+    // grand tout court") : 1496 par defaut, de 704 a 2640 (tout x0.8, PluginProcessor editorW7) ; jamais plus grand
     // que l'ecran (zone utile de l'ecran principal, marge pour la barre de fenetre d'Ableton)
-    int maxW = 3300;
+    int maxW = kMaxW;
     if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()) {
         const auto a = d->userArea;
-        maxW = juce::jmax(880, juce::jmin(maxW, a.getWidth() - 40, (a.getHeight() - 90) * kW / kH));
+        maxW = juce::jmax(kMinW, juce::jmin(maxW, a.getWidth() - 40, (a.getHeight() - 90) * kW / kH));
     }
-    setResizeLimits(880, 880 * kH / kW, 3300, 3300 * kH / kW);
-    const int w = juce::jlimit(880, maxW, wanted);
+    setResizeLimits(kMinW, kMinW * kH / kW, kMaxW, kMaxW * kH / kW);
+    const int w = juce::jlimit(kMinW, maxW, wanted);
     setSize(w, w * kH / kW);
     sizing_ = false;
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
@@ -159,7 +162,7 @@ void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
-    if (!sizing_ && getWidth() >= 880) proc_.setEditorWidth(getWidth());
+    if (!sizing_ && getWidth() >= kMinW) proc_.setEditorWidth(getWidth());
 }
 
 void MMArpEditor::setHint(const juce::String& m) {

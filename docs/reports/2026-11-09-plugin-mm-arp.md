@@ -577,3 +577,16 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Ecouter RANDOM et la nouvelle banque (reglee par mesures, sans ecoute).
 - Vitesse reelle du capot dans le WebView macOS non mesuree ; logo cale dans Chromium (+-1 px possible).
 - Choix pris sans validation : poids des familles RANDOM, 7 presets avec HELL, categories LIBRARY renommees.
+
+## 2026-11-18 (suite) : v29, fenetre 20 % plus petite
+
+### Ce qui a ete fait
+- PluginProcessor.h : kEditorDefaultW 1496 (1870 x 0,8), kEditorMinW 704 (880 x 0,8), kEditorMaxW 2640 (3300 x 0,8) ; PluginEditor.cpp utilise ces bornes.
+- Cle d'etat editorW7 : un projet v26-v28 (editorW6) rouvre a 80 % de sa taille memorisee, un plus ancien a 1496.
+- host_test : 1496 par defaut, taille choisie gardee, editorW6 1870 -> 1496, 3300 -> 2640, editorW5 -> 1496. Tout passe.
+
+### Decisions prises et pourquoi
+- Mika : "20% moins grand quand on ouvre le vst et 20% moins grand tout court" : defaut, minimum, maximum et tailles deja memorisees reduits de 20 %.
+
+### Ce qui reste a faire / points en suspens
+- Verifier la lisibilite a 1496 de large sur l'ecran de Mika ; la face suit seule (pas de borne cote web).
