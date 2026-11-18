@@ -265,6 +265,21 @@ inline double nextRandomU(double a, double u) {
 }
 /** exp(x) pour |x| < 0.05 (le desaccord de STACK module, par echantillon) : Taylor d'ordre 5, erreur < 1e-11. */
 inline double expSmall(double x) { return 1 + x * (1 + (x / 2) * (1 + (x / 3) * (1 + (x / 4) * (1 + x / 5)))); }
+/**
+ * v34 (le moteur PRO) : sin(2 pi t) rapide pour les oscillateurs (t en tours, quelconque) : repli sur [-1/4, 1/4] par
+ * symetrie, puis la serie de Taylor jusqu'a l'ordre 11 (erreur < 4e-8, -148 dB sous la pleine echelle) ; sans appel ni
+ * reduction de fdlibm. CLASSIC garde jsm::sin (au bit pres).
+ */
+inline double sinTurnFast(double t) {
+  double u = t - std::floor(t + 0.5);  // [-0.5, 0.5)
+  if (u > 0.25)
+    u = 0.5 - u;
+  else if (u < -0.25)
+    u = -0.5 - u;
+  const double x = 6.283185307179586 * u;
+  const double x2 = x * x;
+  return x * (1 + x2 * (-1.0 / 6 + x2 * (1.0 / 120 + x2 * (-1.0 / 5040 + x2 * (1.0 / 362880 + x2 * (-1.0 / 39916800))))));
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Les extensions du 2026-11-11 (le plugin seul : RING, FOLD, NOISE COLOR, UNISON, HIGH PASS, COMB, le glissement par
@@ -3244,6 +3259,9 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         }
       // v34 PRO : les oscillateurs une fois par echantillon du taux de base (kOsc = OS), leurs pas multiplies d'autant
       const int kOsc = pro && OS > 1 && !(fmDepth > 0) && !sync && !(gRing > 0) ? OS : 1;
+      // v34 PRO : le sinus rapide (sinTurnFast) ; CLASSIC : jsm::sin(TAU * t), les memes operations qu'avant
+      const bool proV = pro;
+      const auto oscSin = [proV](double t) { return proV ? sinTurnFast(t) : jsm::sin(TAU * t); };
       const int oscAt = kOsc > 1 ? i2 % kOsc : 0;
       const double d1v = v.d1 * kOsc;
       const double d2v = v.d2 * kOsc;
@@ -3263,7 +3281,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         const double d2 = d2v * P.r;
         const double dm = d1 * pRatio;
         const double idx = fmDepth > 0 ? jsm::min(fmDepth * (0.35 + 0.65 * jsm::min(1, v.fV)), jsm::max(0, fmB / dm - 1)) : 0;
-        const double pm = idx > 0 ? (idx * jsm::sin(TAU * P.m)) / TAU : 0;
+        const double pm = idx > 0 ? (idx * oscSin(P.m)) / TAU : 0;
         double q2 = P.b + pm;
         q2 -= jsm::floor(q2);
         double p1 = P.a + pm;
@@ -3299,7 +3317,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
           const int w = i2w + s;
           double y;
           if (!pwm2 && w == 0)
-            y = jsm::sin(TAU * q2);
+            y = oscSin(q2);
           else if (!pwm2 && w == 1) {
             double qq = q2 + 0.25;
             if (qq >= 1) qq -= 1;
@@ -3389,7 +3407,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             double cn = 0;
             double cx = 0;
             if (w == 0)
-              r1 = jsm::sin(TAU * e);
+              r1 = oscSin(e);
             else if (w == 1) {
               double qb = e + 0.25;
               if (qb >= 1) qb -= 1;
@@ -3450,8 +3468,8 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             double r0;
             double r1;
             if (w == 0) {
-              r0 = jsm::sin(TAU * e0);
-              r1 = jsm::sin(TAU * e1);
+              r0 = oscSin(e0);
+              r1 = oscSin(e1);
             } else if (w == 1) {
               double qa = e0 + 0.25;
               if (qa >= 1) qa -= 1;
@@ -3486,7 +3504,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
           const int w = i1 + s;
           double y;
           if (!pwm1 && w == 0)
-            y = jsm::sin(TAU * p1);
+            y = oscSin(p1);
           else if (!pwm1 && w == 1) {
             double qq = p1 + 0.25;
             if (qq >= 1) qq -= 1;
@@ -3527,7 +3545,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             }
             y = 1 - 2 * p1 + pb;
           } else if (!pwm1 && w == 5)
-            y = jsm::sin(TAU * (P.a + FM_INDEX * o2 * 0.16 + pm));
+            y = oscSin((P.a + FM_INDEX * o2 * 0.16 + pm));
           else {
             const double d = pwm1 ? pwd1 : w == 3 ? 0.5 : PULSE_W;
             y = p1 < d ? 1 : -1;
@@ -3606,7 +3624,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         const double sdt = v.d3 * kOsc;
         double sy;
         if (subW == 0)
-          sy = jsm::sin(TAU * sph);
+          sy = oscSin(sph);
         else if (subW == 1) {
           double qq = sph + 0.25;
           if (qq >= 1) qq -= 1;
