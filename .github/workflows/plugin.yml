@@ -6,6 +6,9 @@ on:
   push:
     paths:
       - 'plugin/**'
+      # 2026-11-18 : MM-RAGE a son propre workflow (plugin-rage.yml) ; sans cette exclusion, un push de MM-RAGE
+      # reconstruisait le MM-RYTM de sa branche et ecrasait la release mm-rytm-latest
+      - '!plugin/mm-rage/**'
       - 'public/samples/rytm/**'
       - 'src/v4/**'
       - 'package.json'
