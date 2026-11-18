@@ -634,3 +634,23 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Decision Mika : QUALITY STD par defaut, mode ECO, ou HQ seulement a faible polyphonie.
 - Chiffres mesures sur un Xeon cloud et Chromium sans GPU : a confirmer avec le compteur chez Mika.
 - Plafond 30 images/s : fluidite des potards et du capot a juger sur ecran 120 Hz.
+
+## 2026-11-18 (suite 5) : v32, 8 voix, QUALITY ECO / STD / HQ, EXPORT HQ
+
+### Ce qui a ete fait
+- 8 voix pleines (plugin, option softVoices) : la 9e note efface en 5 ms la voix la plus faible en release (sinon la plus vieille) ; 12 emplacements ; MONO / LEGATO inchanges.
+- QUALITY a 3 crans : ECO x2 (neuf), STD x4 (le site au bit pres, defaut des instances neuves), HQ x8 ; au-dela de 60 kHz chaque cran divise par deux. Migration : HQ reste HQ, STD reste STD, projet sans QUALITY -> HQ.
+- EXPORT HQ (nouveau parametre hote en fin de liste, active par defaut) : le rendu hors ligne passe en x8, comme l'Offline accuracy de Diva.
+- Moteur au bit pres : sinFast (fdlibm en ligne), triangle sans division hors des fronts : -4 % d'instructions moteur, sin -33 %.
+- Mesures (banc, % d'un coeur) : cas de Mika 91,5 % (HQ, 12 voix) -> 71,9 % (HQ, 8 voix) -> 34,1 % (STD) -> 29,3 % (ECO). Profil par bloc : oscillateurs x STACK 53 %, filtres 17 %, voie droite du WIDE 7,5 %.
+- Tests : tsc 105, suite DSP (voyager_compare 85/85), host 56, Chromium muet 5/5, aucun son.
+
+### Decisions prises et pourquoi
+- Mika : 8 voix ; "optimise chaque bloc, comme les autres plugins". STD par defaut en temps reel, HQ a l'export, comme u-he Diva.
+- STD et HQ restent au bit pres (site et anciens projets).
+
+### Ce qui reste a faire / points en suspens
+- Objectifs non atteints (STD < 25 %, HQ < 40 %) : il faut des oscillateurs polyBLEP au taux de base et ne sureechantillonner que filtre / saturation / FM (ECO et nouveau HQ), son a valider a l'oreille. Estime -40 a -50 % sur le moteur.
+- Multicoeur facon Diva evalue, non conseille pour l'instant.
+- ECO non ecoute (repliement plus fort a x2 avec FM et SYNC).
+- Une automation de QUALITY d'un ancien projet relirait 0 comme ECO.
