@@ -272,13 +272,16 @@ constexpr double SR = 48000;
 constexpr int kBars = 8;
 constexpr double kTail = 3.0;
 
+// v34 : --pro : le moteur PRO (Voyager::setPro), au surechantillonnage --os tel quel (1 ECO, 2 STD, 4 HQ)
+static bool gPro = false;
 Render render(const Preset& p, int osWanted) {
   Render r;
   VoyagerOptions o;
   o.sampleRate = SR;
-  o.os = osWanted == 8 ? (mmx::exStep(mmx::ex_xQuality, p.extra[mmx::ex_xQuality]) == 2 ? 8 : 4) : osWanted; // v32 : ECO, STD, HQ
+  o.os = gPro ? osWanted : osWanted == 8 ? (mmx::exStep(mmx::ex_xQuality, p.extra[mmx::ex_xQuality]) == 2 ? 8 : 4) : osWanted; // v32 : ECO, STD, HQ
   o.seed = 808;
   Voyager v(o);
+  v.setPro(gPro);
   // update() du plugin : les reglages du moteur, le tempo, le VST3 seul
   std::vector<ParamKV> kv(kEngineParams + 16);
   int n = engineParams(p.knobs, kv.data(), kEngineParams);
@@ -704,7 +707,11 @@ int main(int argc, char** argv) {
   bool showNotes = false;
   for (int i = 2; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--notes")) showNotes = true;
-    if (!std::strcmp(argv[i], "--os") && i + 1 < argc) os = std::atoi(argv[++i]) == 8 ? 8 : 4;
+    if (!std::strcmp(argv[i], "--pro")) gPro = true;
+    if (!std::strcmp(argv[i], "--os") && i + 1 < argc) {
+      const int w = std::atoi(argv[++i]);
+      os = w == 8 ? 8 : w == 1 || w == 2 || w == 4 ? w : 4;
+    }
     else if (!std::strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
     else if (!std::strcmp(argv[i], "--only") && i + 1 < argc) only = argv[++i];
     else if (!std::strcmp(argv[i], "--calibrate") && i + 1 < argc) calib = argv[++i];

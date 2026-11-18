@@ -324,6 +324,9 @@ class Voyager {
 
   /** QUALITY : change le surechantillonnage (1, 2, 4, 8) depuis le thread audio, sans allocation (voir en tete). */
   void setOs(int os);
+  /** v34 (le plugin) : le moteur PRO (les oscillateurs au taux de base, le reste au taux OS) ; false : CLASSIC, au bit pres */
+  void setPro(bool on);
+  bool pro() const;
   int os() const;
   bool osPending() const;
 

@@ -682,6 +682,8 @@ struct Voice {
   double logf = 0, logT = 0;
   StackPair pr[MAX_UNI];
   double subPh = 0;
+  // v34 (le moteur PRO) : les deux dernieres sorties des oscillateurs au taux de base (gauche, droite), interpolees
+  double pO0 = 0, pO1 = 0, pR0 = 0, pR1 = 0;
   int n = 1, nLoop = 1;
   LadderR fr;
   bool wl = false, wideOK = true;
@@ -914,6 +916,9 @@ struct Voyager::Impl {
   Voice voices[MAX_VOICES];
   int nv = MAX_VOICES;
   int softVoices = 0;  // v32 (le plugin) : la limite douce de voix pleines, 0 : aucune
+  // v34 (le plugin, Mika : "CPU B") : le moteur PRO : les oscillateurs au taux de base (BLEP au pas du taux de base), le
+  // filtre et la suite suresechantillonnes (OS) ; FM et SYNC engages : les oscillateurs restent au taux OS. false : CLASSIC
+  bool pro = false;
   int maxStack = MAX_STACK;
   int wideVoices = MAX_VOICES;
   double stD = 0, stDK = 0;
@@ -1622,6 +1627,7 @@ struct Voyager::Impl {
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
       for (int j = 0; j < MAX_UNI; j += 1) v->pr[j].sb = v->pr[j].sf = 0;
       for (int j = 0; j < VX_SIZE; j += 1) v->x[j] = 0;
+      v->pO0 = v->pO1 = v->pR0 = v->pR1 = 0;
     }
     v->g = 0;
     for (int j = 0; j < MAX_UNI; j += 1) {
@@ -3236,8 +3242,11 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
           StackPair& P = v.pr[j];
           P.r = P.off == 0 ? 1 : stackMode == 1 ? expSmall(P.off * stackX) : jsm::pow(2, (P.off * stD) / 1200);
         }
-      const double d1v = v.d1;
-      const double d2v = v.d2;
+      // v34 PRO : les oscillateurs une fois par echantillon du taux de base (kOsc = OS), leurs pas multiplies d'autant
+      const int kOsc = pro && OS > 1 && !(fmDepth > 0) && !sync && !(gRing > 0) ? OS : 1;
+      const int oscAt = kOsc > 1 ? i2 % kOsc : 0;
+      const double d1v = v.d1 * kOsc;
+      const double d2v = v.d2 * kOsc;
       const int nl = v.nLoop;
       StackPair* pr = v.pr;
       const bool wideV = v.wideOK && (wideOn || spOn || v.wl);
@@ -3247,6 +3256,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       const double wn = wideV ? 1 / jsm::sqrt(1 + wide * wide * (one ? pn2w : STACK_PAN2[v.n - 1])) : 1;
       double o = 0;
       double oR = 0;
+      if (oscAt == 0) {
       for (int j = 0; j < nl; j += 1) {
         StackPair& P = pr[j];
         const double d1 = d1v * P.r;
@@ -3565,7 +3575,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         }
         double gj = 1;
         if (P.g != P.gt) {
-          P.g += (P.gt - P.g) * stK;
+          P.g += (P.gt - P.g) * (kOsc == 1 ? stK : 1 - jsm::pow(1 - stK, kOsc));
           if (P.g - P.gt < 1e-5 && P.gt - P.g < 1e-5) P.g = P.gt;
         }
         if (nl != 1 || P.g != 1) gj = P.g;
@@ -3593,7 +3603,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       if (nl > 1 && pr[nl - 1].gt == 0 && pr[nl - 1].g == 0) v.nLoop = nl - 1;
       if (g3 > 1e-6) {
         const double sph = v.subPh;
-        const double sdt = v.d3;
+        const double sdt = v.d3 * kOsc;
         double sy;
         if (subW == 0)
           sy = jsm::sin(TAU * sph);
@@ -3660,8 +3670,21 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         const double sb = g3 * sy;
         o += sb;
         oR += sb;
-        v.subPh += v.d3;
+        v.subPh += v.d3 * kOsc;
         if (v.subPh >= 1) v.subPh -= jsm::floor(v.subPh);
+      }
+      if (kOsc > 1) {
+        v.pO0 = v.pO1;
+        v.pR0 = v.pR1;
+        v.pO1 = o;
+        v.pR1 = oR;
+      }
+      }
+      if (kOsc > 1) {
+        // v34 PRO : entre deux echantillons du taux de base, la droite qui les joint (un echantillon de retard)
+        const double t = static_cast<double>(oscAt + 1) / kOsc;
+        o = v.pO0 + (v.pO1 - v.pO0) * t;
+        oR = v.pR0 + (v.pR1 - v.pR0) * t;
       }
       if (nGain > 1e-6) {
         if (newNoise) {
@@ -4348,6 +4371,8 @@ int Voyager::fullVoices() const {
 }
 int Voyager::heals() const { return m_->heals; }
 void Voyager::setOs(int os) { m_->requestOs(os); }
+void Voyager::setPro(bool on) { m_->pro = on; }
+bool Voyager::pro() const { return m_->pro; }
 int Voyager::os() const { return m_->os; }
 bool Voyager::osPending() const { return m_->osWant != 0; }
 
