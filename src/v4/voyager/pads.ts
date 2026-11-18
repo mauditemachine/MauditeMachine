@@ -49,7 +49,7 @@ import type { HotspotDef } from '../scene/hit';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PLUGIN_ARP, PORTRAIT, gainOf } from '../theme';
+import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PAD_QUEUED, PLUGIN_ARP, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId, type VoyWhere } from './theme';
@@ -78,7 +78,8 @@ const RGB: Record<Glow, readonly number[]> = {
   faint: PAD_GLOW.faint,
   hover: PAD_GLOW.hover,
   // v27 : la progression au jaune d'accent (le plugin)
-  queued: PLUGIN_ARP ? [0.46, 0.36, 0] : [0.3, 0.07, 0],
+  // v31 : la couleur d'accent du plugin, reglable (theme.ts setPluginAccent, PAD_QUEUED)
+  queued: PAD_QUEUED,
   active: PAD_GLOW.active,
   flash: PAD_GLOW.flash,
   orange: PAD_GLOW.orange,
@@ -389,7 +390,8 @@ export class VoyKeys {
   }
 
   private haloColor(i: number, g: Glow, k = 1): void {
-    const tint = g === 'active' ? YELLOW_HI : g === 'queued' || g === 'orange' || g === 'orangeDim' ? ORANGE : YELLOW;
+    // le plugin (v31) : tous les halos a la couleur d'accent (ORANGE, reglable : refreshAccent)
+    const tint = PLUGIN_ARP ? ORANGE : g === 'active' ? YELLOW_HI : g === 'queued' || g === 'orange' || g === 'orangeDim' ? ORANGE : YELLOW;
     this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO[g] * k));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
   }
@@ -578,6 +580,18 @@ export class VoyKeys {
       } else pending = true;
     }
     return changed ? 'paint' : pending ? 'poll' : false;
+  }
+
+  /**
+   * v31 : la couleur d'accent du plugin a change (theme.ts setPluginAccent, deja pose) : les halos et les lueurs des pads,
+   * des boutons et des poussoirs reprennent leurs teintes. Le rendu suit (repaint).
+   */
+  refreshAccent(): void {
+    ORANGE.setHex(COLOR.orange);
+    for (let i = 0; i < PADS; i += 1) this.setPadGlow(i, this.padGlow[i]);
+    for (let i = 0; i < BTNS; i += 1) this.setBtnGlow(i, this.btnGlow[i]);
+    if (this.pushHover >= 0) this.setPushGlow(this.pushHover, 'hover');
+    this.opts.repaint();
   }
 
   /** OPEN respire, comme celui de la 808 ; true si sa lumiere a change. */

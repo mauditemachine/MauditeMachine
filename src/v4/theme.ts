@@ -2179,6 +2179,38 @@ const DARK = {
   voiceTint: { ...VOICE_TINT },
 };
 
+/** La progression en attente (pads de l'arpege) : la couleur d'accent du plugin, reglable (setPluginAccent). */
+export const PAD_QUEUED: number[] = PLUGIN_ARP ? [0.46, 0, 0.061] : [0.3, 0.07, 0];
+
+/** Les lueurs des pads du plugin, en multiples de la couleur d'accent lineaire (son canal le plus fort a 1). */
+const ACCENT_GLOW = { flash: 1.2, faint: 0.022, hover: 0.085, active: 1.8, orange: 1.6, orangeDim: 0.16 } as const;
+
+/**
+ * v31 (2026-11-18, Mika : "un crossfader dans les settings avec des couleurs de cette tranche de luminosite") : pose la
+ * couleur d'accent du plugin MM-ARP en direct (plugin/arp/accent.ts, le curseur ACCENT COLOR des reglages) : HEX.orange
+ * et COLOR.orange (la serigraphie : PRESET, OPEN, les couronnes WAVEFORM), les lueurs des pads (memes tableaux, modifies
+ * en place) et l'etat sombre d'origine. Rien hors du plugin.
+ */
+export function setPluginAccent(hex: string): void {
+  if (!PLUGIN_ARP || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  const n = parseInt(hex.slice(1), 16);
+  const lin = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const top = Math.max(lin[0], lin[1], lin[2], 1e-6);
+  const c = lin.map((v) => v / top);
+  (HEX as Record<Tone, string>).orange = hex;
+  (DARK.hex as Record<Tone, string>).orange = hex;
+  (COLOR as Record<Tone, number>).orange = n;
+  for (const [k, g] of Object.entries(ACCENT_GLOW) as [keyof typeof ACCENT_GLOW, number][]) {
+    const v = c.map((x) => x * g);
+    Object.assign(PAD_GLOW[k] as unknown as number[], v);
+    if (DARK.glow[k]) DARK.glow[k] = [...v];
+  }
+  Object.assign(PAD_QUEUED, c.map((x) => x * 0.46));
+}
+
 /**
  * Pose une apparence sur les constantes de la scene, AVANT la creation du
  * Stage (index.tsx le reconstruit a chaque changement) : chaque module lit

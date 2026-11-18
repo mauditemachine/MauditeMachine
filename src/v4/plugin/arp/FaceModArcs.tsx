@@ -99,11 +99,11 @@ export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         const a = modArcPaths(m, at, w);
         return (
           <g key={id} className="mm-mod-arc" data-id={id}>
-            <path d={a.range} stroke={MOD_ORANGE} strokeOpacity={0.22} strokeWidth={w} fill="none" strokeLinecap="round" />
+            <path d={a.range} style={{ stroke: MOD_ORANGE }} strokeOpacity={0.22} strokeWidth={w} fill="none" strokeLinecap="round" />
             {a.trail.map((s, i) => (
-              <path key={i} d={s.d} stroke={MOD_ORANGE} strokeOpacity={s.o} strokeWidth={w * 1.07} fill="none" strokeLinecap="round" filter="url(#mm-mod-glow)" />
+              <path key={i} d={s.d} style={{ stroke: MOD_ORANGE }} strokeOpacity={s.o} strokeWidth={w * 1.07} fill="none" strokeLinecap="round" filter="url(#mm-mod-glow)" />
             ))}
-            <circle cx={a.head[0]} cy={a.head[1]} r={2.2 * k} fill={MOD_HEAD} filter="url(#mm-mod-glow)" />
+            <circle cx={a.head[0]} cy={a.head[1]} r={2.2 * k} style={{ fill: MOD_HEAD }} filter="url(#mm-mod-glow)" />
           </g>
         );
       })}

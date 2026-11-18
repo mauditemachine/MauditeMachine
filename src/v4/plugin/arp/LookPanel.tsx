@@ -14,6 +14,7 @@ import type { Stage } from '../../scene/renderer';
 import { voyExplode } from '../../state/explode';
 import { lightGain } from '../../voyager/silk';
 import { VOY_HEAD } from '../../voyager/theme';
+import { accentGen, accentOfHue } from './accent';
 import { look, LOOK_DEFAULTS, type Look } from './look';
 
 /* ---------------- le panneau ouvert (un seul a la fois) ---------------- */
@@ -47,10 +48,15 @@ export const FaceLook: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const rig = stage?.voy;
     if (!stage || !rig) return undefined;
     let raf = 0;
+    // v31 : la couleur d'accent (ACCENT COLOR) : la serigraphie se redessine, les pads reprennent leurs lueurs
+    let seen = -1;
     const apply = (): void => {
       raf = 0;
       const { leather, light } = look.get();
-      for (const silk of [rig.panelSilk, rig.deckSilk]) if (silk.setLook(leather, light)) silk.draw();
+      const recolor = seen !== accentGen();
+      seen = accentGen();
+      for (const silk of [rig.panelSilk, rig.deckSilk]) if (silk.setLook(leather, light) || recolor) silk.draw();
+      if (recolor) rig.keys.refreshAccent();
       const lid = rig.body.lid as Mesh;
       const mats: Material[] = Array.isArray(lid.material) ? lid.material : [lid.material];
       for (const m of mats) (m as MeshStandardMaterial).color?.setScalar(lightGain(light));
@@ -71,7 +77,17 @@ export const FaceLook: React.FC<{ stage: Stage | null }> = ({ stage }) => {
 
 /* ---------------- le curseur ---------------- */
 
-const Fader: React.FC<{ label: string; value: number; def: number; onChange: (v: number) => void }> = ({ label, value, def, onChange }) => {
+const Fader: React.FC<{
+  label: string;
+  value: number;
+  def: number;
+  onChange: (v: number) => void;
+  /** v31 : un rail peint (la roue des teintes d'ACCENT COLOR), sans remplissage */
+  railStyle?: React.CSSProperties;
+  /** v31 : ce qui s'affiche a droite a la place du nombre (la pastille de la couleur) */
+  shown?: React.ReactNode;
+  valueText?: string;
+}> = ({ label, value, def, onChange, railStyle, shown, valueText }) => {
   const rail = useRef<HTMLDivElement>(null);
   const drag = useRef<number | null>(null);
   const at = (clientX: number): number => {
@@ -102,6 +118,7 @@ const Fader: React.FC<{ label: string; value: number; def: number; onChange: (v:
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
+        aria-valuetext={valueText}
         onPointerDown={(e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
           e.preventDefault();
@@ -138,14 +155,17 @@ const Fader: React.FC<{ label: string; value: number; def: number; onChange: (v:
           onChange(Math.min(1, Math.max(0, v)));
         }}
       >
-        <span className="mm-look-rail" />
-        <span className="mm-look-fill" style={{ width: `${value * 100}%` }} />
+        <span className={railStyle ? 'mm-look-rail mm-look-rail-paint' : 'mm-look-rail'} style={railStyle} />
+        {!railStyle && <span className="mm-look-fill" style={{ width: `${value * 100}%` }} />}
         <span className="mm-look-head" style={{ left: `${value * 100}%` }} />
       </div>
-      <span className="mm-look-val">{pct}</span>
+      <span className="mm-look-val">{shown ?? pct}</span>
     </div>
   );
 };
+
+/** Le rail d'ACCENT COLOR : toutes les teintes a la luminosite de #FF0066 (TSV 100 %, 100 %), de 0 a 360 degres. */
+const HUE_RAIL = `linear-gradient(90deg, ${[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360].map((h) => `${accentOfHue(h)} ${((h / 360) * 100).toFixed(2)}%`).join(', ')})`;
 
 /** Le panneau : ses curseurs ; ferme au clic dehors (clic avale) et a Echap. */
 const Panel: React.FC<{ style: React.CSSProperties; where: 'face' | 'hood'; anchor: React.RefObject<HTMLElement | null> }> = ({ style, where, anchor }) => {
@@ -205,6 +225,15 @@ const Panel: React.FC<{ style: React.CSSProperties; where: 'face' | 'hood'; anch
       </div>
       <Fader label="LEATHER TEXTURE" value={v.leather} def={LOOK_DEFAULTS.leather} onChange={(x) => look.set({ leather: x })} />
       <Fader label="PANEL LIGHT" value={v.light} def={LOOK_DEFAULTS.light} onChange={(x) => look.set({ light: x })} />
+      <Fader
+        label="ACCENT COLOR"
+        value={v.hue / 360}
+        def={LOOK_DEFAULTS.hue / 360}
+        onChange={(x) => look.set({ hue: Math.round(x * 360) % 360 })}
+        railStyle={{ background: HUE_RAIL }}
+        shown={<span className="mm-look-swatch" style={{ background: accentOfHue(v.hue) }} />}
+        valueText={accentOfHue(v.hue)}
+      />
     </div>
   );
 };

@@ -357,11 +357,11 @@ const KnobModArc: React.FC<{ id: string; k: number; fine?: boolean }> = ({ id, k
   const a = modArcPaths(m, at, 3);
   return (
     <svg className="mm-mod-arc" data-id={id} width={box} height={box} viewBox={`0 0 ${box} ${box}`} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }} aria-hidden="true">
-      <path d={a.range} stroke={MOD_ORANGE} strokeOpacity={0.22} strokeWidth={3} fill="none" strokeLinecap="round" />
+      <path d={a.range} style={{ stroke: MOD_ORANGE }} strokeOpacity={0.22} strokeWidth={3} fill="none" strokeLinecap="round" />
       {a.trail.map((s, i) => (
-        <path key={i} d={s.d} stroke={MOD_ORANGE} strokeOpacity={s.o} strokeWidth={3.2} fill="none" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px color-mix(in srgb, var(--mm-accent) 80%, transparent))' }} />
+        <path key={i} d={s.d} strokeOpacity={s.o} strokeWidth={3.2} fill="none" strokeLinecap="round" style={{ stroke: MOD_ORANGE, filter: 'drop-shadow(0 0 2px color-mix(in srgb, var(--mm-accent) 80%, transparent))' }} />
       ))}
-      <circle cx={a.head[0]} cy={a.head[1]} r={2.4} fill={MOD_HEAD} style={{ filter: 'drop-shadow(0 0 2.5px color-mix(in srgb, var(--mm-accent) 90%, transparent))' }} />
+      <circle cx={a.head[0]} cy={a.head[1]} r={2.4} style={{ fill: MOD_HEAD, filter: 'drop-shadow(0 0 2.5px color-mix(in srgb, var(--mm-accent) 90%, transparent))' }} />
     </svg>
   );
 };
