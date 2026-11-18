@@ -181,7 +181,10 @@ function deckTexts(open: boolean): Text[] {
 }
 
 /** Le cuir du plugin MM-ARP : son relief (normalScale a TEXTURE 100), sa teinte (part de la laque), sa brillance. */
-export const LEATHER = { def: 0.7, relief: 1.0, dark: 0.48, rough: 0.8 } as const;
+// v33 (maquette, Mika : "je veux que le cuir noir soit plus apparent") : le relief monte (x 2.6 au plus, 1.0 avant) et le
+// cuir devient satine en montant (rugosite 0.48 au plus, 0.8 avant) : le grain accroche la lumiere. LEATHER TEXTURE garde
+// son sens (0 : la laque, 1 : le cuir le plus marque) ; les niveaux A / B / C de la maquette : 0.45, 0.7, 0.95
+export const LEATHER = { def: 0.7, relief: 2.6, dark: 0.48, rough: 0.48 } as const;
 /** La lumiere du panneau (0..1, 0.5 neutre) : le gain de sa teinte, de 0.6 a 1.4. */
 export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math.max(0, light));
 

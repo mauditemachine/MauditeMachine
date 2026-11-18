@@ -12,7 +12,7 @@
  * rytmKnobTexture : leurs reflets restent face a la lumiere). Le plugin MM-ARP seul (voyager/knobs.ts, PLUGIN_ARP).
  */
 
-import { CanvasTexture, CircleGeometry, Float32BufferAttribute, LatheGeometry, LinearFilter, LinearMipmapLinearFilter, RingGeometry, SRGBColorSpace, Vector2, BoxGeometry, type BufferGeometry } from 'three';
+import { CanvasTexture, CircleGeometry, EquirectangularReflectionMapping, Float32BufferAttribute, LatheGeometry, LinearFilter, LinearMipmapLinearFilter, RingGeometry, SRGBColorSpace, Vector2, BoxGeometry, type BufferGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { KNOB_LOOK, baseGrey, capGrey, gripRadius, streak } from '../rytm/knobLook';
 import { albedoRgb, paintLinear } from '../scene/materials';
@@ -59,8 +59,10 @@ function lobed(g: BufferGeometry, D: Dims): void {
     if (r < 1e-4) continue;
     const a = Math.atan2(x, -z);
     const out = Math.max(0, Math.min(1, (r - D.rc) / (rl - D.rc)));
-    // 2026-11-16 : la jupe cannelee (40 cannelures fines sur le flanc), plus definie
-    const flute = out > 0.98 ? 0.018 * Math.pow(Math.abs(Math.cos(a * 20)), 0.6) : 0;
+    // 2026-11-16 : la jupe cannelee (40 cannelures fines sur le flanc), plus definie. v33 (maquette, Mika : "de
+    // l'aliasing sur les knobs") : un profil arrondi (cosinus) au lieu de la pointe |cos|^0.6, dont l'arete faisait
+    // scintiller les reflets d'un pixel a l'autre quand le knob tourne ; la meme profondeur
+    const flute = out > 0.98 ? 0.018 * (0.5 + 0.5 * Math.cos(a * 40)) : 0;
     const f = (1 + (gripRadius(a) / KNOB_LOOK.lobe - 1) * out) * (1 - flute);
     p.setX(i, x * f);
     p.setZ(i, z * f);
@@ -165,7 +167,7 @@ export function rytmKnobTexture(): CanvasTexture {
   ctx.putImageData(img, 0, 0);
   const t = new CanvasTexture(cv);
   t.colorSpace = SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = 16; // v33 : le filtrage anisotrope au plus (three le borne a la carte) : le brossage net en biais
   t.generateMipmaps = true;
   t.minFilter = LinearMipmapLinearFilter;
   t.magFilter = LinearFilter;
@@ -205,4 +207,42 @@ export function rytmKnobTopGeometry(mobile: boolean): BufferGeometry {
   for (const q of parts) q.dispose();
   if (!g) throw new Error('rytmKnob: merge failed');
   return g;
+}
+
+/**
+ * v33 (maquette, Mika : "des beaux knobs moog qui tournent bien avec des reflets") : un studio pour les reflets des
+ * potards seulement (leurs materiaux, pas la scene) : une piece sombre, une grande softbox en haut a gauche, une bande
+ * etroite a droite, un reflet de sol ; equirectangulaire, peinte une fois. Les cannelures et le chanfrein du capuchon y
+ * accrochent des lumieres qui bougent quand le potard tourne.
+ */
+let studio: CanvasTexture | null = null;
+export function studioEnv(): CanvasTexture {
+  if (studio) return studio;
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 512;
+  const g = c.getContext('2d')!;
+  const v = g.createLinearGradient(0, 0, 0, 512);
+  v.addColorStop(0, '#1c1b1a');
+  v.addColorStop(0.45, '#0e0e0e');
+  v.addColorStop(0.6, '#262422');
+  v.addColorStop(1, '#070707');
+  g.fillStyle = v;
+  g.fillRect(0, 0, 1024, 512);
+  const box = (x: number, y: number, w: number, h: number, a: number): void => {
+    const r = g.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, Math.max(w, h) * 0.7);
+    r.addColorStop(0, `rgba(255,252,246,${a})`);
+    r.addColorStop(0.55, `rgba(240,236,230,${a * 0.85})`);
+    r.addColorStop(1, 'rgba(240,236,230,0)');
+    g.fillStyle = r;
+    g.fillRect(x - w * 0.2, y - h * 0.2, w * 1.4, h * 1.4);
+  };
+  box(150, 70, 260, 150, 1); // la grande softbox, en haut a gauche
+  box(700, 120, 60, 210, 0.85); // la bande, a droite
+  box(460, 40, 120, 60, 0.5); // un petit plafonnier
+  const t = new CanvasTexture(c);
+  t.mapping = EquirectangularReflectionMapping;
+  t.colorSpace = SRGBColorSpace;
+  studio = t;
+  return t;
 }

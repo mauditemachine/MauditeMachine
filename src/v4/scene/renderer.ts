@@ -273,6 +273,8 @@ const DJ_UNIT_MS = 420;
  */
 // v31 (Mika : "je viens de freez mon cpu") : le plugin plafonne a 30 images par seconde (33 ms), le site garde 12 ms
 const FRAME_MIN_MS = PLUGIN_ARP ? 33 : 12;
+/** v33 (maquette) : apres un mouvement, le plugin reste a 60 images/s ce temps (ms) */
+const HOT_MS = 250;
 
 /* ---------------- Stage ---------------- */
 
@@ -1120,6 +1122,13 @@ export class Stage {
         voyRig.stepArp,
         voyRig.stepSeq
       );
+      // v33 (maquette, le plugin) : les potards glissent vers leur angle (sans passe d'ombre : leur ombre est ronde)
+      if (PLUGIN_ARP)
+        this.animators.push((now) => {
+          if (!voyRig.knobs.step(now)) return false;
+          this.hotUntil = performance.now() + HOT_MS;
+          return 'paint';
+        });
     }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro).
@@ -1373,6 +1382,8 @@ export class Stage {
   invalidate(): void {
     this.dirty = true;
     this.shadowDirty = true;
+    // v33 (maquette) : un reglage bouge (un potard, une automation) : 60 images/s un instant
+    if (PLUGIN_ARP) this.hotUntil = performance.now() + HOT_MS;
     this.kick();
   }
 
@@ -2537,6 +2548,12 @@ export class Stage {
 
   /** v31 : le plugin attend la prochaine image sous un minuteur (raf -1), plus de rAF a vide a la cadence de l'ecran */
   private capTimer = 0;
+  /** v33 (maquette, Mika : "des knobs qui tournent bien") : jusqu'a quand le plugin rend a 60 images/s (un potard tourne,
+   *  une automation, la bascule du capot) ; au repos, le plafond de 30 */
+  private hotUntil = -1;
+  private capNow(now: number): number {
+    return PLUGIN_ARP && now < this.hotUntil ? 16 : Math.max(this.capMs, FRAME_MIN_MS);
+  }
 
   /** La boucle continue : tout de suite (le site), ou au plafond suivant sous un minuteur (le plugin, 30 images/s). */
   private kickNext(): void {
@@ -2545,7 +2562,7 @@ export class Stage {
       return;
     }
     if (this.raf !== 0 || this.disposed || this.paused || this.contextLost || !this.started) return;
-    const wait = Math.max(this.capMs, FRAME_MIN_MS) - (performance.now() - this.lastFrameAt) - 4;
+    const wait = this.capNow(performance.now()) - (performance.now() - this.lastFrameAt) - 4;
     if (wait <= 1) {
       this.kick();
       return;
@@ -2565,7 +2582,7 @@ export class Stage {
     // (le plugin : l'horloge reelle, l'heure du rAF est celle du debut de l'image d'avant quand le minuteur l'a demande ;
     // 6 ms de tolerance, le minuteur part 4 ms avant)
     const clock = PLUGIN_ARP ? performance.now() : now;
-    if (clock - this.lastFrameAt < Math.max(this.capMs, FRAME_MIN_MS) - (PLUGIN_ARP ? 6 : 0)) {
+    if (clock - this.lastFrameAt < this.capNow(clock) - (PLUGIN_ARP ? 6 : 0)) {
       if (PLUGIN_ARP) {
         this.kickNext();
         return;
@@ -2598,6 +2615,7 @@ export class Stage {
         this.dirty = true;
         this.shadowDirty = true;
       }
+      if (PLUGIN_ARP && (moved || viewMoved)) this.hotUntil = performance.now() + HOT_MS;
       if (viewMoved || painted) this.dirty = true;
       if (this.dirty) this.render(now);
     } catch (e) {

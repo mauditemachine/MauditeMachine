@@ -31,6 +31,7 @@ import {
   DynamicDrawUsage,
   InstancedMesh,
   Matrix4,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Quaternion,
   Vector3,
@@ -42,7 +43,7 @@ import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
 import { LIT, MATERIAL, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
-import { rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from './rytmKnob';
+import { rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry, studioEnv } from './rytmKnob';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
 import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
@@ -116,7 +117,7 @@ export function buildKnobGeometry(mobile: boolean, withMark = true): BufferGeome
 
 export class VoyKnobs {
   readonly mesh: InstancedMesh;
-  private material: MeshStandardMaterial;
+  private material: MeshStandardMaterial | MeshPhysicalMaterial;
   /**
    * Le plugin MM-ARP (2026-11-16, Mika : "le design des knobs de MM-RYTM") : le potard du MM-RYTM (voyager/rytmKnob.ts),
    * mesh tourne (la prise, le repere), top ne tourne pas (la base et le dessus du capuchon, leurs reflets fixes). Au site :
@@ -128,12 +129,16 @@ export class VoyKnobs {
 
   constructor(opts: { mobile: boolean; castShadow: boolean }) {
     if (PLUGIN_ARP) {
-      this.material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
+      // v33 (maquette, Mika : "des beaux knobs moog avec des reflets") : la jupe noire brillante (un vernis, clearcoat) et
+      // le capuchon d'aluminium refletent un studio a softboxes (studioEnv) : les cannelures accrochent la lumiere en
+      // tournant ; l'eclairage de la face ne change pas (la carte ne sert qu'a ces materiaux)
+      const env = studioEnv();
+      this.material = new MeshPhysicalMaterial({ vertexColors: true, roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.2, envMap: env, envMapIntensity: 1.8 });
       this.material.name = 'voyKnobRytm';
       this.mesh = new InstancedMesh(rytmKnobGeometry(opts.mobile), this.material, DIALS.length);
       // la prise ne recoit pas l'ombre du capuchon (comme au MM-RYTM : un gris egal)
       this.mesh.receiveShadow = false;
-      this.topMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28, map: rytmKnobTexture() });
+      this.topMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.5, map: rytmKnobTexture(), envMap: env, envMapIntensity: 1.4 });
       this.topMat.name = 'voyKnobRytmTop';
       const top = new InstancedMesh(rytmKnobTopGeometry(opts.mobile), this.topMat, DIALS.length);
       top.name = 'voyKnobTops';
@@ -181,10 +186,44 @@ export class VoyKnobs {
     if (!k) return false;
     const n = k.steps?.length ?? 2;
     const a = Math.fround(potAngle(v) * (knobThrowDeg(id, n) / TEMPO_UI.sweepDeg));
+    if (PLUGIN_ARP) {
+      // v33 : l'angle glisse vers sa cible (step : ~35 ms), les images a 60 par seconde pendant ce temps
+      if (this.target.get(id) === a) return false;
+      this.target.set(id, a);
+      if (!this.angle.has(id)) {
+        this.angle.set(id, a);
+        this.place(id);
+      }
+      return true;
+    }
     if (this.angle.get(id) === a) return false;
     this.angle.set(id, a);
     this.place(id);
     return true;
+  }
+
+  /** v33 (le plugin) : les angles vers leur cible ; true tant qu'un potard bouge (la boucle de rendu continue). */
+  private target = new Map<VoyKnobId, number>();
+  private stepAt = -1;
+  step(now: number): boolean {
+    const dt = this.stepAt < 0 ? 16 : Math.min(50, now - this.stepAt);
+    this.stepAt = now;
+    const k = 1 - Math.exp(-dt / 35);
+    let moving = false;
+    for (const [id, t] of this.target) {
+      const a = this.angle.get(id) ?? t;
+      if (a === t) continue;
+      const n = Math.abs(t - a) < 1e-4 ? t : a + (t - a) * k;
+      this.angle.set(id, n);
+      this.place(id);
+      if (n !== t) moving = true;
+    }
+    if (!moving) this.stepAt = -1;
+    return moving || this.pending();
+  }
+  private pending(): boolean {
+    for (const [id, t] of this.target) if (this.angle.get(id) !== t) return true;
+    return false;
   }
 
   /** Les potards pour le picking : un cylindre de la jupe, jusqu'au haut du capuchon ; repere de leur plan. */
