@@ -616,3 +616,21 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - Le rose est proche du rouge des LED : a juger a l'oeil par Mika.
+
+## 2026-11-18 (suite 4) : v31, compteur CPU, optimisation, ACCENT COLOR
+
+### Ce qui a ete fait
+- Compteur CPU de l'instance en haut a droite (face, a gauche de SETTINGS ; OPEN, a cote de SETTINGS) : mesure dans processBlock (getHighResolutionTicks), lissee 250 ms, pic tenu 1 s, ventilee MOTEUR / DISTO / DELAY / REVERB / HELL / EQ + RACK / RESTE ; envoi mm_cpu a 10 Hz ; un clic ouvre le detail (etages, pic, voix, HQ/STD, SR/bloc, rendu de la face). Accent au-dela de 50 %, rouge au-dela de 80 %.
+- Banc tests/cpu_bench.cpp (option du banc hote) : INIT, 40 presets, pire cas, instances a l'arret, 48 kHz / 128.
+- Optimisations : SSE4.1 sur x86_64 (au bit pres, moteur 5-8 % plus vite sur Intel) ; reverb CLASSIC recalculee sur un fil partage basse priorite (le thread du message ne bloque plus 6-40 ms par changement) ; rendu de la face plafonne a 30 images/s dans le plugin, arcs de modulation a 30 Hz.
+- Curseur ACCENT COLOR dans SETTINGS (teintes vives a la luminosite de #FF0066, applique en direct, RESET -> #FF0066).
+- Tests : tsc 105, suite DSP complete, host 52, Chromium muet 13/13 + 16/16, aucun son.
+
+### Decisions prises et pourquoi
+- Mika a gele son CPU : "compteur de cpu en haut a droite" et "optimise le Plugin !".
+- Banc : le moteur HQ x8 fait 75-90 % de la charge (banque 16,3 % d'un coeur en HQ contre 11,0 % en STD ; nappes 46 % contre 28 %). QUALITY HQ laisse par defaut : passer en STD change un peu le son, a decider par Mika.
+
+### Ce qui reste a faire / points en suspens
+- Decision Mika : QUALITY STD par defaut, mode ECO, ou HQ seulement a faible polyphonie.
+- Chiffres mesures sur un Xeon cloud et Chromium sans GPU : a confirmer avec le compteur chez Mika.
+- Plafond 30 images/s : fluidite des potards et du capot a juger sur ecran 120 Hz.
