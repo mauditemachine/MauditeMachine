@@ -116,7 +116,9 @@ let tex: CanvasTexture | null = null;
 /** La peinture du dessus immobile (la base et le capuchon) : la meme image que le MM-RYTM (moogTexture). */
 export function rytmKnobTexture(): CanvasTexture {
   if (tex) return tex;
-  const S = 512;
+  // v38 (Mika : "a tres grande taille les knobs pixellisent") : 1024 (512 avant) : le capuchon fait jusqu a ~340 px a
+  // 2640 de large en DPR 2 ; 512 en donnait ~300 au capuchon, il etait agrandi
+  const S = 1024;
   const cv = document.createElement('canvas');
   cv.width = S;
   cv.height = S;

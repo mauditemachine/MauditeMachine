@@ -699,6 +699,8 @@ struct Voice {
   double subPh = 0;
   // v34 (le moteur PRO) : les deux dernieres sorties des oscillateurs au taux de base (gauche, droite), interpolees
   double pO[4] = {0, 0, 0, 0}, pR[4] = {0, 0, 0, 0};
+  // v38 : les trois dernieres sorties brutes (gauche, droite), pour la pre-accentuation de l'aigu
+  double pZ[7] = {0, 0, 0, 0, 0, 0, 0}, pZR[7] = {0, 0, 0, 0, 0, 0, 0};
   int n = 1, nLoop = 1;
   LadderR fr;
   bool wl = false, wideOK = true;
@@ -1643,6 +1645,7 @@ struct Voyager::Impl {
       for (int j = 0; j < MAX_UNI; j += 1) v->pr[j].sb = v->pr[j].sf = 0;
       for (int j = 0; j < VX_SIZE; j += 1) v->x[j] = 0;
       for (int q = 0; q < 4; q += 1) v->pO[q] = v->pR[q] = 0;
+      for (int q = 0; q < 7; q += 1) v->pZ[q] = v->pZR[q] = 0;
     }
     v->g = 0;
     for (int j = 0; j < MAX_UNI; j += 1) {
@@ -3692,12 +3695,24 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         if (v.subPh >= 1) v.subPh -= jsm::floor(v.subPh);
       }
       if (kOsc > 1) {
+        // v38 (Mika : "fat et cristallin") : la Catmull-Rom et le BLEP au taux de base tassaient l'aigu (-1.5 dB a 8 kHz,
+        // jusqu'a -4.7 dB a 16 kHz) : une pre-accentuation a trois points, symetrique (1 + 2a - 2a cos w : 0 dB en bas,
+        // +1.3 dB a 8 kHz, +3.6 dB a 16 kHz), un echantillon de retard de plus
+        // (sept points, symetrique : h0 = 1 + 2a + 2c, h1 = -a, h3 = -c ; +1.4 dB a 8 kHz, +5.6 dB a 16 kHz)
+        constexpr double PA = 0.30, PC = -0.0325;
+        for (int q = 0; q < 6; q += 1) {
+          v.pZ[q] = v.pZ[q + 1];
+          v.pZR[q] = v.pZR[q + 1];
+        }
+        v.pZ[6] = o;
+        v.pZR[6] = oR;
         for (int q = 0; q < 3; q += 1) {
           v.pO[q] = v.pO[q + 1];
           v.pR[q] = v.pR[q + 1];
         }
-        v.pO[3] = o;
-        v.pR[3] = oR;
+        const auto pe = [](const double* z) { return (1 + 2 * PA + 2 * PC) * z[3] - PA * (z[2] + z[4]) - PC * (z[0] + z[6]); };
+        v.pO[3] = pe(v.pZ);
+        v.pR[3] = pe(v.pZR);
       }
       }
       if (kOsc > 1) {
