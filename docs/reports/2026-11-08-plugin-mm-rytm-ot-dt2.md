@@ -594,6 +594,15 @@ Mika : « ajoute aussi DEEP HOUSE THUMP en preset d'usine ».
 - **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, 121 BPM, le kick `bd/Bd Deep House Thump.wav` part au moteur ; DEEP HOUSE garde ses ids (54 a 56). Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 44201589617), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 0e54aa7, branche claude/intelligent-ride-56tyeo, 2026-11-17 23:49 UTC.
 
+### Lot 40, les conditions de trig au clic droit sur un pas (2026-11-19)
+
+Mika : « quand je fais un clic droit sur un pas je voudrais aussi avoir la possibilite de changer pour que ce pas joue 1x sur 2, 1x sur 4, random.. comme Elektron le fait sur ses machines ».
+
+- **Le clic droit garde son P-LOCK** (le pas en P-LOCK, les potards y ecrivent leurs verrous, comme depuis le 2026-11-09) **et ouvre un menu juste au-dessus de la touche du pas** (`src/v4/plugin/StepMenu.tsx`, `state/stepMenu.ts`, `ui/Hotspots.tsx`) : STEP 03 CH, puis PLAYS : ALWAYS, 1:2, 2:2, 1:4, 2:4, 3:4, 4:4, 1:8, 8:8, 1ST, !1ST (la COND facon Elektron : A:B joue au A-ieme passage de chaque cycle de B) ; RANDOM : 75 %, 50 %, 25 %, 10 % (la PROB). Le choix en cours s'allume ; une COND ou une PROB posee au potard qui n'est pas dans le menu s'y montre aussi.
+- **Un choix a la fois, comme le potard COND des Elektron** (ses % compris) : une COND remet la PROB a 100 %, une PROB remet la COND a NONE, ALWAYS retire les deux. Ce sont les verrous du pas (`cond`, `prob`), que le moteur joue deja ; une etape de Cmd+Z. Un pas vide recoit sa note (une condition sur rien ne s'entendrait pas). Le reste des COND (PRE, NEI, LST, les !A:B ; FILL sans touche FILL dans le plugin) reste au potard COND de la page TRIG en P-LOCK.
+- **Fermer** : la croix, Echap ou un second clic droit sur le pas (sortent aussi du P-LOCK) ; le menu ne couvre jamais la touche du pas.
+- **Verifie** : Chromium (sans son) : clic droit sur le pas 1 de BD : le menu (STEP 01 BD, ALWAYS allume) ; 1:2 : le coup part au moteur avec la COND A:B 1 sur 2 (ck 6, ca 1, cb 2) ; 50 % : PROB 50, COND retiree ; ALWAYS : les deux retirees ; un second clic droit et Echap ferment ; un pas vide a 25 % recoit son coup (PROB 25) ; Cmd+Z defait 1:4. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -693,6 +702,8 @@ Mika : « ajoute aussi DEEP HOUSE THUMP en preset d'usine ».
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 40 : un menu en plus du P-LOCK, pas a sa place** : le clic droit pour le P-LOCK est dans les doigts de Mika depuis le 2026-11-09 ; le menu s'ajoute a cote. Les COND les plus jouees en un clic, toutes les autres au potard COND.
+- **Lot 40 : un choix a la fois** : chez Elektron les % sont dans la liste du potard COND ; ici COND et PROB sont deux verrous, le menu les traite comme une seule liste pour que ce qui est allume soit ce qu'on entend.
 - **Lot 38 : un style de 3 variations plutot qu'un preset seul** : tous les presets d'usine vont par trois (la base, le groove, le plein) ; INDUSTRIAL SLAM suit la regle. A la fin de la liste : les ids des 72 d'avant ne bougent pas (un projet Ableton qui en garde un le retrouve).
 - **Lot 38 : le kick raccourci dans le preset** : le fichier du site sonne comme le site au DEC 124, mais sa longue queue noie un quatre temps a 138 BPM ; le preset le coupe a DEC 0.68, le grondement vient de T9. DEC le rallonge.
 - **Lot 37 : GATED dans une bande REVERB d'OPEN plutot qu'a cote de HELL ou de la DIST** : ce n'est ni l'un ni l'autre ; une bande basse sur toute la largeur garde la page que Mika aime telle quelle. ROOM, HALL et TIGHT GATE l'entourent pour revenir a une reverbe normale en un clic.
@@ -717,6 +728,7 @@ Mika : « ajoute aussi DEEP HOUSE THUMP en preset d'usine ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 40)** : la commande mm-rytm ; clic droit sur un pas : 1:2, 1:4, 50 %... ; dire s'il manque une condition dans le menu (FILL demande une touche FILL, absente du plugin).
 - **Cote Mika (lot 39)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : DEEP HOUSE THUMP 1, 2, 3 ; comparer avec DEEP HOUSE, dire si le kick doit trainer plus (DEC).
 - **Cote Mika (lot 38)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : INDUSTRIAL SLAM 1, 2, 3 ; laisser tourner 8 mesures, dire si le kick doit etre plus long (DEC) ou plus fort.
 - **Cote Mika (lot 37)** : la commande mm-rytm ; OPEN, FX, REVERB : GATED ; dire si le jaune des touches est assez vif (la lueur se regle dans `theme.ts` PLUGIN_ACCENT_GLOW).

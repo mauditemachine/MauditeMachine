@@ -30,6 +30,7 @@ import { Lcd } from '../ui/Lcd';
 import { NameDialog } from './NameDialog';
 import { bridge } from './bridge';
 import { OpenPanel } from './OpenPanel';
+import { StepMenu } from './StepMenu';
 import { ScreenMouse } from './ScreenMouse';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
@@ -169,6 +170,7 @@ const PluginFace: React.FC = () => {
         <Lcd />
         <NameDialog stage={stage} />
         <OpenPanel stage={stage} />
+        <StepMenu />
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">

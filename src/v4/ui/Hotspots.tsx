@@ -224,6 +224,7 @@ import { screenDials, type ScreenDialId } from '../state/screenDials';
 import { lcdMessage } from '../state/lcdMessage';
 import { encUnit } from '../rytm/values';
 import { rytmLock } from '../state/rytmLock';
+import { stepMenu } from '../state/stepMenu';
 import { faceTouch } from '../state/ctl';
 import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
@@ -1393,7 +1394,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         else if (hm && hm.kind === 'step' && hm.index !== undefined) {
           // Le plugin (2026-11-09, Mika : "je ne sais pas comment faire un parameter lock... le clic droit pour ca ?") : hors
           // TRK, un clic droit sur un pas le met en P-LOCK (les potards y ecrivent leurs verrous), encore : il en sort
-          if (!trkStepMute(hm.index, stage, e.timeStamp || performance.now()) && PLUGIN) stepLockRight(hm.index);
+          if (!trkStepMute(hm.index, stage, e.timeStamp || performance.now()) && PLUGIN) {
+            stepLockRight(hm.index);
+            // et ses conditions a cote (2026-11-19, Mika : "que ce pas joue 1x sur 2, 1x sur 4, random", plugin/StepMenu.tsx) ;
+            // un second clic droit sort du P-LOCK et ferme le menu
+            if (rytmLock.get().step === hm.index) stepMenu.open(hm.index, e.clientX, e.clientY);
+            else stepMenu.close();
+          }
         }
         else if (PLUGIN && hm && hm.enabled !== false) {
           // Le plugin (2026-11-08, Mika : "touche Function ... un peu trop difficile a gerer avec un plugin") : un clic droit
