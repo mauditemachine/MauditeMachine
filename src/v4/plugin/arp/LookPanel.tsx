@@ -242,9 +242,9 @@ const Panel: React.FC<{ style: React.CSSProperties; where: 'face' | 'hood'; anch
       {/* v38 (Mika : "le selecteur image 1 dans les settings") : le moteur et MIDI IN, les memes pieces qu'avant dans SOUND */}
       <div className="mm-look-sub">ENGINE</div>
       <div className="mm-look-pieces">
-        <PcbToggle id="xEngine" name="ENGINE" ref_="" w={74} />
-        <PcbStep id="xQuality" name="QUALITY" ref_="" w={76} />
-        <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={72} />
+        <PcbToggle id="xEngine" name="ENGINE" ref_="" w={68} />
+        <PcbStep id="xQuality" name="QUALITY" ref_="" w={70} />
+        <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={66} />
       </div>
       <div className="mm-look-sub">MIDI IN</div>
       <div className="mm-look-pieces">
