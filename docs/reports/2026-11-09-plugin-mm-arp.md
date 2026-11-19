@@ -745,3 +745,23 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - A juger sur le Mac de Mika. Retour attendu sur l'aigu du moteur PRO (v34).
+
+## 2026-11-19 (suite 3) : v38, MIDI IN, plus de raccourcis, ENGINE dans SETTINGS, aigu du moteur PRO
+
+### Ce qui a ete fait
+- PluginProcessor.cpp/.h : MIDI IN (NOTES / ARP / LAYER) et HOLD, deux parametres neufs en fin de liste (231). ARP : les touches tenues font l'accord arpege (MODE, RANGE 1 a 3 octaves, OCTAVE ; RATE, GATE, pas de la face), l'horloge interne si Ableton est arrete, HOLD garde l'accord ; LAYER : l'arpege continue sous les notes. Tests host des trois modes.
+- hooks/useKeys.ts : dans le plugin, plus aucune lettre ni chiffre ; Echap ferme les pages et menus.
+- LookPanel.tsx : ENGINE (CLASSIC / PRO), QUALITY, EXPORT HQ, MIDI IN et HOLD dans SETTINGS ; icone hamburger (face et OPEN). HoodBoard.tsx : ces pieces quittent SOUND, le cadre restant s'appelle ANALYZER, l'EQ reprend ses 22 px.
+- dsp/Voyager.cpp : moteur PRO, pre-accentuation a sept points des oscillateurs au taux de base (8 kHz a 0 dB, 16 kHz -0.46 dB en moyenne contre CLASSIC HQ, -3 a -4.7 dB avant). CLASSIC au bit pres (voyager_compare 85/85).
+- voyager/rytmKnob.ts : texture du capuchon des knobs de la face en 1024 px (512 avant).
+
+### Decisions prises et pourquoi
+- Mika joue avec le clavier MIDI de l'ordi dans Ableton : les raccourcis lettres bloquaient ses notes.
+- MIDI IN place dans SETTINGS, a cote du moteur : c'est un reglage d'instance, pas de son.
+- L'aigu PRO : une pre-accentuation plutot qu'un polyphase, pour un cout quasi nul.
+
+### Ce qui reste a faire / points en suspens
+- Knobs d'OPEN a tres grande taille : images de 260 px a refaire en 1024 px (base, prise, capuchon) et fine-knob en 512 px.
+- Les touches non utilisees qui remontent a Ableton : a tester sur le Mac (EDITOR_WANTS_KEYBOARD_FOCUS, focus de la WebView).
+- 20 presets a plus de 0.5 dB sur une bande en PRO STD, surtout a 16 kHz quand FM, SYNC ou RING sont engages.
+- A ecouter par Mika : PRO, MIDI IN ARP et HOLD.
