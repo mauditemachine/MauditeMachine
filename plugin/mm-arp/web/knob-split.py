@@ -1,3 +1,4 @@
+# v39 : remplace par knob-shots.mjs (npm run plugin:arp:knobs, les trois couches rendues par three.js en 1024 px) ; garde pour memoire.
 # v37 : decoupe retro/knob.png en knob-base.png (fixe) et knob-grip.png (la prise qui tourne, sans liseré clair). python3 knob-split.py <dossier de knob-orig.png> <sortie>
 import sys
 from PIL import Image

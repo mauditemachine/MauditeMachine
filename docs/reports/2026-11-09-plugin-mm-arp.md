@@ -765,3 +765,25 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Les touches non utilisees qui remontent a Ableton : a tester sur le Mac (EDITOR_WANTS_KEYBOARD_FOCUS, focus de la WebView).
 - 20 presets a plus de 0.5 dB sur une bande en PRO STD, surtout a 16 kHz quand FM, SYNC ou RING sont engages.
 - A ecouter par Mika : PRO, MIDI IN ARP et HOLD.
+
+## 2026-11-19 (suite 4) : v39, knobs d'OPEN nets a tres grande taille
+
+### Ce qui a ete fait
+- src/v4/plugin/arp/retro/knob-base.png, knob-grip.png, knob-cap.png : refaites en 1024 px (260 avant), rendues separement par three.js depuis les geometries et les peintures du potard de la face (voyager/rytmKnob.ts), vues exactement de dessus, fond transparent, meme cadrage (la boite = la base + 4 %). Poids : 79 + 56 + 402 Ko = 537 Ko.
+- La prise : jupe mate (rugosite 0.7, ni vernis ni studio, comme la face v37), chanfrein des cretes peint comme le dessus (aucun liseré clair), un lobe sous le repere, le pied du capuchon sombre.
+- plugin/mm-arp/web/knob-shots.ts (la scene) + knob-shots.mjs (esbuild, Chromium muet par Playwright, PNG ecrit en Node) ; npm run plugin:arp:knobs. knob-split.py (v37) n'est plus utilise.
+- CSS inchange (background-size 100 %).
+- Tests : tsc 105 ; build de la face, OPEN puis REVERB a 2640 px : gros plan DPR 5 avant / apres (le brossage du capuchon et le bord des lobes nets), DPR 2 avant / apres (ecart moyen 1,2 / 255), trois angles (min / milieu / max) : la prise tourne autour du centre (centre des trois images a 511,5 px exactement), sans bord visible. Aucun son (?mute=1, --mute-audio).
+
+### Decisions prises et pourquoi
+- Mika : "qu'ils paraissent toujours les memes" : l'exposition de chaque couche est calee sur les images de 260 px d'avant (meme gris moyen, mesure par anneaux a 260 px).
+- La phase des lobes suit maintenant la geometrie (un lobe sous le repere) ; la decoupe v37 l'estimait par contraste, un leger decalage d'angle est donc possible par rapport a avant.
+- fine-knob.png laisse tel quel (128 px) : son script de rendu (v25) n'est pas dans le depot, et le petit knob cannele de la face (faceExtras.tsx) n'a pas les memes proportions. A 2640 px il n'est agrandi que d'environ 1,1 fois.
+- Pas de pngquant ni d'oxipng ici : PNG RGBA 8 bits, filtre choisi ligne par ligne, zlib 9.
+
+### Ce qui reste a faire / points en suspens
+- A juger sur le Mac de Mika a tres grande taille (captures faites dans Chromium sans GPU).
+- fine-knob en 512 px si Mika le trouve flou (il faudrait refaire son modele).
+
+### Commandes utiles ajoutees
+- npm run plugin:arp:knobs : rend les trois couches des knobs d'OPEN dans src/v4/plugin/arp/retro (ou dans le dossier passe apres --).

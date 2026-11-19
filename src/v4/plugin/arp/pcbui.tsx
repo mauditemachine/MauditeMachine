@@ -283,7 +283,8 @@ const DEG = Math.PI / 180;
 const SWEEP = 135;
 
 /**
- * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : le potard du MM-RYTM (voyager/rytmKnob.ts :
+ * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page ; v39 : ses trois couches knob-base / knob-grip /
+ * knob-cap en 1024 px, npm run plugin:arp:knobs) : le potard du MM-RYTM (voyager/rytmKnob.ts :
  * la base, la prise a six lobes, le capuchon de metal brosse) sans son repere, vu exactement de dessus (2026-11-16, Mika :
  * "on dirait qu'ils sont deformes sur le bas" : l'image d'avant venait de la camera inclinee de la face, capuchon
  * decentre). Rendu par three.js, camera orthographique dans l'axe du potard, la boite = la base + 4 % : base, prise et
