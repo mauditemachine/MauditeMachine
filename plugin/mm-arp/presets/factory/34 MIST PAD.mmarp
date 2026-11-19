@@ -327,7 +327,8 @@
     "xExportHq": 1,
     "xEngine": 1,
     "xMidiIn": 0,
-    "xArpHold": 0
+    "xArpHold": 0,
+    "xArpRun": 1
   },
   "steps": {
     "acc": [

@@ -2333,6 +2333,17 @@
         "ON"
       ],
       "help": "v38 : MIDI IN en ARP, l'accord reste quand on lache (latch) ; une nouvelle note apres avoir tout lache en commence un autre"
+    },
+    {
+      "id": "xArpRun",
+      "label": "ARP RUN",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "STOP",
+        "RUN"
+      ],
+      "help": "v40 (Mika : \"STOP coupe meme si Ableton joue\") : quand l'hote joue, STOP met l'arpege en pause (les notes s'eteignent en 12 ms), RUN le relance au pas suivant de la grille de l'hote ; garde dans le projet, automatisable"
     }
   ]
 }

@@ -373,6 +373,17 @@ void MMArpProcessor::buildLive() {
         for (int i = 0; i < n; ++i) ch.midi.push_back(up[i]);
 }
 
+void MMArpProcessor::faceRun(bool on) {
+    if (on)
+        if (auto* prm = apvts.getParameter("xArpRun")) prm->setValueNotifyingHost(1.f);
+    if (hostPlaying_.load(std::memory_order_relaxed)) {
+        if (!on)
+            if (auto* prm = apvts.getParameter("xArpRun")) prm->setValueNotifyingHost(0.f);
+        return;
+    }
+    runInternal_.store(on);
+}
+
 juce::File MMArpProcessor::arpMidiFile(int cycles) const {
     int bars = 0;
     const juce::MidiFile mf = arpMidi(cycles, bars);
@@ -1145,7 +1156,11 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // L'hote reprend la main : RUN s'eteint
     if (hostPlaying && runInternal_.load()) runInternal_.store(false);
     internalPlaying_.store(internal);
+    hostPlaying_.store(hostPlaying, std::memory_order_relaxed);
+    // v40 : l'hote joue et ARP RUN est a STOP : l'arpege est en pause (le reste suit le transport) ; RUN le relance au
+    // pas suivant de la grille de l'hote (l'arpege suit la position de l'hote)
     const bool playing = hostPlaying || internal;
+    const bool arpRun = internal || exRaw_[mmx::ex_xArpRun]->load() >= 0.5f;
     const double pps = bpm / 60.0 / sr;
     if (internal) internalPpq_ += n * pps;
 
@@ -1215,8 +1230,14 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
 
     // STOP : ce qui sonne s'eteint en 12 ms, plus rien d'attendu (synthStop du site)
-    if (wasPlaying_ && !playing) voy_->stop(at(0));
-    wasPlaying_ = playing;
+    // (v40 : la pause de l'arpege eteint aussi ce qui sonne, sauf des notes MIDI tenues par l'utilisateur)
+    {
+        bool userHeld = false;
+        for (bool h : held_) userHeld = userHeld || h;
+        const bool now = playing && arpRun;
+        if (wasPlaying_ && !now && (!playing || !userHeld)) voy_->stop(at(0));
+        wasPlaying_ = now;
+    }
 
     // Les notes MIDI de ce bloc (un clip, un clavier) et les CC (MIDI LEARN) : d'abord lus, l'arpege en depend
     bool noteIn = false;
@@ -1251,7 +1272,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     liveOnPrev_ = liveOn;
     const bool arpOn = arpOn_->load() > 0.5f && !clipWins && (midiIn != 1 || liveOn);
     VoySink sink(*voy_);
-    arp_.process(sink, f0, n, playing && arpOn, ppq, pps, seed_);
+    arp_.process(sink, f0, n, playing && arpRun && arpOn, ppq, pps, seed_);
 
     // Les notes MIDI (un clip, un clavier) : le synthe joue, la duree au note-off
     for (const auto meta : midi) {
@@ -1423,7 +1444,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     frame_ += n;
 
     // La note montree par la face
-    fbPlaying_.store(playing && arpOn);
+    fbPlaying_.store(playing && arpRun && arpOn);
     if (playing && sh.len > 0 && sh.frame != lastShownFrame_) {
         lastShownFrame_ = sh.frame;
         fbSlot_.store(sh.slot);

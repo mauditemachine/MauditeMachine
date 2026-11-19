@@ -82,7 +82,9 @@ public:
     // --- la face (thread du message) ---
     void faceProgram(const juce::String& json);
     void faceState(const juce::String& lsJson);
-    void faceRun(bool on) { runInternal_.store(on); }
+    // v40 : RUN/STOP de la face ; l'hote joue : la pause de l'arpege (ARP RUN, le parametre en fin de liste) ; sinon
+    // l'horloge interne, comme avant. RUN remet toujours ARP RUN a 1.
+    void faceRun(bool on);
     void faceParam(const juce::String& id, double v);
     void faceGesture(const juce::String& id, bool on);
     juce::String faceInitState() const;
@@ -267,6 +269,7 @@ private:
 
     // Le transport
     std::atomic<bool> runInternal_{false};
+    std::atomic<bool> hostPlaying_{false}; // v40 : l'hote joue (dernier bloc)
     std::atomic<bool> internalPlaying_{false};
     std::atomic<double> progBpm_{120};
     double internalPpq_ = 0;

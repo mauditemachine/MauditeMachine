@@ -676,7 +676,7 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::kExtra == 231, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::kExtra == 232, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
@@ -964,6 +964,38 @@ int main() {
             return p.clipActive();
         };
         check(clipCase(0.f) && !clipCase(1.f), "v38 MIDI IN : NOTES, le clip coupe l'arpege ; LAYER, l'arpege continue sous les notes");
+    }
+    {
+        // v40 : sous le transport de l'hote, STOP (ARP RUN 0) fait taire l'arpege, RUN le relance (au pas suivant de la
+        // grille), la pause est gardee dans l'etat du projet
+        MMArpProcessor p;
+        Head h;
+        h.playing = true;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 512);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        const double runDb = db(run(p, h, 48000, 512).rms);
+        p.knobParam(mmx::allIndex("xArpRun"))->setValueNotifyingHost(0.f);
+        run(p, h, 48000 * 4, 512);
+        const double stopDb = db(run(p, h, 48000, 512).rms);
+        const bool fbStop = !p.feedback().playing;
+        juce::MemoryBlock ms;
+        p.getStateInformation(ms);
+        MMArpProcessor q;
+        q.setStateInformation(ms.getData(), static_cast<int>(ms.getSize()));
+        const bool kept = q.knobParam(mmx::allIndex("xArpRun"))->getValue() < 0.5f;
+        p.knobParam(mmx::allIndex("xArpRun"))->setValueNotifyingHost(1.f);
+        const double againDb = db(run(p, h, 48000, 512).rms);
+        check(runDb > -45 && stopDb < -90 && fbStop && kept && againDb > -45,
+              "v40 ARP RUN sous l'hote : RUN " + juce::String(runDb, 1).toStdString() + " dB, STOP " + juce::String(stopDb, 1).toStdString() + " dB (afficheur a l'arret), relance " +
+                  juce::String(againDb, 1).toStdString() + " dB, pause gardee dans le projet");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;
