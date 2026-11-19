@@ -720,3 +720,14 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - npm run plugin:arp:leather : regenere l'image du cuir (retro/leather.png) depuis leatherField.ts.
+
+## 2026-11-19 (suite) : v36, plus de tache argentee sur la jupe des knobs
+
+### Ce qui a ete fait
+- src/v4/voyager/knobs.ts : envMapIntensity de la jupe des potards 1.8 -> 0.45 (le vernis et la rugosite inchanges) ; le capuchon d'alu garde ses reflets.
+
+### Decisions prises et pourquoi
+- Mika : "ya un reflet sur le top du knob, on peut voir un coin argente" : la grande softbox du studio (v33) se refletait en blanc sur la crete des lobes. Essais : un vernis plus satine grisait la jupe ; seule la force du studio a ete baissee.
+
+### Ce qui reste a faire / points en suspens
+- A juger sur le Mac de Mika en tournant les knobs.
