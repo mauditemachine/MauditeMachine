@@ -85,7 +85,7 @@ export interface LfoSpec {
  */
 type Tk =
   | number
-  | { n: number | string; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; hell?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec };
+  | { n: number | string; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; hell?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec; lfo2?: LfoSpec };
 type Kit = Partial<Record<TrackKey, Tk>>;
 type Rows = Partial<Record<TrackKey, string>>;
 /** Les reglages de trig de toute la piste (PROB, uTIME, TLEN, VAR...) ; c : sa COND par son nom ('1:8', '2:2', '!1ST'). */
@@ -762,15 +762,17 @@ export function trackEntry(i: number, key: string, q: TrackSpec): NonNullable<St
   if (q.ft !== undefined && FT[q.ft]) p.ftype = FT[q.ft];
   if (q.cut !== undefined) p.fcut = q.cut;
   if (q.res !== undefined) p.freso = q.res;
-  if (q.lfo) {
-    const [spd, mul] = RATE_OF[q.lfo.r];
-    p.l1dst = LFO_DESTS.indexOf(q.lfo.d);
-    p.l1spd = spd;
-    if (mul) p.l1mul = mul;
-    p.l1dep = q.lfo.dep;
-    if (q.lfo.w && q.lfo.w !== 'TRI') p.l1wav = LFO_WAVES.indexOf(q.lfo.w);
-    if (q.lfo.m && q.lfo.m !== 'FRE') p.l1mod = LFO_MODES.indexOf(q.lfo.m);
-  }
+  // LFO 1 et (2026-11-19, le RANDOM du plugin) LFO 2
+  ([['l1', q.lfo], ['l2', q.lfo2]] as const).forEach(([n, l]) => {
+    if (!l) return;
+    const [spd, mul] = RATE_OF[l.r];
+    p[`${n}dst`] = LFO_DESTS.indexOf(l.d);
+    p[`${n}spd`] = spd;
+    if (mul) p[`${n}mul`] = mul;
+    p[`${n}dep`] = l.dep;
+    if (l.w && l.w !== 'TRI') p[`${n}wav`] = LFO_WAVES.indexOf(l.w);
+    if (l.m && l.m !== 'FRE') p[`${n}mod`] = LFO_MODES.indexOf(l.m);
+  });
   return { m: 'oneshot', s: key, p, ...(ROLE_CHOKE[i] ? { ch: ROLE_CHOKE[i] } : {}) };
 }
 

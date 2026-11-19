@@ -602,6 +602,16 @@ Mika : « quand je fais un clic droit sur un pas je voudrais aussi avoir la poss
 - **Un choix a la fois, comme le potard COND des Elektron** (ses % compris) : une COND remet la PROB a 100 %, une PROB remet la COND a NONE, ALWAYS retire les deux. Ce sont les verrous du pas (`cond`, `prob`), que le moteur joue deja ; une etape de Cmd+Z. Un pas vide recoit sa note (une condition sur rien ne s'entendrait pas). Le reste des COND (PRE, NEI, LST, les !A:B ; FILL sans touche FILL dans le plugin) reste au potard COND de la page TRIG en P-LOCK.
 - **Fermer** : la croix, Echap ou un second clic droit sur le pas (sortent aussi du P-LOCK) ; le menu ne couvre jamais la touche du pas.
 - **Verifie** : Chromium (sans son) : clic droit sur le pas 1 de BD : le menu (STEP 01 BD, ALWAYS allume) ; 1:2 : le coup part au moteur avec la COND A:B 1 sur 2 (ck 6, ca 1, cb 2) ; 50 % : PROB 50, COND retiree ; ALWAYS : les deux retirees ; un second clic droit et Echap ferment ; un pas vide a 25 % recoit son coup (PROB 25) ; Cmd+Z defait 1:4. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 44583891342), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 28d07f1, 2026-11-19 18:08 UTC.
+
+### Lot 41, RANDOM sans GATE, RANDOM des LFO, la touche LFO (2026-11-19)
+
+Mika : « Attention le random ne change pas le LFO (MOD), d'ailleurs appelle le LFO sur la machine pas MOD » ; « attention ne met jamais de Gate en random dans la reverb ».
+
+- **RANDOM ne pose plus jamais de GATE** (`src/v4/state/pluginRandom.ts`) : le tirage d'une fois sur sept (lot 36) est retire ; chaque RANDOM repart de NEUTRAL_FX, le GATE y est OFF.
+- **RANDOM tire les LFO** : avant, seulement 0 a 2 pistes en avaient (le charley ouvert qui respire, un filtre qui balaie, une percussion qui voyage), et jamais le LFO 2 ; le RANDOM pose le kit entier comme un preset, les autres pistes repartaient sans LFO. Maintenant chaque piste qui joue a son LFO 1 (charleys 60 %, percussions 65 %, caisse et clap 40 %, kick 8 %) et le LFO 2 une fois sur trois en plus, avec une destination selon le role (charleys : le filtre, DEC, PAN, VOL, TONE ; percussions : la hauteur, PAN, DELAY, le filtre, DEC ; caisse et clap : PAN, REVERB, DELAY, TONE, DEC ; kick : DEC ou le filtre, doucement), une profondeur bornee par destination, une vitesse lente le plus souvent, parfois au hasard tenu a chaque coup (RND + HLD : une hauteur ou un PAN neufs a chaque coup), parfois une rampe relancee a chaque coup (TRG), parfois un carre. Un LFO sur le filtre d'une piste sans filtre lui pose un passe-bas ouvert. Les presets peuvent aussi porter un LFO 2 (`state/pluginFactory.ts` `lfo2`).
+- **MOD s'appelle LFO dans le plugin** : la touche (`rytm/faceplate.ts`), les pages LFO 1/2 et LFO 2/2 VAR (`rytm/pages.ts`), le message LFO PAGE, l'aide de la touche (`theme/face.ts`), l'INFOS (`rytm/infos/face.ts`), FUNC + LFO pour le MIXER (`scene/screen/consts.ts`). Sa fonction imprimee reste MIXER. Le site garde MOD.
+- **Verifie** : Chromium (sans son), 6 RANDOM : 3 a 7 pistes avec un LFO chaque fois, des LFO 2, des destinations, formes et modes varies (TONE en RND/HLD sur les charleys, PAN EXP/TRG sur le clap, PITCH en RND/HLD sur les toms...), le GATE a 0 a chaque fois. Le rendu des 6 par le moteur C++ hors ligne : cretes -3.8 a -8.5 dBFS, aucune piste devant le kick. Les presets d'usine (DEEP HOUSE et DEEP HOUSE THUMP, qui ont des LFO) : le programme envoye au moteur identique a l'octet pres. La touche LFO : LFO PAGE, l'ecran LFO 1/2. Site : les 4 vues identiques au pixel pres. tsc : 105.
 
 ## 2. Decisions prises et pourquoi
 
@@ -702,6 +712,7 @@ Mika : « quand je fais un clic droit sur un pas je voudrais aussi avoir la poss
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 41 : des LFO musicaux plutot que tout au hasard** : une destination, une profondeur et une vitesse choisies selon le role de la piste ; un LFO VOL a fond ou un PITCH de 5 octaves sur un charley casserait le beat. Le kick reste presque toujours stable (le beat se tient).
 - **Lot 40 : un menu en plus du P-LOCK, pas a sa place** : le clic droit pour le P-LOCK est dans les doigts de Mika depuis le 2026-11-09 ; le menu s'ajoute a cote. Les COND les plus jouees en un clic, toutes les autres au potard COND.
 - **Lot 40 : un choix a la fois** : chez Elektron les % sont dans la liste du potard COND ; ici COND et PROB sont deux verrous, le menu les traite comme une seule liste pour que ce qui est allume soit ce qu'on entend.
 - **Lot 38 : un style de 3 variations plutot qu'un preset seul** : tous les presets d'usine vont par trois (la base, le groove, le plein) ; INDUSTRIAL SLAM suit la regle. A la fin de la liste : les ids des 72 d'avant ne bougent pas (un projet Ableton qui en garde un le retrouve).
@@ -728,6 +739,7 @@ Mika : « quand je fais un clic droit sur un pas je voudrais aussi avoir la poss
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 41)** : la commande mm-rytm ; RANDOM plusieurs fois puis la touche LFO sur des pistes differentes : dire si les LFO sont trop sages ou trop fous.
 - **Cote Mika (lot 40)** : la commande mm-rytm ; clic droit sur un pas : 1:2, 1:4, 50 %... ; dire s'il manque une condition dans le menu (FILL demande une touche FILL, absente du plugin).
 - **Cote Mika (lot 39)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : DEEP HOUSE THUMP 1, 2, 3 ; comparer avec DEEP HOUSE, dire si le kick doit trainer plus (DEC).
 - **Cote Mika (lot 38)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : INDUSTRIAL SLAM 1, 2, 3 ; laisser tourner 8 mesures, dire si le kick doit etre plus long (DEC) ou plus fort.

@@ -151,7 +151,8 @@ export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'str
 const DT_PAGES: readonly { id: RytmPageId; label: string }[] = [
   ...DT_PAGE_KEYS.filter((p) => p.id !== 'trig' && p.id !== 'mod').map((p) => ({ id: p.id, label: p.label })),
   { id: 'trig', label: 'TRIG' },
-  { id: 'mod', label: 'MOD' },
+  // le plugin (2026-11-19, Mika : "appelle le LFO sur la machine, pas MOD") : LFO
+  { id: 'mod', label: IN_PLUGIN ? 'LFO' : 'MOD' },
   ...DT_FUNC_PAGES,
 ];
 export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = PORTRAIT ? RYTM_PAGE_KEYS : DT_PAGES;
@@ -271,12 +272,12 @@ export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
   fxvreverb: 'VOICE FX · REVERB',
   fxm: PORTRAIT ? 'MASTER' : 'MIXER MASTER',
   trig: 'TRIG 1/2',
-  mod: 'MOD 1/2',
+  mod: IN_PLUGIN ? 'LFO 1/2' : 'MOD 1/2',
   tempo: 'TEMPO',
   mixer: 'MIXER LEVELS',
   trig2: 'TRIG 2/2',
   mod2: 'MOD 2/2',
-  mod3: 'MOD 2/2',
+  mod3: IN_PLUGIN ? 'LFO 2/2 VAR' : 'MOD 2/2',
 };
 
 /**

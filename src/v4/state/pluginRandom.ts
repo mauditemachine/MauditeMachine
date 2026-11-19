@@ -28,7 +28,8 @@ import { LOCKS_V, type Locks, type StepLock } from '../audio/locks';
 import { NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
 import { TRACK_KEYS, type StoredKit16, type TrackKey } from '../audio/tracks';
 import { LEN_STEPS, RATE_DENS, type TrigRow, type TrigSet } from '../audio/trig';
-import { FAMS, ROLE_PAN, condIx, trackEntry, type Rate, type TrackSpec } from './pluginFactory';
+import { FAMS, ROLE_PAN, condIx, trackEntry, type LfoSpec, type Rate, type TrackSpec } from './pluginFactory';
+import type { LfoDest, LfoMode, LfoWave } from '../audio/lfo';
 import { DIST_PRESETS, HELL_PRESETS, presetPatch } from './labFx';
 
 /** Les fichiers vides de la banque (a nettoyer un jour) : jamais tires. */
@@ -69,6 +70,62 @@ function euclid(k: number, n: number, rot: number): number[] {
   for (let i = 0; i < n; i += 1) if (Math.floor(((i + rot) * k) / n) !== Math.floor(((i + rot - 1) * k) / n)) out.push(i);
   return out;
 }
+
+/**
+ * Un LFO tire pour la piste i (2026-11-19) : sa destination selon le role (les charleys : le filtre, DEC, PAN, VOL, TONE ;
+ * les percussions : la hauteur, PAN, DELAY, le filtre, DEC ; la caisse et le clap : PAN, REVERB, DELAY, TONE, DEC ; le kick :
+ * DEC ou le filtre, doucement), sa vitesse (lente le plus souvent, vite et au hasard parfois), sa forme, une profondeur
+ * bornee par destination. FREQ sans filtre pose un passe-bas ouvert (sinon il ne s'entendrait pas). not : la destination du
+ * LFO 1, a eviter pour le 2.
+ */
+function randomLfo(r: Rand, i: number, q: TrackSpec, not: LfoDest | null): LfoSpec {
+  const kick = i === KICK;
+  const hat = HATS.includes(i);
+  const perc = PERCS.includes(i);
+  const dests: readonly LfoDest[] = kick ? ['DECAY', 'FREQ'] : hat ? ['FREQ', 'DECAY', 'PAN', 'VOL', 'TONE'] : perc ? ['PITCH', 'PAN', 'DELAY', 'FREQ', 'DECAY'] : ['PAN', 'REVERB', 'DELAY', 'TONE', 'DECAY'];
+  const free = dests.filter((d) => d !== not);
+  const d = pick(r, free.length > 0 ? free : dests);
+  if (d === 'FREQ' && !q.ft) {
+    q.ft = 'LP';
+    q.cut = r2(between(r, 0.8, 0.9));
+  }
+  // la profondeur (-64 a 63) : de quoi s'entendre sans casser le beat (le kick : le bas de sa plage)
+  const [lo, hi] = LFO_DEPTH[d];
+  const bipolar = d === 'PITCH' || d === 'PAN' || d === 'FREQ' || d === 'TONE';
+  const dep = int(r, lo, kick ? Math.min(hi, lo + 4) : hi) * (bipolar ? sign(r) : 1);
+  // la forme et le mode : lent et doux le plus souvent ; parfois au hasard tenu a chaque coup (RND + HLD : une hauteur, un
+  // PAN, un filtre neufs a chaque coup), parfois une rampe relancee a chaque coup (TRG), parfois un carre
+  const style = r();
+  let w: LfoWave = pick(r, ['SINE', 'TRI'] as const);
+  let m: LfoMode = 'FRE';
+  let rate: Rate = pick(r, ['8B', '4B', '2B', '1B', '1/2'] as const);
+  if (style < 0.25 && d !== 'VOL') {
+    w = 'RND';
+    m = 'HLD';
+    rate = pick(r, ['1/4', '1/8', '1/16'] as const);
+  } else if (style < 0.4 && !kick) {
+    w = pick(r, ['SAW', 'EXP', 'RMP'] as const);
+    m = 'TRG';
+    rate = pick(r, ['1/2', '1/4', '1/8'] as const);
+  } else if (style < 0.5) {
+    w = 'SQR';
+    rate = pick(r, ['1B', '1/2', '1/4'] as const);
+  }
+  return { d, r: rate, dep, w, m };
+}
+const LFO_DEPTH: Readonly<Record<LfoDest, readonly [number, number]>> = {
+  OFF: [0, 0],
+  PITCH: [2, 5],
+  FREQ: [8, 20],
+  RESO: [8, 18],
+  VOL: [5, 12],
+  PAN: [14, 34],
+  DIST: [8, 20],
+  DELAY: [10, 28],
+  REVERB: [10, 28],
+  TONE: [8, 22],
+  DECAY: [6, 14],
+};
 
 /**
  * Un RANDOM complet : current (le motif d'avant, pour s'en eloigner), last (le style d'avant, pour en changer), samples
@@ -222,6 +279,11 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
     }
     const l = lfoAt.get(i);
     if (l) Object.assign(q, l, { db: r2((q.db ?? 0) + (l.db ?? 0)) });
+    // Les LFO de chaque piste (2026-11-19, Mika : "le random ne change pas le LFO") : le LFO 1 souvent, le 2 parfois, une
+    // destination choisie selon le role, une profondeur qui reste musicale ; le kick presque toujours stable
+    const playing = rows[i].some((v) => v > 0);
+    if (playing && !q.lfo && chance(r, kick ? 0.08 : hat ? 0.6 : perc ? 0.65 : 0.4)) q.lfo = randomLfo(r, i, q, null);
+    if (playing && q.lfo && !kick && chance(r, 0.3)) q.lfo2 = randomLfo(r, i, q, q.lfo.d);
     t[key] = trackEntry(i, pick(r, list), q);
   });
 
@@ -243,9 +305,8 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
   Object.assign(fx, presetPatch(pick(r, HELL_PRESETS), 'hell'), { hmix: r2(between(r, 0.4, 0.8)) });
   const drive = fx.drive;
   Object.assign(fx, presetPatch(pick(r, DIST_PRESETS), 'dist'), { drive });
-  // Le GATE de la REVERB (2026-11-16) : une fois sur sept environ, la reverbe gatee (150 a 300 ms) ; tire en dernier, rien
-  // d'autre du tirage ne change
-  fx.rgate = chance(r, 0.15) ? r2(between(r, 0.42, 0.62)) : 0;
+  // Le GATE de la REVERB : jamais (2026-11-19, Mika : "ne met jamais de Gate en random dans la reverb") ; NEUTRAL_FX le
+  // laisse a OFF
 
   const steps = Object.fromEntries(TRACK_KEYS.map((k, i) => [k, rows[i].map((v) => Math.max(0, Math.min(9, v))).join('')])) as unknown as Steps;
   const anyLock = Object.keys(locks).length > 0;

@@ -793,7 +793,8 @@ export const DT_PAGE_KEYS = [
   { id: 'fltr', btn: 'fltr', label: 'FLTR' },
   { id: 'env', btn: 'amp', label: 'AMP' },
   { id: 'fx', btn: 'fx', label: 'FX' },
-  { id: 'mod', btn: 'mod', label: 'MOD' },
+  // le plugin (2026-11-19, Mika : "appelle le LFO sur la machine, pas MOD")
+  { id: 'mod', btn: 'mod', label: PLUGIN ? 'LFO' : 'MOD' },
 ] as const;
 const FP_SCENES_XF = DT2_FACE ? DT2_FACEPLATE.scenes : RYTM_FACEPLATE.scenes;
 export const XFADE = {

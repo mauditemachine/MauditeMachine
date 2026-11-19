@@ -3,6 +3,9 @@
 import { type RytmInfoId } from '../diagrams';
 import type { Raw } from './types';
 import { PHONE } from './words';
+import { IN_PLUGIN } from '../../pluginMode';
+/** Le plugin (2026-11-19, Mika : "appelle le LFO sur la machine, pas MOD") : la page s'y appelle LFO. */
+const MOD_WORD = IN_PLUGIN ? 'LFO' : 'MOD';
 
 export const RAW_FACE = {
   /* ---------- TRK, la touche des voix (2026-10-27, la phase 2, Mika : "comme la DIGITAKT") ---------- */
@@ -77,7 +80,7 @@ export const RAW_FACE = {
   },
   pmod: {
     section: 'PAGES',
-    title: 'MOD',
+    title: MOD_WORD,
     text: "Les deux LFO de la voix choisie : MOD 1/2 le LFO 1, MOD 2/2 le LFO 2 (MOD rappuyé passe de l'un à l'autre). Chacun : A SPD (sa vitesse, négative à l'envers), B MULT (x1 à x128), C FADE (sa profondeur qui monte ou descend depuis le coup), D DEST (ce qu'il module : PITCH, FREQ, RESO, VOL, PAN, DIST, DELAY, REVERB, TONE, DECAY), E WAVE (sa forme), F PHAS (où il démarre), G MODE (FRE libre, TRG relancé à chaque coup, HLD tenu au coup, ONE un seul cycle, HLF un demi), H DEP (sa profondeur ; à 0, rien). Il suit le tempo et la position, comme la Digitakt. PITCH, FREQ, RESO, VOL et PAN bougent pendant que le coup sonne ; DIST, DELAY, REVERB, TONE et DECAY sont pris au moment du coup. Ce sont des réglages de la voix : gardés avec les presets et l'UNDO, verrouillables pas par pas, pas encore dans les scènes. MOD puis YES : le LFO affiché au hasard. FUNC + MOD : le MIXER, 1/2 LEVELS (A à H : le volume de BD SD CH OH CP TOM HT CY) puis 2/2 MASTER (A MASTER, B TEMPO) ; FUNC + MOD encore, ou MOD sur le MIXER, passe à l'onglet suivant. MIXER puis YES : les niveaux au hasard.",
     tip: 'LFO 1 sur FREQ, WAVE TRI, SPD 8, DEP +30 sur les charleys : le filtre respire sur une mesure.',
   },
@@ -193,49 +196,49 @@ export const RAW_FACE = {
     lock: 'yes',
   },
   'lfo:spd': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'SPD',
     text: "La vitesse du LFO, de -64 à +63 : avec MULT, un cycle dure 128 / (SPD x MULT) pas ; SPD 8 et MULT x1 : une mesure ; 32 et x1 : un temps (le départ). Négative, la forme passe à l'envers ; 0 : immobile, à sa phase.",
     lock: 'yes',
   },
   'lfo:mul': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'MULT',
     text: "Le multiplicateur de la vitesse : x1, x2, x4, x8, x16, x32, x64, x128. L'unité dit la durée d'un cycle au tempo du moment.",
     lock: 'yes',
   },
   'lfo:fad': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'FADE',
     text: "La profondeur menée depuis le coup (en FRE, depuis PLAY) : négative, elle monte de 0 à DEP ; positive, elle descend de DEP à 0 ; -64 ou +63 en un pas, -1 ou +1 en 64 pas ; 0 (le départ) : pas de fondu.",
     lock: 'yes',
   },
   'lfo:dst': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'DEST',
     text: "Ce que module le LFO : OFF (le départ, rien), PITCH (la hauteur, +/-12 demi-tons à fond), FREQ (la coupure du filtre, +/-5 octaves), RESO, VOL, PAN : en continu sur le coup qui sonne ; DIST, DELAY, REVERB, TONE, DECAY : pris au moment de chaque coup. FREQ et RESO posent le filtre de la voix s'il était ouvert.",
     lock: 'yes',
   },
   'lfo:wav': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'WAVE',
     text: "La forme : TRI (triangle, le départ), SINE, SQR (carré), SAW (dent de scie), EXP (une montée exponentielle), RMP (une rampe qui descend), RND (une valeur au hasard par quart de cycle, une autre à chaque cycle ; relancé par un trig, il rejoue la même suite). Le bloc la dessine.",
     lock: 'yes',
   },
   'lfo:phs': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'PHAS',
     text: "Où la forme démarre, de 0 à 127 (64 : la moitié du cycle). En TRG, ONE et HLF, chaque coup la relance à cette phase.",
     lock: 'yes',
   },
   'lfo:mod': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'MODE',
     text: "FRE : libre depuis PLAY (le départ) ; TRG : relancé à chaque coup dont LFO.T est ON ; HLD : prend sa valeur au coup et la garde ; ONE : un seul cycle par coup, puis il reste ; HLF : un demi-cycle.",
     lock: 'yes',
   },
   'lfo:dep': {
-    section: 'MOD',
+    section: MOD_WORD,
     title: 'DEP',
     text: "La profondeur du LFO, de -64 à +63 ; négative, la forme est inversée ; 0 (le départ) : le LFO ne fait rien, aucun calcul, le son d'avant.",
     lock: 'yes',

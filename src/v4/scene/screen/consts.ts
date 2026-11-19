@@ -11,7 +11,7 @@ import type { ShotId } from '../../audio/shotsdsp';
 import { BROWSER_ROWS } from '../../state/lcdSamples';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
-import { DT2_FACE, DT_FACE, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, type EncId, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PLUGIN, PORTRAIT, SCREEN_TOUCH, type EncId, type Inst } from '../../theme';
 import { PRESET_SLOTS } from '../../state/presetMode';
 import { softKeyPitchU, softKeyU } from '../../rytm/presetKeys';
 import { pageLabel, type RytmPageId, type RytmScreenId, type SlotCell } from '../../rytm/pages';
@@ -605,7 +605,8 @@ export function modeLines(): { left: string; tip: string; short: string } | null
  * La touche qui ramene l'onglet suivant d'une page (V.5.0, le desktop) : celle de la page, ou pour une page de FUNC la
  * touche qui l'ouvre (MOD sur le MIXER, FUNC + TRIG pour TEMPO, FUNC + FX pour SEND FX).
  */
-const FUNC_PAGE_KEY: Readonly<Partial<Record<RytmPageId, string>>> = { mixer: 'MOD', tempo: 'FUNC + TRIG', sendfx: 'FUNC + FX' };
+// le plugin (2026-11-19) : la touche MOD s'y appelle LFO
+const FUNC_PAGE_KEY: Readonly<Partial<Record<RytmPageId, string>>> = { mixer: PLUGIN ? 'LFO' : 'MOD', tempo: 'FUNC + TRIG', sendfx: 'FUNC + FX' };
 export const pageKeyWord = (page: RytmPageId): string => (DT_FACE ? (FUNC_PAGE_KEY[page] ?? pageLabel(page)) : pageLabel(page));
 
 /**

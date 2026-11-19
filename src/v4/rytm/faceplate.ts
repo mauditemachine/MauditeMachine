@@ -448,6 +448,8 @@ const PLUGIN_KEY_WORDS: Partial<Record<Dt2ButtonId, { legend: string; func: stri
       settings: { legend: 'PRESETS', func: 'SAVE PRESET', title: 'Presets: load, save' },
       preset: { legend: 'PERFORM', func: 'PRESETS', title: 'Perform: the live page, the effects of the whole machine and the crossfader' },
       ptn: { legend: 'PTN', func: '', title: 'Pattern (PTN): the 16 patterns on the steps' },
+      // 2026-11-19 (Mika : "appelle le LFO sur la machine, pas MOD") : la page des deux LFO (2/2 : VAR) ; sa fonction, MIXER
+      mod: { legend: 'LFO', func: 'MIXER', title: 'LFO: the two LFOs of the track (LFO 2/2: VAR)' },
     }
   : {};
 const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.filter((b) => !PLUGIN_GONE.has(b.id)).map((b) => ({

@@ -631,7 +631,8 @@ export const TWIN_ARIA = {
   no: 'No (NO), Escape: back; after a page key, reload that page from the save point; FUNC + NO: reload everything',
   ptn: 'Pattern (PTN), key E: the 16 patterns on the steps; press twice: KIT, the presets; FUNC + PTN: banks',
   trig: 'Trig page (TRIG): note, velocity, length, probability, condition, micro timing; press again for retrig; then YES: a random beat; FUNC + TRIG: tempo',
-  mod: 'Modulation page (MOD): two LFOs per voice, press again for LFO 2; FUNC + MOD: mixer',
+  // le plugin (2026-11-19, Mika : "appelle le LFO sur la machine, pas MOD")
+  mod: PLUGIN ? 'LFO page (LFO): the two LFOs of the track, press again for LFO 2/2 (VAR); FUNC + LFO: mixer' : 'Modulation page (MOD): two LFOs per voice, press again for LFO 2; FUNC + MOD: mixer',
   group: 'MM-RYTM drum machine',
   soundNoVoice: PORTRAIT ? 'Sound: tap a pad first' : 'Sound: pick a voice first, keys A S D F and Z X C V',
   // Le crossfader (2026-10-27, P2-20) : son jumeau, un curseur natif
