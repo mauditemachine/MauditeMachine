@@ -297,7 +297,10 @@ export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 
   const K = KNOB_IMG;
   return (
     <span className="mm-r-knob" style={{ width: K.box * k, height: K.box * k }} aria-hidden="true">
+      {/* v37 (Mika : "dans les sous pages aucun bouton ne tourne vraiment physiquement") : la base reste face a la
+          lumiere (retro/knob-base.png), la prise a six lobes tourne avec la valeur (retro/knob-grip.png), comme sur la face */}
       <span className="mm-r-knob-img" />
+      <span className="mm-r-knob-grip" style={{ transform: `rotate(${angle}deg)` }} />
       <span className="mm-r-knob-axis" style={{ left: K.cx * k, top: K.cy * k, transform: `rotate(${angle}deg)` }}>
         <span className="mm-r-knob-mark" style={{ left: (-K.w * k) / 2, top: -K.r1 * k, width: K.w * k, height: (K.r1 - K.r0) * k }} />
       </span>
@@ -331,7 +334,7 @@ export const FineKnob: React.FC<{ angle: number }> = ({ angle }) => {
           <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} data-major={t.major ? '1' : undefined} />
         ))}
       </svg>
-      <span className="mm-fk-img" style={{ left: c - img / 2, top: c - img / 2, width: img, height: img }} />
+      <span className="mm-fk-img" style={{ left: c - img / 2, top: c - img / 2, width: img, height: img, transform: `rotate(${angle}deg)` }} />
       <span className="mm-fk-axis" style={{ left: c, top: c, transform: `rotate(${angle}deg)` }}>
         <span className="mm-fk-mark" style={{ left: -F.w / 2, top: -F.m1, width: F.w, height: F.m1 - F.m0 }} />
       </span>

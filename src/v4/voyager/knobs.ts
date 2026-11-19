@@ -135,7 +135,7 @@ export class VoyKnobs {
       const env = studioEnv();
       // v36 (Mika : "ya un reflet sur le top du knob, un coin argente") : le studio 4 fois moins fort sur la jupe (1.8 -> 0.45) :
       // la softbox ne fait plus une tache argentee sur la crete des lobes, la jupe reste noire et vernie
-      this.material = new MeshPhysicalMaterial({ vertexColors: true, roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.2, envMap: env, envMapIntensity: 0.45 });
+      this.material = new MeshPhysicalMaterial({ vertexColors: true, roughness: 0.7, metalness: 0, clearcoat: 0, envMap: env, envMapIntensity: 0 }); // v37 (Mika : "toujours le relief lumineux sur le bord, j'en veux pas") : jupe mate, sans reflet du studio
       this.material.name = 'voyKnobRytm';
       this.mesh = new InstancedMesh(rytmKnobGeometry(opts.mobile), this.material, DIALS.length);
       // la prise ne recoit pas l'ombre du capuchon (comme au MM-RYTM : un gris egal)

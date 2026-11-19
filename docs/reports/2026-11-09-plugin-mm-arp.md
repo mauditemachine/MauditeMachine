@@ -731,3 +731,17 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Ce qui reste a faire / points en suspens
 - A juger sur le Mac de Mika en tournant les knobs.
+
+## 2026-11-19 (suite 2) : v37, jupe des knobs mate, knobs des pages qui tournent vraiment
+
+### Ce qui a ete fait
+- voyager/knobs.ts : jupe des knobs de la face sans vernis ni reflet du studio (clearcoat 0, envMapIntensity 0, rugosite 0.7) ; le capuchon d'alu garde ses reflets.
+- Pages OPEN : le potard est en deux couches, retro/knob-base.png (base, fixe face a la lumiere) et retro/knob-grip.png (la prise a six lobes, qui tourne avec la valeur, sans le liseré clair des cretes) ; le capuchon reste fixe. Les petits knobs fins tournent aussi. Ombre portee posee sur le potard entier (fixe).
+- plugin/mm-arp/web/knob-split.py : la decoupe (phase des lobes trouvee par contraste, bord antialiase, base reconstruite sous la prise).
+- Tests : tsc 105 ; capture d'un potard d'OPEN a min / milieu / max : la prise tourne de -135 a +135 degres ; aucun son.
+
+### Decisions prises et pourquoi
+- Mika : "toujours le relief lumineux sur le bord, j'en veux pas" (le reflet reduit de la v36 ne suffisait pas) et "dans les sous pages aucun bouton ne tourne vraiment physiquement".
+
+### Ce qui reste a faire / points en suspens
+- A juger sur le Mac de Mika. Retour attendu sur l'aigu du moteur PRO (v34).
