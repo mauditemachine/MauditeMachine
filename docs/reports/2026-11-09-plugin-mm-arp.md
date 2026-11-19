@@ -787,3 +787,18 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - npm run plugin:arp:knobs : rend les trois couches des knobs d'OPEN dans src/v4/plugin/arp/retro (ou dans le dossier passe apres --).
+
+## 2026-11-19 (suite 5) : v40, STOP sous Ableton, touches d'OPEN unies
+
+### Ce qui a ete fait
+- PluginProcessor.cpp : parametre ARP RUN (STOP / RUN, 1 par defaut) en fin de liste, automatisable, garde dans le projet. Ableton qui joue : STOP coupe l'arpege (12 ms, sauf notes MIDI tenues), RUN le relance au pas suivant de la grille d'Ableton. Ableton a l'arret : horloge interne comme avant.
+- hood.css : touches d'OPEN unies et mates, coins arrondis 9 px, sans plateau ni arete ; allumees a l'accent avec halo (maquette A).
+- Tests : host (STOP sous transport : -24.7 dB -> -115 dB, pause gardee, relance -25.3 dB), suite DSP, voyager_compare 85/85, tsc 105 ; aucun son.
+
+### Decisions prises et pourquoi
+- Mika : "STOP coupe meme si Ableton joue" ; touches : maquettes A / B / C envoyees etiquetees, A choisie ("A, code et publie").
+- Relance au pas suivant (pas a la mesure) : retombe juste dans le motif d'Ableton.
+
+### Ce qui reste a faire / points en suspens
+- RANDOM : presets de reference de Mika attendus.
+- Touches clavier renvoyees a Ableton (a tester sur le Mac).

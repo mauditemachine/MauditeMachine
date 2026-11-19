@@ -4102,3 +4102,18 @@
   gap: 5px;
   top: 5.5px;
 }
+
+/* =====================================================================================================================
+   v40 (2026-11-19, Mika : "je suis pas fan des boutons, fais quelque chose d'uni, moins carre", option A retenue) : les
+   touches d'OPEN unies et mates, coins arrondis (9 px), sans plateau ni arete de caoutchouc ; allumees a la couleur
+   d'accent avec un halo. !important : ces regles passent devant toutes les variantes de touches plus haut dans ce fichier.
+   ===================================================================================================================== */
+
+.mm-plugin-arp .mm-key-cap, .mm-plugin-arp .mm-key:hover .mm-key-cap, .mm-plugin-arp .mm-p2 .mm-p2-step-cap {
+  border-radius: 9px !important;
+  background: #1b1a19 !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 2px 0 #0a0909, 0 3px 6px rgba(0,0,0,0.55) !important;
+}
+.mm-plugin-arp .mm-key-cap::before, .mm-plugin-arp .mm-p2 .mm-p2-step-cap::before { display: none !important; }
+
+.mm-plugin-arp .mm-key[data-on='1'] .mm-key-cap { background: color-mix(in srgb, var(--mm-accent) 85%, #1b1a19) !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 2px 0 #0a0909, 0 0 10px color-mix(in srgb, var(--mm-accent) 55%, transparent) !important; }
