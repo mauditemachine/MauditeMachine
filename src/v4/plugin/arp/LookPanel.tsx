@@ -2,8 +2,8 @@
  * Les reglages d'aspect du plugin MM-ARP (2026-11-16, Mika : "un parametre dans les settings pour attenuer le cuir",
  * le panneau de reglages de Legend HZ pour reference) : une petite icone (des curseurs) sur la face, a gauche de FIRMWARE,
  * et dans l'en-tete d'OPEN, a gauche de la croix ; elle ouvre un petit panneau de verre fume, un curseur par reglage
- * (une tete noire a ligne claire sur un rail fin) : LEATHER TEXTURE (0 : la laque lisse d'avant, 100 : le cuir plein ;
- * 70 au depart) et PANEL LIGHT (50 : neutre). Effet en direct sur la face (FaceLook : le cuir de la serigraphie, la
+ * (une tete noire a ligne claire sur un rail fin) : LEATHER TEXTURE (0 : la laque lisse d'avant, 100 : le cuir plein,
+ * le depart depuis la v35) et PANEL LIGHT (50 : neutre). Effet en direct sur la face (FaceLook : le cuir de la serigraphie, la
  * teinte du capot) et dans OPEN (variables CSS, look.ts). Le panneau se ferme au clic dehors (ce clic ne fait rien
  * d'autre : OPEN ne se ferme pas par erreur) ou a Echap (avant la chaine d'Echap du site, hooks/useKeys.ts).
  */
@@ -12,6 +12,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { Vector3, type Material, type Mesh, type MeshStandardMaterial } from 'three';
 import type { Stage } from '../../scene/renderer';
 import { voyExplode } from '../../state/explode';
+import { onLeatherReady } from '../../voyager/leather';
 import { lightGain } from '../../voyager/silk';
 import { VOY_HEAD } from '../../voyager/theme';
 import { accentGen, accentOfHue } from './accent';
@@ -67,8 +68,11 @@ export const FaceLook: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     };
     apply();
     const off = look.subscribe(queue);
+    // v35 : la photo du cuir arrive apres la scene : une image de plus quand elle est la
+    const offLeather = onLeatherReady(queue);
     return () => {
       off();
+      offLeather();
       if (raf) window.cancelAnimationFrame(raf);
     };
   }, [stage]);

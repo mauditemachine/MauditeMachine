@@ -24,9 +24,10 @@
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
 
-import { Color, Mesh, MeshStandardMaterial, PlaneGeometry, Vector2, type CanvasTexture } from 'three';
+import { BufferAttribute, Color, Mesh, MeshLambertMaterial, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { albedo } from '../scene/materials';
-import { leatherGrain, leatherSkin } from './leather';
+import { LEATHER_TILE, leatherShade, leatherTile, setLeatherAmount } from './leather';
+import { LEATHER_MEAN } from './leatherField';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { APPEARANCE, GAIN, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
@@ -180,11 +181,16 @@ function deckTexts(open: boolean): Text[] {
   return out;
 }
 
-/** Le cuir du plugin MM-ARP : son relief (normalScale a TEXTURE 100), sa teinte (part de la laque), sa brillance. */
-// v33 (maquette, Mika : "je veux que le cuir noir soit plus apparent") : le relief monte (x 2.6 au plus, 1.0 avant) et le
-// cuir devient satine en montant (rugosite 0.48 au plus, 0.8 avant) : le grain accroche la lumiere. LEATHER TEXTURE garde
-// son sens (0 : la laque, 1 : le cuir le plus marque) ; les niveaux A / B / C de la maquette : 0.45, 0.7, 0.95
-export const LEATHER = { def: 0.7, relief: 2.6, dark: 0.48, rough: 0.48 } as const;
+/**
+ * Le cuir du plugin MM-ARP (v35 : une photo du cuir, voyager/leather.ts) : LEATHER TEXTURE dose la photo (0 : la laque
+ * lisse, 1 : le cuir du fond de Legend HZ, le depart). tone : la teinte du cuir plein (lineaire, par canal), reglee a la
+ * mesure pour que le panneau sorte a l'ecran comme la photo : ~23 / 255, et NEUTRE (les lumieres de la scene sont
+ * chaudes : le bleu les compense, le fond de Legend HZ est un gris sans dominante). grain : la part de la photo a
+ * LEATHER TEXTURE 100 (la courbe de la scene accentue les noirs : a 1, le grain sortait plus contraste que la photo).
+ */
+export const LEATHER = { def: 1, tone: [0.0312, 0.0333, 0.0382], grain: 0.69 } as const;
+/** La moyenne de la photo, en lumiere lineaire (sRGB 23 / 255) : la couleur du materiau la compense. */
+const LEATHER_LIN = ((LEATHER_MEAN / 255 + 0.055) / 1.055) ** 2.4;
 /** La lumiere du panneau (0..1, 0.5 neutre) : le gain de sa teinte, de 0.6 a 1.4. */
 export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math.max(0, light));
 
@@ -249,27 +255,27 @@ export class VoySilk {
     this.mesh.name = `voySilk-${kind}`;
     this.mesh.position.y = 0.004;
     this.mesh.receiveShadow = true;
-    // 2026-11-16 (Mika : "fond en cuir", puis : "regarde bien le fond de Legend HZ") : le cuir du panneau, sous la
-    // serigraphie : un cuir noir pleine fleur presque uni, le grain fin en relief (carte de normales eclairee par la
-    // scene, une tuile de 3 unites), la peau sans repetition (couleur, brillance) ; setLook le dose (TEXTURE, 0 : la
-    // laque d'avant, le plan cache) et regle sa lumiere (plugin/arp/look.ts)
+    // Le cuir du panneau, sous la serigraphie (2026-11-16, Mika : "fond en cuir") ; setLook le dose (LEATHER TEXTURE,
+    // 0 : la laque d'avant, le plan cache) et regle sa lumiere (plugin/arp/look.ts)
     if (PLUGIN_ARP) {
-      const TILE = 3.0;
-      const nrm = leatherGrain().clone();
-      nrm.repeat.set(this.plane.w / TILE, this.plane.d / TILE);
-      nrm.needsUpdate = true;
-      const skin = leatherSkin(this.plane.w, this.plane.d, kind === 'panel' ? 31 : 47);
-      const lg = new PlaneGeometry(this.plane.w, this.plane.d);
+      // v35 : la photo du cuir en couleur (une tuile de 4 unites, en boucle), sur un materiau MAT sans reflet (Lambert) :
+      // sur un noir aussi profond, le reflet d'un materiau standard pesait autant que la couleur et delavait le grain de
+      // moitie ; sans carte de normales, rien ne scintille. De larges nappes de lumiere par les couleurs de sommets.
+      const tile = leatherTile(this.plane.w / LEATHER_TILE, this.plane.d / LEATHER_TILE);
+      const SX = 28;
+      const SY = Math.max(4, Math.round((SX * this.plane.d) / this.plane.w));
+      const lg = new PlaneGeometry(this.plane.w, this.plane.d, SX, SY);
+      const shade = leatherShade(this.plane.w, this.plane.d, kind === 'panel' ? 31 : 47);
+      const uv = lg.getAttribute('uv');
+      const cols = new Float32Array(uv.count * 3);
+      for (let i = 0; i < uv.count; i += 1) cols[i * 3] = cols[i * 3 + 1] = cols[i * 3 + 2] = shade(uv.getX(i), uv.getY(i));
+      lg.setAttribute('color', new BufferAttribute(cols, 3));
       lg.rotateX(-Math.PI / 2);
       lg.translate(0, 0, this.plane.cz);
-      const lm = new MeshStandardMaterial({
+      const lm = new MeshLambertMaterial({
         color: new Color(),
-        map: skin.color,
-        normalMap: nrm,
-        normalScale: new Vector2(LEATHER.relief, LEATHER.relief),
-        roughnessMap: skin.rough,
-        roughness: 1,
-        metalness: 0,
+        map: tile,
+        vertexColors: true,
         polygonOffset: true,
         polygonOffsetFactor: -0.5,
         polygonOffsetUnits: -0.5,
@@ -294,16 +300,14 @@ export class VoySilk {
   setLook(t: number, light: number): boolean {
     const L = this.leather;
     if (!L) return false;
-    const m = L.material as MeshStandardMaterial;
+    const m = L.material as MeshLambertMaterial;
     const k = lightGain(light);
     L.visible = t > 0.001;
     const lac = albedo('voyPanel', new Color(), GAIN.voyPanel ?? GAIN.parts);
-    // la peau (base 0.8) : la couleur la compense ; du vernis de la laque au cuir mat
-    const c = lac.clone().lerp(lac.clone().multiplyScalar(LEATHER.dark), t).multiplyScalar(k / 0.8);
+    // la photo (moyenne LEATHER_LIN) : la couleur la compense ; de la teinte de la laque a celle du cuir ; la photo dosee par t
+    const c = lac.clone().lerp(new Color(LEATHER.tone[0], LEATHER.tone[1], LEATHER.tone[2]), t).multiplyScalar(k / LEATHER_LIN);
     m.color.copy(c);
-    m.normalScale.setScalar(LEATHER.relief * t);
-    m.roughness = (0.68 + (LEATHER.rough - 0.68) * t) / 0.88;
-    m.metalness = 0.18 * (1 - t);
+    setLeatherAmount(t * LEATHER.grain);
     const seam = Math.round(Math.min(1, t * 1.5) * 20) / 20;
     if (seam === this.seam) return false;
     this.seam = seam;

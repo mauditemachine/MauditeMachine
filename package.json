@@ -28,7 +28,8 @@
     "face:test": "node scripts/face.test.mjs",
     "press:pages": "node scripts/press-pages.mjs --public",
     "plugin:web": "vite build --config plugin/mm-rytm/web/vite.config.ts",
-    "plugin:arp:web": "vite build --config plugin/mm-arp/web/vite.config.ts"
+    "plugin:arp:web": "vite build --config plugin/mm-arp/web/vite.config.ts",
+    "plugin:arp:leather": "esbuild plugin/mm-arp/web/leather-gen.ts --bundle --platform=node --log-level=warning | node -"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
