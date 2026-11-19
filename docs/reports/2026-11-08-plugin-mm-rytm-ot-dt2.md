@@ -613,6 +613,15 @@ Mika : « Attention le random ne change pas le LFO (MOD), d'ailleurs appelle le 
 - **MOD s'appelle LFO dans le plugin** : la touche (`rytm/faceplate.ts`), les pages LFO 1/2 et LFO 2/2 VAR (`rytm/pages.ts`), le message LFO PAGE, l'aide de la touche (`theme/face.ts`), l'INFOS (`rytm/infos/face.ts`), FUNC + LFO pour le MIXER (`scene/screen/consts.ts`). Sa fonction imprimee reste MIXER. Le site garde MOD.
 - **Verifie** : Chromium (sans son), 6 RANDOM : 3 a 7 pistes avec un LFO chaque fois, des LFO 2, des destinations, formes et modes varies (TONE en RND/HLD sur les charleys, PAN EXP/TRG sur le clap, PITCH en RND/HLD sur les toms...), le GATE a 0 a chaque fois. Le rendu des 6 par le moteur C++ hors ligne : cretes -3.8 a -8.5 dBFS, aucune piste devant le kick. Les presets d'usine (DEEP HOUSE et DEEP HOUSE THUMP, qui ont des LFO) : le programme envoye au moteur identique a l'octet pres. La touche LFO : LFO PAGE, l'ecran LFO 1/2. Site : les 4 vues identiques au pixel pres. tsc : 105.
 
+### Lot 42, le preset d'usine 808 SUB BOOM (2026-11-19)
+
+Mika : « ajoute aussi 808 SUB BOOM en preset d'usine ».
+
+- **Un 27e style, 808 SUB BOOM 1, 2, 3** (`src/v4/state/pluginFactory.ts`), apres DEEP HOUSE THUMP (ids `factory-rytm-78` a `80` ; ceux d'avant ne bougent pas). 122 BPM, swing 0.3 : un minimal sombre facon 808 autour du kick 808 SUB BOOM du site (lot 31, `bd/Bd 808 Sub Boom.wav`, son DEC 85 du site cuit : rien a raccourcir), le clap dans une reverbe sombre, des charleys en doubles croches sous un passe-bas qui balaie (LFO sur 2 mesures), l'ouvert qui respire, le rim et les toms dans un delay.
+- **Les variations** : 1 le boom en quatre temps, le clap, les charleys, l'ouvert ; 2 un boom de plus avant le 4e temps une mesure sur deux (COND 2:2), le rim dub (PROB 75), les toms 808 qui changent de hauteur ; 3 plein : une percussion sur 5 pas (TLEN), le shaker, la caisse qui roule toutes les 4 mesures (retrig), le crash de la phrase.
+- **Les niveaux au rendu du moteur C++ hors ligne (aucun son)** : le premier jet avait les charleys et le clap 3 dB trop haut, l'ouvert 3 dB trop bas ; corriges : l'equilibre de DEEP HOUSE (charleys et ouvert -23 dB du kick, clap -16), RMS -20.1 dBFS (DEEP HOUSE -19.9), cretes -6.9 dBFS au plus.
+- **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, 122 BPM, le kick `bd/Bd 808 Sub Boom.wav` part au moteur ; DEEP HOUSE garde ses ids. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -739,6 +748,7 @@ Mika : « Attention le random ne change pas le LFO (MOD), d'ailleurs appelle le 
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 42)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : 808 SUB BOOM 1, 2, 3.
 - **Cote Mika (lot 41)** : la commande mm-rytm ; RANDOM plusieurs fois puis la touche LFO sur des pistes differentes : dire si les LFO sont trop sages ou trop fous.
 - **Cote Mika (lot 40)** : la commande mm-rytm ; clic droit sur un pas : 1:2, 1:4, 50 %... ; dire s'il manque une condition dans le menu (FILL demande une touche FILL, absente du plugin).
 - **Cote Mika (lot 39)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : DEEP HOUSE THUMP 1, 2, 3 ; comparer avec DEEP HOUSE, dire si le kick doit trainer plus (DEC).

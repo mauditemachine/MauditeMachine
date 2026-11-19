@@ -727,6 +727,48 @@ const STYLES: readonly Style[] = [
         locks: { BD: { 14: { p: 55 } } },
       },
     ],
+  },  {
+    // 2026-11-19 (Mika : "ajoute aussi 808 SUB BOOM en preset d'usine") : apres DEEP HOUSE THUMP, les ids d'avant ne bougent
+    // pas. Le kick 808 SUB BOOM du site (son DEC 85 cuit, plugin/mm-rytm/samples, lot 31) : un minimal sombre facon 808, le
+    // clap dans une reverbe, des charleys qui balancent, le rim et les toms 808 qui repondent dans un delay
+    name: '808 SUB BOOM',
+    bpm: 122,
+    fx: { swing: 0.3, drive: 0.08, reverb: 0.18, rsize: 0.66, rtone: 0.4, delay: 0.14, dtime: 0.4, dfb: 0.5, comp: 0.2 },
+    kit: {
+      BD: { n: 'Bd 808 Sub Boom.wav' },
+      SD: 9,
+      // au rendu du moteur : l'equilibre de DEEP HOUSE (charleys et ouvert -23 dB du kick, clap -16)
+      CH: { ...(sweep(13, '2B', 0.86) as Exclude<Tk, number>), db: 0 },
+      OH: { ...(breath(13) as Exclude<Tk, number>), db: 4 },
+      CP: { n: 9, reverb: 0.3, db: -3 },
+      TOM: { n: 10, db: -2, delay: 0.2 },
+      HT: 7,
+      CY: 4,
+      T9: 1,
+      T10: { n: 22, delay: 0.3 },
+      T11: { n: 9, db: -2 },
+      T12: 13,
+      T13: { n: 11, db: -2 },
+      T14: { n: 8, delay: 0.25 },
+      T15: 5,
+      T16: 6,
+    },
+    vars: [
+      // 1 : le boom en quatre temps, le clap, les doubles croches qui balancent, l'ouvert qui respire
+      { steps: { BD: F4, CP: B8, CH: H16, OH: OFF }, trigs: { CH: { vlev: 22 }, CP: { utime: 1 } } },
+      // 2 : un boom de plus avant le 4e temps une mesure sur deux, le rim dub, les toms 808 qui montent et descendent
+      {
+        steps: { BD: '9000900090009030', CP: B8, CH: H16, OH: OFF, T10: '0000030000000300', TOM: '0000000000600060' },
+        trigs: { CH: { vlev: 22 }, CP: { utime: 1 }, T10: { prob: 75 }, TOM: { vtun: 4, vlev: 15 } },
+        locks: { BD: { 15: { c: '2:2' } } },
+      },
+      // 3 : plein : une percussion sur 5 pas, le shaker, la caisse qui roule toutes les 4 mesures, le crash de la phrase
+      {
+        steps: { BD: '9000900090009030', CP: B8, CH: H16, OH: OFF, T10: '0000030000000300', TOM: '0000000000600060', T13: '0060000000000000', T11: HEA, SD: '0000000000000066', T16: CRASH },
+        trigs: { CH: { vlev: 22 }, CP: { utime: 1 }, T10: { prob: 75 }, TOM: { vtun: 4, vlev: 15 }, T13: { tlen: 5, vtun: 3 }, T11: { vlev: 30 }, T16: PHRASE },
+        locks: { BD: { 15: { c: '2:2' } }, SD: { 15: { c: '4:4', roll: [32, 30] }, 16: { c: '4:4', roll: [32, 40] } } },
+      },
+    ],
   },
 ];
 
