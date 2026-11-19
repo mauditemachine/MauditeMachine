@@ -692,3 +692,31 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Objectifs (PRO STD < 15 %, PRO HQ < 25 %) non atteints : reste de la piste B (modulations par paquets, SIMD 4 voix, pow / exp / tanh rapides), estime -25 a -35 % de plus.
 - Aigu de PRO STD un peu plus terne (interpolation Catmull-Rom) : a ecouter (MUNICH BASS, STRING PAD, MOON ARP...), a corriger par un meilleur passage au taux du filtre.
 - PRO ECO change le caractere de 21 presets.
+
+## 2026-11-19 : v35, le cuir refait d'apres le fond de Legend HZ
+
+### Ce qui a ete fait
+- src/v4/voyager/leatherField.ts (nouveau, sans DOM ni three) : le calcul du cuir, des cellules allongees le long du pli (Voronoi a metrique etiree), le pli en biais qui tourne d'une zone a l'autre, sillons fins, grain fin, pores ; leatherBake en fait une photo (lumiere d'en haut a gauche).
+- plugin/mm-arp/web/leather-gen.ts + npm run plugin:arp:leather : genere src/v4/plugin/arp/retro/leather.png (tuile de 1024 px en boucle, gris 8 bits, moyenne 23 / 255).
+- src/v4/voyager/leather.ts (reecrit) : la photo posee en couleur du plan (toile commune, une copie de texture par plan), setLeatherPhoto / setLeatherAmount / onLeatherReady ; plus de carte de normales.
+- src/v4/voyager/silk.ts : le plan de cuir en MeshLambertMaterial (mat, sans reflet), teinte reglee a la mesure (LEATHER.tone, gris neutre), nappes de lumiere par couleurs de sommets ; tout sous PLUGIN_ARP.
+- src/v4/plugin/arp/look.ts : charge la photo, LEATHER TEXTURE a 100 au depart, version 2 des reglages (un reglage d'avant reprend le cuir de depart, teinte et lumiere gardees) ; LookPanel.tsx : la scene se redessine a l'arrivee de la photo.
+- src/v4/plugin/arp/hood.css : la meme image dans OPEN (348 px, l'echelle de la face), nappes sombres adoucies.
+- CLAUDE.md : la regle de clarte des choix A / B / C (ajoutee le 2026-11-18).
+- Mesures (capture a la taille par defaut, ramenee a 2000 px) : Legend HZ 22-27 / 255, ecart-type 4,0-4,8 ; face 22-23 / 4,3 ; OPEN 22 / 4,0 ; avant (v34) 17-20 / 11.
+- Tests : tsc 105 ; Chromium muet : 11/11 (curseur LEATHER, RESET, reprise des anciens reglages), suites v31 13/13 et v28 16/16 rejouees ; aucun son.
+
+### Decisions prises et pourquoi
+- Mika : "ca ne ressemble pas du tout a du cuir, je veux exactement le meme background que l'image 2" ; images AVANT / CIBLE / APRES envoyees etiquetees, validees ("ok publie").
+- Cause du rate de la v33 : une carte de normales a cellules de 4 px, relief 2,6, eclairee par la scene = un bruit scintillant. Remplacee par une photo du cuir (rien ne scintille, moins cher a rendre).
+- Materiau mat (Lambert) : sur un noir aussi profond le reflet d'un materiau standard pesait autant que la couleur et delavait le grain de moitie.
+- Le cuir est recree (meme grain, meme teinte, meme contraste), pas le fichier de Legend HZ.
+- LEATHER TEXTURE : 100 = ce cuir, plus bas l'attenue (le sens d'origine du reglage : attenuer).
+
+### Ce qui reste a faire / points en suspens
+- Rendu a juger sur le Mac de Mika (captures faites dans Chromium sans GPU).
+- A petite taille de fenetre le grain s'adoucit (reduction de la texture).
+- Moteur PRO : retour de Mika attendu sur l'aigu (v34), puis seconde moitie de la piste B.
+
+### Commandes utiles ajoutees
+- npm run plugin:arp:leather : regenere l'image du cuir (retro/leather.png) depuis leatherField.ts.
