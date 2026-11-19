@@ -138,6 +138,9 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (dt ? noKey(getStage(), true) : escape()) e.preventDefault();
         return;
       }
+      // v38 (le plugin MM-ARP, Mika : "je joue avec le clavier MIDI de l'ordi dans Ableton, E bloque") : plus aucune lettre
+      // ni chiffre ne fait rien ; seule Echap (au-dessus) ferme les pages et les menus
+      if (PLUGIN_ARP) return;
       if (!on.current) return;
       // Alt (Option) tenu = FUNC (V.5.0) : un clic sur une touche pendant la tenue fait sa fonction orange
       if (dt && e.key === 'Alt') {
