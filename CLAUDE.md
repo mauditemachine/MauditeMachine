@@ -70,3 +70,35 @@ laisser faire.
   le meme ordre, une ligne par option. Jamais un lot d'images sans lettre
   (Mika, 2026-11-18 : "je suis toujours en train de deviner lequel est le
   a b ou c").
+
+## Plugin MM-ARP (VST3 macOS, Ableton) : etat et conventions
+
+Branche de travail : claude/nifty-bohr-7ixmpf. Journal detaille :
+docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
+
+- Code : face WebView dans src/v4/plugin/arp (tout gate PLUGIN_ARP, le site
+  et MM-RYTM ne doivent jamais changer) ; C++ dans plugin/mm-arp (src/ JUCE,
+  dsp/ moteur et effets, tests/). Build face : npm run plugin:arp:web.
+- Publication : commit sans [skip ci] + push, lancer le workflow
+  plugin-arp.yml (workflow_dispatch) ; release fixe mm-arp-latest, BUILD.txt
+  DANS le zip. Si le job mac est "cancelled" (pas de runner) : rerun.
+  Installation Mika :
+  curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-latest/update.sh | bash
+- Invariants : tsc --noEmit reste a 105 erreurs ; moteur CLASSIC au bit pres
+  du site (voyager_compare 85/85) ; nouveaux parametres hote TOUJOURS en fin
+  de liste, les anciens gardes en "OLD ..." avec conversion au chargement ;
+  banque d'usine neutre (presets/build.mjs : HELL MIX <= 0.10, reverb CLASSIC,
+  DISTO neutre). Valider le YAML du workflow avant push.
+- Mika veut des IMAGES avant tout changement de design (maquette, il valide,
+  puis code + publication). Choix A/B/C : voir la regle plus haut.
+- Etat (v37, 2026-11-19) : face cuir (photo retro/leather.png, npm run
+  plugin:arp:leather), knobs face a jupe mate, knobs d'OPEN qui tournent
+  (knob-base / knob-grip / knob-cap), accent #FF0066 reglable (SETTINGS),
+  pages OPEN : SOUND (EQ 6 bandes), DISTO, DELAY, HELL, REVERB, SEQ ;
+  compteur CPU ; 8 voix ; moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ,
+  EXPORT HQ ; taille par defaut 1496 px.
+- En cours (v38) : selecteur MIDI IN (NOTES / ARP / LAYER), suppression des
+  raccourcis clavier (Mika joue au clavier MIDI de l'ordi dans Ableton),
+  ENGINE deplace dans SETTINGS (icone hamburger), knobs nets a grande
+  taille, aigu du moteur PRO. RANDOM : Mika doit envoyer des presets de
+  reference ("fat et cristallin").
