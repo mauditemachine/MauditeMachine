@@ -2310,6 +2310,29 @@
         "PRO"
       ],
       "help": "v34 (Mika : \"CPU B\") : PRO, le moteur rapide (oscillateurs anti-replies au taux de base, filtre et saturation suresechantillonnes : ECO x1, STD x2, HQ x4) ; CLASSIC, le moteur du site au bit pres (ECO x2, STD x4, HQ x8). Les instances neuves : PRO ; un projet d'avant : CLASSIC."
+    },
+    {
+      "id": "xMidiIn",
+      "label": "MIDI IN",
+      "section": "engine",
+      "def": 0,
+      "steps": [
+        "NOTES",
+        "ARP",
+        "LAYER"
+      ],
+      "help": "v38 : NOTES, les notes MIDI jouent et coupent l'arpege (comme avant) ; ARP, les notes tenues deviennent l'accord arpege (RATE, MODE, RANGE, GATE, OCTAVE), synchro Ableton ou l'horloge interne ; LAYER, l'arpege continue sur les pads et les notes jouent par-dessus"
+    },
+    {
+      "id": "xArpHold",
+      "label": "HOLD",
+      "section": "engine",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v38 : MIDI IN en ARP, l'accord reste quand on lache (latch) ; une nouvelle note apres avoir tout lache en commence un autre"
     }
   ]
 }

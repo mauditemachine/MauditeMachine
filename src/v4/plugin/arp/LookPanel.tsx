@@ -17,6 +17,7 @@ import { lightGain } from '../../voyager/silk';
 import { VOY_HEAD } from '../../voyager/theme';
 import { accentGen, accentOfHue } from './accent';
 import { look, LOOK_DEFAULTS, type Look } from './look';
+import { PcbStep, PcbToggle } from './pcbui';
 
 /* ---------------- le panneau ouvert (un seul a la fois) ---------------- */
 
@@ -238,17 +239,27 @@ const Panel: React.FC<{ style: React.CSSProperties; where: 'face' | 'hood'; anch
         shown={<span className="mm-look-swatch" style={{ background: accentOfHue(v.hue) }} />}
         valueText={accentOfHue(v.hue)}
       />
+      {/* v38 (Mika : "le selecteur image 1 dans les settings") : le moteur et MIDI IN, les memes pieces qu'avant dans SOUND */}
+      <div className="mm-look-sub">ENGINE</div>
+      <div className="mm-look-pieces">
+        <PcbToggle id="xEngine" name="ENGINE" ref_="" w={74} />
+        <PcbStep id="xQuality" name="QUALITY" ref_="" w={76} />
+        <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={72} />
+      </div>
+      <div className="mm-look-sub">MIDI IN</div>
+      <div className="mm-look-pieces">
+        <PcbStep id="xMidiIn" name="MIDI IN" ref_="" w={110} />
+        <PcbToggle id="xArpHold" name="HOLD" ref_="" w={72} />
+      </div>
     </div>
   );
 };
 
 /** L'icone : trois curseurs serigraphies. */
+/** L'icone (v38, Mika : "le menu hamburger") : trois traits serigraphies. */
 const Icon: React.FC = () => (
-  <svg className="mm-look-icon" width="14" height="12" viewBox="0 0 14 12" aria-hidden="true">
-    <path d="M1 2.5H13M1 6H13M1 9.5H13" />
-    <rect x="3" y="1" width="2.4" height="3" rx="0.6" />
-    <rect x="8.6" y="4.5" width="2.4" height="3" rx="0.6" />
-    <rect x="5.2" y="8" width="2.4" height="3" rx="0.6" />
+  <svg className="mm-look-icon mm-look-burger" width="14" height="12" viewBox="0 0 14 12" aria-hidden="true">
+    <path d="M1.5 2.5H12.5M1.5 6H12.5M1.5 9.5H12.5" />
   </svg>
 );
 

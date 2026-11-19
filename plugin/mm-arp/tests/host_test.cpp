@@ -676,7 +676,7 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::kExtra == 229, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::kExtra == 231, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
@@ -913,6 +913,57 @@ int main() {
         check(f8 <= 8 && o8 <= 12 && f0 == 12 && r8 > 0 && std::fabs(20 * std::log10(r8 / r0)) < 3,
               "v32 voix : limite 8 : " + std::to_string(f8) + " pleines (" + std::to_string(o8) + " avec celles qui s'effacent) ; sans limite : " + std::to_string(f0) +
                   " ; niveau " + juce::String(20 * std::log10(r8 / r0), 1).toStdString() + " dB");
+    }
+    {
+        // v38 MIDI IN : NOTES (comme avant : le clip a le dessus), ARP (les touches tenues font l'accord, l'horloge interne
+        // si Ableton est a l'arret, lacher arrete ; HOLD garde l'accord), LAYER (l'arpege continue, les notes par-dessus)
+        const auto make = [&](MMArpProcessor& p, Head& h, float midiIn, float hold) {
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 512);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            p.knobParam(mmx::allIndex("xMidiIn"))->setValueNotifyingHost(midiIn);
+            p.knobParam(mmx::allIndex("xArpHold"))->setValueNotifyingHost(hold);
+        };
+        juce::MidiBuffer on, off;
+        for (int m : {60, 64, 67}) {
+            on.addEvent(juce::MidiMessage::noteOn(1, m, 0.8f), 0);
+            off.addEvent(juce::MidiMessage::noteOff(1, m), 0);
+        }
+        const auto arpCase = [&](float hold, double& during, double& after) {
+            MMArpProcessor p;
+            Head h;
+            h.playing = false;
+            make(p, h, 0.5f, hold);
+            run(p, h, 4800, 512, nullptr, nullptr);
+            during = db(run(p, h, 48000, 512, &on).rms);
+            run(p, h, 512, 512, &off);
+            run(p, h, 48000 * 4, 512);
+            after = db(run(p, h, 48000, 512).rms);
+        };
+        double d0, a0, d1, a1;
+        arpCase(0.f, d0, a0);
+        arpCase(1.f, d1, a1);
+        check(d0 > -45 && a0 < -90 && d1 > -45 && a1 > -45,
+              "v38 MIDI IN ARP (Ableton a l'arret) : accord tenu " + juce::String(d0, 1).toStdString() + " dB, lache " + juce::String(a0, 1).toStdString() +
+                  " dB ; HOLD : " + juce::String(d1, 1).toStdString() + " dB, lache " + juce::String(a1, 1).toStdString() + " dB (l'accord reste)");
+        // NOTES contre LAYER, transport en lecture : en NOTES le clip a le dessus, en LAYER l'arpege continue
+        const auto clipCase = [&](float midiIn) {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            make(p, h, midiIn, 0.f);
+            run(p, h, 4800, 512, nullptr, nullptr);
+            run(p, h, 4800, 512, &on);
+            return p.clipActive();
+        };
+        check(clipCase(0.f) && !clipCase(1.f), "v38 MIDI IN : NOTES, le clip coupe l'arpege ; LAYER, l'arpege continue sous les notes");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

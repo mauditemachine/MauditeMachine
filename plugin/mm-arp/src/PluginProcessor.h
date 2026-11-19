@@ -273,6 +273,13 @@ private:
     bool wasPlaying_ = false;
     int lastLiveMidi_ = -1;
     std::array<bool, 128> held_{};
+    // v38 MIDI IN (NOTES, ARP, LAYER) : en ARP, les touches tenues (liveKeys_) font l'accord arpege (liveChord_, garde
+    // apres le lacher avec HOLD), son programme a part (liveProg_, reserve d'avance : ni allocation ni verrou)
+    std::array<bool, 128> liveKeys_{}, liveChord_{};
+    bool liveDirty_ = false, liveOnPrev_ = false;
+    int midiInPrev_ = 0;
+    mmarp::ArpProgram liveProg_;
+    void buildLive();
 
     // Les parametres de l'hote (en plus des potards)
     std::atomic<float>* master_ = nullptr;

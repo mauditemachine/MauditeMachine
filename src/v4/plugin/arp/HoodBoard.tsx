@@ -901,8 +901,8 @@ const SoundPage: React.FC = () => {
   useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const band = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
   const X0 = ZONE.x;
-  // v34 : l'EQ 22 px plus etroit, ENGINE a sa place pour quatre pieces (ENGINE, QUALITY, EXPORT HQ, ANALYZER)
-  const EQ = { x: X0, w: 700 };
+  // v38 : ENGINE part dans SETTINGS, l'EQ reprend ses 22 px
+  const EQ = { x: X0, w: 722 };
   const RX = EQ.x + EQ.w + 22;
   const RW = ZONE.x + ZONE.w - RX;
   const PH = { x: X0, w: 478 };
@@ -936,18 +936,15 @@ const SoundPage: React.FC = () => {
           176,
         )}
       </PcbFrame>
-      <PcbFrame title="ENGINE" x={RX} y={60} w={RW} h={104} className="mm-hell-frame">
+      <PcbFrame title="ANALYZER" x={RX} y={60} w={RW} h={104} className="mm-hell-frame">
         {R(
           14,
           RW,
           <>
             {/* v32 (Mika : "comme les autres plugins") : QUALITY a trois crans (ECO x2, STD x4 le site, HQ x8), EXPORT HQ :
                 l'export de l'hote en HQ, comme la precision hors ligne de Diva */}
-            {/* v34 (Mika : "CPU B") : ENGINE CLASSIC (le site au bit pres) / PRO (le moteur rapide, le depart) */}
-            <PcbToggle id="xEngine" name="ENGINE" ref_="" w={72} />
-            <PcbStep id="xQuality" name="QUALITY" ref_="" w={74} />
-            <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={70} />
-            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={74} />
+            {/* v38 : ENGINE, QUALITY et EXPORT HQ sont dans SETTINGS (le menu hamburger) ; ANALYZER reste ici */}
+            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={120} />
           </>,
         )}
       </PcbFrame>

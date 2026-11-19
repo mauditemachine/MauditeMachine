@@ -843,3 +843,23 @@
   letter-spacing: 0.02em;
   color: rgba(240, 234, 224, 0.45);
 }
+
+/* v38 : ENGINE et MIDI IN dans SETTINGS (les memes pieces que les pages d'OPEN) */
+.mm-plugin-arp .mm-look-sub {
+  margin: 12px 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(240, 234, 224, 0.12);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(240, 234, 224, 0.7);
+}
+.mm-plugin-arp .mm-look-pieces {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.mm-plugin-arp .mm-look-burger path {
+  stroke-width: 1.4;
+}

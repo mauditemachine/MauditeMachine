@@ -188,6 +188,7 @@ MMArpProcessor::MMArpProcessor()
     startTimerHz(15);
     mmarp::reserveArp(arpBuf_[0]);
     mmarp::reserveArp(arpBuf_[1]);
+    mmarp::reserveArp(liveProg_);
     // Le programme de depart : sans accord, la suite AUTO
     publish(std::make_shared<MMArpProgram>());
 }
@@ -326,6 +327,50 @@ juce::MidiFile MMArpProcessor::arpMidi(int cycles, int& bars) const {
     mf.setTicksPerQuarterNote(tpq);
     mf.addTrack(seq);
     return mf;
+}
+
+// v38 MIDI IN ARP : le programme de l'accord tenu (thread audio, sans allocation : liveProg_ est reserve) : la cadence,
+// la porte, l'accent et les pas de la face ; une seule case d'accord, ses notes selon MODE (UP, DOWN, UP/DN, RAND), RANGE
+// (1 a 3 octaves) et OCTAVE
+void MMArpProcessor::buildLive() {
+    const mmarp::ArpProgram& b = arpBuf_[arpCur_];
+    liveProg_.spn = b.spn;
+    liveProg_.gate = b.gate;
+    liveProg_.accent = b.accent;
+    liveProg_.drift = b.drift;
+    liveProg_.swing = b.swing;
+    liveProg_.swingOwn = b.swingOwn;
+    std::copy(std::begin(b.stepAcc), std::end(b.stepAcc), std::begin(liveProg_.stepAcc));
+    std::copy(std::begin(b.stepSlide), std::end(b.stepSlide), std::begin(liveProg_.stepSlide));
+    std::copy(std::begin(b.stepGate), std::end(b.stepGate), std::begin(liveProg_.stepGate));
+    std::copy(std::begin(b.stepRat), std::end(b.stepRat), std::begin(liveProg_.stepRat));
+    std::copy(std::begin(b.stepProb), std::end(b.stepProb), std::begin(liveProg_.stepProb));
+    liveProg_.prog.clear();
+    liveProg_.prog.push_back(0);
+    if (liveProg_.chords.empty()) liveProg_.chords.emplace_back();
+    mmarp::ArpChord& ch = liveProg_.chords[0];
+    ch.c = 0;
+    ch.midi.clear();
+    for (size_t j = 1; j < liveProg_.chords.size(); ++j) {
+        liveProg_.chords[j].c = -1;
+        liveProg_.chords[j].midi.clear();
+    }
+    const int mode = mmarp::knobStep(mmarp::kn_mode, knobs_[static_cast<size_t>(mmarp::kn_mode)]);
+    const int octs = 1 + std::max(0, std::min(2, mmarp::knobStep(mmarp::kn_range, knobs_[static_cast<size_t>(mmarp::kn_range)])));
+    const int shift = 12 * (mmarp::knobStep(mmarp::kn_octave, knobs_[static_cast<size_t>(mmarp::kn_octave)]) - 2);
+    ch.rand = mode == 3;
+    int up[64];
+    int n = 0;
+    for (int o = 0; o < octs; ++o)
+        for (int m = 0; m < 128 && n < 64; ++m)
+            if (liveChord_[static_cast<size_t>(m)]) up[n++] = std::max(0, std::min(127, m + 12 * o + shift));
+    if (mode == 1)
+        for (int i = n - 1; i >= 0; --i) ch.midi.push_back(up[i]);
+    else if (mode == 2) {
+        for (int i = 0; i < n; ++i) ch.midi.push_back(up[i]);
+        for (int i = n - 2; i >= 1; --i) ch.midi.push_back(up[i]);
+    } else
+        for (int i = 0; i < n; ++i) ch.midi.push_back(up[i]);
 }
 
 juce::File MMArpProcessor::arpMidiFile(int cycles) const {
@@ -1042,6 +1087,41 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     const int64_t f0 = frame_;
     auto at = [&](int pos) { return static_cast<double>(f0 + pos) / sr; };
 
+    // v38 MIDI IN : en ARP, les touches tenues font l'accord (HOLD : il reste au lacher ; une note apres avoir tout lache
+    // en commence un autre) ; ailleurs, rien n'est garde
+    const int midiIn = mmx::exStep(mmx::ex_xMidiIn, static_cast<double>(exRaw_[mmx::ex_xMidiIn]->load()));
+    if (midiIn == 1) {
+        const bool hold = exRaw_[mmx::ex_xArpHold]->load() >= 0.5f;
+        for (const auto meta : midi) {
+            const auto msg = meta.getMessage();
+            if (msg.isNoteOn()) {
+                bool any = false;
+                for (bool k : liveKeys_) any = any || k;
+                if (!any && hold) liveChord_.fill(false);
+                liveKeys_[static_cast<size_t>(msg.getNoteNumber())] = true;
+                liveChord_[static_cast<size_t>(msg.getNoteNumber())] = true;
+                liveDirty_ = true;
+            } else if (msg.isNoteOff()) {
+                liveKeys_[static_cast<size_t>(msg.getNoteNumber())] = false;
+                liveDirty_ = true;
+            } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
+                liveKeys_.fill(false);
+                liveChord_.fill(false);
+                liveDirty_ = true;
+            }
+        }
+        if (!hold && liveChord_ != liveKeys_) {
+            liveChord_ = liveKeys_;
+            liveDirty_ = true;
+        }
+    } else if (midiInPrev_ == 1) {
+        liveKeys_.fill(false);
+        liveChord_.fill(false);
+    }
+    bool liveOn = false;
+    if (midiIn == 1)
+        for (bool k : liveChord_) liveOn = liveOn || k;
+
     // Le transport : celui de l'hote s'il joue, sinon l'horloge interne (RUN de la face)
     double bpm = progBpm_.load();
     bool hostPlaying = false;
@@ -1056,7 +1136,8 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         }
     bpm = juce::jlimit(20.0, 400.0, bpm);
     bool internal = false;
-    if (!hostPlaying && runInternal_.load()) {
+    // (v38 : en MIDI IN ARP, un accord tenu fait tourner l'horloge interne, Ableton a l'arret : ca joue des qu'on appuie)
+    if (!hostPlaying && (runInternal_.load() || liveOn)) {
         if (!internalPlaying_.load()) internalPpq_ = 0;
         internal = true;
         ppq = internalPpq_;
@@ -1154,11 +1235,21 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     bool anyHeld = false;
     for (bool h : held_) anyHeld = anyHeld || h;
     const double barSamples = 4.0 * 60.0 / bpm * sr;
-    const bool clipWins = prio_->load() > 0.5f && (noteIn || anyHeld || (lastNoteFrame_ >= 0 && static_cast<double>(f0 - lastNoteFrame_) < barSamples));
+    // (v38 : seulement en MIDI IN NOTES ; en ARP les notes font l'accord, en LAYER elles jouent par-dessus l'arpege)
+    const bool clipWins = midiIn == 0 && prio_->load() > 0.5f && (noteIn || anyHeld || (lastNoteFrame_ >= 0 && static_cast<double>(f0 - lastNoteFrame_) < barSamples));
     clipActive_.store(clipWins);
 
     // L'arpege : les pas de ce bloc partent vers le moteur (a l'echantillon pres, dans sa file)
-    const bool arpOn = arpOn_->load() > 0.5f && !clipWins;
+    // v38 MIDI IN ARP : l'accord des touches, son programme ; en quittant ARP, celui de la face revient
+    if (midiIn == 1) {
+        if (liveDirty_ || progChanged || knobsChanged || midiInPrev_ != 1) buildLive();
+        liveDirty_ = false;
+        arp_.setProgram(&liveProg_);
+    } else if (midiInPrev_ == 1)
+        arp_.setProgram(current_ ? &arpBuf_[arpCur_] : nullptr);
+    midiInPrev_ = midiIn;
+    liveOnPrev_ = liveOn;
+    const bool arpOn = arpOn_->load() > 0.5f && !clipWins && (midiIn != 1 || liveOn);
     VoySink sink(*voy_);
     arp_.process(sink, f0, n, playing && arpOn, ppq, pps, seed_);
 
@@ -1166,6 +1257,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     for (const auto meta : midi) {
         const auto msg = meta.getMessage();
         const int pos = juce::jlimit(0, n - 1, meta.samplePosition);
+        if (midiIn == 1 && (msg.isNoteOn() || msg.isNoteOff())) continue; // v38 ARP : les notes font l'accord, rien d'autre
         if (msg.isNoteOn()) {
             const int m = msg.getNoteNumber();
             const double from = lastLiveMidi_ >= 0 ? static_cast<double>(lastLiveMidi_) : std::numeric_limits<double>::quiet_NaN();

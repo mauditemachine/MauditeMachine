@@ -328,7 +328,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -750,7 +752,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -1172,7 +1176,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -1594,7 +1600,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -2014,7 +2022,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -2433,7 +2443,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -2852,7 +2864,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -3271,7 +3285,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -3693,7 +3709,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -4115,7 +4133,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -4535,7 +4555,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -4957,7 +4979,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -5379,7 +5403,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -5801,7 +5827,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -6223,7 +6251,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -6642,7 +6672,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -7064,7 +7096,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -7484,7 +7518,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -7906,7 +7942,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -8325,7 +8363,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -8747,7 +8787,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -9169,7 +9211,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -9588,7 +9632,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -10010,7 +10056,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -10429,7 +10477,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -10848,7 +10898,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -11267,7 +11319,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -11686,7 +11740,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -12108,7 +12164,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -12530,7 +12588,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -12949,7 +13009,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -13371,7 +13433,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -13793,7 +13857,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -14213,7 +14279,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -14639,7 +14707,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -15059,7 +15129,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -15479,7 +15551,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -15905,7 +15979,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -16327,7 +16403,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
@@ -16747,7 +16825,9 @@
         "xPuAttack": 0.5,
         "xPuCurve": 0.5,
         "xExportHq": 1,
-        "xEngine": 1
+        "xEngine": 1,
+        "xMidiIn": 0,
+        "xArpHold": 0
       },
       "steps": {
         "acc": [
