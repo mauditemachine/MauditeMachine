@@ -226,7 +226,8 @@ const KEYS = Object.keys(HELL_PRESETS[0].v);
 /**
  * v28 (Mika : "quand on fait random ou pour les presets ce serait bien d'utiliser une toute petite partie de Hell sinon ca
  * denature tous les sons") : un reglage HELL doux pour RANDOM (hypno.ts) : peu de reinjection, un decalage de quelques Hz,
- * filtre et flou ; MIX a part (0.03 a 0.10, tire par RANDOM).
+ * filtre et flou ; MIX a part (0.03 a 0.10, tire par RANDOM). v43 (2026-11-20) : RANDOM ne s'en sert plus (aucun effet,
+ * analog.ts) ; garde pour un usage a la main.
  */
 export function hellGentle(rnd: () => number = Math.random): Readonly<Record<string, number>> {
   const sgn = rnd() < 0.5 ? -1 : 1;

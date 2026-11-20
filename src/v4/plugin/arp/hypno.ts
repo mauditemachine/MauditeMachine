@@ -28,7 +28,7 @@ import { voyMsg } from '../../voyager/msg';
 import { randomVoyOf, voyRandomHook, type VoyRandom, type VoyStyle } from '../../voyager/random';
 import type { VoyKnobId } from '../../voyager/params';
 import { arpExtra } from './extra';
-import { hellGentle } from './hell';
+import { analogRandom, analogTame, ANALOG_FX_OFF_EXTRA, type AnalogFamily } from './analog';
 import { arpSteps, STEPS_N } from './steps';
 
 export type HypnoStyle = 'HYPNOTIC' | 'PULSE' | 'ROLLING';
@@ -169,21 +169,22 @@ export function hypnoNew(style: HypnoStyle = hypnoStyle.get(), rnd: Rnd = Math.r
   return h;
 }
 
-/* ---------------- RANDOM de la face (v28) ---------------- */
+/* ---------------- RANDOM de la face (v28, refait en v43) ---------------- */
 
 /**
  * v28 (2026-11-18, Mika : "je trouve les random et preset trop aigu, ca doit etre des sonorites differentes, mais souvent
- * des basslines aussi") : RANDOM tire d'abord une FAMILLE (BASS 4 fois sur 10, ARP, PAD, DARK), puis le son du site qui
- * lui ressemble (voyager/random.ts randomVoyOf), tenu dans un registre et des timbres qui ne crient pas :
- * - BASS : OCTAVE -1 (ou -2 sans SUB), SUB souvent, filtre bas a moyen, enveloppes courtes et qui claquent, GATE court ;
- * - ARP : dans le medium (OCTAVE -1 ou 0), filtre et resonance tenus, effets doses ;
- * - PAD : GATE long, attaques et relachements lents, DETUNE et SPREAD, chorus, de la reverbe ;
- * - DARK : passe-bande ou LP12, S&H, un peu de bruit, dans le grave.
- * Partout : jamais OCTAVE +1, le filtre ouvert sans resonance forte, la FM et le bruit limites, pas de SYNC qui crie.
- * HELL : une fois sur trois une touche (MIX 0.03 a 0.10, un reglage doux : hell.ts hellGentle), sinon coupe.
- * La suite et les pistes : les cellules hypnotiques du style choisi sur la page SEQ, dans le registre de la famille.
+ * des basslines aussi") : RANDOM tire d'abord une FAMILLE (BASS 4 fois sur 10, ARP, PAD, DARK), puis son son.
+ *
+ * v43 (2026-11-20, Mika : "que ca sonne vraiment bon synth analog ! evite les fx sur tous les presets ! ou des
+ * filtres, si tu en utilises alors pas trop intense !") : les memes garde-fous que la banque d'usine (analog.ts). Le son
+ * de la famille est tire en entier dans les plages de la banque (analogRandom : oscillateurs, SUB, passe-bas a
+ * mi-course, enveloppes, MOD lent, derive), puis borne par analogTame (aucun effet, filtre modere, pas trop aigu) ; les
+ * effets du VST3 seul passent a l'arret (ANALOG_FX_OFF_EXTRA : HELL, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, WARMTH,
+ * RING, FOLD, HIGH PASS, COMB ; plus de touche de HELL). Le tirage du site (voyager/random.ts randomVoyOf) ne donne plus
+ * que le jeu de l'arpege (MODE, NOTES...) ; la suite et les pistes : les cellules hypnotiques du style choisi sur la page
+ * SEQ, dans le registre de la famille. Restent a la main de Mika : VOLUME, l'EQ 6 bandes, le MASTER, les LFO du VST3 seul.
  */
-export type RandomFamily = 'BASS' | 'ARP' | 'PAD' | 'DARK';
+export type RandomFamily = AnalogFamily;
 /**
  * Les poids du tirage ; avec la regle "pas deux fois la meme famille, sauf BASS" (family), la suite de RANDOM se pose a
  * BASS 40 %, ARP 29 %, PAD 17 %, DARK 14 % (loi stationnaire de la chaine ; 0.4 / 0.32 donnaient 47 % de basses).
@@ -194,11 +195,8 @@ const FAMILIES: readonly { f: RandomFamily; w: number }[] = [
   { f: 'PAD', w: 0.17 },
   { f: 'DARK', w: 0.13 },
 ];
-const at = (i: number, n: number): number => i / (n - 1);
-const between = (rnd: Rnd, lo: number, hi: number): number => Math.round((lo + rnd() * (hi - lo)) * 1000) / 1000;
-type Patch = Partial<Record<VoyKnobId, number>>;
 
-function family(rnd: Rnd, last: RandomFamily | null): RandomFamily {
+export function family(rnd: Rnd, last: RandomFamily | null): RandomFamily {
   // jamais deux fois la meme famille de suite, sauf BASS (elle reste la plus frequente)
   const pool = FAMILIES.filter((x) => x.f === 'BASS' || x.f !== last);
   const total = pool.reduce((a, x) => a + x.w, 0);
@@ -211,99 +209,12 @@ function family(rnd: Rnd, last: RandomFamily | null): RandomFamily {
 }
 
 /** La suite dans le registre de la famille : BASS et ARP sans degre au-dessus de l'octave. */
-function tameSeq(fam: RandomFamily, seq: Step[]): Step[] {
+export function tameSeq(fam: RandomFamily, seq: Step[]): Step[] {
   return seq.map((d) => (d === null ? null : fam === 'PAD' ? d : d > 7 ? d - 7 : d));
 }
 
-/** Le son de la famille, sur la base du tirage du site, et les garde-fous contre ce qui crie. */
-function tame(fam: RandomFamily, base: Patch, rnd: Rnd): Patch {
-  const p: Patch = { ...base };
-  if (fam === 'BASS') {
-    const deep = chance(rnd, 0.25);
-    p.octave = deep ? at(0, 5) : at(1, 5);
-    p.sub = deep ? 0 : chance(rnd, 0.6) ? between(rnd, 0.3, 0.55) : 0;
-    p.subOct = 0;
-    p.cutoff = between(rnd, 0.22, 0.42);
-    p.res = Math.min(p.res ?? 0.3, (p.cutoff ?? 0.3) < 0.32 ? 0.72 : 0.55);
-    p.envAmt = between(rnd, 0.35, 0.7);
-    p.fA = 0;
-    p.fD = between(rnd, 0.1, 0.3);
-    p.fS = between(rnd, 0, 0.2);
-    p.fR = between(rnd, 0.08, 0.2);
-    p.aA = 0;
-    p.aD = between(rnd, 0.2, 0.42);
-    p.aS = between(rnd, 0.35, 0.7);
-    p.aR = between(rnd, 0.05, 0.18);
-    p.gate = between(rnd, 0.24, 0.45);
-    p.reverb = Math.min(p.reverb ?? 0, 0.12);
-    p.delay = chance(rnd, 0.7) ? 0 : between(rnd, 0.08, 0.2);
-    p.stack = 0;
-    p.wide = 0;
-    p.width = between(rnd, 0.1, 0.3);
-    p.monoLow = between(rnd, 0.6, 0.72);
-    p.fm = Math.min(p.fm ?? 0, 0.2);
-    p.noise = 0;
-    p.lfoAmt = Math.min(p.lfoAmt ?? 0, 0.3);
-  } else if (fam === 'ARP') {
-    p.octave = chance(rnd, 0.45) ? at(1, 5) : at(2, 5);
-    p.range = 0;
-    const f = Math.round((p.fmode ?? 0) * 4);
-    p.cutoff = f === 4 ? between(rnd, 0.15, 0.32) : f === 3 ? between(rnd, 0.35, 0.55) : between(rnd, 0.3, 0.58);
-    p.res = Math.min(p.res ?? 0.3, 0.55);
-    p.fm = Math.min(p.fm ?? 0, 0.35);
-    p.aR = Math.min(p.aR ?? 0.3, 0.4);
-    p.delay = between(rnd, 0.15, 0.4);
-    p.reverb = between(rnd, 0.12, 0.35);
-    p.stack = chance(rnd, 0.3) ? between(rnd, 0.15, 0.35) : 0;
-    p.wide = chance(rnd, 0.35) ? between(rnd, 0.25, 0.55) : 0;
-  } else if (fam === 'PAD') {
-    p.octave = chance(rnd, 0.5) ? at(1, 5) : at(2, 5);
-    p.rate = chance(rnd, 0.6) ? at(1, 4) : at(0, 4);
-    p.wave1 = [at(2, 6), at(1, 6), at(4, 6), between(rnd, 0.2, 0.6)][Math.floor(rnd() * 4)];
-    p.osc2 = between(rnd, 0.5, 0.8);
-    p.cutoff = between(rnd, 0.3, 0.5);
-    p.res = between(rnd, 0.1, 0.35);
-    p.envAmt = between(rnd, 0.15, 0.35);
-    p.fmode = chance(rnd, 0.7) ? 0 : at(1, 5);
-    p.fA = between(rnd, 0.2, 0.5);
-    p.fD = between(rnd, 0.5, 0.75);
-    p.fS = between(rnd, 0.4, 0.7);
-    p.fR = between(rnd, 0.5, 0.75);
-    p.aA = between(rnd, 0.25, 0.55);
-    p.aD = between(rnd, 0.6, 0.8);
-    p.aS = between(rnd, 0.6, 0.85);
-    p.aR = between(rnd, 0.5, 0.8);
-    p.gate = between(rnd, 0.85, 0.97);
-    p.stack = between(rnd, 0.2, 0.5);
-    p.wide = between(rnd, 0.3, 0.6);
-    p.chorus = chance(rnd, 0.5) ? 0.5 : 1;
-    p.reverb = between(rnd, 0.35, 0.55);
-    p.delay = between(rnd, 0.12, 0.3);
-    p.fm = Math.min(p.fm ?? 0, 0.15);
-    p.glide = 0;
-    p.noise = Math.min(p.noise ?? 0, 0.1);
-    p.sub = 0;
-  } else {
-    p.octave = chance(rnd, 0.6) ? at(1, 5) : at(2, 5);
-    p.cutoff = Math.min(p.cutoff ?? 0.4, 0.55);
-    p.res = Math.min(p.res ?? 0.4, 0.6);
-    p.noise = chance(rnd, 0.4) ? between(rnd, 0.05, 0.2) : 0;
-    p.sub = chance(rnd, 0.4) ? between(rnd, 0.2, 0.45) : 0;
-  }
-  // garde-fous communs : jamais l'aigu, rien qui crie
-  p.octave = Math.min(p.octave ?? at(2, 5), at(2, 5));
-  p.cutoff = Math.min(p.cutoff ?? 0.5, 0.62);
-  if ((p.cutoff ?? 0) > 0.5) p.res = Math.min(p.res ?? 0, 0.45);
-  p.res = Math.min(p.res ?? 0, 0.75);
-  p.fm = Math.min(p.fm ?? 0, 0.4);
-  p.noise = Math.min(p.noise ?? 0, 0.2);
-  p.sync = 0;
-  if ((p.lfoDest ?? 0) === at(3, 5)) p.lfoAmt = Math.min(p.lfoAmt ?? 0, 0.1);
-  return p;
-}
-
-/** Le style du site d'ou part chaque famille. */
-const SITE_OF: Record<RandomFamily, readonly VoyStyle[]> = {
+/** Le style du site d'ou part chaque famille (v43 : le jeu de l'arpege seulement, le son vient de analogRandom). */
+export const SITE_OF: Record<RandomFamily, readonly VoyStyle[]> = {
   BASS: ['BASSLINE', 'BASSLINE', 'ACID'],
   ARP: ['PLUCK', 'ARP', 'PLUCK', 'DARK'],
   PAD: ['ARP', 'PLUCK'],
@@ -312,19 +223,20 @@ const SITE_OF: Record<RandomFamily, readonly VoyStyle[]> = {
 
 let lastFamily: RandomFamily | null = null;
 
-/** HELL : une touche une fois sur trois (MIX 0.03 a 0.10, un reglage doux), sinon coupe. */
-function hellTouch(rnd: Rnd): number {
-  if (!chance(rnd, 1 / 3)) {
-    arpExtra.set('xHellMix', 0);
-    return 0;
-  }
-  for (const [k, v] of Object.entries(hellGentle(rnd))) arpExtra.set(k, v);
-  const mix = between(rnd, 0.03, 0.1);
-  arpExtra.set('xHellMix', mix);
-  return mix;
+/**
+ * Le patch de RANDOM (sans la suite) : le jeu de l'arpege du site et de la page SEQ, puis le son analogique de la
+ * famille, borne par les regles. Pur (rnd seul) : plugin/mm-arp/tests/random-analog.mjs le rend hors ligne.
+ */
+export function randomPatch(fam: RandomFamily, site: Partial<Record<VoyKnobId, number>>, arpPart: { rate: number; range: number; gate: number }, rnd: Rnd): Partial<Record<VoyKnobId, number>> {
+  return analogTame({ ...site, ...arpPart, ...analogRandom(fam, rnd) }) as Partial<Record<VoyKnobId, number>>;
 }
 
-/** RANDOM de la face, dans le plugin : une famille, son son, la suite et les pistes hypnotiques du style choisi. */
+/** Les effets du VST3 seul a l'arret (v43 : RANDOM donne toujours un son sec). */
+function fxOff(): void {
+  for (const [k, v] of Object.entries(ANALOG_FX_OFF_EXTRA)) arpExtra.set(k, v);
+}
+
+/** RANDOM de la face, dans le plugin : une famille, son son analogique, la suite et les pistes hypnotiques du style choisi. */
 voyRandomHook.fn = (_r: VoyRandom): VoyRandom => {
   const rnd: Rnd = Math.random;
   const fam = family(rnd, lastFamily);
@@ -335,13 +247,13 @@ voyRandomHook.fn = (_r: VoyRandom): VoyRandom => {
   const h = hypnoSeq(style, rnd);
   const a = hypnoArp(style, rnd);
   arpSteps.load(h.steps);
-  const patch = tame(fam, { ...r.patch, rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
-  const hell = hellTouch(rnd);
+  const patch = randomPatch(fam, r.patch, { rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
+  fxOff();
   return {
     ...r,
     patch,
     seq: tameSeq(fam, h.seq),
     prog: h.prog,
-    label: `${fam} · ${style}${hell > 0 ? ' · HELL' : ''}`,
+    label: `${fam} · ${style}`,
   };
 };
