@@ -22,7 +22,7 @@
  * (Maj : x10), Debut, Fin, Suppr. En MIDI LEARN, un clic arme le reglage (arpBridge.learnArm) sans le bouger.
  */
 
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { voyMsg } from '../../voyager/msg';
 import { arpBridge } from './bridge';
 import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKnobId } from '../../voyager/params';
@@ -32,6 +32,7 @@ import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { distoInert } from './disto';
 import { delayInert } from './delay';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
+import { paintVKnob, vknobData } from './vknob';
 
 /* ---------------- la source d'un reglage ---------------- */
 
@@ -293,19 +294,41 @@ const SWEEP = 135;
  */
 export const KNOB_IMG = { box: 52, cx: 26, cy: 26, r0: 15.2, r1: 22, w: 3 } as const;
 
-/** Le potard de la face : son image, son repere a l'angle (degres, 0 en haut), son capuchon. k : l'echelle. */
+/**
+ * Le potard de la face (v43 : celui de Mika, vknob.ts k1, le meme calcul que sur la face) : dessine sur une toile a la
+ * definition de l'ecran, redessine quand l'angle ou la taille change ; la prise et le repere tournent, la lumiere et le
+ * capuchon brosse restent fixes. angle : degres, 0 en haut, sens horaire ; k : l'echelle.
+ */
 export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 1 }) => {
   const K = KNOB_IMG;
+  const ref = useRef<HTMLCanvasElement>(null);
+  const last = useRef('');
+  const [ready, setReady] = useState(0);
+  useEffect(() => {
+    let on = true;
+    void vknobData().then(() => on && setReady(1));
+    return () => {
+      on = false;
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const c = ref.current;
+    if (!c || !ready) return;
+    const w = c.getBoundingClientRect().width;
+    if (w < 2) return;
+    const S = Math.max(16, Math.min(1024, Math.round(w * (window.devicePixelRatio || 1))));
+    const key = `${S}:${angle.toFixed(3)}`;
+    if (key === last.current) return;
+    if (c.width !== S) {
+      c.width = S;
+      c.height = S;
+    }
+    const g = c.getContext('2d');
+    if (g && paintVKnob(g, S, 'k1', (angle * Math.PI) / 180, 1.04)) last.current = key;
+  });
   return (
     <span className="mm-r-knob" style={{ width: K.box * k, height: K.box * k }} aria-hidden="true">
-      {/* v37 (Mika : "dans les sous pages aucun bouton ne tourne vraiment physiquement") : la base reste face a la
-          lumiere (retro/knob-base.png), la prise a six lobes tourne avec la valeur (retro/knob-grip.png), comme sur la face */}
-      <span className="mm-r-knob-img" />
-      <span className="mm-r-knob-grip" style={{ transform: `rotate(${angle}deg)` }} />
-      <span className="mm-r-knob-axis" style={{ left: K.cx * k, top: K.cy * k, transform: `rotate(${angle}deg)` }}>
-        <span className="mm-r-knob-mark" style={{ left: (-K.w * k) / 2, top: -K.r1 * k, width: K.w * k, height: (K.r1 - K.r0) * k }} />
-      </span>
-      <span className="mm-r-knob-cap" />
+      <canvas ref={ref} className="mm-r-knob-cv" />
     </span>
   );
 };

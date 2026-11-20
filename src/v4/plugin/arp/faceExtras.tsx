@@ -22,7 +22,6 @@ import {
   CapsuleGeometry,
   CircleGeometry,
   Color,
-  DoubleSide,
   EquirectangularReflectionMapping,
   ExtrudeGeometry,
   Float32BufferAttribute,
@@ -51,6 +50,8 @@ import { VOY_SEQ } from '../../voyager/seqscreen';
 import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_DS_PLACE, VOY_KNOB, voyKnobPlace } from '../../voyager/theme';
 import { arpExtra, extraParam, isExtra } from './extra';
+import { VKnobSet, onVKnobReady } from './vknob';
+import { VKNOB_LIFT, attachVKnobs } from './vknobFace';
 
 voySilkExtraKnob('panel', 'DETUNE', VOY_DS_PLACE.detune.x, VOY_DS_PLACE.detune.labelZ);
 voySilkExtraKnob('panel', 'SPREAD', VOY_DS_PLACE.spread.x, VOY_DS_PLACE.spread.labelZ);
@@ -124,8 +125,11 @@ function colored(g: BufferGeometry, hex: string): BufferGeometry {
   return out;
 }
 
-/** Le petit knob cannele (unites du potard ; rayon 0.24 au pied, 0.2 de haut), son repere vers -z (comme les autres). */
-function flutedGeometry(): BufferGeometry {
+/**
+ * Le petit knob cannele (unites du potard ; rayon 0.24 au pied, 0.2 de haut), son repere vers -z (comme les autres).
+ * v43 : plus pose sur la face (le petit knob de Mika, vknob.ts k3) ; garde pour memoire.
+ */
+export function flutedGeometry(): BufferGeometry {
   const prof = [
     [0.152, 0.2],
     [0.168, 0.196],
@@ -398,8 +402,6 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     if (!stage || !rig) return undefined;
     const kEnv = knobEnv();
     const cEnv = chromeEnv();
-    const knobMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.36, metalness: 0.12, envMap: kEnv, envMapIntensity: 0.9, side: DoubleSide });
-    const geo = flutedGeometry();
     const mats = {
       body: new MeshStandardMaterial({ color: '#0d0d0e', roughness: 0.42, metalness: 0.1, envMap: kEnv, envMapIntensity: 0.6 }),
       floor: new MeshStandardMaterial({ color: '#030303', roughness: 0.9, metalness: 0 }),
@@ -410,15 +412,20 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const turns: (() => void)[] = [];
     const defs: HotspotDef[] = [];
     const disposers: (() => void)[] = [];
-    const addKnob = (parent: Group, x: number, z: number, s: number, id: string): void => {
-      const m = new Mesh(geo, knobMat);
-      m.position.set(x, 0, z);
-      m.scale.setScalar(s);
-      m.castShadow = true;
-      parent.add(m);
-      added.push({ parent, obj: m });
-      turns.push(() => m.rotation.set(0, potAngle(valOf(id)), 0));
+    // v43 : les potards de la face d'apres les PNG de Mika (vknobFace.ts) ; ici les petits (FM, RATIO, OSC 1..., DETUNE,
+    // SPREAD, ceux de l'encart d'EDIT) : le petit knob de Mika (vknob.ts k3), meme centre, meme rayon exterieur
+    const offFace = attachVKnobs(stage);
+    const vsets: { parent: Group; set: VKnobSet }[] = [];
+    const vknob = (parent: Group, x: number, y: number, z: number, R: number, id: string): void => {
+      const set = new VKnobSet('k3', 1);
+      set.place(0, x, y, z, R);
+      parent.add(set.mesh);
+      vsets.push({ parent, set });
+      // l'angle des potards de la face (autour de +y) -> le sens horaire vu de face
+      turns.push(() => set.setAngle(0, -potAngle(valOf(id))));
     };
+    const offReady = onVKnobReady(() => stage.invalidate());
+    const addKnob = (parent: Group, x: number, z: number, s: number, id: string): void => vknob(parent, x, VKNOB_LIFT, z, FLUTED.r * s, id);
     // 1. les petits knobs canneles de la face (leurs zones de prise : celles des potards d'avant, vk-<id>)
     for (const id of FLUTED_DIALS) {
       const pl = voyKnobPlace(id);
@@ -470,13 +477,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         let hz = 0.2;
         let y1 = y + 0.1;
         if (p.c.k === 'knob') {
-          const m = new Mesh(geo, knobMat);
-          m.position.set(p.x, y, p.z);
-          m.scale.setScalar(e.scale);
-          m.castShadow = true;
-          sq.group.add(m);
-          added.push({ parent: sq.group, obj: m });
-          turns.push(() => m.rotation.set(0, potAngle(valOf(id)), 0));
+          vknob(sq.group, p.x, y + VKNOB_LIFT, p.z, FLUTED.r * e.scale, id);
           hx = hz = Math.max(0.2, FLUTED.r * e.scale * 1.15);
           y1 = y + FLUTED.h * e.scale;
           if (id === 'xRing' || id === 'xFold' || id === 'xComb')
@@ -567,6 +568,12 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       off1();
       off2();
       offEd();
+      offReady();
+      offFace();
+      for (const v of vsets) {
+        v.parent.remove(v.set.mesh);
+        v.set.dispose();
+      }
       for (const d of [...defs, ...edDefs]) d.enabled = false;
       stage.hit.invalidate();
       for (const a of added) a.parent.remove(a.obj);
@@ -579,8 +586,6 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       faceArcPlaces.clear();
       panelTex?.dispose();
       panelMat?.dispose();
-      geo.dispose();
-      knobMat.dispose();
       kEnv.dispose();
       cEnv.dispose();
       mats.body.dispose();

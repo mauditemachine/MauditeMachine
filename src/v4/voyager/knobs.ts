@@ -55,7 +55,7 @@ const scl = new Vector3();
 /** Le panneau dans le repere du capot (rig.ts le pose pareil). */
 const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
 /** Les potards de la face, sans les boutons poussoirs (SUB OCT, 2026-10-11). */
-const DIALS = VOY_FACE_KNOBS.filter((k) => !isPush(k.id));
+export const DIALS = VOY_FACE_KNOBS.filter((k) => !isPush(k.id));
 /** v27 (le plugin) : les potards rendus en petits knobs canneles 3D (plugin/arp/faceExtras.tsx) : caches ici, leurs zones de prise restent. */
 export const FLUTED_DIALS: ReadonlySet<VoyKnobId> = new Set<VoyKnobId>(PLUGIN_ARP ? ['fm', 'ratio', 'osc1', 'osc2', 'noise', 'sub', 'subWave'] : []);
 
@@ -126,6 +126,15 @@ export class VoyKnobs {
   readonly top: InstancedMesh | null = null;
   private topMat: MeshStandardMaterial | null = null;
   private angle = new Map<VoyKnobId, number>();
+  /**
+   * v43 (le plugin MM-ARP) : chaque angle pose (valeur, glissement) est aussi donne ici : les knobs dessines d'apres les
+   * PNG de Mika (plugin/arp/vknobFace.ts) tournent avec ; null au site.
+   */
+  onPlace: ((id: VoyKnobId, angle: number) => void) | null = null;
+  /** L'angle courant d'un potard (radians, autour de +y). */
+  angleOf(id: VoyKnobId): number {
+    return this.angle.get(id) ?? 0;
+  }
 
   constructor(opts: { mobile: boolean; castShadow: boolean }) {
     if (PLUGIN_ARP) {
@@ -180,6 +189,7 @@ export class VoyKnobs {
     if (pl.where === 'panel') m4.premultiply(PANEL_M);
     this.mesh.setMatrixAt(i, m4);
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.onPlace?.(id, this.angle.get(id) ?? 0);
   }
 
   /** Valeur 0 a 1 -> angle ; true s'il faut une frame. */

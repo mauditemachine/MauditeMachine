@@ -15,22 +15,23 @@
  */
 
 import { useEffect } from 'react';
-import { Mesh, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import { openToggle } from '../../actions';
 import type { Stage } from '../../scene/renderer';
 import type { HotspotDef } from '../../scene/hit';
 import { potAngle } from '../../scene/encoders';
 import { registerDialSpec } from '../../scene/screen/menus/registry';
 import { voyExplode } from '../../state/explode';
-import { MATERIAL, type EncId } from '../../theme';
+import type { EncId } from '../../theme';
 import { faceDbl } from '../../voyager/faceDbl';
-import { RYTM_KNOB, rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from '../../voyager/rytmKnob';
+import { RYTM_KNOB } from '../../voyager/rytmKnob';
 import { voyMsg } from '../../voyager/msg';
 import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
 import { hoodPage, type HoodFx, type HoodTab } from './hoodPage';
 import { encartTap } from './faceExtras';
+import { VKnobSet } from './vknob';
+import { VKNOB_LIFT } from './vknobFace';
 
 const ID = 'xHellMix';
 export const HELL_DIAL = 'z:hell';
@@ -67,37 +68,19 @@ function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string 
   return null;
 }
 
-const DEF_ANGLE_AXIS = new Vector3(0, 1, 0);
-
 /** Le potard HELL dans la scene, et le clic des potards de la face ; rien a dessiner en HTML. */
 export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     const rig = stage?.voy;
     if (!stage || !rig) return undefined;
     const P = VOY_HELL_PLACE;
-    // Le potard du MM-RYTM, comme tous ceux de la face du plugin (voyager/rytmKnob.ts) : la prise et le repere tournent, la
-    // base et le dessus du capuchon (top) non
-    const material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
-    material.name = 'voyHellKnob';
-    // ?knobshot : le potard sans repere (la prise de l'image des potards d'OPEN, plugin/arp/retro/knob.png)
-    const shot = typeof location !== 'undefined' && location.search.includes('knobshot');
-    const mesh = new Mesh(rytmKnobGeometry(false, !shot), material);
-    mesh.name = 'voyHellKnob';
-    mesh.castShadow = rig.knobs.mesh.castShadow;
-    mesh.receiveShadow = false;
-    mesh.position.set(P.x, 0, P.z);
-    mesh.scale.setScalar(P.s);
-    rig.panel.add(mesh);
-    const topMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28, map: rytmKnobTexture() });
-    const top = new Mesh(rytmKnobTopGeometry(false), topMat);
-    top.castShadow = rig.knobs.mesh.castShadow;
-    top.receiveShadow = false;
-    top.position.set(P.x, 0, P.z);
-    top.scale.setScalar(P.s);
-    rig.panel.add(top);
-    const q = new Quaternion();
+    // v43 : le potard de Mika, comme tous ceux de la face (vknob.ts k1) : meme centre, meme rayon exterieur
+    const set = new VKnobSet('k1', 1);
+    set.place(0, P.x, VKNOB_LIFT, P.z, RYTM_KNOB.R * P.s);
+    rig.panel.add(set.mesh);
     const turn = (): void => {
-      mesh.quaternion.copy(q.setFromAxisAngle(DEF_ANGLE_AXIS, Math.fround(potAngle(arpExtra.of(ID)))));
+      // l'angle des potards de la face (autour de +y) -> le sens horaire vu de face
+      set.setAngle(0, -Math.fround(potAngle(arpExtra.of(ID))));
       stage.invalidate();
     };
     turn();
@@ -131,12 +114,8 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       off();
       faceDbl.set(null);
       def.enabled = false;
-      rig.panel.remove(mesh);
-      rig.panel.remove(top);
-      mesh.geometry.dispose();
-      top.geometry.dispose();
-      material.dispose();
-      topMat.dispose();
+      rig.panel.remove(set.mesh);
+      set.dispose();
     };
   }, [stage]);
   return null;
