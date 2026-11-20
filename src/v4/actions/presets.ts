@@ -47,6 +47,31 @@ export function presetEnter(m: PresetMachine): void {
   }
 }
 
+/**
+ * Le plugin MM-ARP (v43, Mika : "les presets je veux pouvoir les selectionner a la souris et avec la touche entree je
+ * valide le preset !") : une ligne de la liste du grand ecran cliquee (vlcd-row-<r>, voyager/rig.ts) : son preset est
+ * choisi (surligne, rien ne se charge) ; un second clic sur la meme ligne dans ROW_DOUBLE_MS le charge (le double clic,
+ * comme LOAD et Entree : une etape d'UNDO).
+ */
+const ROW_DOUBLE_MS = 450;
+let rowTap = { item: Number.NaN, at: -Infinity };
+
+export function voyPresetRow(r: number, stage: Stage | null): void {
+  if (!presetMode.on('voy') || presetMode.get().stage !== 'browse') return;
+  const item = stage?.voy?.presetRowAt(r) ?? null;
+  if (item === null) return;
+  gesture();
+  const at = eventAt();
+  const again = rowTap.item === item && at - rowTap.at < ROW_DOUBLE_MS && presetMode.get().index === item;
+  if (again) {
+    rowTap = { item: Number.NaN, at: -Infinity };
+    presetEnter('voy');
+    return;
+  }
+  rowTap = { item, at };
+  presetMode.pick('voy', item);
+}
+
 /** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */
 export function presetKey(m: PresetMachine, k: PresetKey): void {
   gesture();

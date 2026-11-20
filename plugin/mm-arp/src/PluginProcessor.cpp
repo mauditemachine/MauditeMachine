@@ -39,12 +39,18 @@ void parseSeq(const juce::var& o, mmarp::SeqStateC& s) {
         }
 }
 
-void parseProg(const juce::var& arr, MMArpProgram& p) {
+// La progression : 8 indices de CHORDS au plus. v43 : site (un programme sans chordBank, d'avant les accords du plugin) :
+// des indices du site, convertis (dsp/Params.h chordFromSite : le meme accord a chaque pas)
+void parseProg(const juce::var& arr, MMArpProgram& p, bool site) {
     p.nProg = 0;
     if (const auto* pr = arr.getArray())
         for (const auto& c : *pr)
-            if (isNum(c) && p.nProg < 8 && static_cast<int>(c) >= 0 && static_cast<int>(c) < 8) p.prog[static_cast<size_t>(p.nProg++)] = static_cast<int>(c);
+            if (isNum(c) && p.nProg < 8 && static_cast<int>(c) >= 0 && static_cast<int>(c) < 8)
+                p.prog[static_cast<size_t>(p.nProg++)] = site ? mmarp::chordFromSite(static_cast<int>(c)) : static_cast<int>(c);
 }
+
+// Le programme (ou la progression gardee) porte-t-il les indices du plugin (chordBank = kChordBank, v43) ?
+bool arpBank(const juce::var& o) { return isNum(o.getProperty("chordBank", juce::var())) && static_cast<int>(o.getProperty("chordBank", 0)) == mmarp::kChordBank; }
 
 bool parseKnobs(const juce::var& o, std::array<double, mmarp::kKnobs>& k) {
     auto* d = o.getDynamicObject();
@@ -64,7 +70,7 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
     p.bpm = juce::jlimit(20.0, 400.0, num(o, "bpm", 120));
     p.swing = juce::jlimit(0.0, 0.5, num(o, "swing", 0));
     parseSeq(o.getProperty("seq", juce::var()), p.seq);
-    parseProg(o.getProperty("prog", juce::var()), p);
+    parseProg(o.getProperty("prog", juce::var()), p, !arpBank(o));
     p.hasKnobs = parseKnobs(o.getProperty("knobs", juce::var()), p.knobs);
     // Les pistes par pas (src/v4/plugin/arp/steps.ts)
     {
@@ -517,7 +523,13 @@ bool MMArpProcessor::legacyFromLs(const juce::String& lsJson) {
     const juce::var knobs = juce::JSON::parse(ls.getProperty("mm.v4.voyager.1", "").toString());
     if (!parseKnobs(knobs.getProperty("knobs", juce::var()), p->knobs)) return false;
     parseSeq(juce::JSON::parse(ls.getProperty("mm.v4.voyager.seq.1", "").toString()), p->seq);
-    parseProg(juce::JSON::parse(ls.getProperty("mm.v4.plugin.arp.prog", "").toString()), *p);
+    // La progression : un tableau en indices du site (la premiere version), ou { chordBank, prog } (la face v43) ; un
+    // tableau est aussi un objet pour juce::var (isObject) : isArray d'abord
+    {
+        const juce::var pv = juce::JSON::parse(ls.getProperty("mm.v4.plugin.arp.prog", "").toString());
+        if (pv.isArray()) parseProg(pv, *p, true);
+        else parseProg(pv.getProperty("prog", juce::var()), *p, !arpBank(pv));
+    }
     setKnobsFrom(p->knobs);
     publish(std::move(p));
     return true;

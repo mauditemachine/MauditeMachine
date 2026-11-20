@@ -22,7 +22,7 @@
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_param {id, v}, mm_gesture {id, on}, mm_state {ls}, mm_run {on},
  *                 mm_log {where, msg}, mm_preset_save {name, preset}, mm_preset_open {}, mm_preset_list {},
- *                 mm_preset_load {path}
+ *                 mm_preset_load {path}, mm_keys {on}
  *                 mm_drag_midi {cycles}, mm_save_mid {cycles}, mm_learn {id}, mm_unmap {cc, ch}, mm_unmap_all {},
  *                 mm_midimap_get {}
  *   C++ -> face : mm_transport {playing, internal, seq, slot, pos, len, chord, midi}, mm_knobs {values},
@@ -45,6 +45,14 @@
  * SOUND+ (memes evenements). Les pistes du STEP SEQUENCER (plugin/arp/steps.ts) partent dans mm_program sous
  * steps: { acc, slide, gate, rat, prob } (cinq tableaux de 16 entiers ; un changement relance le programme, comme la
  * suite), et dans le preset du disque (champ steps ; un preset sans steps remet les valeurs de depart).
+ *
+ * Les accords des pads (v43, voyager/chords.ts ARP_CHORDS : les sept degres de F# mineur puis F#m7, a la place des huit
+ * accords du site) : tout ce que le plugin garde porte la marque chordBank: 2 avec ses indices (mm_program, la
+ * progression de l'etat du projet, le preset du disque, les presets de l'ecran et les sons mis de cote : state/presets.ts).
+ * Sans elle, une progression est en indices du site (un projet, un preset d'avant, la banque d'usine) : convertie au
+ * chargement (chords.ts arpProgOf ; le C++ : dsp/Params.cpp kSiteToArp, la meme table), le meme accord a chaque pas.
+ * mm_keys {on} : la liste des presets du grand ecran s'ouvre (haut, bas et Entree sont a elle : hooks/useKeys.ts) ou se
+ * ferme (le C++ rend le clavier a l'hote, PluginEditor.cpp).
  */
 
 import { arpMod } from './modview';
@@ -55,7 +63,8 @@ import { apply, capture, presets } from '../../state/presets';
 import { undo } from '../../state/undo';
 import { SWING } from '../../theme';
 import { arp, arpExternal, type ArpExtHead } from '../../voyager/arp';
-import { CHORDS } from '../../voyager/chords';
+import { ARP_CHORD_BANK, CHORDS, arpProgOf } from '../../voyager/chords';
+import { presetMode } from '../../state/presetMode';
 import { voyMsg } from '../../voyager/msg';
 import { VOY_KNOB_IDS, VOY_STORAGE_KEY, voyParams, type VoyKnobId } from '../../voyager/params';
 import { seq, type SeqStep } from '../../voyager/seq';
@@ -85,6 +94,8 @@ export interface ArpProgram {
   seq: { edit: boolean; len: number; buf: SeqStep[] };
   /** la progression (indices de CHORDS), un accord par mesure */
   prog: number[];
+  /** v43 : la banque de ces indices (chords.ts ARP_CHORD_BANK) ; absente (un projet d'avant) : ceux du site, convertis */
+  chordBank: typeof ARP_CHORD_BANK;
   /** tous les potards (0 a 1), pour la compatibilite : ils vivent dans les parametres du plugin (mm_param, mm_knobs) */
   knobs: Record<string, number>;
   /** les reglages du VST3 seul (plugin/arp/extra.ts, 0 a 1), comme knobs : ils vivent dans les parametres du plugin */
@@ -108,6 +119,7 @@ function compile(): ArpProgram {
     swing: r6(pattern.fx.get().swing * SWING.maxDelay),
     seq: { edit: s.edit, len: s.len, buf: [...s.buf] },
     prog: [...arp.get().prog],
+    chordBank: ARP_CHORD_BANK,
     knobs: { ...voyParams.get() },
     extra: { ...arpExtra.get() },
     steps: arpSteps.plain(),
@@ -163,13 +175,15 @@ function onTransport(o: unknown): void {
 
 /**
  * La progression (le site ne la garde pas : chaque visite repart sans accord) : le plugin la garde dans le projet, avec le
- * reste ; remise au chargement (arp.load : sans lancer ni arreter l'arpege).
+ * reste ; remise au chargement (arp.load : sans lancer ni arreter l'arpege). v43 : { chordBank: 2, prog } ; un tableau
+ * seul (un projet d'avant, en indices du site) est converti (chords.ts arpProgOf ; le C++ lit la meme cle pour un projet
+ * de la premiere version, PluginProcessor.cpp legacyFromLs).
  */
 const PROG_KEY = 'mm.v4.plugin.arp.prog';
 
 function saveProg(): void {
   try {
-    window.localStorage.setItem(PROG_KEY, JSON.stringify(arp.get().prog));
+    window.localStorage.setItem(PROG_KEY, JSON.stringify({ chordBank: ARP_CHORD_BANK, prog: arp.get().prog }));
   } catch {
     /* stockage refuse : rien */
   }
@@ -178,7 +192,9 @@ function saveProg(): void {
 function loadProg(): void {
   try {
     const raw = JSON.parse(window.localStorage.getItem(PROG_KEY) ?? 'null') as unknown;
-    if (Array.isArray(raw) && raw.length > 0) arp.load(raw.filter((k): k is number => typeof k === 'number'));
+    const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as { chordBank?: unknown; prog?: unknown }) : null;
+    const prog = o ? arpProgOf(o.prog, o.chordBank) : arpProgOf(raw, null);
+    if (prog.length > 0) arp.load(prog);
   } catch {
     /* illisible : sans accord */
   }
@@ -330,7 +346,7 @@ const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 function diskPreset(name: string): string {
   const d = capture('voy') as { knobs: Record<string, number>; seq: unknown; prog: number[] };
   const user = presets.user();
-  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog, extra: { ...arpExtra.get() }, steps: arpSteps.plain() });
+  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog, chordBank: ARP_CHORD_BANK, extra: { ...arpExtra.get() }, steps: arpSteps.plain() });
 }
 
 /**
@@ -374,8 +390,10 @@ function applyDiskPreset(name: string, text: string): boolean {
   const data = {
     knobs: d.knobs as Record<string, number>,
     seq: (d.seq && typeof d.seq === 'object' ? d.seq : { edit: false }) as ReturnType<typeof seq.get>,
-    // Sans progression : celle du moment
-    prog: Array.isArray(d.prog) ? (d.prog.filter((k) => typeof k === 'number') as number[]) : [...arp.get().prog],
+    // Sans progression : celle du moment ; v43 : sans chordBank (un preset d'avant, la banque d'usine, un preset du
+    // site), ses indices sont ceux du site, convertis (chords.ts arpProgOf)
+    prog: Array.isArray(d.prog) ? arpProgOf(d.prog, d.chordBank) : [...arp.get().prog],
+    chordBank: ARP_CHORD_BANK,
   };
   presets.setAside('voy');
   undo.boundary('voy', 'preset');
@@ -495,6 +513,12 @@ function learnArm(id: string): boolean {
 
 /* ---------------- le pont ---------------- */
 
+/** Un champ de texte a-t-il le clavier (le nom d'un preset) ? */
+function isTyping(): boolean {
+  const a = document.activeElement;
+  return a instanceof HTMLElement && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+}
+
 let started = false;
 let progTimer = 0;
 let stateTimer = 0;
@@ -604,6 +628,17 @@ export const arpBridge = {
     presets.subscribe(stateChanged);
     // Les reglages d'aspect (le cuir, la lumiere du panneau : look.ts) : dans l'etat du projet, pas a l'hote
     look.subscribe(stateChanged);
+    // v43 : la liste des presets du grand ecran ouverte, la face prend haut, bas et Entree (hooks/useKeys.ts) ; fermee, le
+    // C++ rend le clavier a l'hote (le clavier MIDI d'ordinateur d'Ableton). Pas s'il est ailleurs (la fenetre du plugin
+    // n'a pas le clavier : document.hasFocus faux) ni si un champ de texte l'a (le nom d'un preset sur le disque)
+    let keysOn = false;
+    presetMode.subscribe(() => {
+      const on = presetMode.on('voy');
+      if (on === keysOn) return;
+      keysOn = on;
+      if (!on && (!document.hasFocus() || isTyping())) return;
+      send('mm_keys', { on });
+    });
     // Les gestes : un pointeur enfonce tient le geste des potards qui changent, relache il le ferme
     const opts = { capture: true, passive: true } as const;
     window.addEventListener('pointerdown', (e) => {
@@ -649,11 +684,13 @@ export const arpBridge = {
    * exactement comme un mm_preset venu du disque (potards, suite, progression, SOUND+ ; une etape d'UNDO, mm_param vers le
    * C++), sauf QUALITY qui garde la valeur du moment.
    */
-  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown; steps?: unknown }): boolean {
+  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; chordBank?: unknown; extra?: unknown; steps?: unknown }): boolean {
     const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
     delete extra.xQuality;
     delete extra.xEngine; // v34 : un preset d'usine ne change pas le moteur de l'instance
-    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra, ...(p.steps ? { steps: p.steps } : {}) }));
+    // v43 : la progression de factory.json en indices du site (sans chordBank) est convertie, comme un preset d'avant
+    const bank = p.chordBank !== undefined ? { chordBank: p.chordBank } : {};
+    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, ...bank, extra, ...(p.steps ? { steps: p.steps } : {}) }));
     if (ok) arpDisk.set({ current: null });
     return ok;
   },

@@ -106,6 +106,7 @@ import {
   soundFamily,
   editToggle,
   presetKey,
+  voyPresetRow,
   presetFaceKnob,
   focusMachine,
   gesture,
@@ -1184,6 +1185,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Le plugin MM-ARP (v43) : une ligne de la liste des presets, choisie (un second clic la charge)
+      else if (PLUGIN_ARP && d.kind === 'vlcd' && d.index !== undefined) voyPresetRow(d.index, stage);
       // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face est
       // prise et ne fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets) ; les actions passent par
       // les touches VOICE FLTR ENV FX EDIT (rytm/presetKeys.ts), tourner un potard fait defiler (actions.ts presetFaceKnob)

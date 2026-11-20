@@ -94,10 +94,11 @@ struct ChordC {
   int nTones;
   int tones[4];
 };
-// CHORDS : F#m, D, E, C#m, Bm, A, F#m7, Dmaj7
+// CHORDS du plugin (v43, chords.ts ARP_CHORDS, celle de la face) : les sept degres de F# mineur puis i7 :
+// F#m, G#ø (G#m7b5), A, Bm, C#m, D, E, F#m7. (Avant la v43 : ceux du site, F#m D E C#m Bm A F#m7 Dmaj7 ; kSiteToArp.)
 constexpr ChordC CHORDS[8] = {
-    {0, 3, {0, 3, 7, 0}}, {8, 3, {0, 4, 7, 0}}, {10, 3, {0, 4, 7, 0}}, {7, 3, {0, 3, 7, 0}},
-    {5, 3, {0, 3, 7, 0}}, {3, 3, {0, 4, 7, 0}}, {0, 4, {0, 3, 7, 10}}, {8, 4, {0, 4, 7, 11}},
+    {0, 3, {0, 3, 7, 0}}, {2, 4, {0, 3, 6, 10}}, {3, 3, {0, 4, 7, 0}}, {5, 3, {0, 3, 7, 0}},
+    {7, 3, {0, 3, 7, 0}}, {8, 3, {0, 4, 7, 0}}, {10, 3, {0, 4, 7, 0}}, {0, 4, {0, 3, 7, 10}},
 };
 constexpr int kChordCount = 8;
 constexpr int SEQ_TOP = 24;

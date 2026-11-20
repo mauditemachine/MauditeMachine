@@ -91,6 +91,18 @@ void reserveArp(ArpProgram& out);
  */
 void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int nProg, ArpProgram& out);
 
+/**
+ * Les accords des pads (v43, Mika : "pourquoi on a pas toutes les fondamentales finalement ?") : ceux du plugin
+ * (voyager/chords.ts ARP_CHORDS : F#m G#ø A Bm C#m D E F#m7, les sept degres de F# mineur puis i7). Ce que la face
+ * garde porte la marque chordBank = kChordBank ; sans elle (un projet, un preset d'avant la v43, la banque d'usine), une
+ * progression est en indices du site (F#m D E C#m Bm A F#m7 Dmaj7) : chordFromSite la convertit, le meme accord (Dmaj7,
+ * sans pad, devient D). kSiteToArp est la table de chords.ts SITE_TO_ARP (verifiee par params_test).
+ */
+constexpr int kChordBank = 2;
+constexpr int kSiteToArp[8] = {0, 5, 6, 4, 3, 2, 7, 5};
+/** Un accord du site (0..7) dans la banque du plugin ; hors 0..7 : -1. */
+inline int chordFromSite(int c) { return c >= 0 && c < 8 ? kSiteToArp[c] : -1; }
+
 /* ---- les fonctions du site, pour les tests et l'interface ---- */
 
 /** chords.ts degreeMidi : la note midi du degre d au-dessus de la racine de l'accord i (0..7). */

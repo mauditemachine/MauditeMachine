@@ -19,8 +19,13 @@ const count = Number(process.argv[3] ?? 3000);
 const src = join(out, 'src');
 mkdirSync(src, { recursive: true });
 
-const fix = (code) => code.replace(/from '\.\/(params|chords|seq)'/g, "from './$1.ts'");
-for (const f of ['params', 'chords', 'seq']) writeFileSync(join(src, `${f}.ts`), fix(readFileSync(join(repo, 'src/v4/voyager', `${f}.ts`), 'utf8')));
+// chords.ts lit PLUGIN_ARP (v43) : ici la face du plugin, ses accords (ARP_CHORDS), ceux du C++ (dsp/Params.cpp)
+const fix = (code) => code.replace(/from '\.\/(params|chords|seq)'/g, "from './$1.ts'").replace("import { PLUGIN_ARP } from '../theme/base';", 'const PLUGIN_ARP = true;');
+for (const f of ['params', 'chords', 'seq']) {
+  const code = fix(readFileSync(join(repo, 'src/v4/voyager', `${f}.ts`), 'utf8'));
+  if (code.includes("from '../")) throw new Error(`voyager/${f}.ts : un import hors de voyager/ (a remplacer ici)`);
+  writeFileSync(join(src, `${f}.ts`), code);
+}
 // volGain de audio/synth.ts, tel quel, avec ses deux constantes
 {
   const syn = readFileSync(join(repo, 'src/v4/audio/synth.ts'), 'utf8');
@@ -118,6 +123,9 @@ function stepsOf(st, c, p) {
 const L = [];
 L.push('H ' + K.length);
 for (const k of K) L.push(['D', k.id, k.label, k.section, String(k.def), k.legacy === undefined ? 'null' : String(k.legacy), k.morph ? '1' : '0', k.steps ? k.steps.join('|') : ''].join('\t'));
+// v43 : les accords du plugin, sa marque et la conversion des indices du site (chords.ts ; le C++ : dsp/Params.h)
+if (C.CHORDS !== C.ARP_CHORDS) throw new Error('chords.ts : CHORDS devrait etre ARP_CHORDS (PLUGIN_ARP)');
+L.push('B ' + C.ARP_CHORD_BANK + ' ' + C.SITE_TO_ARP.join(' '));
 L.push('N ' + N);
 let checked = 0;
 for (let i = 0; i < N; i += 1) {

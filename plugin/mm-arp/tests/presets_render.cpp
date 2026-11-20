@@ -231,9 +231,13 @@ Preset parsePreset(const J& p) {
     lane("rat", out.stRat, 1, 4);
     lane("prob", out.stProb, 0, 100);
   }
+  // v43 : sans chordBank, la progression est en indices des accords du site (la banque d'usine) : convertie comme le fait
+  // le plugin au chargement (dsp/Params.h chordFromSite), le rendu joue les accords que Mika entend
+  const J* bank = p.get("chordBank");
+  const bool site = !(bank && bank->t == J::Num && static_cast<int>(bank->n) == kChordBank);
   if (const J* pr = p.get("prog"))
     for (const auto& c : pr->a)
-      if (c.t == J::Num && c.n >= 0 && c.n < 8 && out.prog.size() < 8) out.prog.push_back(static_cast<int>(c.n));
+      if (c.t == J::Num && c.n >= 0 && c.n < 8 && out.prog.size() < 8) out.prog.push_back(site ? chordFromSite(static_cast<int>(c.n)) : static_cast<int>(c.n));
   return out;
 }
 

@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <map>
+#include <set>
 #include <tuple>
 #include <cstdio>
 #include <cstring>
@@ -73,6 +74,17 @@ Stats run(MMArpProcessor& p, Head& h, int n, int block, juce::MidiBuffer* first 
 }
 
 double db(double x) { return 20 * std::log10(std::max(x, 1e-12)); }
+
+// v43 : les classes de hauteur (0 do .. 11 si) des notes du clip DRAG MIDI de la progression (une fois)
+std::set<int> clipPitches(const MMArpProcessor& p) {
+    int bars = 0;
+    std::set<int> out;
+    const juce::MidiFile mf = p.arpMidi(1, bars);
+    if (mf.getNumTracks() > 0)
+        for (const auto* ev : *mf.getTrack(0))
+            if (ev->message.isNoteOn()) out.insert(ev->message.getNoteNumber() % 12);
+    return out;
+}
 
 } // namespace
 
@@ -463,6 +475,40 @@ int main() {
         h.playing = true;
         const Stats s = run(p, h, 48000 * 2, 512);
         check(s.peak > 0.01, "projet de la premiere version : sa progression joue");
+        // v43 : [2] est E dans les accords du site : toujours E (6 dans ceux du plugin), pas A (2 du plugin)
+        const auto pc = clipPitches(p);
+        check(pc.count(4) == 1 && pc.count(9) == 0, "projet de la premiere version : sa progression [2] du site reste E");
+    }
+    {
+        // v43 (Mika : "pourquoi on a pas toutes les fondamentales finalement ?") : les accords du plugin, F#m G#ø A Bm C#m
+        // D E F#m7 (dsp/Params.h). Un programme sans chordBank (un projet d'avant) est en indices du site, F#m D E C#m Bm
+        // A F#m7 Dmaj7 : converti, le meme accord ; avec chordBank 2 (la face v43), tel quel
+        MMArpProcessor p;
+        p.prepareToPlay(48000, 512);
+        p.faceProgram(program("[1]"));
+        const auto site = clipPitches(p);
+        check(site.count(2) == 1 && site.count(8) == 0, "programme d'avant la v43 : [1] du site reste D (pas G#)");
+        p.faceProgram(program("[1]").replace("\"prog\":", "\"chordBank\":2,\"prog\":"));
+        const auto own = clipPitches(p);
+        check(own.count(8) == 1 && own.count(11) == 1, "programme v43 (chordBank 2) : [1] est G#ø (G# B D F#)");
+        p.faceProgram(program("[7]"));
+        const auto dmaj7 = clipPitches(p);
+        check(dmaj7.count(2) == 1 && dmaj7.count(6) == 1 && dmaj7.count(9) == 1, "programme d'avant : Dmaj7 (7 du site) joue D");
+        // L'etat de la face v43 d'un projet de la premiere version : { chordBank, prog } lu tel quel
+        juce::ValueTree st("MMARP1");
+        st.setProperty("seed", 7, nullptr);
+        juce::DynamicObject::Ptr lso = new juce::DynamicObject();
+        lso->setProperty("mm.v4.voyager.1", R"({"v":1,"knobs":{}})");
+        lso->setProperty("mm.v4.plugin.arp.prog", R"({"chordBank":2,"prog":[1]})");
+        juce::DynamicObject::Ptr top = new juce::DynamicObject();
+        top->setProperty("ls", juce::var(lso.get()));
+        st.setProperty("ls", juce::JSON::toString(juce::var(top.get())), nullptr);
+        juce::MemoryBlock mb;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), mb);
+        MMArpProcessor q;
+        q.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        const auto ls = clipPitches(q);
+        check(ls.count(8) == 1, "etat de la face { chordBank: 2, prog: [1] } : G#ø");
     }
     {
         // Le meme passage joue deux fois (une boucle d'Ableton, un export) : le meme son, quels que soient les blocs

@@ -173,6 +173,11 @@ const CHORD_X1 = DESK ? 68 : 60;
 const LAD_X0 = DESK ? 78 : 66;
 const LAD_X1 = DESK ? 212 : UW - 10;
 const PAR_X0 = DESK ? 222 : 0;
+/**
+ * La liste des presets (unites) : ses lignes visibles, leur hauteur, le haut de la premiere ; band : le haut de la bande
+ * des touches, en part de la hauteur. Le plugin MM-ARP (v43) pose une zone de saisie par ligne aux memes cotes (rig.ts).
+ */
+export const PRESET_LIST = { rows: DESK ? 6 : 4, rowH: DESK ? 9.2 : 9.8, y0: DESK ? 24 : 21, band: 0.72, uh: UH } as const;
 /** La touche i : son centre et son rayon (theme.ts VOY_INFO_KEY pose sa zone au meme endroit) */
 export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 6.4 } as const;
 /** Les corps (unites) */
@@ -182,10 +187,12 @@ const FS = DESK
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
 
-/** Les degres des huit accords en fa diese mineur, et leur cle Camelot (le cercle des DJ). */
-const ROMAN = ['i', 'VI', 'VII', 'v', 'iv', 'III', 'i7', 'VImaj7'] as const;
-const CAMELOT = ['11A', '10B', '12B', '12A', '10A', '11B', '11A', '10B'] as const;
-export const chordCamelot = (i: number): string => CAMELOT[i] ?? '';
+/**
+ * Les degres des huit accords en fa diese mineur, et leur cle Camelot (le cercle des DJ) : ceux de la banque du moment
+ * (voyager/chords.ts : le site, ou le plugin MM-ARP depuis la v43).
+ */
+export const chordCamelot = (i: number): string => CHORDS[i]?.camelot ?? '';
+const chordRoman = (i: number): string => CHORDS[i]?.roman ?? '';
 
 /** Les roles d'un dessin des INFOS a l'ecran : tout en os, la hierarchie par l'epaisseur et l'intensite (comme bass/screen.ts). */
 const DIAGRAM_INK: Readonly<Record<VoyDiagram['paths'][number]['role'], { stroke: string; fill: string; lw: number }>> = {
@@ -385,6 +392,7 @@ export class VoyScreen {
     this.info.page = page;
     this.info.infos = s.infos;
     this.info.echo = page === 'echo' ? s.echo : null;
+    this.presetShown = [];
     if (page === 'presets' && s.presetView) this.drawPresets(s.presetView);
     else if (page === 'echo' && s.echo) this.drawEcho(s, s.echo);
     else this.drawHome(s, page === 'edit');
@@ -567,8 +575,9 @@ export class VoyScreen {
     const cy = MAIN0 + cs * 0.82;
     this.txt(name, 9, cy, cs, has ? INK : HALF, 300);
     const ry = cy + (DESK ? 11 : 10);
-    const rw = this.txt(ROMAN[chord], 10, ry, FS.small, INK, 700);
-    this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
+    const rw = this.txt(chordRoman(chord), 10, ry, FS.small, INK, 700);
+    // Sans cle Camelot (G#ø du plugin, v43 : un accord diminue n'en a pas), pas de pastille
+    if (cam) this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
     // Le rang qui joue s'il s'agit de cet accord (F#m F#m D E : le second F#m dit 2/4), sinon sa premiere place
     const at = s.slot >= 0 && s.prog[s.slot] === chord ? s.slot : s.prog.indexOf(chord);
     const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'VIEW ONLY';
@@ -834,10 +843,17 @@ export class VoyScreen {
    * (LOAD, SAVE, NAME, DEL, EXIT).
    */
   private presetTop = 0;
+  /** Le rang (PresetRowItem.index) de chaque ligne dessinee de la liste, de haut en bas ; vide hors de la liste. */
+  private presetShown: number[] = [];
+
+  /** Le rang du preset dessine sur la ligne r de la liste (0 : la plus haute), null : aucun (le plugin MM-ARP, v43 : rig.ts). */
+  presetRowAt(r: number): number | null {
+    return this.presetShown[r] ?? null;
+  }
 
   private drawPresets(p: PresetView): void {
     const c = this.ctx;
-    const band = UH * 0.72;
+    const band = UH * PRESET_LIST.band;
     const headerTitle = p.title === 'PRESETS' ? 'ARP PRESET LIBRARY' : p.title;
     this.txt(headerTitle, 10, HY, FS.small + 1, INK, 700);
     if (p.count) this.txt(p.count, INFO_I.x - INFO_I.r - 6, HY, FS.small, HALF, 600, 'right');
@@ -848,9 +864,9 @@ export class VoyScreen {
 
     if (p.stage === 'browse') {
       if (p.list && p.list.length > 0) {
-        const visibleRows = DESK ? 6 : 4;
-        const rowH = DESK ? 9.2 : 9.8;
-        const startY = DESK ? 24 : 21;
+        const visibleRows = PRESET_LIST.rows;
+        const rowH = PRESET_LIST.rowH;
+        const startY = PRESET_LIST.y0;
         const listW = UW - 26;
         const curIdx = p.list.findIndex((it) => it.index === p.selectedIndex);
         const sel = curIdx >= 0 ? curIdx : 0;
@@ -861,6 +877,7 @@ export class VoyScreen {
 
         for (let r = 0; r < visibleRows && this.presetTop + r < p.list.length; r += 1) {
           const item = p.list[this.presetTop + r];
+          this.presetShown.push(item.index);
           const y = startY + r * rowH;
           const isSel = item.index === p.selectedIndex;
           const x0 = 8;

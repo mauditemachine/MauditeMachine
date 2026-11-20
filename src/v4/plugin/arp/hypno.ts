@@ -88,8 +88,12 @@ function vary(rnd: Rnd, cell: readonly Step[], style: HypnoStyle): Step[] {
   return out;
 }
 
-/** Les progressions : un accord (le plus souvent) ou deux qui alternent (indices de CHORDS, la tonalite de F# mineur). */
-const PROGS: readonly (readonly number[])[] = [[0], [0], [0, 5], [0, 4], [0, 1], [0, 0, 0, 5]];
+/**
+ * Les progressions : un accord (le plus souvent) ou deux qui alternent (indices de CHORDS, la tonalite de F# mineur) ;
+ * v43 : dans la banque du plugin (chords.ts ARP_CHORDS : 0 F#m, 1 G#ø, 2 A, 3 Bm, 4 C#m, 5 D, 6 E, 7 F#m7), les memes
+ * accords qu'avant : F#m, F#m A, F#m Bm, F#m D, F#m F#m F#m A.
+ */
+const PROGS: readonly (readonly number[])[] = [[0], [0], [0, 2], [0, 3], [0, 5], [0, 0, 0, 2]];
 
 export function hypnoSeq(style: HypnoStyle, rnd: Rnd = Math.random): HypnoSeq {
   const cell = pick(rnd, CELLS[style]);
