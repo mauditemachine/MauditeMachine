@@ -902,3 +902,22 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Tests : hell2_test (MIX 0 au bit pres, descente, blocs 1/64/333 au bit pres, extremes, 44,1 et 96 kHz) branche au
   CI ; host_test (ordre des parametres, ancien HELL intact). Rapport detaille : docs/reports/2026-11-20-hell-v2-reel.md.
 - Ecoute : 16 MP3 a MIX 75 % envoyes a Mika (hell-v2-ecoute.zip).
+
+## 2026-11-20 (suite 5) : v47, DELAY A et REVERB A reels (EQ, WIDTH, DUCK, FREEZE de la reverbe)
+
+- Mika : "reverb toujours aussi vide", "Reverb A aussi" ; DELAY : option A recommandee (echos facon Echo, petit ecran).
+- 10 parametres en fin de liste (253 a 262, 263 reglages) : xSkyLoCut, xSkyLoSlope, xSkyMidHz, xSkyMidDb, xSkyMidQ,
+  xSkyHiCut, xSkyHiSlope, xSkyWidth, xSkyDuck, xSkyFreeze ; neutres par defaut (anciens projets et banque au bit pres).
+- DSP (ArpFx) sur le mouille de la reverbe, apres Sky / convolution et SHIMMER (CLASSIC compris) : EQ 3 bandes (ParamEq,
+  contournee au neutre), WIDTH milieu / cote, DUCK (EchoDuck, retour 250 ms). Sky::setFreeze : gains du reseau a 1,
+  entree coupee, en 50 ms (sans effet sur SPRING et CLASSIC). Aucune allocation dans le thread audio.
+- mm_transport porte ppq et bpm : la tete de lecture du DELAY se cale sur l'hote (hostClock.ts).
+- DELAY = option A (DelayPage2.tsx) : echos L / R sur la grille des temps, petit ecran avec presets dans le coin, RHYTHM
+  (16 prises, un clic change de motif). Option B, mock et fx2.ts supprimes.
+- REVERB = option A (SkyPage2.tsx, skyPost.ts, fxPages.css) : cascade 3D du Tr60 LOW / MID / HIGH, REVERB EQ a trois
+  points (Maj ou molette = Q, Alt + clic = neutre), OUTPUT MIX, WIDTH, DUCK, FREEZE ; reglages sans effet grises.
+- Mesures (sky_test section 6) : MID +6 -> +5,98 dB, -12 -> -11,94 ; LOW / HIGH CUT a -3 dB a la coupure ; WIDTH mono
+  -149 dB sur le cote, 150 % +3,52 dB ; DUCK 100 % coupe le mouille pendant la note ; FREEZE 6 machines : -0,8 a -3 dB
+  sur 40 s, sans NaN ni clic (NONLINEAR : la queue tardive seule, environ -15 dB) ; cout 0,7 a 1,6 % d'un coeur.
+- Tests : rendus au bit pres contre l'ancien DSP (9 types x 3 blocs), suite CI complete, voyager_compare 85/85,
+  host_test. Rapport detaille : docs/reports/2026-11-20-delay-reverb-v46.md.
