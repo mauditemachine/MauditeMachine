@@ -1082,14 +1082,14 @@
     },
     {
       "id": "xDPunish",
-      "label": "DISTO PUNISH",
+      "label": "OLD DISTO PUNISH",
       "section": "disto",
       "def": 0,
       "steps": [
         "OFF",
         "ON"
       ],
-      "help": "+20 dB dans la saturation"
+      "help": "v46 : masque, l'ancien PUNISH (+20 dB dans la saturation, AUTO d'apres la table) ; un ancien projet ou preset qui l'avait le garde au bit pres, la touche PUNISH s'allume avec CLASSIC ecrit dessous ; le premier appui le convertit en DISTO PUNISH (xDPunish2)"
     },
     {
       "id": "xDLow",
@@ -2344,6 +2344,17 @@
         "RUN"
       ],
       "help": "v40 (Mika : \"STOP coupe meme si Ableton joue\") : quand l'hote joue, STOP met l'arpege en pause (les notes s'eteignent en 12 ms), RUN le relance au pas suivant de la grille de l'hote ; garde dans le projet, automatisable"
+    },
+    {
+      "id": "xDPunish2",
+      "label": "DISTO PUNISH",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 (Mika : \"il doit faire mal celui la\") : PUNISH v2, +20 dB dans la saturation, le snarl (cloche +6 dB a 1.4 kHz, -3 dB sous 120 Hz), un second etage dur asymetrique surechantillonne, compression legere, AUTO qui mesure (+3 LU au-dessus du son sans PUNISH), plafond doux a -0.3 dBFS (dsp/Decap.h)"
     },
     {
       "id": "xHellV2",

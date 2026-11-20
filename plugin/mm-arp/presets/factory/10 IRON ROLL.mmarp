@@ -331,6 +331,7 @@
     "xMidiIn": 0,
     "xArpHold": 0,
     "xArpRun": 1,
+    "xDPunish2": 0,
     "xHellV2": 1,
     "xHellWarp": 0.224,
     "xHellWarpRate": 0.6666666666666666,

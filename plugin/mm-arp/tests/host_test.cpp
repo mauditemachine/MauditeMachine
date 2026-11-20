@@ -282,6 +282,7 @@ int main() {
             // DISTO (2026-11-17, v25) : style P, PUNISH, DRIVE a fond, trois bandes, FEEDBACK, MORPH vers FOLD, BOX
             X("xDStyle")->setValueNotifyingHost(5.f / 12);
             X("xDPunish")->setValueNotifyingHost(1.f);
+            X("xDPunish2")->setValueNotifyingHost(1.f); // v46 : PUNISH v2 (l'emporte sur l'ancien)
             X("xDBands")->setValueNotifyingHost(1.f);
             X("xDFb")->setValueNotifyingHost(1.f);
             X("xDMorph")->setValueNotifyingHost(0.5f);
@@ -663,7 +664,7 @@ int main() {
             dA = std::max(dA, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(a)[i])));
             pk = std::max(pk, static_cast<double>(std::fabs(std::get<0>(now)[i])));
         }
-        check(std::get<1>(old) == nDisto && nDisto == 52 && pk > 0.01 && d <= 0 && dA > 0.001,
+        check(std::get<1>(old) == nDisto && nDisto == 53 && pk > 0.01 && d <= 0 && dA > 0.001,
               "DISTO : un projet d'avant (" + std::to_string(std::get<1>(old)) + " reglages de la DISTO absents, DISTO 0.6) sonne au bit pres comme avant ; le style A change le son (ecart " +
                   juce::String(dA, 3).toStdString() + ")");
         // la pedale : convertie
@@ -784,12 +785,12 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::kExtra >= 232, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
-        // v46 : les 20 reglages de HELL v2, ensemble, apres les 232 d'avant (xHellV2 d'abord)
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra >= 233, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        // v46 : les 20 reglages de HELL v2, ensemble, apres DISTO PUNISH (v2) (xHellV2 d'abord)
         {
-            bool inOrder = mmx::ex_xHellV2 >= 232 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1;
+            bool inOrder = mmx::ex_xHellV2 == 233 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1 && mmx::ex_xHellDescent == 252 && mmx::kExtra == 253;
             for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) inOrder = inOrder && mmx::allIndex(mmarp::Hell2::kKeyIds[k]) == mmarp::kKnobs + mmx::ex_xHellV2 + 1 + (k - mmarp::Hell2::kWarp);
-            check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste (les 232 d'avant gardent leur place)");
+            check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste, apres DISTO PUNISH (v2) (les 233 d'avant gardent leur place)");
         }
     }
     {
