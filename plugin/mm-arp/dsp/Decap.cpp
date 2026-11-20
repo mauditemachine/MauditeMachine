@@ -1,7 +1,8 @@
 // DISTO, facon Decapitator (2026-11-16 ; completee le 2026-11-17, v25) : voir Decap.h. Le coeur est le port de
 // src/v4/audio/disto.worklet.js (le banc scripts/disto-bench.mjs du site l'a valide : contournement au bit pres,
 // platitude, MIX en phase, repliement, AUTO) ; le reste (styles etendus, MORPH, multibande, dynamique, feedback,
-// enveloppe, LFO, filtres, caisse) est a nous. tests/decap_test.cpp le controle.
+// enveloppe, LFO, filtres, caisse) est a nous. tests/decap_test.cpp le controle. v46 : PUNISH v2 et le LOW CUT de CLEAN LOW
+// (Decap.h) ; MM_DECAP_NO_V2 les retire (la DISTO d'avant, pour le controle au bit pres de decap_test).
 
 #include "Decap.h"
 
@@ -52,6 +53,25 @@ constexpr double kAdaaEps = 1e-6;
 constexpr double kOff = 0.02;
 constexpr double kHighOff = 0.98;
 constexpr double kSqrt2 = 1.4142135623730951;
+
+// v46 : PUNISH v2 et le LOW CUT de CLEAN LOW (MM_DECAP_NO_V2 : la DISTO d'avant, au bit pres)
+#ifdef MM_DECAP_NO_V2
+constexpr bool kV2 = false;
+#else
+constexpr bool kV2 = true;
+#endif
+// le snarl : une cloche a 1.4 kHz (Q 0.9, +6 dB), une etagere -3 dB sous 120 Hz
+constexpr double kSnHz = 1400, kSnQ = 0.9, kSnDb = 6, kSnLoHz = 120, kSnLoDb = -3;
+// le second etage : un ecretage dur asymetrique (genou 0.9, biais 0.12) attaque a +6 dB, ramene a pente 1
+constexpr double kP2Knee = 0.9, kP2Bias = 0.12, kP2Gain = 2;
+// la compression : la detection de DYNAMICS ; au-dessus de -24 dBFS, -0.25 dB par dB, -6 dB au plus
+constexpr double kPunCmpFrom = -24, kPunCmpSlope = 0.25, kPunCmpMax = 6;
+// AUTO qui mesure : +3 dB au-dessus du son sans PUNISH, borne a +/- 18 dB de la table (la table, mesuree sur un sinus a
+// -14 dBFS, laisse une basse chaude ~11 dB trop bas une fois comprimee et passee au second etage) ; la sonie sur 300 ms, ponderee K
+// (approchee : passe-haut 60 Hz, etagere +4 dB au-dessus de 1.5 kHz)
+constexpr double kPunLift = 3, kPunRange = 18, kPunMsS = 0.3, kKHpHz = 60, kKShHz = 1500, kKShDb = 4;
+// le plafond doux : lineaire jusqu'a 70 %, puis une tangente vers -0.32 dBFS
+constexpr double kCeil = 0.96383, kCeilKnee = 0.7 * 0.96383;
 
 // BOX : passe-haut, passe-bas, deux cloches (Hz, dB, Q), la resonance (ms, retour)
 struct BoxDef {
@@ -120,6 +140,16 @@ double crushF(double u) {
     const int k = crushK(v);
     if (k <= 0) return 0;
     return kCrushQ * kCrushQ * k * (k - 1) * 0.5 + kCrushQ * k * (v - kCrushQ * (k - 0.5));
+}
+
+// v46 PUNISH v2 : le second etage et sa primitive (ADAA) ; le plafond doux
+double p2G(double u) { return (kneeG(kP2Knee, kP2Gain * u + kP2Bias) - kneeG(kP2Knee, kP2Bias)) / kP2Gain; }
+double p2F(double u) { return kneeF(kP2Knee, kP2Gain * u + kP2Bias) / (kP2Gain * kP2Gain) - kneeG(kP2Knee, kP2Bias) * u / kP2Gain; }
+double ceilG(double x) {
+    const double v = std::fabs(x);
+    if (v <= kCeilKnee) return x;
+    const double y = kCeilKnee + (kCeil - kCeilKnee) * std::tanh((v - kCeilKnee) / (kCeil - kCeilKnee));
+    return x < 0 ? -y : y;
 }
 
 double rawG(int s, double u) {
@@ -318,9 +348,38 @@ void Decap::prepare(double sampleRate) {
         fbBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ / 40) + 2 * kLatency + 8, 0.0);
         boxBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ * 0.012) + 8, 0.0);
     }
+    // v46 PUNISH v2 : le snarl, la ponderation K, la sonie
+    svfSet(snPk_, kSnHz, kSnQ, sr_);
+    snPk_.mode = F_PEAK;
+    snPk_.peak = dbLin(kSnDb) - 1;
+    const auto onePole = [&](double hz) {
+        const double g = tptG(hz, sr_);
+        return g / (1 + g);
+    };
+    aSnLo_ = onePole(kSnLoHz);
+    aKh_ = onePole(kKHpHz);
+    aKs_ = onePole(kKShHz);
+    aMs_ = 1 - std::exp(-1 / (kPunMsS * sr_));
+    snLoG_ = dbLin(kSnLoDb) - 1;
+    kShG_ = dbLin(kKShDb) - 1;
     cur_ = want_;
     configure();
     reset();
+}
+
+void Decap::punClear() {
+    for (Ch& c : ch_) {
+        c.snPk = {};
+        c.snLs = {};
+        c.kpH = c.kpS = c.keH = c.keS = 0;
+    }
+    for (Path& p : path_) {
+        p.s2x = {};
+        p.s2f = {};
+        p.s2ok = {};
+    }
+    punMsP_ = punMsE_ = 0;
+    punGm_ = 0;
 }
 
 void Decap::clearState() {
@@ -333,6 +392,7 @@ void Decap::clearState() {
         p.fb = {};
         p.sa = {{-1, -1}};
         p.sb = {{-1, -1}};
+        p.s2ok = {};
     }
     ch_ = {};
     for (auto& v : fbBuf_) std::fill(v.begin(), v.end(), 0.0);
@@ -364,6 +424,7 @@ void Decap::configure() {
             p.ax = {};
             p.sa = {{-1, -1}};
             p.sb = {{-1, -1}};
+            p.s2ok = {};
         }
     }
     if (bandsChanged)
@@ -561,7 +622,7 @@ void Decap::process(float* L, float* R, int n) {
         cur_ = want_;
         nb_ = -1;
         configure();
-        drive_ = driveDbOf(s_.drive, s_.punish);
+        drive_ = driveDbOf(s_.drive, s_.punish || (kV2 && s_.punish2));
         mix_ = s_.mix;
         out_ = dbLin(outDbOf(s_.out));
         morph_ = s_.morph;
@@ -577,6 +638,8 @@ void Decap::process(float* L, float* R, int n) {
         sw_ = 1;
         dynG_ = 1;
         modNow_ = 0;
+        pun_ = kV2 && s_.punish2 ? 1 : 0;
+        punWas_ = false;
         coefs(1);
         fbG_ = t_.fbT;
         for (int b = 0; b < 3; ++b) {
@@ -590,7 +653,8 @@ void Decap::process(float* L, float* R, int n) {
 
     const double fade = 1 / (kFadeS * sr);
     const double swStep = 1 / (kStyleFadeS * sr);
-    const double driveT = driveDbOf(s_.drive, s_.punish);
+    const double driveT = driveDbOf(s_.drive, s_.punish || (kV2 && s_.punish2));
+    const double punT = kV2 && s_.punish2 ? 1.0 : 0.0;
     const double outT = dbLin(outDbOf(s_.out));
     const double ref = std::max(1e-4, s_.ref);
     const double iref = 1 / ref;
@@ -665,10 +729,27 @@ void Decap::process(float* L, float* R, int n) {
             dynG_ += (1 - dynG_) * kS;
         }
         const double gIn = dbLin(dTot) * ref;
+        // v46 PUNISH v2 : son fondu ; le DRIVE sans PUNISH (l'estimation), la compression, le gain AUTO mesure
+        if (kV2 && (punT > 0 || pun_ > 0)) {
+            pun_ += (punT - pun_) * kS;
+            if (punT == 0 && pun_ < 1e-6) pun_ = 0;
+            if (punT == 1 && pun_ > 1 - 1e-9) pun_ = 1;
+        }
+        const bool punAct = kV2 && pun_ > 0;
+        if (kV2 && punAct != punWas_) {
+            if (punAct) punClear();
+            punWas_ = punAct;
+        }
+        double gIn0 = 0, punPre = 1, punPost = 1;
+        if (punAct) {
+            gIn0 = dbLin(dTot - 20 * pun_) * ref;
+            punPre = dbLin(-pun_ * std::clamp(kPunCmpSlope * (linDb(envD_) - kPunCmpFrom), 0.0, kPunCmpMax));
+            punPost = dbLin(pun_ * punGm_);
+        }
         // les bandes : leurs gains lisses, leur courbe, leur compensation
         struct Shape {
             int sa, sb;
-            double m, autoScale, invG, mix;
+            double m, autoScale, invG, mix, auto0;
             bool morph, skip;
         } shp[3];
         for (int b = 0; b < nb_; ++b) {
@@ -691,24 +772,36 @@ void Decap::process(float* L, float* R, int n) {
             sh.invG = 1 / (gIn * (nb_ > 1 ? p.gB : 1));
             sh.mix = p.mix;
             sh.skip = p.mix == 0;
+            sh.auto0 = 1;
+            if (punAct) {
+                // l'estimation sans PUNISH : la compensation de la table sans les +20 dB
+                const double db0 = db - 20 * pun_;
+                double a0 = 0;
+                if (autoS) a0 = sh.morph ? lerp(autoDbOf(sh.sa, db0), autoDbOf(sh.sb, db0), mEff) : autoDbOf(sh.sa, db0);
+                sh.auto0 = (autoS ? dbLin(a0) : 1) * iref;
+            }
         }
         const int dw = dryW_;
         double vu = 0;
+        double sqP = 0, sqE = 0;
+        // v46 CLEAN LOW (2 bandes, la basse contournee) : LOW CUT ne coupe que la bande saturee
+        const bool lcBand = kV2 && nb_ == 2 && s_.band[0].bypass;
         for (int c = 0; c < 2; ++c) {
             Ch& s = ch_[static_cast<size_t>(c)];
             const double x = c == 0 ? xl : xr;
             dry_[static_cast<size_t>(c)][static_cast<size_t>(dw)] = x;
             double y = x;
-            if (t.lowOn) {
-                const double hp = (y - (t.gL + t.kL) * s.lc1 - s.lc2) * t.a1L;
+            const auto lowCut = [&](double in) {
+                const double hp = (in - (t.gL + t.kL) * s.lc1 - s.lc2) * t.a1L;
                 const double v1 = t.gL * hp;
                 const double bp = v1 + s.lc1;
                 s.lc1 = bp + v1;
                 const double v2 = t.gL * bp;
                 const double lp = v2 + s.lc2;
                 s.lc2 = lp + v2;
-                y = hp;
-            }
+                return hp;
+            };
+            if (t.lowOn && !lcBand) y = lowCut(y);
             {
                 const double v = (y - s.tilt) * t.aT;
                 const double lp = v + s.tilt;
@@ -747,13 +840,34 @@ void Decap::process(float* L, float* R, int n) {
                     yb[2] = high;
                 }
             }
-            double sum = 0;
+            if (t.lowOn && lcBand) yb[1] = lowCut(yb[1]);
+            double sum = 0, est = 0;
             for (int b = 0; b < nb_; ++b) {
                 Path& p = path_[static_cast<size_t>(b)];
                 const Shape& sh = shp[b];
                 const Bank& bk = *p.bank;
                 const int os = bk.os, nd = bk.nd;
-                const double u = yb[b] * gIn * (nb_ > 1 ? p.gB : 1);
+                double ybs = yb[b];
+                if (punAct) {
+                    // PUNISH v2 : le snarl (les bandes saturees seulement) ; l'estimation du son sans PUNISH, au taux de base
+                    const double x0 = yb[b];
+                    if (!sh.skip) {
+                        const double pk = filt(s.snPk[static_cast<size_t>(b)], snPk_, x0);
+                        double& ls = s.snLs[static_cast<size_t>(b)];
+                        const double v = (pk - ls) * aSnLo_;
+                        const double lp = v + ls;
+                        ls = lp + v;
+                        const double sn = pk + snLoG_ * lp;
+                        ybs = x0 + (sn - x0) * pun_;
+                    }
+                    const double u0 = x0 * gIn0 * (nb_ > 1 ? p.gB : 1);
+                    double c0 = curve(sh.sa, u0);
+                    if (sh.morph) c0 += (curve(sh.sb, u0) - c0) * sh.m;
+                    const double w0 = c0 * sh.auto0;
+                    const double e0 = sh.skip ? x0 : sh.mix >= 1 ? w0 : x0 + (w0 - x0) * sh.mix;
+                    est += nb_ > 1 ? e0 * p.level * p.solo : e0;
+                }
+                const double u = ybs * gIn * (nb_ > 1 ? p.gB : 1);
                 std::vector<double>& hb = p.up[static_cast<size_t>(c)];
                 const int w = p.upW;
                 hb[static_cast<size_t>(w)] = u;
@@ -796,6 +910,20 @@ void Decap::process(float* L, float* R, int n) {
                         } else {
                             p.sb[static_cast<size_t>(c)] = -1;
                         }
+                        if (punAct) {
+                            // PUNISH v2 : le second etage, par sa primitive
+                            const size_t ci = static_cast<size_t>(c);
+                            if (!p.s2ok[ci]) {
+                                p.s2f[ci] = p2F(p.s2x[ci]);
+                                p.s2ok[ci] = true;
+                            }
+                            const double d2 = yv - p.s2x[ci];
+                            const double F2 = p2F(yv);
+                            const double y2 = d2 > kAdaaEps || d2 < -kAdaaEps ? (F2 - p.s2f[ci]) / d2 : p2G(0.5 * (yv + p.s2x[ci]));
+                            p.s2x[ci] = yv;
+                            p.s2f[ci] = F2;
+                            yv += (y2 - yv) * pun_;
+                        }
                         p.ax[static_cast<size_t>(c)] = acc;
                         const double wet = yv * sh.autoScale;
                         z = sh.mix >= 1 ? wet : acc * sh.invG + (wet - acc * sh.invG) * sh.mix;
@@ -814,6 +942,24 @@ void Decap::process(float* L, float* R, int n) {
                     dwi = dwi + 1 == nd ? 0 : dwi + 1;
                 }
                 sum += nb_ > 1 ? dec * p.level * p.solo : dec;
+            }
+            if (punAct) {
+                // PUNISH v2 : la compression, la sonie (ponderee K) du traite et de l'estimation, le gain AUTO mesure
+                sum *= punPre;
+                const auto kw = [&](double in, double& h, double& sh) {
+                    double v = (in - h) * aKh_;
+                    double lp = v + h;
+                    h = lp + v;
+                    const double hp = in - lp;
+                    v = (hp - sh) * aKs_;
+                    lp = v + sh;
+                    sh = lp + v;
+                    const double k = hp + kShG_ * (hp - lp);
+                    return k * k;
+                };
+                sqP += kw(sum, s.kpH, s.kpS);
+                sqE += kw(est, s.keH, s.keS);
+                sum *= punPost;
             }
             y = sum;
             {
@@ -887,11 +1033,19 @@ void Decap::process(float* L, float* R, int n) {
             double wet = y * dynG_ * sw_;
             if (wet < 1e-25 && wet > -1e-25) wet = 0;
             const double dryD = dry_[static_cast<size_t>(c)][static_cast<size_t>(dw + 1 == DN ? 0 : dw + 1)];
-            const double proc = (dryD + (wet - dryD) * mixEff) * out_;
+            double proc = (dryD + (wet - dryD) * mixEff) * out_;
+            if (punAct) proc += (ceilG(proc) - proc) * pun_;
             const double r = e_ >= 1 ? proc : x * dir_ + (proc - x * dir_) * e_;
             (c == 0 ? L : R)[i] = static_cast<float>(r);
         }
         envV_ += (vu > envV_ ? t.vA : t.vR) * (vu - envV_);
+        if (punAct) {
+            punMsP_ += (0.5 * sqP - punMsP_) * aMs_;
+            punMsE_ += (0.5 * sqE - punMsE_) * aMs_;
+            double gT = 0;
+            if (autoS && punMsP_ > 1e-14 && punMsE_ > 1e-14) gT = std::clamp(10 * std::log10(punMsE_ / punMsP_) + kPunLift, -kPunRange, kPunRange);
+            punGm_ += (gT - punGm_) * kS;
+        }
         for (int b = 0; b < nb_; ++b) {
             Path& p = path_[static_cast<size_t>(b)];
             p.upW = p.upW + 1 == kTaps ? 0 : p.upW + 1;
@@ -910,6 +1064,15 @@ void Decap::process(float* L, float* R, int n) {
             if (std::fabs(f->s2) < 1e-20) f->s2 = 0;
         }
     }
+    if (kV2)
+        for (Ch& s : ch_) {
+            for (double* p : {&s.snLs[0], &s.snLs[1], &s.snLs[2], &s.kpH, &s.kpS, &s.keH, &s.keS})
+                if (std::fabs(*p) < 1e-20) *p = 0;
+            for (Svf& f : s.snPk) {
+                if (std::fabs(f.s1) < 1e-20) f.s1 = 0;
+                if (std::fabs(f.s2) < 1e-20) f.s2 = 0;
+            }
+        }
     if (std::fabs(envE_) < 1e-20) envE_ = 0;
     if (std::fabs(envD_) < 1e-20) envD_ = 0;
     if (std::fabs(envV_) < 1e-20) envV_ = 0;

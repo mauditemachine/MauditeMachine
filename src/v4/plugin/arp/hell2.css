@@ -1,0 +1,103 @@
+/* =====================================================================================================================
+   La page HELL v2 (v46, option A : le vortex ; HellPage2.tsx). Un fichier a part, tout sous .mm-plugin-arp ; les cadres,
+   les rangees et la banque reprennent les classes de l'ancienne page (hood.css : mm-hell-*).
+   ===================================================================================================================== */
+
+.mm-plugin-arp .mm-h2-vplace {
+  position: absolute;
+}
+
+.mm-plugin-arp .mm-h2-mixhero {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+}
+
+.mm-plugin-arp .mm-h2-vortex {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.mm-plugin-arp .mm-h2-vortex .track {
+  fill: none;
+  stroke: rgba(246, 241, 231, 0.07);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-h2-vortex .line {
+  fill: none;
+  stroke: var(--mm-accent);
+  stroke-linecap: round;
+}
+
+.mm-plugin-arp .mm-h2-vortex .ring[data-on='1'] .line,
+.mm-plugin-arp .mm-h2-vortex .ring[data-on='1'] .dot {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 80%, transparent));
+}
+
+.mm-plugin-arp .mm-h2-vortex .dot {
+  fill: color-mix(in srgb, var(--mm-accent) 70%, #fff);
+}
+
+.mm-plugin-arp .mm-h2-vortex .num {
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  fill: #f6f1e7;
+  paint-order: stroke;
+  stroke: #0b0906;
+  stroke-width: 3px;
+}
+
+.mm-plugin-arp .mm-h2-mixlab {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.mm-plugin-arp .mm-h2-mixlab b {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-h2-mixlab span {
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-h2-verb {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  text-align: center;
+  font-size: 6.5px;
+  line-height: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--r-silk-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-plugin-arp .mm-h2-circle .mm-p2-frame-title {
+  letter-spacing: 0.18em;
+}
+
+.mm-plugin-arp .mm-h2-presets .mm-h2-pwin {
+  height: 84px;
+}
+
+.mm-plugin-arp .mm-h2-presets .mm-hell-pkeys {
+  margin-top: 12px;
+}

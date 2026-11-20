@@ -1,27 +1,29 @@
 /**
- * MAQUETTE v44 : HELL v2, "la botte secrete" (Mika, 2026-11-20 : "Ca doit etre intense comme effet et chaque preset doit
- * etre different des autres ! Ca doit pas etre trop complique [...] comme si la personne, quand elle tourne MIX, faisait
- * un malaise de LSD croise a trop d'alcool ! Le tout en sync tres souvent si possible !").
+ * HELL v2, "la botte secrete" (Mika, 2026-11-20 : "Ca doit etre intense comme effet et chaque preset doit etre different
+ * des autres ! Ca doit pas etre trop complique [...] comme si la personne, quand elle tourne MIX, faisait un malaise de LSD
+ * croise a trop d'alcool ! Le tout en sync tres souvent si possible !"). Option A (le vortex) choisie, v46 : reelle,
+ * DSP compris (plugin/mm-arp/dsp/Hell2.{h,cpp}).
  *
- * L'idee : HELL devient une DESCENTE en six cercles, chacun un verbe qu'on entend tout de suite :
- *   I ECHO (la spirale de Bode d'aujourd'hui, Hell.cpp), II WARP (la hauteur qui plie : wobble, bend, chute, arret de
- *   bande), III SPIN (le panoramique qui tournoie, le chorus ivre, le filtre qui balaie), IV SHATTER (le son en eclats :
+ * HELL devient une DESCENTE en six cercles, chacun un verbe qu'on entend tout de suite :
+ *   I ECHO (la spirale de Bode, Hell.cpp), II WARP (la hauteur qui plie : wobble, bend, chute, arret de bande),
+ *   III SPIN (le panoramique qui tournoie, le chorus ivre, le filtre qui balaie), IV SHATTER (le son en eclats :
  *   granulaire), V CHOP (le stutter, les repetitions qui montent ou descendent), VI METAL (anneau et peignes qui changent
  *   a chaque noire).
  * MIX est la descente : en tournant le gros potard, les cercles entrent l'un apres l'autre (DESCENT) ou tous ensemble
- * (ALL), le sec s'efface ; a 0, HELL est contourne au bit pres (comme aujourd'hui). Presque tout est en notes, cale au
- * tempo de l'hote.
+ * (ALL), le sec s'efface ; a 0, HELL est contourne au bit pres. Presque tout est en notes, cale sur la position de l'hote.
+ * xHellV2 (OFF : l'ancien HELL, celui des projets d'avant) ; un preset de la banque le met a ON.
  *
- * Ce fichier ne depend d'aucune piece de la face (le prototype hors ligne le lit tel quel, scratchpad v44/hell-proto) :
- * - HELL2_PARAMS : les reglages NEUFS proposes (a ajouter EN FIN de liste de extra-params.json), leurs lois ;
+ * Ce fichier ne depend d'aucune piece de la face (tests/hell2-presets-gen.mjs le lit tel quel pour le test C++) :
+ * - HELL2_PARAMS : les reglages des cercles II a VI (extra-params.json, section hell), le texte de leurs valeurs ;
  * - CIRCLES : les six cercles, leurs reglages, leur point d'entree sur la course de MIX ;
- * - circleDepth : la loi de la descente ;
- * - HELL2_PRESETS : la banque proposee (16), les valeurs des reglages d'aujourd'hui (xHell*) et des neufs.
+ * - circleDepth : la loi de la descente (Hell2::depth) ;
+ * - HELL2_PRESETS : la banque (16), les valeurs des reglages d'ECHO (xHell*) et des cercles, xHellV2 a ON.
  */
 
+import spec from '../../../../plugin/mm-arp/extra-params.json';
 import { HELL_RANGES, HELL_SYNC, LFO_BEAT_NAMES, SYNC_MULT, hellShiftV } from './hell';
 
-/* ---------------- les reglages neufs (proposes ; maquette sans son) ---------------- */
+/* ---------------- les reglages des cercles (extra-params.json) ---------------- */
 
 export const RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
 /** temps par cycle */
@@ -38,11 +40,9 @@ export const DESCENTS = ['DESCENT', 'ALL'] as const;
 export interface Hell2Param {
   id: string;
   label: string;
-  def: number;
   steps?: readonly string[];
   /** la loi (le texte de la valeur) */
   text: (v: number) => string;
-  help: string;
 }
 
 const pct = (v: number): string => (v <= 0 ? 'OFF' : `${Math.round(v * 100)} %`);
@@ -52,27 +52,37 @@ const stepName = (steps: readonly string[]) => (v: number): string => steps[Math
 export const warpSt = (v: number): number => 12 * v * v;
 export const chopSt = (v: number): number => Math.round(24 * (v - 0.5));
 
+/** La valeur de depart d'un reglage (extra-params.json). */
+export const hell2Def = (id: string): number => (spec.params.find((p) => p.id === id)?.def ?? 0) as number;
+
 export const HELL2_PARAMS: readonly Hell2Param[] = [
-  { id: 'xHellWarp', label: 'HELL WARP', def: 0, text: (v) => (v <= 0 ? 'OFF' : st(warpSt(v))), help: 'II WARP : la profondeur, 0 a 12 demi-tons (12 v^2)' },
-  { id: 'xHellWarpRate', label: 'HELL WARP RATE', def: 2 / 6, steps: RATES, text: stepName(RATES), help: 'II WARP : un cycle en notes (1/16 a 4 mesures), cale a la mesure' },
-  { id: 'xHellWarpShape', label: 'HELL WARP SHAPE', def: 0, steps: WARP_SHAPES, text: stepName(WARP_SHAPES), help: 'WOBBLE sinus, BEND triangle, DROP la hauteur tombe puis revient, STOP arret de bande en fin de cycle, RANDOM' },
-  { id: 'xHellSpin', label: 'HELL SPIN', def: 0, text: pct, help: 'III SPIN : le panoramique qui tournoie (puissance constante, un rien de Haas)' },
-  { id: 'xHellSpinRate', label: 'HELL SPIN RATE', def: 4 / 6, steps: RATES, text: stepName(RATES), help: 'III SPIN : un tour en notes ; le balayage du filtre suit' },
-  { id: 'xHellDrunk', label: 'HELL DRUNK', def: 0, text: pct, help: 'III SPIN : le chorus ivre, trois voix dont le retard titube (marche aleatoire lissee)' },
-  { id: 'xHellSweep', label: 'HELL SWEEP', def: 0, text: pct, help: 'III SPIN : le filtre resonant qui balaie au rythme de SPIN RATE' },
-  { id: 'xHellShatter', label: 'HELL SHATTER', def: 0, text: pct, help: 'IV SHATTER : le son en eclats (granulaire), la part des grains' },
-  { id: 'xHellShatterSize', label: 'HELL SHATTER SIZE', def: 2 / 4, steps: GRAIN_SIZES, text: stepName(GRAIN_SIZES), help: 'IV SHATTER : la taille des grains en notes' },
-  { id: 'xHellShatterSpray', label: 'HELL SHATTER SPRAY', def: 0.3, text: pct, help: 'IV SHATTER : la dispersion : hauteurs (octaves, quintes) et grains a l envers' },
-  { id: 'xHellChop', label: 'HELL CHOP', def: 0, text: pct, help: 'V CHOP : la chance qu une case de la grille soit repetee (stutter)' },
-  { id: 'xHellChopGrid', label: 'HELL CHOP GRID', def: 3 / 6, steps: CHOP_GRIDS, text: stepName(CHOP_GRIDS), help: 'V CHOP : la taille d une case, 1/64 a 1/4' },
-  { id: 'xHellChopPitch', label: 'HELL CHOP PITCH', def: 0.5, text: (v) => (chopSt(v) === 0 ? '0' : st(chopSt(v))), help: 'V CHOP : chaque repetition monte ou descend de -12 a +12 demi-tons' },
-  { id: 'xHellChopGate', label: 'HELL CHOP GATE', def: 1, text: (v) => `${Math.round(v * 100)} %`, help: 'V CHOP : la longueur de chaque repetition (1 : pleine)' },
-  { id: 'xHellRing', label: 'HELL RING', def: 0, text: pct, help: 'VI METAL : la modulation en anneau' },
-  { id: 'xHellRingTune', label: 'HELL RING TUNE', def: 0, steps: RING_TUNES, text: stepName(RING_TUNES), help: 'VI METAL : la frequence de l anneau : la note jouee (x1, x1.5, x2, /2) ou le tempo (x8, x32)' },
-  { id: 'xHellComb', label: 'HELL COMB', def: 0, text: pct, help: 'VI METAL : les peignes resonants, accordes sur la note, qui changent a chaque noire' },
-  { id: 'xHellCombSeq', label: 'HELL COMB SEQ', def: 0, steps: COMB_SEQS, text: stepName(COMB_SEQS), help: 'VI METAL : la suite des hauteurs du peigne, une par noire' },
-  { id: 'xHellDescent', label: 'HELL DESCENT', def: 0, steps: DESCENTS, text: stepName(DESCENTS), help: 'MIX : DESCENT les cercles entrent un par un, ALL tous ensemble' },
+  { id: 'xHellWarp', label: 'HELL WARP', text: (v) => (v <= 0 ? 'OFF' : st(warpSt(v))) },
+  { id: 'xHellWarpRate', label: 'HELL WARP RATE', steps: RATES, text: stepName(RATES) },
+  { id: 'xHellWarpShape', label: 'HELL WARP SHAPE', steps: WARP_SHAPES, text: stepName(WARP_SHAPES) },
+  { id: 'xHellSpin', label: 'HELL SPIN', text: pct },
+  { id: 'xHellSpinRate', label: 'HELL SPIN RATE', steps: RATES, text: stepName(RATES) },
+  { id: 'xHellDrunk', label: 'HELL DRUNK', text: pct },
+  { id: 'xHellSweep', label: 'HELL SWEEP', text: pct },
+  { id: 'xHellShatter', label: 'HELL SHATTER', text: pct },
+  { id: 'xHellShatterSize', label: 'HELL SHATTER SIZE', steps: GRAIN_SIZES, text: stepName(GRAIN_SIZES) },
+  { id: 'xHellShatterSpray', label: 'HELL SHATTER SPRAY', text: pct },
+  { id: 'xHellChop', label: 'HELL CHOP', text: pct },
+  { id: 'xHellChopGrid', label: 'HELL CHOP GRID', steps: CHOP_GRIDS, text: stepName(CHOP_GRIDS) },
+  { id: 'xHellChopPitch', label: 'HELL CHOP PITCH', text: (v) => (chopSt(v) === 0 ? '0' : st(chopSt(v))) },
+  { id: 'xHellChopGate', label: 'HELL CHOP GATE', text: (v) => `${Math.round(v * 100)} %` },
+  { id: 'xHellRing', label: 'HELL RING', text: pct },
+  { id: 'xHellRingTune', label: 'HELL RING TUNE', steps: RING_TUNES, text: stepName(RING_TUNES) },
+  { id: 'xHellComb', label: 'HELL COMB', text: pct },
+  { id: 'xHellCombSeq', label: 'HELL COMB SEQ', steps: COMB_SEQS, text: stepName(COMB_SEQS) },
+  { id: 'xHellDescent', label: 'HELL DESCENT', steps: DESCENTS, text: stepName(DESCENTS) },
 ];
+
+const BY_ID = new Map(HELL2_PARAMS.map((p) => [p.id, p]));
+/** Le texte d'une valeur d'un reglage des cercles (extra.ts) ; null : un autre reglage. */
+export function hell2Text(id: string, v: number): string | null {
+  const p = BY_ID.get(id);
+  return p ? p.text(v) : null;
+}
 
 /* ---------------- les six cercles ---------------- */
 
@@ -109,7 +119,7 @@ export function circleDepth(m: number, entry: number, mode: number): number {
   return x * x * (3 - 2 * x);
 }
 
-/* ---------------- la banque proposee ---------------- */
+/* ---------------- la banque ---------------- */
 
 export interface Hell2Preset {
   name: string;
@@ -173,7 +183,9 @@ const P = (name: string, desc: string, lead: Circle['id'][], o: Spec): Hell2Pres
   const sh = e.sh ?? 0;
   const lsync = typeof e.lr === 'string';
   const v: Record<string, number> = {
-    // I ECHO : les reglages d'aujourd'hui (hell.ts)
+    // le moteur HELL v2 (un preset de la banque le met a ON)
+    xHellV2: 1,
+    // I ECHO : les reglages de Hell.cpp (hell.ts)
     xHellSync: typeof e.t === 'string' ? idx(HELL_SYNC, e.t) : 0,
     xHellTime: typeof e.t === 'number' ? msV(e.t) : 0.5,
     xHellFb: e.fb,
@@ -195,7 +207,7 @@ const P = (name: string, desc: string, lead: Circle['id'][], o: Spec): Hell2Pres
     xHellLfoTarget: idx(['FREQ', 'PHASE', 'LOW-PASS', 'DELAY'], e.tgt ?? 'FREQ'),
     xHellLfoDepth: 0,
     xHellTone: 0.5,
-    // II a VI : les neufs
+    // II a VI : les cercles
     xHellWarp: o.warp ? Math.sqrt(o.warp.st / 12) : 0,
     xHellWarpRate: idx(RATES, o.warp?.rate ?? '1/4'),
     xHellWarpShape: idx(WARP_SHAPES, o.warp?.shape ?? 'WOBBLE'),
@@ -222,18 +234,20 @@ const P = (name: string, desc: string, lead: Circle['id'][], o: Spec): Hell2Pres
 
 /**
  * Seize presets, un caractere chacun, presque tous en notes. Le cercle qui mene est nomme ; les autres restent doux ou
- * coupes, pour que chaque preset soit reconnaissable des la premiere mesure.
+ * coupes, pour que chaque preset soit reconnaissable des la premiere mesure. v46 : le decalage de l'ECHO en RANGE SYNC
+ * (des multiples du tempo, proches des Hz de la maquette a 120 BPM) partout ou il etait en Hz : chaque repetition monte
+ * ou descend au tempo.
  */
 export const HELL2_PRESETS: readonly Hell2Preset[] = [
   P('THE DESCENT', 'Turn MIX and fall: the spiral, the bend, the spin, the grains, the stutter', ['echo', 'warp', 'spin', 'shatter', 'chop'], {
-    echo: { t: '1/8.', fb: 0.62, sh: 9, lp: 7000, hp: 90 },
+    echo: { t: '1/8.', fb: 0.62, range: 'SYNC', sh: 4, lp: 7000, hp: 90 },
     warp: { st: 0.6, rate: '1 BAR', shape: 'WOBBLE' },
     spin: { a: 0.5, rate: '2 BAR', drunk: 0.3 },
     shatter: { a: 0.35, size: '1/16', spray: 0.35 },
     chop: { p: 0.3, grid: '1/16', st: -2, gate: 0.85 },
   }),
   P('TAPE DEATH', 'The tape stops at the end of every bar, dub echoes fall', ['warp', 'echo'], {
-    echo: { t: '1/4.', fb: 0.72, sh: -7, ud: 1, lp: 2600, hp: 120, ar: true },
+    echo: { t: '1/4.', fb: 0.72, range: 'SYNC', sh: -4, ud: 1, lp: 2600, hp: 120, ar: true },
     warp: { st: 12, rate: '1 BAR', shape: 'STOP' },
   }),
   P('BARBER SPIRAL', 'An endless rising staircase locked to the tempo', ['echo', 'spin'], {
@@ -246,7 +260,7 @@ export const HELL2_PRESETS: readonly Hell2Preset[] = [
     metal: { comb: 0.25, seq: 'OCTAVES' },
   }),
   P('GLASS RAIN', 'Tiny grains thrown an octave up, falling left and right', ['shatter'], {
-    echo: { t: '1/8', fb: 0.55, sh: 12, cross: true, sp: 1, hp: 300 },
+    echo: { t: '1/8', fb: 0.55, range: 'SYNC', sh: 8, cross: true, sp: 1, hp: 300 },
     shatter: { a: 0.85, size: '1/64', spray: 0.8 },
   }),
   P('SEASICK', 'The pitch rolls like a boat, the chorus staggers', ['warp', 'spin'], {
@@ -260,7 +274,7 @@ export const HELL2_PRESETS: readonly Hell2Preset[] = [
     metal: { ring: 0.7, tune: 'NOTE x1.5' },
   }),
   P('BLACK HOLE', 'Everything sinks: pitch drops, echoes fall, grains play backwards', ['warp', 'echo', 'shatter'], {
-    echo: { t: '1/4', fb: 0.85, sh: -40, ud: 1, lp: 1800, ar: true },
+    echo: { t: '1/4', fb: 0.85, range: 'SYNC', sh: -16, ud: 1, lp: 1800, ar: true },
     warp: { st: 5, rate: '2 BAR', shape: 'DROP' },
     shatter: { a: 0.4, size: '1/8', spray: 0.9 },
   }),
@@ -275,12 +289,12 @@ export const HELL2_PRESETS: readonly Hell2Preset[] = [
     metal: { ring: 0.35, tune: 'TEMPO x32' },
   }),
   P('MELTDOWN', 'Random bends on every beat, the loop melts into grains', ['warp', 'shatter'], {
-    echo: { t: '1/4.', fb: 0.75, sh: -5, lp: 3000, hp: 120 },
+    echo: { t: '1/4.', fb: 0.75, range: 'SYNC', sh: -2, lp: 3000, hp: 120 },
     warp: { st: 7, rate: '1/2', shape: 'RANDOM' },
     shatter: { a: 0.35, size: '1/16', spray: 0.3 },
   }),
   P('VERTIGO', 'Dotted ping-pong, a room that turns, a bend up and down', ['spin', 'echo', 'warp'], {
-    echo: { t: '1/8.', fb: 0.68, sh: 4, cross: true, sp: 1, st: true },
+    echo: { t: '1/8.', fb: 0.68, range: 'SYNC', sh: 2, cross: true, sp: 1, st: true },
     warp: { st: 1, rate: '1/2', shape: 'BEND' },
     spin: { a: 0.8, rate: '1 BAR', drunk: 0.35 },
   }),
@@ -295,7 +309,7 @@ export const HELL2_PRESETS: readonly Hell2Preset[] = [
     metal: { ring: 0.6, tune: 'NOTE x2' },
   }),
   P('LAST CALL', 'Too much to drink: a slow deep wobble, the room spins, the echo slurs', ['warp', 'spin', 'echo'], {
-    echo: { t: '1/4', fb: 0.6, sh: -2, lp: 3500, hp: 100, tgt: 'DELAY', lr: '2 BAR', amt: 0.3 },
+    echo: { t: '1/4', fb: 0.6, range: 'SYNC', sh: -1, lp: 3500, hp: 100, tgt: 'DELAY', lr: '2 BAR', amt: 0.3 },
     warp: { st: 1.2, rate: '4 BAR', shape: 'WOBBLE' },
     spin: { a: 0.7, rate: '2 BAR', drunk: 0.7, sweep: 0.2 },
   }),

@@ -30,12 +30,11 @@ import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
-import { HellPage } from './HellPage';
 import { DistoPage } from './DistoPage';
 import { DelayPage } from './DelayPage';
 import { FX2 } from './fx2';
 import { SkyPageA, SkyPageB } from './SkyPage2';
-import { HellPageA, HellPageB } from './HellPage2';
+import { HellPage2 } from './HellPage2';
 import { arpSpec, SPEC_BINS } from './spec';
 import { HoodLookButton } from './LookPanel';
 import { HoodCpuMeter } from './CpuMeter';
@@ -273,15 +272,15 @@ const Grid: React.FC<{ page: GridPage }> = ({ page }) => (
   </>
 );
 
-/* ---------------- FX : HELL (HellPage.tsx), REVERB (SkyPage.tsx) ---------------- */
+/* ---------------- FX : HELL (HellPage2.tsx), REVERB (SkyPage.tsx) ---------------- */
 
-/** HELL : la page facon Echobode ; le cadre HELL (MIX) clignote au clic du potard de la face. */
+/** HELL : la descente en six cercles ; le cadre HELL (MIX) clignote au clic du potard de la face. */
 const HellHost: React.FC = () => {
   const h = useFlash('HELL');
   const d = useFlash('DELAY');
   const fl = (t: string): boolean => (t === 'HELL' ? h : t === 'HELL DELAY' ? d : false);
-  // MAQUETTE v44 : ?fx2=A ou ?fx2=B (fx2.ts) : la page refaite ; sinon celle d'avant
-  return FX2 === 'A' ? <HellPageA flash={fl} /> : FX2 === 'B' ? <HellPageB flash={fl} /> : <HellPage flash={fl} />;
+  // v46 : HELL v2, l'option A (le vortex), la seule page
+  return <HellPage2 flash={fl} />;
 };
 
 /** REVERB : la reverbe facon BigSky (SkyPage.tsx) ; le cadre REVERB clignote au clic du potard de la face. */

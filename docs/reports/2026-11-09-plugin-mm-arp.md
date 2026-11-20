@@ -857,3 +857,28 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   CRUSH, SHIMMER, WARMTH, RING, FOLD, HIGH PASS, COMB). 60 tirages : 0 avec effets (60 avant).
 - Outils : presets_render --bars --tail --csv, presets-check (nouvelles regles), tests/random-analog.{ts,mjs}.
 - Ancienne regle de banque (HELL MIX <= 0.10, reverb CLASSIC, DISTO neutre) remplacee par : effets a 0, filtre modere.
+
+## 2026-11-20 (suite 3) : v46, la vraie page DISTO (option A), PUNISH v2, CLEAN LOW, banque de 18
+
+- Mika (v45 installee) : "je sais pas ce que tu as fait a Disto mais ya pas grand chose de change ! trop complexe" ; les
+  refontes n'existaient qu'en maquette derriere des drapeaux d'URL. Choix de Mika : DISTO A, PUNISH "pas en rouge" -> C.
+- Les quatre branches de maquettes (barre / SOUND / SEQ, DISTO, DELAY / REVERB / HELL) fusionnees dans la branche
+  plugin (derriere drapeaux, sans effet) ; la maquette LFO d'EDIT, en conflit, est reportee a la main par son chantier.
+- Page DISTO (DistoPage.tsx, disto2.css) : DRIVE en grand + PUNISH (levier OFF / ON en grand, LED a l'accent, jamais
+  rouge), TRANSFER, STYLE en 4 familles (TAPE, TUBE, TRANSISTOR, DESTROY) + MM ENGINE, OUTPUT (MIX, OUTPUT, AUTO), VU
+  ATTITUDE ; un seul EQ (LOW CUT + THUMP, TONE, HIGH CUT + STEEP, PRE, POST, CAB) ; CLEAN LOW (zone grisee tiree depuis la
+  gauche du graphe : 2 bandes, la basse contournee) ; MOVE (ENV -> DRIVE, LFO RATE / SYNC / DEPTH / TARGET) ; presets en
+  liste par famille. 53 reglages a l'ecran -> environ 17. EXTRA ON · RESET quand un reglage cache agit encore. DistoMock.tsx
+  et ?distoMock supprimes.
+- Nouveau parametre hote DISTO PUNISH (xDPunish2, indice 232) ; xDPunish devient OLD DISTO PUNISH (au bit pres, CLASSIC
+  affiche, le premier appui passe en v2).
+- PUNISH v2 (dsp/Decap.*) : +20 dB, snarl (+6 dB a 1,4 kHz, -3 dB sous 120 Hz), second etage dur asymetrique
+  surechantillonne avec ADAA, compression legere, AUTO qui mesure (+3 dB au-dessus du son sans PUNISH, borne a 18 dB),
+  plafond doux -0,3 dBFS, entree / sortie en 15 ms, sans latence. Mesure : +3,08 / +3,08 / +3,03 LU sur trois boucles,
+  ecart max 0,63 LU sur 24 cas, crete -0,32 dBFS, aucun NaN. Cout : +19 % avec CLEAN LOW.
+- CLEAN LOW : LOW CUT ne coupe plus que la bande saturee (seul changement de son pour un ancien projet en 2 bandes avec
+  la basse contournee et LOW CUT engage).
+- Banque DISTO : 18 presets facon Decapitator par famille (distoBank.ts) a la place des 20 de disto.ts ; PUNISH recales
+  (PARALLEL SMASH +0,3 LU, PUNISH BASS +0,1, PUNISH ME 0,0), cretes <= -6,2 dBFS.
+- Tests : decap_test (OFF et OLD au bit pres contre tests/decap_ref.cpp, +3 +/-1 LU, crete, NaN, clics, CLEAN LOW) ;
+  host_test 233 reglages ; banque d'usine regeneree (seul ajout "xDPunish2": 0). tsc 105, voyager_compare 85/85.
