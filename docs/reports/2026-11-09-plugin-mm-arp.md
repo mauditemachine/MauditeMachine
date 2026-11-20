@@ -921,3 +921,24 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   sur 40 s, sans NaN ni clic (NONLINEAR : la queue tardive seule, environ -15 dB) ; cout 0,7 a 1,6 % d'un coeur.
 - Tests : rendus au bit pres contre l'ancien DSP (9 types x 3 blocs), suite CI complete, voyager_compare 85/85,
   host_test. Rapport detaille : docs/reports/2026-11-20-delay-reverb-v46.md.
+
+## 2026-11-20 (suite 6) : v48, barre des pages C, SOUND A, SEQ refaite, LFO et FX MOD dans EDIT
+
+- Choix de Mika : barre "je prefere C", "A pour sound", SEQ "fais encore mieux ! ... precis et aussi simple
+  d'utilisation meme si nous avons plein de parametres, quelque chose d'intuitif". LFO dans EDIT : option B.
+- Barre des pages (pages2.tsx / pages2.css) : touches mates, LED dans la touche, la page affichee a sa LED a l'accent ;
+  ancienne barre (PageKeys) supprimee ; le compteur CPU ne bouge pas.
+- SOUND A : EQ en haut (6 bandes), MASTER et ANALYZER a droite, PHASER / FLANGER / CHORUS / CRUSH / PUMP en colonnes,
+  barres de titre facon Legend ; Maj + glisser ou molette = Q du point, Alt = fin ; 45 px d'air au-dessus du bandeau.
+- SEQ : rangee de 16 LED commune (6 pastilles par pas : quelles pistes agissent), STEP 05 / 08 + PLAYING / REST /
+  SKIPPED BY CHANCE / STOPPED, 6 pistes (NOTES, ACCENT, SLIDE, GATE, RATCHET, CHANCE) en onglets avec icone et LED,
+  valeurs dessinees et ecrites ; clic = on / off, glisser vertical = valeur, en travers = crayon, clic droit ou double
+  clic = remise a zero, poignee END = longueur, pas au-dela grises avec la raison, SHIFT < >, RANDOM doux, CLEAR, ligne
+  d'aide. PROB -> CHANCE (libelle). C++ : mm_transport porte skip et dur (Arp, PluginProcessor, PluginEditor), avec ppq
+  et bpm ; la LED reste allumee le temps du pas.
+- Encart EDIT : bascule SYNTH | LFO | FX MOD ; LFO = LFO 1 (+ TARGET 2, DEPTH 2), LFO 2, HELL (HELL WARP + SPIN quand
+  xHellV2 = ON, HELL LFO pour un projet d'avant), DISTO LFO ; FX MOD = PHASER, FLANGER, CHORUS, PUMP ; potards k1 de Mika.
+- Aucun parametre hote ajoute. maquette.ts, ?mq et ?lfo supprimes. tsc 105, voyager_compare 85/85, host_test ok,
+  arp_test (nouveau controle skip / dur).
+- A verifier sur le Mac : les leviers de l'encart (essai automatique capricieux en rendu logiciel), le glisser vertical
+  de NOTES (A3 -> A6 en 50 px, a adoucir si trop sensible), la langue des libelles (anglais comme le reste de la face).
