@@ -28,6 +28,20 @@
 //           (le style MM de la page, l'OVERDRIVE du moteur, ne passe pas par ici : PluginProcessor laisse Decap
 //           contourne et rend le DRIVE au moteur)
 //   drive   0..1 : 0 a +36 dB dans la saturation (36 v) ; punish : +20 dB ; 0 : contournee AU BIT PRES
+//   punish  l'ancien PUNISH (OLD DISTO PUNISH, xDPunish) : +20 dB, AUTO d'apres la table ; garde au bit pres
+//   punish2 v46, PUNISH v2 (DISTO PUNISH, xDPunish2 ; Mika : "il doit faire mal celui la !") : les memes +20 dB, et
+//           1. le "snarl" avant la courbe, non compense : une cloche +6 dB a 1.4 kHz (Q 0.9) et -3 dB sous 120 Hz (une
+//              etagere) ; sur les bandes saturees seulement (CLEAN LOW reste propre) ;
+//           2. un second etage apres la courbe du style, dans le surechantillonnage et par sa primitive (ADAA) : un
+//              ecretage dur asymetrique (genou 0.9, biais 0.12) attaque a +6 dB ;
+//           3. une compression legere du traite (la detection de DYNAMICS, 5 ms / 150 ms : jusqu'a -6 dB sur les forts) ;
+//           4. AUTO qui mesure : la sonie (ponderee K, approchee ; 300 ms) du traite contre celle du meme son sans PUNISH
+//              (la courbe du style sans les +20 dB, au taux de base, sa compensation de table) ; vise +3 dB, a +/- 18 dB
+//              de la table ;
+//           5. un plafond doux (tangente) a -0.3 dBFS en sortie.
+//           Tout entre et sort par un fondu de 15 ms ; coupe (0), le chemin est celui d'avant au bit pres. Pas de retard
+//           en plus. Les deux ensemble : v2.
+//   CLEAN LOW (v46 : 2 bandes, la basse contournee) : LOW CUT ne coupe que la bande saturee (le grave propre reste)
 //   low, thump, tone, high, steep, mix, out, autoGain, ref : ceux du Decapitator (voir les lois)
 //   morph   0..1 : la courbe glisse du style vers morphTo (et ses accentuations, et sa compensation AUTO)
 //   dyn     0..1 (0.5 : rien) : sous 0.5 le mouille est comprime (les forts baissent), au-dessus il est etendu ; la
@@ -46,6 +60,9 @@
 //           a 11.3
 //   box     OFF, SMALL, COMBO, STACK, RADIO : une caisse courte (filtres et une resonance de quelques ms) ; boxSize la
 //           grandit ou la rapetisse (+/- 0.6 octave) ; boxMix : sa part
+//
+// MM_DECAP_NO_V2 (defini a la compilation) : la DISTO d'avant la v46, sans PUNISH v2 ni le LOW CUT de CLEAN LOW ;
+// tests/decap_ref.cpp la compile a part pour que decap_test verifie OFF et OLD au bit pres.
 //
 // La qualite : la saturation surechantillonnee (filtres polyphases a phase lineaire, sinus cardinal fenetre de Kaiser
 // beta 9, 33 coefficients par phase) ET par sa primitive (ADAA d'ordre 1). Une bande : x8. Le multibande : la bande du
@@ -78,7 +95,7 @@ struct DecapBand {
 struct DecapSettings {
     int style = 0;         // 0 A ... 11 CRUSH
     double drive = 0;      // 0..1 (0 : contournee)
-    bool punish = false;
+    bool punish = false;   // l'ancien PUNISH (OLD), au bit pres
     double low = 0;        // 0..1
     bool thump = false;
     double tone = 0.5;     // 0..1
@@ -109,6 +126,8 @@ struct DecapSettings {
     double postFreq = 0.5, postReso = 0;
     int box = 0;           // OFF, SMALL, COMBO, STACK, RADIO
     double boxSize = 0.5, boxMix = 1;
+    // v46
+    bool punish2 = false;  // PUNISH v2 (l'emporte sur punish)
 };
 
 class Decap {
@@ -169,6 +188,9 @@ private:
         int upW = 0, dnW = 0;
         std::array<double, 2> ax{}, fa{}, fb{};
         std::array<int, 2> sa{{-1, -1}}, sb{{-1, -1}};
+        // v46 PUNISH v2 : le second etage (ADAA : l'entree et la primitive d'avant ; ok : a jour)
+        std::array<double, 2> s2x{}, s2f{};
+        std::array<bool, 2> s2ok{};
         // les gains lisses de la bande
         double gB = 1, mix = 1, level = 1, solo = 1;
     };
@@ -235,10 +257,21 @@ private:
         double tilt = 0, pre = 0, post = 0, lc1 = 0, lc2 = 0, dcx = 0, dcy = 0, slp = 0, hc0 = 0, ha1 = 0, ha2 = 0, hb1 = 0, hb2 = 0;
         Svf preF, postF, a1, a2, a3, b1, b2, b3, ap, fbBp, boxHp, boxLp, boxPk1, boxPk2;
         double fbLast = 0;
+        // v46 PUNISH v2 : le snarl de chaque bande (la cloche, l'etagere) ; la ponderation K approchee du traite et de
+        // l'estimation sans PUNISH (passe-haut 60 Hz, etagere +4 dB au-dessus de 1.5 kHz)
+        std::array<Svf, 3> snPk{};
+        std::array<double, 3> snLs{};
+        double kpH = 0, kpS = 0, keH = 0, keS = 0;
     };
     std::array<Ch, 2> ch_{};
     std::array<std::vector<double>, 2> fbBuf_, boxBuf_;
     int fbW_ = 0, boxW_ = 0;
+    // v46 PUNISH v2 : le fondu (0..1), les sonies (300 ms) du traite et de l'estimation, le gain AUTO mesure (dB)
+    double pun_ = 0, punMsP_ = 0, punMsE_ = 0, punGm_ = 0;
+    bool punWas_ = false;
+    Coef snPk_{};
+    double aSnLo_ = 0, aKh_ = 0, aKs_ = 0, aMs_ = 0, snLoG_ = 0, kShG_ = 0;
+    void punClear();
 };
 
 } // namespace mmarp
