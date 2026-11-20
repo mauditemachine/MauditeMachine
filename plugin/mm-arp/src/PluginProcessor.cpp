@@ -171,6 +171,12 @@ MMArpProcessor::MMArpProcessor()
         ex_[static_cast<size_t>(e)] = mmx::kExtraDefs[e].def;
         exLast_[static_cast<size_t>(e)] = -1.f;
     }
+    // v46 : les reglages de HELL v2, par leur id
+    for (int k = 0; k < mmarp::Hell2::kKeys; ++k) {
+        const int a = mmx::allIndex(mmarp::Hell2::kKeyIds[k]);
+        jassert(a >= mmarp::kKnobs);
+        h2Ex_[static_cast<size_t>(k)] = a >= mmarp::kKnobs ? a - mmarp::kKnobs : mmx::ex_xHellMix;
+    }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
     driveId_ = mmarp::Voyager::paramIndex("drive");
@@ -608,6 +614,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         // v34 : un projet d'avant le moteur PRO (sans ENGINE) s'ouvre en CLASSIC, son moteur au bit pres
         const bool hadEngine = params.getChildWithProperty("id", "xEngine").isValid();
         const bool hadQuality = params.getChildWithProperty("id", "xQuality").isValid();
+        // v46 : un projet d'avant HELL v2 (sans xHellV2) garde l'ancien HELL, au bit pres ; les instances neuves : HELL v2
+        const bool hadHellV2 = params.getChildWithProperty("id", "xHellV2").isValid();
         // les reglages du VST3 seul que le projet ne connaissait pas : leur depart (le son d'avant), quelle que soit la
         // valeur que l'instance avait avant l'ouverture
         std::vector<int> missing;
@@ -626,6 +634,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
             if (auto* prm = apvts.getParameter("xQuality")) prm->setValueNotifyingHost(!hadQuality || prm->getValue() >= 0.5f ? 1.f : 0.5f);
         if (!hadEngine)
             if (auto* prm = apvts.getParameter("xEngine")) prm->setValueNotifyingHost(0.f);
+        if (!hadHellV2)
+            if (auto* prm = apvts.getParameter("xHellV2")) prm->setValueNotifyingHost(0.f);
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -636,8 +646,9 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("arp")) prm->setValueNotifyingHost(static_cast<bool>(state.getProperty("arp", true)) ? 1.f : 0.f);
     legacyFromLs(ls);
-    // la premiere version : la reverbe d'avant, l'ancien DELAY
+    // la premiere version : la reverbe d'avant, l'ancien DELAY, l'ancien HELL
     if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
+    if (auto* prm = apvts.getParameter("xHellV2")) prm->setValueNotifyingHost(0.f);
     convertDelay();
 }
 
@@ -1039,6 +1050,8 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     cpuPro_.store(pro, std::memory_order_relaxed);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
     hell_.prepare(sampleRate);
+    hell2_.prepare(sampleRate);
+    hellV2Was_ = -1;
     decap_.prepare(sampleRate);
     peq_.prepare(sampleRate);
     spec_.prepare(sampleRate);
@@ -1422,8 +1435,22 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // La note montree par la face (et la note jouee, pour HELL en RANGE MIDI)
     const mmarp::ArpShown sh = arp_.shownAt(frame_ + n);
     if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
-    // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0)
-    {
+    // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0). v46 : HELL v2 (xHellV2 a ON,
+    // les instances neuves) ; un projet d'avant (xHellV2 a OFF) garde l'ancien moteur, ce bloc tel quel, au bit pres.
+    const bool hellV2 = mmx::exStep(mmx::ex_xHellV2, ex_[mmx::ex_xHellV2]) == 1;
+    if (hellV2Was_ >= 0 && hellV2 != (hellV2Was_ == 1)) {
+        // le moteur change : celui qu'on quitte se tait et repartira vide
+        if (hellV2) hell_.reset();
+        else hell2_.stop();
+    }
+    hellV2Was_ = hellV2 ? 1 : 0;
+    if (hellV2) {
+        double hv[mmarp::Hell2::kKeys];
+        for (int k = 0; k < mmarp::Hell2::kKeys; ++k) hv[k] = ex_[static_cast<size_t>(h2Ex_[static_cast<size_t>(k)])];
+        hell2_.set(mmarp::Hell2::settingsOf(hv, ex_[mmx::ex_xHellMix], bpm, hellNoteHz_), bpm);
+        hell2_.process(outL, outR, n, ppq, playing, hellNoteHz_);
+        hellLfo_.store(hell2_.active() ? static_cast<float>(hell2_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    } else {
         const auto on = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]) == 1; };
         mmarp::HellSettings hs;
         hs.mix = ex_[mmx::ex_xHellMix];

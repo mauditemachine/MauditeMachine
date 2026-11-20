@@ -15,10 +15,10 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { pattern } from '../../audio/pattern';
 import { voyParams } from '../../voyager/params';
 import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayLoad, delayStep, delayTimeText, dlIdx } from './delay';
 import { arpExtra } from './extra';
-import { bpmNow as faceBpm } from './fx2';
 import { MiniLcd } from './fx2Lcd';
 import { hostBeats, hostClockStart, hostTempo } from './hostClock';
 import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC, useRaise } from './pcbui';
@@ -33,8 +33,13 @@ const useAll = (): void => {
   useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   useSyncExternalStore(hostTempo.subscribe, hostTempo.get, hostTempo.get);
 };
-/** Le tempo : celui de l'hote dans le plugin (mm_transport bpm), sinon celui de la face. */
-const bpmNow = (): number => hostTempo.get() ?? faceBpm();
+/** Le tempo : celui de l'hote dans le plugin (mm_transport bpm), sinon celui de la face (120 sans transport). */
+const bpmNow = (): number => {
+  const h = hostTempo.get();
+  if (h !== null) return h;
+  const b = pattern.get().bpm;
+  return typeof b === 'number' && b > 0 ? b : 120;
+};
 
 const Row: React.FC<{ top: number; left?: number; w: number; children: React.ReactNode }> = ({ top, left, w, children }) => (
   <div className="mm-p2-cells mm-hell-row" style={{ top, left: left ?? undefined, width: w }}>

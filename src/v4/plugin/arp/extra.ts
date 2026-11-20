@@ -12,6 +12,7 @@
 import spec from '../../../../plugin/mm-arp/extra-params.json';
 import { skyText, skyTypeIndex } from './skyModel';
 import { hellShiftText, LFO_BEAT_NAMES } from './hell';
+import { hell2Text } from './hell2';
 import { delayText } from './delay';
 import { skyPostText } from './skyPost';
 
@@ -176,6 +177,11 @@ function text(id: string, v: number): string {
   // la reverbe facon BigSky : le texte depend de la machine (skyModel.ts)
   if (p.section === 'sky' && id !== 'xSkyType') return skyText(skyTypeIndex(values.xSkyType ?? 0), id, v);
   if (id === 'xPbRange' && p.steps) return `${p.steps[extraStepIndex(id, v)]} ST`;
+  // v46 : les cercles de HELL v2 (hell2.ts)
+  if (p.section === 'hell') {
+    const t = hell2Text(id, v);
+    if (t !== null) return t;
+  }
   if (p.steps) return p.steps[extraStepIndex(id, v)];
   if (MATRIX_AMT.test(id)) return `${signed(matrixPct(v), 0)} %`;
   switch (id) {

@@ -54,6 +54,10 @@ jobs:
         run: |
           node plugin/mm-arp/tests/hell-presets-gen.mjs --check
           ./build-dsp/mmarp_hell_test
+      - name: "HELL v2 (v46) : MIX 0 au bit pres, 16 presets x MIX 25/50/75/100 % sous -1 dBFS, descente, blocs, grille de l'hote, extremes, 44.1 et 96 kHz, cout ; banque de la page (hell2.ts) a jour"
+        run: |
+          node plugin/mm-arp/tests/hell2-presets-gen.mjs --check
+          ./build-dsp/mmarp_hell2_test
       - name: "Reverb facon BigSky : Tr60 HALL et ROOM, energie, 12 machines au max, blocs, cout"
         run: ./build-dsp/mmarp_sky_test
       - name: "DISTO complete : DRIVE 0 et MM au bit pres, 12 styles, MORPH, multibande, BOX, filtres, DYNAMICS, FEEDBACK stable, ENV, LFO, blocs, MIX 0, cout"

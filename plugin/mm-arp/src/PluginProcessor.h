@@ -11,6 +11,7 @@
 #include "ArpFx.h"
 #include "Decap.h"
 #include "Hell.h"
+#include "Hell2.h"
 #include "ParamEq.h"
 #include "ExtraParams.h"
 #include "Params.h"
@@ -179,6 +180,11 @@ private:
     mmarp::ArpFx fx_;
     // HELL (2026-11-13) : delay + decaleur de Bode, apres la chaine ; contourne au bit pres a MIX 0
     mmarp::Hell hell_;
+    // v46 : HELL v2 (Hell2.h), la descente en six cercles, a la place de HELL quand xHellV2 est a ON ; h2Ex_ : l'indice
+    // (extra) de chacun de ses reglages (Hell2::kKeyIds) ; hellV2Was_ : le moteur du bloc d'avant (un changement vide l'autre)
+    mmarp::Hell2 hell2_;
+    std::array<int, mmarp::Hell2::kKeys> h2Ex_{};
+    int hellV2Was_ = -1;
     // DISTO facon Decapitator (2026-11-16) : entre le moteur et la chaine ; contournee au bit pres a DRIVE 0 ou en MM
     mmarp::Decap decap_;
     int driveId_ = -1;

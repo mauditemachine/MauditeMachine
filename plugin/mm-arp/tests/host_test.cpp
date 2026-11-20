@@ -4,6 +4,7 @@
 //   cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON && cmake --build build-host -j && ./build-host/mmarp_host_test
 #include "PluginProcessor.h"
 #include "Hell.h"
+#include "Hell2.h"
 
 #include <cmath>
 #include <map>
@@ -445,10 +446,71 @@ int main() {
             const double hz = mmarp::Hell::shiftHzFor(P(b, "xHellShift")->getValue(), range, 120, 0);
             const double lp = mmarp::Hell::lpHzOf(P(b, "xHellLp")->getValue());
             const double lpWas = 600.0 * std::pow(30.0, 0.2 / 0.49);
-            const bool ok = gone == 12 && range == mmarp::Hell::WIDE && std::fabs(hz - 320) < 0.5 && std::fabs(P(b, "xHellTone")->getValue() - 0.5f) < 1e-6f &&
+            // (12 reglages d'avant RANGE, plus les 20 de HELL v2 : v46)
+            const bool ok = gone == 32 && range == mmarp::Hell::WIDE && std::fabs(hz - 320) < 0.5 && std::fabs(P(b, "xHellTone")->getValue() - 0.5f) < 1e-6f &&
                             std::fabs(lp - lpWas) < 0.01 * lpWas && std::fabs(P(b, "xHellLfoAmt")->getValue() - 0.75f) < 1e-3f && P(b, "xHellLfoDepth")->getValue() == 0.f;
             check(ok, "HELL d'avant (sans RANGE) : 320 Hz -> WIDE " + juce::String(hz, 1).toStdString() + " Hz, TONE -> LOW-PASS " + juce::String(lp, 0).toStdString() + " Hz (avant " +
                           juce::String(lpWas, 0).toStdString() + "), LFO DEPTH -> AMOUNT, " + std::to_string(gone) + " reglages retires");
+            check(P(b, "xHellV2")->getValue() == 0.f, "HELL d'avant : le projet garde l'ancien moteur (xHellV2 a OFF)");
+        }
+        {
+            // v46 : HELL v2. Une instance neuve demarre en v2 ; un projet d'avant (sans xHellV2 ni les reglages des cercles)
+            // garde l'ancien HELL au bit pres, quels que soient les reglages des cercles ; en v2, HELL MIX 75 % reste sous
+            // -1 dBFS et sonne autrement que l'ancien.
+            const auto P = [&](MMArpProcessor& pr, const char* id) { return pr.knobParam(mmx::allIndex(id)); };
+            MMArpProcessor a;
+            check(P(a, "xHellV2")->getValue() == 1.f, "HELL v2 : une instance neuve demarre en v2 (xHellV2 a ON)");
+            a.faceProgram(program("[0,5]", R"({"cutoff":0.6,"reverb":0.2})"));
+            P(a, "xHellMix")->setValueNotifyingHost(0.75f);
+            P(a, "xHellFb")->setValueNotifyingHost(0.7f);
+            P(a, "xHellSync")->setValueNotifyingHost(6.f / 13.f);
+            juce::MemoryBlock blob;
+            a.getStateInformation(blob);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(blob.getData(), static_cast<int>(blob.getSize()));
+            int gone = 0;
+            if (xml)
+                for (auto* e : xml->getChildIterator()) {
+                    std::vector<juce::XmlElement*> kill;
+                    for (auto* c : e->getChildIterator()) {
+                        const juce::String id = c->getStringAttribute("id");
+                        bool v2 = id == "xHellV2";
+                        for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) v2 = v2 || id == mmarp::Hell2::kKeyIds[k];
+                        if (v2) kill.push_back(c);
+                    }
+                    for (auto* c : kill) e->removeChildElement(c, true);
+                    gone += static_cast<int>(kill.size());
+                }
+            juce::MemoryBlock before;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, before);
+            // b : le projet d'avant tel quel ; c : le meme, les cercles pousses au maximum (l'ancien moteur les ignore) ;
+            // d : le meme, passe en v2
+            MMArpProcessor b, c, d;
+            for (MMArpProcessor* pr : {&b, &c, &d}) pr->setStateInformation(before.getData(), static_cast<int>(before.getSize()));
+            check(gone == 20 && P(b, "xHellV2")->getValue() == 0.f && std::fabs(P(d, "xHellMix")->getValue() - 0.75f) < 1e-6f,
+                  "HELL v2 : un projet d'avant (" + std::to_string(gone) + " reglages retires) s'ouvre avec l'ancien HELL (xHellV2 a OFF)");
+            for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) P(c, mmarp::Hell2::kKeyIds[k])->setValueNotifyingHost(1.f);
+            P(d, "xHellV2")->setValueNotifyingHost(1.f);
+            std::vector<float> bl, br, cl, cr, dl, dr;
+            Head hb, hc, hd;
+            Stats sb, sc, sd;
+            MMArpProcessor* procs[3] = {&b, &c, &d};
+            Head* heads[3] = {&hb, &hc, &hd};
+            Stats* stats[3] = {&sb, &sc, &sd};
+            std::vector<float>* ls[3] = {&bl, &cl, &dl};
+            std::vector<float>* rs[3] = {&br, &cr, &dr};
+            for (int k = 0; k < 3; ++k) {
+                procs[k]->setPlayHead(heads[k]);
+                procs[k]->prepareToPlay(48000, 512);
+                heads[k]->playing = true;
+                heads[k]->ppq = 0;
+                *stats[k] = run(*procs[k], *heads[k], 48000 * 6, 512, nullptr, ls[k], rs[k]);
+            }
+            check(sb.finite && sb.peak > 0.01 && bl == cl && br == cr, "HELL v2 : l'ancien moteur au bit pres, les reglages des cercles n'y changent rien (crete " +
+                                                                          juce::String(db(sb.peak), 1).toStdString() + " dBFS)");
+            double diff = 0;
+            for (size_t i = 0; i < std::min(bl.size(), dl.size()); ++i) diff = std::max(diff, static_cast<double>(std::fabs(bl[i] - dl[i])));
+            check(sd.finite && sd.peak > 0.01 && sd.peak <= 0.8913 && diff > 0.05, "HELL v2 a MIX 75 % : sous le plafond (crete " + juce::String(db(sd.peak), 2).toStdString() +
+                                                                                       " dBFS) et autre que l'ancien HELL (ecart " + juce::String(diff, 2).toStdString() + ")");
         }
     }
     {
@@ -723,10 +785,16 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra == 243, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
-        // v46 : les dix reglages de la sortie de la reverbe, apres DISTO PUNISH, dans l'ordre
-        check(mmx::ex_xSkyLoCut == 233 && mmx::ex_xSkyWidth == 240 && mmx::ex_xSkyFreeze == 242,
-              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres DISTO PUNISH (les 233 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra >= 233, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        // v46 : les 20 reglages de HELL v2, ensemble, apres DISTO PUNISH (v2) (xHellV2 d'abord)
+        {
+            bool inOrder = mmx::ex_xHellV2 == 233 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1 && mmx::ex_xHellDescent == 252;
+            for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) inOrder = inOrder && mmx::allIndex(mmarp::Hell2::kKeyIds[k]) == mmarp::kKnobs + mmx::ex_xHellV2 + 1 + (k - mmarp::Hell2::kWarp);
+            check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste, apres DISTO PUNISH (v2) (les 233 d'avant gardent leur place)");
+        }
+        // v46 : les dix reglages de la sortie de la reverbe, apres HELL v2, dans l'ordre
+        check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra == 263,
+              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres HELL v2 (les 253 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme

@@ -43,8 +43,11 @@ les rend reelles, par defaut, sans drapeau, et donne a la reverbe le DSP qui man
 - Pas de presets REVERB : la page A n'en avait pas ; la banque d'usine du synthe reste seche (reverbe a 0, CLASSIC).
 - La tete de lecture du DELAY : `mm_transport` (a chaque note et au moins une fois par seconde) porte la position ; entre
   deux, la face avance au tempo. Hors du plugin ou a l'arret : l'horloge de la page, comme avant.
-- `fx2.ts`, `fx2.css` et `SkyPage.tsx` gardes (HELL et les pieces communes s'en servent) ; leurs regles de l'option B
-  sont mortes mais laissees pour ne pas gener le travail en cours sur HELL.
+- Fusions : DISTO v46 puis HELL v2 (claude/nifty-bohr-7ixmpf) ; les 10 reglages REVERB viennent apres `xHellDescent`,
+  aux indices 253 a 262 (263 reglages en tout) ; `ExtraTable.inc`, la banque d'usine et `host_test` regeneres ou mis a
+  jour. HELL v2 n'utilisant plus `fx2.ts`, il est supprime (le tempo de la face est lu dans `DelayPage2.tsx`) ; `fx2.css`
+  ne garde que le petit ecran, DELAY et REVERB (les regles de HELL sont dans `hell2.css`, celles des options B partent).
+  `SkyPage.tsx` reste : ses pieces (`tail`, `cellOf`, `CellView`) servent a la page.
 
 ## 3. Ce qui reste a faire / points en suspens
 
