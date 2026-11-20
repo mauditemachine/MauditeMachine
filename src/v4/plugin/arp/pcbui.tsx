@@ -22,7 +22,7 @@
  * (Maj : x10), Debut, Fin, Suppr. En MIDI LEARN, un clic arme le reglage (arpBridge.learnArm) sans le bouger.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { voyMsg } from '../../voyager/msg';
 import { arpBridge } from './bridge';
 import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKnobId } from '../../voyager/params';
@@ -32,7 +32,7 @@ import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { distoInert } from './disto';
 import { delayInert } from './delay';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
-import { paintVKnob, vknobData } from './vknob';
+import { VKNOB_SPEC, VKNOB_URL } from './vknob';
 
 /* ---------------- la source d'un reglage ---------------- */
 
@@ -295,40 +295,29 @@ const SWEEP = 135;
 export const KNOB_IMG = { box: 52, cx: 26, cy: 26, r0: 15.2, r1: 22, w: 3 } as const;
 
 /**
- * Le potard de la face (v43 : celui de Mika, vknob.ts k1, le meme calcul que sur la face) : dessine sur une toile a la
- * definition de l'ecran, redessine quand l'angle ou la taille change ; la prise et le repere tournent, la lumiere et le
- * capuchon brosse restent fixes. angle : degres, 0 en haut, sens horaire ; k : l'echelle.
+ * v43 (Mika : "les grands knobs des pages OPEN : mika-knob.png, pour la coherence") : le potard de Mika, SES pixels
+ * (vknob/k1.png) : le PNG entier tourne autour du centre de son disque, son repere d'origine (vers 1 h) compense ; le
+ * disque remplit la boite moins 4 % (comme l'image d'avant), son ombre : le filtre CSS de .mm-r-knob.
+ * angle : degres, 0 en haut, sens horaire ; k : l'echelle.
  */
+const K1 = VKNOB_SPEC.k1;
 export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 1 }) => {
   const K = KNOB_IMG;
-  const ref = useRef<HTMLCanvasElement>(null);
-  const last = useRef('');
-  const [ready, setReady] = useState(0);
-  useEffect(() => {
-    let on = true;
-    void vknobData().then(() => on && setReady(1));
-    return () => {
-      on = false;
-    };
-  }, []);
-  useLayoutEffect(() => {
-    const c = ref.current;
-    if (!c || !ready) return;
-    const w = c.getBoundingClientRect().width;
-    if (w < 2) return;
-    const S = Math.max(16, Math.min(1024, Math.round(w * (window.devicePixelRatio || 1))));
-    const key = `${S}:${angle.toFixed(3)}`;
-    if (key === last.current) return;
-    if (c.width !== S) {
-      c.width = S;
-      c.height = S;
-    }
-    const g = c.getContext('2d');
-    if (g && paintVKnob(g, S, 'k1', (angle * Math.PI) / 180, 1.04)) last.current = key;
-  });
+  const s = (K.box / 2 / 1.04 / K1.R) * k;
   return (
     <span className="mm-r-knob" style={{ width: K.box * k, height: K.box * k }} aria-hidden="true">
-      <canvas ref={ref} className="mm-r-knob-cv" />
+      <span
+        className="mm-r-knob-png"
+        style={{
+          left: K.cx * k - K1.ax * s,
+          top: K.cy * k - K1.ay * s,
+          width: K1.w * s,
+          height: K1.h * s,
+          backgroundImage: `url(${VKNOB_URL.k1})`,
+          transformOrigin: `${K1.ax * s}px ${K1.ay * s}px`,
+          transform: `rotate(${(angle - K1.ref).toFixed(2)}deg)`,
+        }}
+      />
     </span>
   );
 };
@@ -347,10 +336,18 @@ const FINE_TICKS = Array.from({ length: 11 }, (_, i) => {
   const t1 = i % 5 === 0 ? FINE_KNOB.t1 + 1.2 : FINE_KNOB.t1;
   return { x1: c + Math.sin(a) * FINE_KNOB.t0, y1: c - Math.cos(a) * FINE_KNOB.t0, x2: c + Math.sin(a) * t1, y2: c - Math.cos(a) * t1, major: i % 5 === 0 };
 });
+/**
+ * v43 (Mika : "c'est pour les tout petits knobs ... dans l'interface OPEN", 74.png) : son tout petit knob, SES pixels
+ * (vknob/tiny.png, detoure au disque de sa capture : sans le cuir, les chiffres ni les graduations) : il tourne entier
+ * autour de son centre, son repere d'origine compense ; son ombre (detouree a part, vknob/tiny-shadow.png) reste fixe
+ * dessous. Le disque garde le rayon du petit knob d'avant (FINE_KNOB.r) ; les graduations restent celles de la page.
+ */
+const TINY = VKNOB_SPEC.tiny;
 export const FineKnob: React.FC<{ angle: number }> = ({ angle }) => {
   const F = FINE_KNOB;
   const c = F.box / 2;
-  const img = F.r * 2 * 1.12;
+  const s = F.r / TINY.R;
+  const box = { left: c - TINY.ax * s, top: c - TINY.ay * s, width: TINY.w * s, height: TINY.h * s };
   return (
     <span className="mm-fk" style={{ width: F.box, height: F.box }} aria-hidden="true">
       <svg className="mm-fk-ticks" width={F.box} height={F.box} viewBox={`0 0 ${F.box} ${F.box}`}>
@@ -358,10 +355,16 @@ export const FineKnob: React.FC<{ angle: number }> = ({ angle }) => {
           <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} data-major={t.major ? '1' : undefined} />
         ))}
       </svg>
-      <span className="mm-fk-img" style={{ left: c - img / 2, top: c - img / 2, width: img, height: img, transform: `rotate(${angle}deg)` }} />
-      <span className="mm-fk-axis" style={{ left: c, top: c, transform: `rotate(${angle}deg)` }}>
-        <span className="mm-fk-mark" style={{ left: -F.w / 2, top: -F.m1, width: F.w, height: F.m1 - F.m0 }} />
-      </span>
+      <span className="mm-fk-png" style={{ ...box, backgroundImage: `url(${VKNOB_URL.tinyShadow})` }} />
+      <span
+        className="mm-fk-png"
+        style={{
+          ...box,
+          backgroundImage: `url(${VKNOB_URL.tiny})`,
+          transformOrigin: `${TINY.ax * s}px ${TINY.ay * s}px`,
+          transform: `rotate(${(angle - TINY.ref).toFixed(2)}deg)`,
+        }}
+      />
     </span>
   );
 };

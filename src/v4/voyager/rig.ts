@@ -172,6 +172,11 @@ export class VoyagerRig {
 
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
+    // v43 (le plugin) : une touche allumee : sa LED et son nom (en accent) suivent, sur la serigraphie du plateau
+    if (PLUGIN_ARP)
+      this.keys.onLit = (id, on) => {
+        if (this.deckSilk.setButtonLit(id, on)) this.opts.repaint();
+      };
     // Les boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : chacun sur son plan, comme sa serigraphie
     // (le panneau incline ; au telephone, CHORUS sur le plateau)
     this.panel.add(this.keys.pushes.panel);
@@ -342,6 +347,8 @@ export class VoyagerRig {
       const step = stepIndex(id, v[id]);
       if (this.panelSilk.setPush(id, step)) changed = true;
       if (this.deckSilk.setPush(id, step)) changed = true;
+      // v43 (le plugin) : CHORUS en marche (I ou II) : sa pilule en accent
+      if (PLUGIN_ARP && id === 'chorus' && this.keys.setPushLit(id, step > 0)) changed = true;
     }
     if (this.syncLcd(false)) changed = true;
     if (changed) {

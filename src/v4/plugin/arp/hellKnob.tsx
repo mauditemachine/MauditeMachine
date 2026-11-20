@@ -74,13 +74,12 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const rig = stage?.voy;
     if (!stage || !rig) return undefined;
     const P = VOY_HELL_PLACE;
-    // v43 : le potard de Mika, comme tous ceux de la face (vknob.ts k1) : meme centre, meme rayon exterieur
+    // v43 : le potard de Mika (vknob.ts k1), comme tous ceux de la face : son PNG, meme centre, meme rayon exterieur
     const set = new VKnobSet('k1', 1);
     set.place(0, P.x, VKNOB_LIFT, P.z, RYTM_KNOB.R * P.s);
-    rig.panel.add(set.mesh);
+    rig.panel.add(...set.meshes);
     const turn = (): void => {
-      // l'angle des potards de la face (autour de +y) -> le sens horaire vu de face
-      set.setAngle(0, -Math.fround(potAngle(arpExtra.of(ID))));
+      set.setAngle(0, Math.fround(potAngle(arpExtra.of(ID))));
       stage.invalidate();
     };
     turn();
@@ -114,7 +113,7 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       off();
       faceDbl.set(null);
       def.enabled = false;
-      rig.panel.remove(set.mesh);
+      rig.panel.remove(...set.meshes);
       set.dispose();
     };
   }, [stage]);

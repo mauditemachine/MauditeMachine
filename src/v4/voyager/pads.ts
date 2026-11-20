@@ -315,7 +315,9 @@ export class VoyKeys {
     this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
     // RUN/STOP : l'albedo de la touche RUN de la 808, divise par celui du caoutchouc
     const rubber = albedo('pad', new Color(), gainOf('pad'));
-    this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
+    // v43 (le plugin, Mika : "RUN/STOP n'est plus rouge") : une touche noire comme les autres, en accent quand l'arpege joue
+    if (PLUGIN_ARP) this.buttons.setColorAt(RUN_I, col.setRGB(1, 1, 1));
+    else this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
     // Les boutons poussoirs : la matiere des touches (le caoutchouc, sa lumiere par instance), eteints ; un jeu par plan
     const mk = (where: VoyWhere): [InstancedMesh, InstancedBufferAttribute] => {
@@ -348,6 +350,8 @@ export class VoyKeys {
     this.ledMat.name = 'voyRunLed';
     this.runLed = new Mesh(lg, this.ledMat);
     this.runLed.name = 'voyRunLed';
+    // v43 (le plugin) : plus de barre sur RUN/STOP : sa LED ronde au-dessus, comme les autres touches (voyager/silk.ts)
+    if (PLUGIN_ARP) this.runLed.visible = false;
 
     this.haloTex = makeHaloTexture();
     this.haloMat = new MeshBasicMaterial({ map: this.haloTex, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
@@ -389,8 +393,8 @@ export class VoyKeys {
     const p = voyKnobPlace(PUSH_IDS[i]);
     const { where, j } = PUSH_SLOT[i];
     // v27 (le plugin) : SUB OCT devient un levier 3D (plugin/arp/faceExtras.tsx) : sa touche cachee, sa zone de prise reste
-    if (PLUGIN_ARP && PUSH_IDS[i] === 'subOct') this.pushes[where].setMatrixAt(j, m4.makeScale(0, 0, 0));
-    else this.pushes[where].setMatrixAt(j, m4.makeTranslation(p.x, this.pushY[i], p.z));
+    // v43 (Mika : "tous les boutons, meme CHORUS ... SUB OCT") : la touche-pilule revient, plus de levier
+    this.pushes[where].setMatrixAt(j, m4.makeTranslation(p.x, this.pushY[i], p.z));
     this.pushes[where].instanceMatrix.needsUpdate = true;
   }
 
@@ -411,8 +415,22 @@ export class VoyKeys {
     if (i === this.pushHover) return false;
     const prev = this.pushHover;
     this.pushHover = i;
-    if (prev >= 0) this.setPushGlow(prev, 'off');
-    if (i >= 0) this.setPushGlow(i, 'hover');
+    if (prev >= 0) this.setPushGlow(prev, this.pushRest(prev));
+    if (i >= 0) this.setPushGlow(i, this.pushRest(i));
+    return true;
+  }
+
+  /** v43 (le plugin) : un bouton poussoir allume (CHORUS en marche) : la pilule en accent. */
+  private pushLit = new Uint8Array(PUSHES);
+  private pushRest(i: number): Glow {
+    if (this.pushLit[i]) return 'orange';
+    return i === this.pushHover ? 'hover' : 'off';
+  }
+  setPushLit(id: VoyKnobId, on: boolean): boolean {
+    const i = PUSH_IDS.indexOf(id);
+    if (i < 0 || this.pushLit[i] === (on ? 1 : 0)) return false;
+    this.pushLit[i] = on ? 1 : 0;
+    this.setPushGlow(i, this.pushRest(i));
     return true;
   }
 
@@ -445,8 +463,20 @@ export class VoyKeys {
     this.haloColor(i, g);
   }
 
+  /**
+   * v43 (le plugin) : une touche s'allume ou s'eteint (accent, flash, EDIT ouvert...) : sa LED et son nom suivent
+   * (rig.ts -> voyager/silk.ts setButtonLit) ; null au site.
+   */
+  onLit: ((id: VoyButtonId, on: boolean) => void) | null = null;
+  private litNow = new Uint8Array(BTNS);
+
   private setBtnGlow(i: number, g: Glow): void {
     this.btnGlow[i] = g;
+    const on = g === 'orange' || g === 'active' || g === 'flash' ? 1 : 0;
+    if (on !== this.litNow[i]) {
+      this.litNow[i] = on;
+      this.onLit?.(VOY_BUTTONS[i].id, on === 1);
+    }
     const k = i === OPEN_I && g === 'orange' ? this.breath : 1;
     const a = this.btnEm.array as Float32Array;
     const c = RGB[g];
@@ -469,6 +499,8 @@ export class VoyKeys {
     if (b.id === 'open') return PLUGIN_ARP ? (this.open ? 'orange' : 'off') : this.open ? 'orangeDim' : 'orange';
     if (b.id === 'preset') return this.preset ? 'orange' : PADS + i === this.hover ? 'hover' : 'off';
     if (b.id === 'edit' && this.editing) return 'active';
+    // v43 (le plugin) : RUN/STOP allume tant que l'arpege joue
+    if (PLUGIN_ARP && b.id === 'run' && this.running) return 'orange';
     return PADS + i === this.hover ? 'hover' : 'off';
   }
 
@@ -505,6 +537,7 @@ export class VoyKeys {
     if (on === this.running) return false;
     this.running = on;
     this.ledMat.color.copy(on ? this.ledOn : this.ledOff);
+    if (PLUGIN_ARP) this.refreshBtn(RUN_I);
     return true;
   }
 
@@ -628,7 +661,7 @@ export class VoyKeys {
     ORANGE.setHex(COLOR.orange);
     for (let i = 0; i < PADS; i += 1) this.setPadGlow(i, this.padGlow[i]);
     for (let i = 0; i < BTNS; i += 1) this.setBtnGlow(i, this.btnGlow[i]);
-    if (this.pushHover >= 0) this.setPushGlow(this.pushHover, 'hover');
+    for (let i = 0; i < PUSHES; i += 1) this.setPushGlow(i, this.pushRest(i));
     this.opts.repaint();
   }
 

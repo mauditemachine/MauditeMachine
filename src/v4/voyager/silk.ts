@@ -82,8 +82,8 @@ interface Text {
   ink?: 'bone' | 'orange';
   maxW?: number;
   group?: string;
-  /** v42 : le nom d'OPEN / CLOSE (son encart, le plugin) */
-  key?: 'open';
+  /** v42 : le nom d'une touche du plateau (son encart, le plugin : OPEN / CLOSE ; v43 : toutes, en accent allumees) */
+  key?: string;
 }
 
 /** Pixels de texture par unite : desktop 163, portrait 200 (plans plus grands). */
@@ -158,7 +158,9 @@ function panelTexts(): Text[] {
   return out;
 }
 
-function deckTexts(open: boolean): Text[] {
+/** v43 (le plugin) : les touches allumees (leur nom en accent, leur LED allumee). */
+type Lit = Partial<Record<string, boolean>>;
+function deckTexts(open: boolean, lit: Lit = {}): Text[] {
   const out: Text[] = [];
   CHORDS.forEach((c, i) => {
     const p = voyPadAt(i);
@@ -168,20 +170,29 @@ function deckTexts(open: boolean): Text[] {
   for (const b of VOY_BUTTONS) {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
     const nav = b.id === 'open' || b.id === 'preset';
+    // v43 (le plugin, Mika : la rangee STYLE des pages d'OPEN, 73.webp) : le nom en accent tant que sa touche est
+    // allumee, a l'encre sinon (PRESET et OPEN compris)
+    const accent = PATCHES ? lit[b.id] === true : nav;
     out.push({
-      key: b.id === 'open' ? 'open' : undefined,
+      key: PATCHES ? b.id : b.id === 'open' ? 'open' : undefined,
       text: label,
       x: b.x,
       z: b.z + b.d / 2 + VOY_BUTTON.labelGap,
       cap: PORTRAIT ? 0.12 : 0.08,
       weight: nav ? 700 : SILK.weight,
-      ink: nav ? 'orange' : 'bone',
-      alpha: nav ? 1 : SILK.alpha,
+      ink: accent ? 'orange' : 'bone',
+      alpha: accent ? 1 : SILK.alpha,
       maxW: b.w + 0.12,
       group: nav ? 'nav' : 'tr',
     });
   }
   return out;
+}
+
+/** v43 : la LED d'une touche du plateau : au-dessus d'elle, centree (73.webp : un petit oeil rouge, un jour avec la touche). */
+function btnLed(b: (typeof VOY_BUTTONS)[number]): { x: number; z: number; r: number } {
+  const r = 0.036;
+  return { x: b.x, z: b.z - b.d / 2 - 0.06 - r, r };
 }
 
 /**
@@ -237,7 +248,7 @@ function silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial 
  */
 interface Patch {
   id: string;
-  kind: 'sel' | 'led' | 'txt';
+  kind: 'sel' | 'led' | 'txt' | 'bled';
   box: [number, number, number, number];
   canvas: HTMLCanvasElement;
   ctx: Ctx;
@@ -262,6 +273,8 @@ export class VoySilk {
   private oy = 0;
   private patches: Patch[] = [];
   private aniso: number;
+  /** v43 : les touches du plateau allumees */
+  private lit: Lit = {};
   private plane: (typeof PLANE)[VoySilkKind];
   private open = false;
   draws = 0;
@@ -416,13 +429,17 @@ export class VoySilk {
       }
       if (box) this.addPatch(k.id, kind, box);
     }
-    // Le nom d'OPEN (CLOSE capot ouvert) : il change a chaque ouverture, la grande toile du plateau ne bouge plus
-    const b = VOY_BUTTONS.find((x) => x.id === 'open');
-    if (b && this.kind === 'deck') {
+    // Le nom de chaque touche (OPEN : CLOSE capot ouvert ; v43 : en accent allumee) et, v43, sa LED au-dessus : ils
+    // changent avec la touche, la grande toile du plateau ne bouge plus
+    if (this.kind !== 'deck') return;
+    for (const b of VOY_BUTTONS) {
       const z = b.z + b.d / 2 + VOY_BUTTON.labelGap;
       const cap = PORTRAIT ? 0.12 : 0.08;
       const half = (b.w + 0.12) / 2 + 0.04;
-      this.addPatch('open', 'txt', [b.x - half, z - cap, b.x + half, z + cap]);
+      this.addPatch(b.id, 'txt', [b.x - half, z - cap, b.x + half, z + cap]);
+      const L = btnLed(b);
+      const e = L.r * 3.2 + 0.01;
+      this.addPatch(b.id, 'bled', [L.x - e, L.z - e, L.x + e, L.z + e]);
     }
   }
 
@@ -476,9 +493,15 @@ export class VoySilk {
       p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
       if (p.kind === 'sel') this.selectors(p.id as VoyKnobId);
       else if (p.kind === 'led') this.pushLeds(p.id as VoyKnobId);
-      else {
-        const items = deckTexts(this.open);
-        this.drawTexts(items, this.scales(items), 'open');
+      else if (p.kind === 'bled') {
+        const b = VOY_BUTTONS.find((x) => x.id === p.id);
+        if (b) {
+          const L = btnLed(b);
+          this.led(L.x, L.z, this.lit[b.id] === true, L.r, true);
+        }
+      } else {
+        const items = deckTexts(this.open, this.lit);
+        this.drawTexts(items, this.scales(items), p.id);
       }
     } finally {
       this.ctx = keep;
@@ -605,7 +628,7 @@ export class VoySilk {
         this.logos = logoImage('wordmark') ? ['wordmark', 'mark'] : ['mark'];
       } else this.logos = img ? ['wordmark'] : [];
     } else {
-      items = deckTexts(this.open);
+      items = deckTexts(this.open, this.lit);
     }
     this.drawTexts(items, this.scales(items));
     this.draws += 1;
@@ -837,12 +860,51 @@ export class VoySilk {
     for (const led of voyPushLeds(id, k.steps ?? [])) this.led(led.x, led.z, led.step === cur);
   }
 
-  /** Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte. */
-  private led(lx: number, lz: number, lit: boolean): void {
+  /** Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte ; v43 : celles des touches, a la couleur d'accent. */
+  private led(lx: number, lz: number, lit: boolean, radius: number = VOY_LED.r, accent = false): void {
     const ctx = this.ctx;
     const x = this.px(lx);
     const y = this.py(lz);
-    const r = VOY_LED.r * this.ppu;
+    const r = radius * this.ppu;
+    if (PLUGIN_ARP && accent) {
+      // la LED des touches (73.webp) : eteinte, un rouge sombre a lentille ; allumee, l'accent et son halo
+      const c = new Color(HEX.orange);
+      const rgb = (k: number, a = 1): string => `rgba(${Math.round(Math.min(255, c.r * 255 * k))}, ${Math.round(Math.min(255, c.g * 255 * k))}, ${Math.round(Math.min(255, c.b * 255 * k))}, ${a})`;
+      if (lit) {
+        const g = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 3.1);
+        g.addColorStop(0, rgb(1, 0.5));
+        g.addColorStop(0.45, rgb(1, 0.16));
+        g.addColorStop(1, rgb(1, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 3.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#050404';
+      ctx.beginPath();
+      ctx.arc(x, y + r * 0.08, r * 1.28, 0, Math.PI * 2);
+      ctx.fill();
+      const lens = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.05, x, y, r);
+      if (lit) {
+        lens.addColorStop(0, '#fff3f6');
+        lens.addColorStop(0.3, rgb(1.25));
+        lens.addColorStop(0.75, rgb(1));
+        lens.addColorStop(1, rgb(0.62));
+      } else {
+        lens.addColorStop(0, '#7a3a34');
+        lens.addColorStop(0.35, '#4a1612');
+        lens.addColorStop(1, '#260806');
+      }
+      ctx.fillStyle = lens;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = lit ? 'rgba(255,255,255,0.75)' : 'rgba(255,220,210,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x - r * 0.32, y - r * 0.38, r * 0.28, r * 0.17, -0.6, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
     if (PLUGIN_ARP) {
       // 2026-11-16 : une vraie LED : la bague noire, la lentille bombee (son reflet), le halo allumee ; eteinte, un
       // rouge sombre qu'on voit
@@ -973,14 +1035,25 @@ export class VoySilk {
     if (this.kind !== 'deck' || open === this.open) return false;
     this.open = open;
     // v42 (le plugin) : le nom seul, sur son encart, tant que les noms du groupe (PRESET) gardent leur corps
-    const patch = this.patches.find((p) => p.kind === 'txt');
+    const patch = this.patches.find((p) => p.kind === 'txt' && p.id === 'open');
     const navScale = (o: boolean): number => {
-      const items = deckTexts(o);
+      const items = deckTexts(o, this.lit);
       const sc = this.scales(items);
       return sc[items.findIndex((t) => t.key === 'open')] ?? 1;
     };
     if (patch && navScale(open) === navScale(!open)) this.drawPatch(patch);
     else this.draw();
+    return true;
+  }
+
+  /**
+   * v43 (le plugin) : une touche du plateau allumee ou eteinte (pads.ts VoyKeys.onLit) : sa LED et son nom (en accent
+   * allumee) se redessinent, seuls, sur leurs encarts ; true si redessine.
+   */
+  setButtonLit(id: string, on: boolean): boolean {
+    if (this.kind !== 'deck' || (this.lit[id] === true) === on) return false;
+    this.lit = { ...this.lit, [id]: on };
+    for (const p of this.patches) if (p.id === id && (p.kind === 'txt' || p.kind === 'bled')) this.drawPatch(p);
     return true;
   }
 
