@@ -824,7 +824,7 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - L'encart d'EDIT (ses knobs) n'est pas touche (un autre chantier en cours).
 
 ### Ce qui reste a faire / points en suspens
-- Agrandissement (la taille du disque a l'ecran depasse le PNG) : mika-knob.png sur CUTOFF a partir de 1707 px CSS de large en DPR 2 (VOLUME 2134, les potards moyens 2483) ; le selecteur et le petit jamais (jusqu'a 2640) ; OPEN : le knob vedette de HELL des la taille par defaut (x 1,3), les grands knobs (x 1,3) a partir de 2031, les tout petits a partir de 2221.
+- Agrandissement (le disque a l'ecran depasse le PNG), largeur de fenetre en px CSS, DPR 2 (en DPR 1 : jamais jusqu'a 2640) : mika-knob.png sur CUTOFF a partir de 1702 (VOLUME 2176, SEMI et les potards moyens 2497, les autres jamais) ; le selecteur et le petit jamais ; OPEN : le knob vedette de HELL des 1148 (x 1,3 a la taille par defaut), les grands knobs x 1,3 a partir de 2031, les autres grands a 2640 (1 pour 1), les tout petits a partir de 2221.
 - Pas de halo sous la pilule allumee de CHORUS (seulement sous les touches du plateau).
 - A juger sur le Mac de Mika (captures sans GPU).
 
