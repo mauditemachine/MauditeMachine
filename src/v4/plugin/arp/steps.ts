@@ -6,7 +6,7 @@
  * - slide : SLIDE, 0 non (defaut), 1 oui ;
  * - gate  : GATE, 0 court, 1 normal (defaut), 2 long, 3 lie ;
  * - rat   : RATCHET, 1 (defaut) a 4 coups ;
- * - prob  : PROB, 100 (defaut), 75, 50, 25 ou 0 %.
+ * - prob  : CHANCE (PROB jusqu'a la v45 : le libelle seul a change), 100 (defaut), 75, 50, 25 ou 0 %.
  *
  * Le VST3 seul : le site ne connait pas ce module. Garde dans le localStorage sous mm.v4.plugin.arp.steps (une cle
  * mm.v4.* : elle part dans l'etat du projet, bridge.ts snapshotLs), envoye au C++ dans mm_program sous
@@ -44,8 +44,15 @@ export const STEP_TRACKS: readonly TrackSpec[] = [
   { id: 'slide', label: 'SLIDE', values: [0, 1], names: ['OFF', 'ON'], def: 0 },
   { id: 'gate', label: 'GATE', values: [0, 1, 2, 3], names: ['SHORT', 'NORMAL', 'LONG', 'TIE'], def: 1 },
   { id: 'rat', label: 'RATCHET', values: [1, 2, 3, 4], names: ['x1', 'x2', 'x3', 'x4'], def: 1 },
-  { id: 'prob', label: 'PROB', values: [100, 75, 50, 25, 0], names: ['100 %', '75 %', '50 %', '25 %', '0 %'], def: 100 },
+  { id: 'prob', label: 'CHANCE', values: [100, 75, 50, 25, 0], names: ['100 %', '75 %', '50 %', '25 %', '0 %'], def: 100 },
 ];
+
+/**
+ * v46 : la tete de la page SEQ, en plus de mm_transport pos (voyager/arp.ts headState), posee par bridge.ts a chaque
+ * position : skip (CHANCE a saute la note du pas joue : midi -1 sans etre un silence de la suite), dur (la duree du pas,
+ * ms ; 0 : un C++ d'avant la v46), t (l'arrivee, performance.now()).
+ */
+export const stepLive = { skip: false, dur: 0, t: 0 };
 
 const SPEC: Record<StepTrack, TrackSpec> = Object.fromEntries(STEP_TRACKS.map((t) => [t.id, t])) as Record<StepTrack, TrackSpec>;
 const TRACK_IDS: readonly StepTrack[] = STEP_TRACKS.map((t) => t.id);

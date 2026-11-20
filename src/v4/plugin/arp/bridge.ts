@@ -25,7 +25,7 @@
  *                 mm_preset_load {path}, mm_keys {on}
  *                 mm_drag_midi {cycles}, mm_save_mid {cycles}, mm_learn {id}, mm_unmap {cc, ch}, mm_unmap_all {},
  *                 mm_midimap_get {}
- *   C++ -> face : mm_transport {playing, internal, seq, slot, pos, len, chord, midi}, mm_knobs {values},
+ *   C++ -> face : mm_transport {playing, internal, seq, slot, pos, len, chord, midi, skip?, dur?}, mm_knobs {values},
  *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?, cancelled?},
  *                 mm_drag_status {ok, msg}, mm_midimap {items: {cc, ch, id}[], learn}
  *
@@ -79,7 +79,7 @@ import { distoFromPedal } from './disto';
 import { delayFromOld } from './delay';
 import { arpSpec } from './spec';
 import { cpuStore } from './cpu';
-import { arpSteps } from './steps';
+import { arpSteps, stepLive } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -166,6 +166,10 @@ function onTransport(o: unknown): void {
     chord: chord >= 0 && chord < CHORDS.length ? chord : -1,
     midi: num(x.midi, -1),
   };
+  // v46 : CHANCE a saute ce pas, sa duree (la tete de la page SEQ, pages2.tsx)
+  stepLive.skip = h.playing && x.skip === true;
+  stepLive.dur = Math.max(0, num(x.dur, 0));
+  stepLive.t = performance.now();
   arpExternal.head(h);
   // Les boucles de rendu se reveillent (scene/renderer.ts : extHead.onWake)
   extHead.wake();

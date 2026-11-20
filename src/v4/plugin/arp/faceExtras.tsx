@@ -13,6 +13,8 @@
  *   leviers et des touches 3D, leurs noms serigraphies ; chaque piece a sa zone de prise (un DialId z:ed:<id>, comme
  *   HELL) : glisser regle, un clic bascule un levier ou passe une touche au cran suivant (hellKnob.tsx faceDbl), la
  *   valeur s'ecrit sur l'ecran de la machine. Les notes de la suite vont a la page SEQ : le verre ne prend plus de geste.
+ * - v46 : l'encart a trois pages, une bascule SYNTH | LFO | FX MOD a sa gauche (encartPage) : SYNTH (ce qui precede,
+ *   resserre), LFO (les quatre LFO facon MOD, le potard k1 de la face), FX MOD (PHASER, FLANGER, CHORUS, PUMP).
  */
 
 import { useEffect } from 'react';
@@ -287,12 +289,113 @@ for (const c of CTLS) {
   });
 }
 
+/* ---------------- l'encart d'EDIT, v46 : trois pages, SYNTH | LFO | FX MOD ---------------- */
+
 /**
- * Le clic d'une piece de l'encart (hellKnob.tsx faceDbl) : un levier bascule, une touche passe au cran suivant ; un
- * knob ne fait rien (le clic est pris). false : pas une piece de l'encart.
+ * v46 (2026-11-20, Mika : "les LFOS tous les LFOS quand on clic sur Edit !", la maquette B retenue) : une bascule de
+ * trois touches a gauche de l'encart (la page montree allumee, comme EDIT) :
+ * - SYNTH : les sections synthe d'avant (resserrees pour laisser la place a la bascule) ;
+ * - LFO : les quatre LFO a forme et cible (LFO 1 = MOD de la face, LFO 2, HELL, DISTO), presentes comme la section MOD
+ *   (SPEED, SHAPE, TARGET, DEPTH plus grand), le potard de la face (vknob k1) a sa taille exacte, une rangee ; dessous :
+ *   TARGET 2 et DEPTH 2 du LFO 1, les leviers SYNC et STEREO ;
+ * - FX MOD : les modulations des effets (PHASER, FLANGER, CHORUS, PUMP), leurs vitesses et profondeurs.
+ * La page est gardee entre deux ouvertures d'EDIT (pas entre deux fenetres). Chaque piece a sa zone de prise, active
+ * seulement sur sa page ; les noms des parametres hote ne changent pas.
+ */
+export type EncartPage = 'synth' | 'lfo' | 'fxmod';
+const ENC_PAGES: readonly { id: EncartPage; name: string }[] = [
+  { id: 'synth', name: 'SYNTH' },
+  { id: 'lfo', name: 'LFO' },
+  { id: 'fxmod', name: 'FX MOD' },
+];
+let encPage: EncartPage = 'synth';
+const encL = new Set<() => void>();
+export const encartPage = {
+  get: (): EncartPage => encPage,
+  set(p: EncartPage): void {
+    if (p === encPage) return;
+    encPage = p;
+    encL.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    encL.add(fn);
+    return () => {
+      encL.delete(fn);
+    };
+  },
+};
+/** Le DialId d'une touche de la bascule. */
+const TAB_DIAL = (p: EncartPage): string => `${ED}@${p}`;
+for (const p of ENC_PAGES)
+  registerDialSpec(TAB_DIAL(p.id), {
+    value: () => (encPage === p.id ? 1 : 0),
+    set: () => undefined,
+    range: () => [0, 1] as const,
+    steps: () => 0,
+    text: () => p.name,
+    unit: () => '',
+    reset: () => (encPage === p.id ? 1 : 0),
+    say: () => `EDIT ${p.name}`,
+  });
+
+type LfoCtl = { k: 'pot' | 'lever'; id: string; name: string; big?: boolean; steps?: readonly string[]; say: string };
+type LfoSec = { title: string; ctls: LfoCtl[]; sub?: LfoCtl[] };
+const lpot = (sec: string, id: string, name: string, big = false): LfoCtl => ({ k: 'pot', id, name, big, say: `${sec} ${name}` });
+const llev = (sec: string, id: string, name: string): LfoCtl => ({ k: 'lever', id, name, steps: extraParam(id)?.steps ?? ['OFF', 'ON'], say: `${sec} ${name}` });
+/** La page LFO : les quatre LFO a forme et cible, presentes comme MOD (les noms de la face : SPEED, SHAPE, TARGET, DEPTH). */
+const LFO_SECS: LfoSec[] = [
+  { title: 'LFO 1 · MOD', ctls: [lpot('LFO 1', 'lfoRate', 'SPEED'), lpot('LFO 1', 'lfoShape', 'SHAPE'), lpot('LFO 1', 'lfoDest', 'TARGET'), lpot('LFO 1', 'lfoAmt', 'DEPTH', true)], sub: [lpot('LFO 1', 'xLfo1Dest2', 'TARGET 2'), lpot('LFO 1', 'xLfo1Depth2', 'DEPTH 2', true)] },
+  { title: 'LFO 2', ctls: [lpot('LFO 2', 'xLfo2Rate', 'SPEED'), lpot('LFO 2', 'xLfo2Shape', 'SHAPE'), lpot('LFO 2', 'xLfo2Dest', 'TARGET'), lpot('LFO 2', 'xLfo2Depth', 'DEPTH', true)] },
+  { title: 'HELL LFO', ctls: [lpot('HELL LFO', 'xHellLfoRate', 'SPEED'), lpot('HELL LFO', 'xHellLfoShape', 'SHAPE'), lpot('HELL LFO', 'xHellLfoTarget', 'TARGET'), lpot('HELL LFO', 'xHellLfoAmt', 'DEPTH', true)], sub: [llev('HELL LFO', 'xHellLfoSync', 'SYNC'), llev('HELL LFO', 'xHellLfoStereo', 'STEREO')] },
+  { title: 'DISTO LFO', ctls: [lpot('DISTO LFO', 'xDLfoRate', 'SPEED'), lpot('DISTO LFO', 'xDLfoShape', 'SHAPE'), lpot('DISTO LFO', 'xDLfoTarget', 'TARGET'), lpot('DISTO LFO', 'xDLfoAmt', 'DEPTH', true)], sub: [llev('DISTO LFO', 'xDLfoSync', 'SYNC')] },
+];
+/** La page FX MOD : les modulations des effets, leurs vitesses et profondeurs (et ce qui les cale ou les ecarte). */
+const FXMOD_SECS: LfoSec[] = [
+  { title: 'PHASER', ctls: [lpot('PHASER', 'xPhRate', 'SPEED'), lpot('PHASER', 'xPhDepth', 'DEPTH', true)], sub: [llev('PHASER', 'xPhSync', 'SYNC'), lpot('PHASER', 'xPhSpread', 'SPREAD')] },
+  { title: 'FLANGER', ctls: [lpot('FLANGER', 'xFlRate', 'SPEED'), lpot('FLANGER', 'xFlDepth', 'DEPTH', true)], sub: [llev('FLANGER', 'xFlSync', 'SYNC'), lpot('FLANGER', 'xFlSpread', 'SPREAD')] },
+  { title: 'CHORUS', ctls: [lpot('CHORUS', 'xChRate', 'SPEED'), lpot('CHORUS', 'xChDepth', 'DEPTH', true)] },
+  { title: 'PUMP', ctls: [lpot('PUMP', 'xPumpRate', 'SPEED'), lpot('PUMP', 'xPumpDepth', 'DEPTH', true), lpot('PUMP', 'xPumpShape', 'RELEASE')] },
+];
+const LFO_CTLS: LfoCtl[] = [...LFO_SECS, ...FXMOD_SECS].flatMap((s) => [...s.ctls, ...(s.sub ?? [])]);
+for (const c of LFO_CTLS) {
+  registerDialSpec(ED + c.id, {
+    value: () => valOf(c.id),
+    set: (v) => {
+      const n = stepsOf(c.id);
+      const x = Math.min(1, Math.max(0, v));
+      setOf(c.id, n > 1 ? Math.round(x * (n - 1)) / (n - 1) : x);
+      voyMsg.show(`${c.say} ${textOf(c.id)}`, 1800);
+    },
+    range: () => [0, 1] as const,
+    steps: () => 0,
+    text: (v) => textOf(c.id, v),
+    unit: () => '',
+    reset: () => defOf(c.id),
+    say: (v) => `${c.say} ${textOf(c.id, v)}`,
+  });
+}
+
+/**
+ * Le clic d'une piece de l'encart (hellKnob.tsx faceDbl) : une touche de la bascule montre sa page, un levier bascule,
+ * une touche a crans passe au cran suivant ; un potard ne fait rien (le clic est pris). false : pas une piece de l'encart.
  */
 export function encartTap(dial: string): boolean {
   if (!dial.startsWith(ED)) return false;
+  const tab = ENC_PAGES.find((p) => TAB_DIAL(p.id) === dial);
+  if (tab) {
+    encartPage.set(tab.id);
+    voyMsg.show(`EDIT ${tab.name}`, 1400);
+    return true;
+  }
+  const lc = LFO_CTLS.find((x) => ED + x.id === dial);
+  if (lc) {
+    if (lc.k === 'pot') return true;
+    const n = Math.max(2, stepsOf(lc.id));
+    const i = Math.round(valOf(lc.id) * (n - 1));
+    setOf(lc.id, ((i + 1) % n) / (n - 1));
+    voyMsg.show(`${lc.say} ${textOf(lc.id)}`, 1800);
+    return true;
+  }
   const c = CTLS.find((x) => ED + x.id === dial);
   if (!c) return false;
   if (c.k === 'knob') return true;
@@ -313,8 +416,21 @@ export const FLUTED = { r: 0.24, h: 0.2, scale: 0.9 } as const;
 export const faceArcPlaces = new Map<string, { layer: Group; x: number; z: number; y: number; R: number; live: () => boolean }>();
 
 
-/** Les places de l'encart (repere du plateau) et sa serigraphie (la texture du panneau). */
-function encart(): { tex: CanvasTexture; place: { c: Ctl; x: number; z: number }[]; scale: number } {
+/** Une piece posee de l'encart (repere du plateau) : une piece synthe, un potard LFO (k1, son rayon), un levier LFO. */
+type EncPlace = { k: 'syn'; c: Ctl; x: number; z: number } | { k: 'pot'; c: LfoCtl; x: number; z: number; R: number } | { k: 'lever'; c: LfoCtl; x: number; z: number; s: number };
+
+/** La bascule SYNTH | LFO | FX MOD : ses touches (repere du plateau), le trait qui la separe de la page. */
+const encTabs = (): { x: number; z: number[]; sep: number } => {
+  const gw = VOY_SEQ.w - 2 * VOY_SEQ.bezel;
+  const gd = VOY_SEQ.d - 2 * VOY_SEQ.bezel;
+  const X0 = VOY_SEQ.x - gw / 2;
+  const Z0 = VOY_SEQ.z - gd / 2;
+  return { x: X0 + 0.36, z: [Z0 + 0.3, Z0 + 0.79, Z0 + 1.28], sep: X0 + 0.74 };
+};
+const TAB_KEY = { w: 0.44, d: 0.22 } as const;
+
+/** Le panneau noir de l'encart (une page) : sa toile, ses aides de dessin, la bascule serigraphiee. */
+function encPanel(page: EncartPage) {
   const gw = VOY_SEQ.w - 2 * VOY_SEQ.bezel;
   const gd = VOY_SEQ.d - 2 * VOY_SEQ.bezel;
   const W = 4096;
@@ -351,23 +467,50 @@ function encart(): { tex: CanvasTexture; place: { c: Ctl; x: number; z: number }
     g.textBaseline = 'middle';
     g.fillText(s, px(x), py(z));
   };
+  const vline = (x: number, za: number, zb: number): void => {
+    g.fillStyle = 'rgba(255, 250, 240, 0.14)';
+    g.fillRect(px(x) - 2, py(za), 4, (zb - za) * U);
+  };
+  // la bascule : le nom sous chaque touche (celui de la page montree eclaire), le trait
+  const t = encTabs();
+  ENC_PAGES.forEach((p, i) => text(p.name, t.x, t.z[i] + 0.2, 0.052, 700, p.id === page ? ink : dim, 0.12));
+  vline(t.sep, Z0 + 0.12, Z0 + gd - 0.12);
+  const finish = (): CanvasTexture => {
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = 8;
+    return tex;
+  };
+  return { g, gw, gd, X0, Z0, U, px, py, ink, dim, text, vline, finish, left: t.sep + 0.06, right: X0 + gw - 0.06 };
+}
+
+/**
+ * La page SYNTH : les sections synthe d'avant, en deux rangees, a droite de la bascule ; resserrees (les cases et les
+ * ecarts, pas les knobs) si elles ne tiennent pas.
+ */
+function encart(): { tex: CanvasTexture; place: EncPlace[]; scale: number; f: number } {
+  const P = encPanel('synth');
+  const { text, Z0, ink, dim } = P;
   const scale = 0.72;
   const r = 0.24 * scale;
   const rows = [Z0 + 0.42, Z0 + 1.22];
-  const place: { c: Ctl; x: number; z: number }[] = [];
+  const place: EncPlace[] = [];
+  const span = P.right - P.left;
+  const widest = Math.max(...ROWS.map((row) => row.reduce((s, f) => s + f.ctls.reduce((t, c2) => t + cellW(c2), 0), 0) + GAP * (row.length - 1)));
+  const f = Math.min(1, span / widest);
   ROWS.forEach((row, ri) => {
     const z = rows[ri];
-    const total = row.reduce((s, f) => s + f.ctls.reduce((t, c2) => t + cellW(c2), 0), 0) + GAP * (row.length - 1);
-    let x = VOY_SEQ.x - total / 2;
-    row.forEach((f, fi) => {
-      const fw = f.ctls.reduce((t, c2) => t + cellW(c2), 0);
-      text(f.title, x + fw / 2, z - r - 0.16, 0.072, 700, ink, 0.24);
+    const total = (row.reduce((s, f2) => s + f2.ctls.reduce((t, c2) => t + cellW(c2), 0), 0) + GAP * (row.length - 1)) * f;
+    let x = P.left + (span - total) / 2;
+    row.forEach((sec, fi) => {
+      const fw = sec.ctls.reduce((t, c2) => t + cellW(c2), 0) * f;
+      text(sec.title, x + fw / 2, z - r - 0.16, 0.072, 700, ink, 0.24);
       let cx = x;
-      for (const ct of f.ctls) {
-        const w = cellW(ct);
+      for (const ct of sec.ctls) {
+        const w = cellW(ct) * f;
         const mx = cx + w / 2;
-        place.push({ c: ct, x: mx, z });
-        text(ct.name, mx, z + r + 0.1, 0.058, 600, ink, 0.16);
+        place.push({ k: 'syn', c: ct, x: mx, z });
+        text(ct.name, mx, z + r + 0.1, 0.058, 600, ink, f < 0.97 ? 0.12 : 0.16);
         if (ct.k === 'lever' && ct.steps) {
           text(ct.steps[0], mx - 0.17, z + 0.18, 0.044, 600, dim, 0.1);
           text(ct.steps[1], mx + 0.17, z + 0.18, 0.044, 600, dim, 0.1);
@@ -375,21 +518,75 @@ function encart(): { tex: CanvasTexture; place: { c: Ctl; x: number; z: number }
         if (ct.k === 'keys' && ct.steps) {
           const n = ct.steps.length;
           const step = Math.min(0.42, (w - 0.08) / n);
-          ct.steps.forEach((s, i) => text(s, mx + (i - (n - 1) / 2) * step, z - 0.21, 0.042, 600, dim, 0.08));
+          ct.steps.forEach((s2, i) => text(s2, mx + (i - (n - 1) / 2) * step, z - 0.21, 0.042, 600, dim, 0.08));
         }
         cx += w;
       }
       if (fi < row.length - 1) {
-        g.fillStyle = 'rgba(255, 250, 240, 0.14)';
-        g.fillRect(px(x + fw + GAP / 2) - 2, py(z - r - 0.24), 4, (0.68 + r) * U);
+        P.g.fillStyle = 'rgba(255, 250, 240, 0.14)';
+        P.g.fillRect(P.px(x + fw + (GAP * f) / 2) - 2, P.py(z - r - 0.24), 4, (0.68 + r) * P.U);
       }
-      x += fw + GAP;
+      x += fw + GAP * f;
     });
   });
-  const tex = new CanvasTexture(c);
-  tex.colorSpace = SRGBColorSpace;
-  tex.anisotropy = 8;
-  return { tex, place, scale };
+  return { tex: P.finish(), place, scale, f };
+}
+
+/**
+ * Les pages LFO et FX MOD (la maquette B) : une rangee de sections facon MOD, le titre au-dessus du plus grand potard,
+ * chaque nom sous sa piece ; dessous, les reglages de plus de chaque section (potards plus petits, leviers).
+ */
+function encartMod(page: 'lfo' | 'fxmod'): { tex: CanvasTexture; place: EncPlace[] } {
+  const P = encPanel(page);
+  const { text, Z0, ink, dim } = P;
+  const secs = page === 'lfo' ? LFO_SECS : FXMOD_SECS;
+  const place: EncPlace[] = [];
+  // les potards de la face (R : celui des potards de MOD), un rien plus grand pour DEPTH, comme sur la face
+  const o = { r: 0.265, rb: 0.32, cs: 0.63, cb: 0.73 };
+  const cw = (c: LfoCtl): number => (c.big ? o.cb : o.cs);
+  const span = P.right - P.left;
+  const widths = secs.map((s) => s.ctls.reduce((t, c) => t + cw(c), 0));
+  const sum = widths.reduce((a, b) => a + b, 0);
+  // l'ecart entre sections : celui de la maquette (0.27) au moins, plus quand la page est moins chargee
+  const gap = Math.max(0.27, Math.min(1.1, (span - sum) / Math.max(1, secs.length - 1)));
+  const total = sum + gap * (secs.length - 1);
+  const z = Z0 + 0.53;
+  const zs = Z0 + 1.24;
+  let x = P.left + (span - total) / 2;
+  secs.forEach((s, si) => {
+    const fw = widths[si];
+    text(s.title, x + fw / 2, z - o.rb - 0.13, 0.072, 700, ink, 0.24);
+    let cx = x;
+    for (const c of s.ctls) {
+      const w = cw(c);
+      const mx = cx + w / 2;
+      const R = c.big ? o.rb : o.r;
+      place.push({ k: 'pot', c, x: mx, z, R });
+      text(c.name, mx, z + R + 0.095, 0.058, 600, ink, 0.16);
+      cx += w;
+    }
+    // dessous : TARGET 2 et DEPTH 2 du LFO 1 (plus petits), les leviers SYNC et STEREO, SPREAD
+    const sub = s.sub ?? [];
+    const sw = 0.78;
+    let sx = x + fw / 2 - (sub.length * sw) / 2;
+    for (const c of sub) {
+      const mx = sx + sw / 2;
+      if (c.k === 'pot') {
+        const R = c.big ? 0.2 : 0.17;
+        place.push({ k: 'pot', c, x: mx, z: zs, R });
+        text(c.name, mx, zs + R + 0.08, 0.05, 600, ink, 0.16);
+      } else {
+        place.push({ k: 'lever', c, x: mx, z: zs, s: 0.8 });
+        text(c.steps![0], mx - 0.15, zs + 0.16, 0.04, 600, dim, 0.08);
+        text(c.steps![1], mx + 0.15, zs + 0.16, 0.04, 600, dim, 0.08);
+        text(c.name, mx, zs + 0.26, 0.05, 600, ink, 0.16);
+      }
+      sx += sw;
+    }
+    if (si < secs.length - 1) P.vline(x + fw + gap / 2, Z0 + 0.12, Z0 + P.gd - 0.12);
+    x += fw + gap;
+  });
+  return { tex: P.finish(), place };
 }
 
 /* ---------------- dans la scene ---------------- */
@@ -414,7 +611,8 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const disposers: (() => void)[] = [];
     // v43 (Mika : "remplace tous ceux que tu as faits noirs par celui-la") : les potards de la face sont ses PNG
     // (vknobFace.ts) ; les petits de la face (FM, RATIO, OSC 1..., DETUNE, SPREAD) : son petit knob (vknob.ts k3), meme
-    // centre, meme rayon exterieur (celui du petit knob cannele d'avant). Ceux de l'encart d'EDIT ne changent pas.
+    // centre, meme rayon exterieur (celui du petit knob cannele d'avant). Ceux de la page SYNTH de l'encart d'EDIT ne
+    // changent pas ; ses pages LFO et FX MOD (v46) : le potard de la face (k1).
     const offFace = attachVKnobs(stage);
     let nSmall = 0;
     const small = new VKnobSet('k3', FLUTED_DIALS.size + 2);
@@ -442,17 +640,17 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     }
     // 3. SUB OCT : v43 (Mika : "tous les boutons, meme CHORUS ... SUB OCT") : plus de levier, sa touche-pilule revient
     //    (voyager/pads.ts), ses LED -1 / -2 restent
-    // 4. l'encart d'EDIT : le panneau serigraphie et ses pieces 3D, enfants de l'ecran qui monte ; chacune sa zone de prise
+    // 4. l'encart d'EDIT : trois pages (SYNTH | LFO | FX MOD, v46), chacune son panneau serigraphie et ses pieces 3D, enfants
+    //    de l'ecran qui monte ; chaque piece sa zone de prise, active seulement sur sa page ; la bascule, toujours
     const sq = rig.seqScreen;
-    let panelTex: CanvasTexture | null = null;
+    const texs: Partial<Record<EncartPage, CanvasTexture>> = {};
     let panelMat: MeshStandardMaterial | null = null;
-    const edDefs: HotspotDef[] = [];
+    const edDefs: { d: HotspotDef; page: EncartPage | null }[] = [];
+    const pageGroups: Partial<Record<EncartPage, Group>> = {};
+    const tabKeys: Mesh[] = [];
+    let tabOn: MeshStandardMaterial | null = null;
+    let tabOff: MeshStandardMaterial | null = null;
     if (sq && !PORTRAIT) {
-      const e = encart();
-      panelTex = e.tex;
-      panelMat = new MeshStandardMaterial({ map: e.tex, roughness: 0.78, metalness: 0.05 });
-      sq.cover(panelMat);
-      sq.inert = true;
       const y = VOY_SEQ.h + 0.004;
       const ledOn = new MeshBasicMaterial({ color: '#ff3b2f' });
       const ledOff = new MeshBasicMaterial({ color: '#3a0e0a' });
@@ -461,7 +659,20 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       keyGeo.translate(0, 0.035, 0);
       const ledGeo = new CircleGeometry(0.026, 20);
       ledGeo.rotateX(-Math.PI / 2);
+      const pageGroup = (p: EncartPage): Group => {
+        const grp = new Group();
+        grp.name = `encart-${p}`;
+        sq.group.add(grp);
+        added.push({ parent: sq.group, obj: grp });
+        pageGroups[p] = grp;
+        return grp;
+      };
+      // la page SYNTH : les pieces d'avant
+      const e = encart();
+      texs.synth = e.tex;
+      const gS = pageGroup('synth');
       for (const p of e.place) {
+        if (p.k !== 'syn') continue;
         const id = p.c.id;
         let hx = 0.2;
         let hz = 0.2;
@@ -471,19 +682,17 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           m.position.set(p.x, y, p.z);
           m.scale.setScalar(e.scale);
           m.castShadow = true;
-          sq.group.add(m);
-          added.push({ parent: sq.group, obj: m });
+          gS.add(m);
           turns.push(() => m.rotation.set(0, potAngle(valOf(id)), 0));
           hx = hz = Math.max(0.2, FLUTED.r * e.scale * 1.15);
           y1 = y + FLUTED.h * e.scale;
           if (id === 'xRing' || id === 'xFold' || id === 'xComb')
-            faceArcPlaces.set(id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: FLUTED.r * e.scale * 1.13, live: () => editor.get() === 'voy' });
+            faceArcPlaces.set(id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: FLUTED.r * e.scale * 1.13, live: () => editor.get() === 'voy' && encartPage.get() === 'synth' });
         } else if (p.c.k === 'lever') {
           const lv = leverOf(mats);
           lv.group.position.set(p.x, y, p.z);
           lv.group.scale.setScalar(0.9);
-          sq.group.add(lv.group);
-          added.push({ parent: sq.group, obj: lv.group });
+          gS.add(lv.group);
           levers.push(lv);
           turns.push(() => lv.set(valOf(id) >= 0.5));
           hx = 0.3;
@@ -494,16 +703,14 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           const k = new Mesh(keyGeo, keyMat);
           k.position.set(p.x, y, p.z + 0.05);
           k.castShadow = true;
-          sq.group.add(k);
-          added.push({ parent: sq.group, obj: k });
-          const w = cellW(p.c);
+          gS.add(k);
+          const w = cellW(p.c) * e.f;
           const step = Math.min(0.42, (w - 0.08) / n);
           const leds: Mesh[] = [];
           for (let i = 0; i < n; i += 1) {
             const led = new Mesh(ledGeo, ledOff);
             led.position.set(p.x + (i - (n - 1) / 2) * step, y + 0.004, p.z - 0.12);
-            sq.group.add(led);
-            added.push({ parent: sq.group, obj: led });
+            gS.add(led);
             leds.push(led);
           }
           turns.push(() => {
@@ -514,30 +721,99 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           hz = 0.24;
           y1 = y + 0.08;
         }
-        edDefs.push({ id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: p.c.k === 'knob' ? 'disc' : 'box', x: p.x, z: p.z + (p.c.k === 'keys' ? -0.02 : 0), hx, hz, y0: 0, y1, enabled: false, machine: 'voy' });
+        edDefs.push({ d: { id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: p.c.k === 'knob' ? 'disc' : 'box', x: p.x, z: p.z + (p.c.k === 'keys' ? -0.02 : 0), hx, hz, y0: 0, y1, enabled: false, machine: 'voy' }, page: 'synth' });
       }
+      // les pages LFO et FX MOD : le potard de la face (k1, le PNG de Mika, comme MOD), les leviers
+      for (const page of ['lfo', 'fxmod'] as const) {
+        const m = encartMod(page);
+        texs[page] = m.tex;
+        const grp = pageGroup(page);
+        const pots = m.place.filter((p): p is Extract<EncPlace, { k: 'pot' }> => p.k === 'pot');
+        const set = new VKnobSet('k1', pots.length);
+        pots.forEach((p, i) => {
+          set.place(i, p.x, y + VKNOB_LIFT, p.z, p.R);
+          turns.push(() => set.setAngle(i, potAngle(valOf(p.c.id))));
+          const r = Math.max(0.2, p.R * 1.1);
+          edDefs.push({ d: { id: `ved-${p.c.id}`, kind: 'encoder', param: (ED + p.c.id) as EncId, layer: sq.group, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: y + 0.1, enabled: false, machine: 'voy' }, page });
+        });
+        grp.add(...set.meshes);
+        disposers.push(() => set.dispose());
+        for (const p of m.place) {
+          if (p.k !== 'lever') continue;
+          const id = p.c.id;
+          const lv = leverOf(mats);
+          lv.group.position.set(p.x, y, p.z);
+          lv.group.scale.setScalar(p.s);
+          grp.add(lv.group);
+          levers.push(lv);
+          turns.push(() => lv.set(valOf(id) >= 0.5));
+          edDefs.push({ d: { id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: 'box', x: p.x, z: p.z, hx: 0.3 * (p.s / 0.9), hz: 0.16, y0: 0, y1: y + 0.17, enabled: false, machine: 'voy' }, page });
+        }
+      }
+      // la bascule : trois touches, celle de la page montree allumee a la couleur d'accent (comme EDIT)
+      tabOff = new MeshStandardMaterial({ color: '#262524', roughness: 0.5, metalness: 0.05 });
+      tabOn = new MeshStandardMaterial({ color: '#ff3d86', emissive: '#ff0066', emissiveIntensity: 0.55, roughness: 0.45, metalness: 0 });
+      const tabGeo = new BoxGeometry(TAB_KEY.w, 0.07, TAB_KEY.d);
+      tabGeo.translate(0, 0.035, 0);
+      const tb = encTabs();
+      ENC_PAGES.forEach((p, i) => {
+        const k = new Mesh(tabGeo, tabOff!);
+        k.position.set(tb.x, y, tb.z[i]);
+        k.castShadow = true;
+        sq.group.add(k);
+        added.push({ parent: sq.group, obj: k });
+        tabKeys.push(k);
+        edDefs.push({ d: { id: `ved-@${p.id}`, kind: 'encoder', param: TAB_DIAL(p.id) as EncId, layer: sq.group, shape: 'box', x: tb.x, z: tb.z[i] + 0.06, hx: TAB_KEY.w / 2 + 0.02, hz: 0.2, y0: 0, y1: y + 0.08, enabled: false, machine: 'voy' }, page: null });
+      });
+      panelMat = new MeshStandardMaterial({ map: texs[encartPage.get()] ?? null, roughness: 0.78, metalness: 0.05 });
+      sq.cover(panelMat);
+      sq.inert = true;
       disposers.push(() => {
         keyGeo.dispose();
         ledGeo.dispose();
         keyMat.dispose();
         ledOn.dispose();
         ledOff.dispose();
+        tabGeo.dispose();
+        tabOn?.dispose();
+        tabOff?.dispose();
       });
     }
-    stage.hit.add([...defs, ...edDefs]);
-    // les zones de l'encart ne prennent que tant qu'il est monte (EDIT)
+    stage.hit.add([...defs, ...edDefs.map((x) => x.d)]);
+    // les zones de l'encart ne prennent que tant qu'il est monte (EDIT), et seulement celles de la page montree
     const syncEdit = (): void => {
       const on = editor.get() === 'voy';
+      const pg = encartPage.get();
       let ch = false;
-      for (const d of edDefs)
-        if (d.enabled !== on) {
-          d.enabled = on;
+      for (const { d, page } of edDefs) {
+        const want = on && (page === null || page === pg);
+        if (d.enabled !== want) {
+          d.enabled = want;
           ch = true;
         }
+      }
       if (ch) stage.hit.invalidate();
     };
-    syncEdit();
+    // la page montree : son panneau, ses pieces, sa touche allumee (la couleur d'accent du moment, SETTINGS)
+    const showPage = (): void => {
+      const pg = encartPage.get();
+      for (const [p, grp] of Object.entries(pageGroups)) if (grp) grp.visible = p === pg;
+      const tex = texs[pg];
+      if (panelMat && tex && panelMat.map !== tex) panelMat.map = tex;
+      if (tabOn && typeof document !== 'undefined') {
+        const acc = getComputedStyle(document.documentElement).getPropertyValue('--mm-accent').trim();
+        if (/^#[0-9a-f]{6}$/i.test(acc)) {
+          tabOn.color.set(acc).lerp(new Color('#ffffff'), 0.22);
+          tabOn.emissive.set(acc);
+        }
+      }
+      tabKeys.forEach((k, i) => (k.material = ENC_PAGES[i].id === pg ? tabOn! : tabOff!));
+      syncEdit();
+      stage.invalidate();
+    };
+    showPage();
     const offEd = editor.subscribe(syncEdit);
+    const offPage = encartPage.subscribe(showPage);
     // ?probe (les essais sans son, Chromium) : ou tombe une zone de prise a l'ecran, et ce qui est pris en (x, y)
     if (typeof location !== 'undefined' && location.search.includes('probe'))
       (window as unknown as { __mmProbe?: unknown }).__mmProbe = {
@@ -564,10 +840,11 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       off1();
       off2();
       offEd();
+      offPage();
       offFace();
       rig.panel.remove(...small.meshes);
       small.dispose();
-      for (const d of [...defs, ...edDefs]) d.enabled = false;
+      for (const d of [...defs, ...edDefs.map((x) => x.d)]) d.enabled = false;
       stage.hit.invalidate();
       for (const a of added) a.parent.remove(a.obj);
       for (const l of levers) l.dispose();
@@ -577,7 +854,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         sq.inert = false;
       }
       faceArcPlaces.clear();
-      panelTex?.dispose();
+      for (const t of Object.values(texs)) t?.dispose();
       panelMat?.dispose();
       geo.dispose();
       knobMat.dispose();

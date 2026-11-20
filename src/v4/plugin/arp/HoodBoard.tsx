@@ -20,13 +20,11 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalSto
 import { openToggle } from '../../actions';
 import type { Stage } from '../../scene/renderer';
 import { voyExplode } from '../../state/explode';
-import { arp, arpExternal } from '../../voyager/arp';
+import { arpExternal } from '../../voyager/arp';
 import { voyParams, VOY_TWEAKS } from '../../voyager/params';
-import { seq } from '../../voyager/seq';
-import { extHead } from '../head';
 import { arpBridge } from './bridge';
 import { arpExtra, eqLaws, extraParam, MATRIX_ROWS } from './extra';
-import { HOOD_PAGES, hoodPage, hoodPageIndex, hoodPageStep, type HoodTab } from './hoodPage';
+import { hoodPage, hoodPageStep, type HoodTab } from './hoodPage';
 import { hypnoNew, hypnoStyle, HYPNO_STYLES } from './hypno';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
 import { DiskPresets } from './DiskPresets';
@@ -38,17 +36,14 @@ import { DelayPage } from './DelayPage';
 import { FX2 } from './fx2';
 import { SkyPageA, SkyPageB } from './SkyPage2';
 import { HellPageA, HellPageB } from './HellPage2';
-import { CHORDS, degreeName } from '../../voyager/chords';
-import { SEQ_MIN, SEQ_TOP } from '../../voyager/seq';
 import { arpSpec, SPEC_BINS } from './spec';
 import { HoodLookButton } from './LookPanel';
 import { HoodCpuMeter } from './CpuMeter';
 import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, say, setFullName, SRC } from './pcbui';
-import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
+import { arpSteps } from './steps';
 import './hood.css';
-import { MQ } from './maquette';
-import { NavKeys2, SeqPage2, SoundPage2 } from './pages2';
+import { NavKeys, SeqPage, SoundPage } from './pages2';
 
 /** Le cadre de la page (la fenetre de base du VST3). */
 const PAGE_W = 1100;
@@ -374,28 +369,6 @@ export const headKey = (): string => {
   return h.playing && h.pos >= 0 ? `${h.pos}|${h.len}` : '';
 };
 
-/** La longueur de la suite a l'arret : celle d'EDIT, sinon celle du premier accord. */
-const idleLen = (): number => {
-  const s = seq.get();
-  if (s.edit) return s.len;
-  const chord = arp.get().prog[0];
-  if (chord === undefined) return STEPS_N;
-  return seq.steps(chord)?.length ?? STEPS_N;
-};
-
-/** Ce qu'un pas montre : un point a sa valeur de depart, sinon son nom court. */
-const SHORT: Record<StepTrack, Record<number, string>> = {
-  acc: { 0: 'SOFT', 2: 'ACC' },
-  slide: { 1: 'ON' },
-  gate: { 0: 'SHORT', 2: 'LONG', 3: 'TIE' },
-  rat: { 2: 'x2', 3: 'x3', 4: 'x4' },
-  prob: { 75: '75%', 50: '50%', 25: '25%', 0: '0%' },
-};
-
-const STEP_PITCH = 50;
-const stepX = (i: number): number => 92 + i * STEP_PITCH + Math.floor(i / 4) * 8;
-const STEPS_W = stepX(STEPS_N - 1) + 44 + 60;
-
 /** RANDOM : trois styles (hypno.ts), NEW SEQ tire une suite et ses pistes ; RANDOM de la face prend le meme style. */
 export const RND_W = 236;
 export const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
@@ -429,28 +402,6 @@ export const SEQ_ROW: FrameSpec[] = [
   },
 ];
 
-const SeqPage: React.FC = () => {
-  useExtraAll();
-  const y = 360;
-  const GAP = 16;
-  const rowW = SEQ_ROW.reduce((s, f) => s + frameW(f), 0) + GAP * SEQ_ROW.length + RND_W;
-  let x = ZONE.x + Math.round((ZONE.w - rowW) / 2);
-  const rnd = x;
-  x += RND_W + GAP;
-  return (
-    <>
-      <StepsMerged />
-      <RandomBox x={rnd} y={y} />
-      {SEQ_ROW.map((f, i) => {
-        const fx = x;
-        x += frameW(f) + GAP;
-        return <Frame key={f.title} f={f} x={fx} y={y} sep={i < SEQ_ROW.length - 1} />;
-      })}
-      <Matrix y={y + FRAME_H + 8} />
-    </>
-  );
-};
-
 /* ---------------- SEQ : la suite d'EDIT fusionnee au sequenceur par pas (v27) ---------------- */
 
 /**
@@ -474,203 +425,6 @@ export const notesViewStore = {
       notesViewL.delete(fn);
     };
   },
-};
-const LANE = { top: 70, h: 64 };
-const LEVELS = SEQ_TOP - SEQ_MIN;
-
-const StepsMerged: React.FC = () => {
-  const st = useSteps();
-  const hk = useSyncExternalStore(extHead.onWake, headKey, headKey);
-  const sq = useSyncExternalStore(seq.subscribe, seq.get, seq.get);
-  useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
-  const ar = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
-  const view = useSyncExternalStore(notesViewStore.subscribe, notesViewStore.get, notesViewStore.get);
-  const flash = useFlash('STEP SEQUENCER');
-  const head = hk ? hk.split('|').map(Number) : null;
-  const playingChord = ar.running && arpExternal.headState.chord >= 0 ? arpExternal.headState.chord : -1;
-  const chord = view ?? (playingChord >= 0 ? playingChord : (ar.prog[0] ?? 0));
-  const notes = seq.shown(chord);
-  const len = Math.max(1, head && head[1] > 0 ? head[1] : sq.edit ? sq.len : notes.length || idleLen());
-  const at = head ? head[0] % STEPS_N : -1;
-  const grid = useRef<HTMLDivElement>(null);
-  const paint = useRef<{ track: StepTrack; v: number; last: number } | null>(null);
-  const lane = useRef<HTMLDivElement>(null);
-  const draw = useRef<{ i: number; d: number } | null>(null);
-
-  // la piste NOTES : le degre sous le pointeur (le haut : le plus aigu)
-  const noteAt = (e: React.PointerEvent): { i: number; d: number } | null => {
-    const el = lane.current;
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const sx = r.width / el.offsetWidth || 1;
-    const lx = (e.clientX - r.left) / sx;
-    const ly = (e.clientY - r.top) / sx;
-    let i = -1;
-    for (let k = 0; k < STEPS_N; k += 1) if (lx >= stepX(k) - 4 && lx < stepX(k) + 40) i = k;
-    if (i < 0) return null;
-    const t = 1 - Math.min(1, Math.max(0, (ly - 6) / (LANE.h - 20)));
-    return { i, d: Math.round(SEQ_MIN + t * LEVELS) };
-  };
-  const onLaneDown = (e: React.PointerEvent<HTMLDivElement>): void => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const n = noteAt(e);
-    if (!n || n.i >= len) return;
-    e.preventDefault();
-    seq.setStep(chord, n.i, n.d);
-    draw.current = n;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* rien */
-    }
-  };
-  const onLaneMove = (e: React.PointerEvent<HTMLDivElement>): void => {
-    const g = draw.current;
-    if (!g) return;
-    const n = noteAt(e);
-    if (!n || n.i >= len) return;
-    if (Math.abs(n.i - g.i) > 1) {
-      const dir = n.i > g.i ? 1 : -1;
-      for (let j = g.i + dir; j !== n.i; j += dir) seq.setStep(chord, j, Math.round(g.d + ((n.d - g.d) * (j - g.i)) / (n.i - g.i)));
-    }
-    if (n.i !== g.i || n.d !== g.d) seq.setStep(chord, n.i, n.d);
-    draw.current = n;
-  };
-  const onLaneEnd = (): void => {
-    draw.current = null;
-  };
-  const before = useRef<(number | null)[]>([]);
-  const toggleRest = (i: number): void => {
-    const cur = seq.shown(chord)[i];
-    if (cur === null || cur === undefined) seq.setStep(chord, i, before.current[i] ?? 0);
-    else {
-      before.current[i] = cur;
-      seq.setStep(chord, i, null);
-    }
-  };
-
-  const cellOf = (el: Element | null): { track: StepTrack; i: number } | null => {
-    const c = el?.closest<HTMLElement>('[data-st]');
-    if (!c || !grid.current?.contains(c)) return null;
-    return { track: c.dataset.st as StepTrack, i: Number(c.dataset.i) };
-  };
-  const onDown = (e: React.PointerEvent<HTMLDivElement>): void => {
-    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
-    const c = cellOf(e.target as Element);
-    if (!c) return;
-    e.preventDefault();
-    const v = arpSteps.next(c.track, c.i, e.button === 2 || e.shiftKey ? -1 : 1);
-    arpSteps.set(c.track, c.i, v);
-    paint.current = { track: c.track, v, last: c.i };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* rien */
-    }
-  };
-  const onMove = (e: React.PointerEvent<HTMLDivElement>): void => {
-    const p = paint.current;
-    if (!p) return;
-    const c = cellOf(document.elementFromPoint(e.clientX, e.clientY));
-    if (!c || c.track !== p.track || c.i === p.last) return;
-    const d = c.i > p.last ? 1 : -1;
-    for (let i = p.last + d; i !== c.i + d; i += d) arpSteps.set(p.track, i, p.v);
-    p.last = c.i;
-  };
-  const onEnd = (): void => {
-    paint.current = null;
-  };
-  const ROW0 = 146;
-  const RP = 24;
-  return (
-    <PcbFrame title="STEP SEQUENCER" x={ZONE.x + Math.round((ZONE.w - STEPS_W) / 2)} y={60} w={STEPS_W} h={292} className="mm-p2-steps mm-sq-merged" flash={flash}>
-      <div className="mm-sq-top" style={{ top: 18 }}>
-        <span className="mm-sq-lab">CHORD</span>
-        {CHORDS.map((c, i) => (
-          <PcbKey
-            key={c.label}
-            name={c.label}
-            cap={<span>{c.label}</span>}
-            w={34}
-            h={13}
-            on={i === chord}
-            onClick={() => notesViewStore.set(notesView === i ? null : i)}
-            aria-label={`Notes of ${c.aria}${ar.prog.includes(i) ? ', in the progression' : ''}`}
-          />
-        ))}
-        <span className="mm-sq-src" data-edit={sq.edit ? '1' : undefined}>
-          {sq.edit ? 'YOUR NOTES' : 'FROM THE KNOBS'}
-        </span>
-        <span className="mm-sq-lab">STEPS</span>
-        <PcbKey name="−" cap={<span>−</span>} w={20} h={13} onClick={() => seq.setLen(chord, Math.min(seq.shown(chord).length, 16) - 1)} aria-label="Fewer steps" />
-        <b className="mm-sq-n">{seq.shown(chord).length}</b>
-        <PcbKey name="+" cap={<span>+</span>} w={20} h={13} onClick={() => seq.setLen(chord, Math.min(seq.shown(chord).length, 16) + 1)} aria-label="More steps" />
-      </div>
-      <div className="mm-p2-st-heads" aria-hidden="true" style={{ top: 30 }}>
-        {Array.from({ length: STEPS_N }, (_, i) => (
-          <span key={i} className="mm-p2-st-head" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined}>
-            <b>{i + 1}</b>
-            <i className="mm-p2-led" data-on={i === at ? '1' : undefined} />
-          </span>
-        ))}
-      </div>
-      <div ref={lane} className="mm-sq-lane" style={{ top: LANE.top, height: LANE.h }} onPointerDown={onLaneDown} onPointerMove={onLaneMove} onPointerUp={onLaneEnd} onPointerCancel={onLaneEnd}>
-        <span className="mm-p2-st-name mm-sq-name">NOTES</span>
-        {Array.from({ length: STEPS_N }, (_, i) => {
-          const d = i < notes.length ? notes[i] : undefined;
-          const on = typeof d === 'number';
-          const t = on ? ((d as number) - SEQ_MIN) / LEVELS : 0;
-          return (
-            <div key={i} className="mm-sq-col" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined} data-head={i === at ? '1' : undefined}>
-              {on && <i className="mm-sq-bar" style={{ height: 8 + t * (LANE.h - 26) }} />}
-              <b
-                className="mm-sq-note"
-                role="button"
-                tabIndex={i < len ? 0 : -1}
-                onPointerDown={(e) => {
-                  if (i >= len) return;
-                  e.stopPropagation();
-                  e.preventDefault();
-                  toggleRest(i);
-                }}
-                aria-label={`Step ${i + 1}: ${on ? degreeName(chord, d as number) : 'rest'}; click for a rest`}
-              >
-                {i >= len ? '' : on ? degreeName(chord, d as number) : 'REST'}
-              </b>
-            </div>
-          );
-        })}
-        <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56, top: 26 }} w={24} h={11} name="CLR" disabled={!sq.edit} onClick={() => seq.auto()} aria-label="Notes from the knobs" />
-      </div>
-      <div ref={grid} className="mm-p2-st-grid" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onEnd} onPointerCancel={onEnd} onContextMenu={(e) => e.preventDefault()}>
-        {STEP_TRACKS.map((t, r) => (
-          <div key={t.id} className="mm-p2-st-row mm-sq-row" style={{ top: ROW0 + r * RP }}>
-            <span className="mm-p2-st-name">{t.label}</span>
-            {st[t.id].map((v, i) => {
-              const short = SHORT[t.id][v];
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  className="mm-p2-st-cell"
-                  style={{ left: stepX(i) }}
-                  data-st={t.id}
-                  data-i={i}
-                  data-set={short ? '1' : undefined}
-                  data-off={i >= len ? '1' : undefined}
-                  data-head={i === at ? '1' : undefined}
-                  aria-label={`${t.label} step ${i + 1}: ${t.names[t.values.indexOf(v)] ?? v}`}
-                >
-                  {short ?? '·'}
-                </button>
-              );
-            })}
-            <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56 }} w={24} h={11} name="CLR" disabled={arpSteps.isDefault(t.id)} onClick={() => arpSteps.reset(t.id)} aria-label={`Reset ${t.label}`} />
-          </div>
-        ))}
-      </div>
-    </PcbFrame>
-  );
 };
 
 /* ---------------- SOUND (v27) : l'EQ parametrique, ENGINE, MASTER, le rack enrichi ---------------- */
@@ -739,7 +493,8 @@ const useSpec = () => useSyncExternalStore(arpSpec.subscribe, arpSpec.get, arpSp
 
 /**
  * L'ecran de l'EQ : la courbe (la somme des bandes allumees), l'analyseur du C++ (PRE ou POST, page ouverte seulement),
- * les six points : un clic choisit la bande, glisser regle FREQ (de gauche a droite) et GAIN (de haut en bas), Maj : fin.
+ * les six points : un clic choisit la bande, glisser regle FREQ (de gauche a droite) et GAIN (de haut en bas), Maj + glisser
+ * (ou la molette) son Q, Alt : quatre fois plus fin (v46 ; Maj etait le reglage fin avant la v44).
  */
 export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   useExtraAll();
@@ -775,7 +530,7 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   const nodeY = (b: EqB): number => fy(b.type === 'HP' || b.type === 'LP' || b.type === 'NOTCH' ? 0 : b.g);
   // v44 (Mika : "avec la touche Shift je veux pouvoir changer le Q de chaque point") : Maj + glisser vertical (ou la
   // molette sur un point) regle le Q du point saisi ; sa valeur s'affiche a cote du point pendant le geste
-  const drag = useRef<{ b: number; x: number; y: number; f: number; g: number; q: number; mode: 'fg' | 'q' } | null>(null);
+  const drag = useRef<{ b: number; x: number; y: number; f: number; g: number; q: number; mode: 'fg' | 'q'; alt: boolean } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
   const [qShow, setQShow] = useState(0);
   const qTimer = useRef(0);
@@ -790,8 +545,9 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
     if (!el) return 1;
     return el.getBoundingClientRect().width / w || 1;
   };
-  const anchor = (d: NonNullable<typeof drag.current>, e: { clientX: number; clientY: number }, mode: 'fg' | 'q'): void => {
+  const anchor = (d: NonNullable<typeof drag.current>, e: { clientX: number; clientY: number; altKey: boolean }, mode: 'fg' | 'q'): void => {
     d.mode = mode;
+    d.alt = e.altKey;
     d.x = e.clientX;
     d.y = e.clientY;
     d.f = X(qid(d.b, 'Freq'));
@@ -802,7 +558,7 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
     e.preventDefault();
     e.stopPropagation();
     eqBandStore.set(b);
-    const d = { b, x: 0, y: 0, f: 0, g: 0, q: 0, mode: 'fg' as 'fg' | 'q' };
+    const d = { b, x: 0, y: 0, f: 0, g: 0, q: 0, mode: 'fg' as 'fg' | 'q', alt: false };
     anchor(d, e, e.shiftKey ? 'q' : 'fg');
     drag.current = d;
     if (e.shiftKey) {
@@ -819,17 +575,19 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
     const d = drag.current;
     if (!d) return;
     const k = scale();
-    // Maj enfoncee ou relachee en cours de geste : on repart de la ou on en est (pas de saut)
-    if (e.shiftKey !== (d.mode === 'q')) anchor(d, e, e.shiftKey ? 'q' : 'fg');
+    // Maj ou Alt enfoncee ou relachee en cours de geste : on repart de la ou on en est (pas de saut)
+    if (e.shiftKey !== (d.mode === 'q') || e.altKey !== d.alt) anchor(d, e, e.shiftKey ? 'q' : 'fg');
+    // v46 : Alt, quatre fois plus fin (la frequence, le gain, le Q)
+    const fine = d.alt ? 0.25 : 1;
     if (d.mode === 'q') {
       // 160 px (a l'echelle de l'ecran) pour toute la course ; vers le haut : plus de Q (plus etroit)
-      SRC.set(qid(d.b, 'Q'), d.q - (e.clientY - d.y) / k / 160);
+      SRC.set(qid(d.b, 'Q'), d.q - ((e.clientY - d.y) / k / 160) * fine);
       say(qid(d.b, 'Q'));
       showQ(d.b);
       return;
     }
-    const dx = (e.clientX - d.x) / k;
-    const dy = (e.clientY - d.y) / k;
+    const dx = ((e.clientX - d.x) / k) * fine;
+    const dy = ((e.clientY - d.y) / k) * fine;
     SRC.set(qid(d.b, 'Freq'), d.f + dx / (w - 28));
     say(qid(d.b, 'Freq'));
     const t = eqBandOf(d.b).type;
@@ -997,144 +755,6 @@ registerVirtual('vChMode', {
   name: 'CHORUS MODE',
 });
 
-const SoundPage: React.FC = () => {
-  useExtraAll();
-  useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
-  const band = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
-  const X0 = ZONE.x;
-  // v38 : ENGINE part dans SETTINGS, l'EQ reprend ses 22 px
-  const EQ = { x: X0, w: 722 };
-  const RX = EQ.x + EQ.w + 22;
-  const RW = ZONE.x + ZONE.w - RX;
-  const PH = { x: X0, w: 478 };
-  const FL = { x: PH.x + PH.w + 22, w: ZONE.x + ZONE.w - (PH.x + PH.w + 22) };
-  const CH = { x: X0, w: 342 };
-  const CR = { x: CH.x + CH.w + 22, w: 246 };
-  const PU = { x: CR.x + CR.w + 22, w: ZONE.x + ZONE.w - (CR.x + CR.w + 22) };
-  const R = (top: number, w: number, kids: React.ReactNode, left?: number) => (
-    <div className="mm-p2-cells mm-hell-row" style={{ top, width: w, left: left ?? undefined }}>
-      {kids}
-    </div>
-  );
-  return (
-    <>
-      <PcbFrame title="EQ" x={EQ.x} y={60} w={EQ.w} h={262} sep className="mm-hell-frame" led={[1, 2, 3, 4, 5, 6].some((b) => X(qid(b, 'On')) >= 0.5 && (Math.abs(X(qid(b, 'Gain')) - 0.5) > 0.0005 || X(qid(b, 'Type')) === 0 || X(qid(b, 'Type')) === 1 || Math.round(X(qid(b, 'Type')) * 5) === 3))}>
-        <div className="mm-dm-place" style={{ left: 12, top: 20 }}>
-          <EqScreen w={EQ.w - 24} h={150} />
-        </div>
-        <EqBandKeys />
-        {R(
-          176,
-          EQ.w - 186,
-          <>
-            <PcbSelect id={qid(band, 'Type')} name="TYPE" ref_="" w={84} cols={2} />
-            <PcbKnob id={qid(band, 'Freq')} name="FREQ" ref_="" lo="" hi="" fine />
-            <PcbKnob id={qid(band, 'Gain')} name="GAIN" ref_="" lo="" hi="" fine />
-            <PcbKnob id={qid(band, 'Q')} name="Q" ref_="" lo="" hi="" fine />
-            <PcbStep id={qid(band, 'Slope')} name="SLOPE" ref_="" w={110} />
-            <PcbKnob id="xQOut" name="OUTPUT" ref_="" lo="" hi="" fine />
-          </>,
-          176,
-        )}
-      </PcbFrame>
-      <PcbFrame title="ANALYZER" x={RX} y={60} w={RW} h={104} className="mm-hell-frame">
-        {R(
-          14,
-          RW,
-          <>
-            {/* v32 (Mika : "comme les autres plugins") : QUALITY a trois crans (ECO x2, STD x4 le site, HQ x8), EXPORT HQ :
-                l'export de l'hote en HQ, comme la precision hors ligne de Diva */}
-            {/* v38 : ENGINE, QUALITY et EXPORT HQ sont dans SETTINGS (le menu hamburger) ; ANALYZER reste ici */}
-            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={120} />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="MASTER" x={RX} y={176} w={RW} h={146} className="mm-hell-frame">
-        {R(
-          18,
-          RW,
-          <>
-            <PcbKnob id="xWarmth" name="WARMTH" ref_="" lo="OFF" hi="FULL" />
-            <PcbKnob id="xBass" name="BASS" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xAir" name="AIR" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xWidth" name="WIDTH" ref_="" lo="" hi="" fine />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="PHASER" x={PH.x} y={336} w={PH.w} h={112} sep className="mm-hell-frame" led={X('xPhMix') > 0}>
-        {R(
-          14,
-          PH.w,
-          <>
-            <PcbKnob id="xPhMix" name="MIX" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPhRate" name="RATE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPhDepth" name="DEPTH" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPhFb" name="FEEDBACK" ref_="" lo="" hi="" fine />
-            <PcbRotary id="xPhStages" name="STAGES" ref_="" w={80} />
-            <PcbKnob id="xPhCenter" name="CENTER" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPhSpread" name="SPREAD" ref_="" lo="" hi="" fine />
-            <PcbToggle id="xPhSync" name="SYNC" ref_="" w={62} />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="FLANGER" x={FL.x} y={336} w={FL.w} h={112} className="mm-hell-frame" led={X('xFlMix') > 0}>
-        {R(
-          14,
-          FL.w,
-          <>
-            <PcbKnob id="xFlMix" name="MIX" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xFlRate" name="RATE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xFlDepth" name="DEPTH" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xFlFb" name="FEEDBACK" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xFlDelay" name="DELAY" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xFlSpread" name="SPREAD" ref_="" lo="" hi="" fine />
-            <PcbToggle id="xFlSync" name="SYNC" ref_="" w={80} />
-            <PcbToggle id="xFlThru" name="THRU-0" ref_="" w={80} />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="CHORUS" x={CH.x} y={462} w={CH.w} h={112} sep className="mm-hell-frame" led={voyParams.of('chorus') > 0}>
-        {R(
-          14,
-          CH.w,
-          <>
-            <PcbRotary id="vChMode" name="MODE" ref_="" w={96} />
-            <PcbKnob id="xChRate" name="RATE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xChDepth" name="DEPTH" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xChWidth" name="WIDTH" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xChMix" name="MIX" ref_="" lo="" hi="" fine />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="CRUSH" x={CR.x} y={462} w={CR.w} h={112} sep className="mm-hell-frame" led={X('xCrushBits') > 0 || X('xCrushRate') > 0}>
-        {R(
-          14,
-          CR.w,
-          <>
-            <PcbKnob id="xCrushBits" name="BITS" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xCrushRate" name="RATE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xCrTone" name="TONE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xCrMix" name="MIX" ref_="" lo="" hi="" fine />
-          </>,
-        )}
-      </PcbFrame>
-      <PcbFrame title="PUMP" x={PU.x} y={462} w={PU.w} h={112} className="mm-hell-frame" led={X('xPumpDepth') > 0}>
-        {R(
-          14,
-          PU.w,
-          <>
-            <PcbKnob id="xPumpDepth" name="DEPTH" ref_="" lo="" hi="" fine />
-            <PcbStep id="xPumpRate" name="RATE" ref_="" w={112} />
-            <PcbKnob id="xPuAttack" name="ATTACK" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPumpShape" name="RELEASE" ref_="" lo="" hi="" fine />
-            <PcbKnob id="xPuCurve" name="CURVE" ref_="" lo="" hi="" fine />
-          </>,
-        )}
-      </PcbFrame>
-    </>
-  );
-};
-
 /* ---------------- les volets : LIBRARY, MIDI ---------------- */
 
 const LIB_W = 1000;
@@ -1225,36 +845,6 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 /* ---------------- la carte ---------------- */
 
 /**
- * La navigation des pages (2026-11-16, Mika : "C pour les boutons", a la place du selecteur rotatif PAGE) : cinq touches
- * dans un bandeau encastre de l'en-tete, a droite des logos, le nom ecrit sur la touche, celle de la page montree allumee.
- * Un clic y va (le volet LIBRARY / MIDI se ferme) ; les fleches gauche / droite du clavier passent de l'une a l'autre quand
- * aucun reglage ne les prend (HoodBody, hoodPageStep). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
- * (le bandeau du bas).
- */
-const PageKeys: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const st = useHoodPage();
-  const cur = st.overlay ? -1 : hoodPageIndex(st);
-  return (
-    <div className="mm-r-nav" role="tablist" aria-label="Page">
-      {HOOD_PAGES.map((p, i) => (
-        <button
-          key={p.id}
-          type="button"
-          role="tab"
-          aria-selected={i === cur}
-          className="mm-r-nav-key"
-          data-on={i === cur ? '1' : undefined}
-          // v28 : un re-clic sur la page montree ramene a la face (anime, comme CLOSE)
-          onClick={() => (i === cur ? onClose() : hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null }))}
-        >
-          {p.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-/**
  * Le panneau : celui de la face (la meme laque, la meme serigraphie), ses joues de bois (l'image de celles de la face),
  * l'en-tete comme celui de la face (le wordmark, MM-ARP, la page a droite en petit, comme FIRMWARE). Un clic sur une joue
  * referme le capot, comme CLOSE ou Echap.
@@ -1273,7 +863,7 @@ const Panel: React.FC<{ onClose: () => void; stage: Stage | null }> = ({ onClose
           <span className="mm-r-word" />
           <span className="mm-r-model">MM-ARP</span>
         </button>
-        {MQ.nav ? <NavKeys2 v={MQ.nav} onClose={onClose} /> : <PageKeys onClose={onClose} />}
+        <NavKeys onClose={onClose} />
         {/* v31 : le compteur CPU de cette instance, avant SETTINGS et la croix */}
         <HoodCpuMeter stage={stage} />
         {/* Les reglages d'aspect (2026-11-16) : le cuir, la lumiere du panneau */}
@@ -1402,7 +992,7 @@ const HoodBody: React.FC<{ stage: Stage | null; leaving: boolean }> = ({ stage, 
               <Overlay which={overlay} />
             ) : (
               <div className="mm-p2-tab" key={tab} data-tab={tab}>
-                {tab === 'sound' ? MQ.sound ? <SoundPage2 v={MQ.sound} /> : <SoundPage /> : tab === 'fx' ? <FxPage /> : MQ.seq ? <SeqPage2 v={MQ.seq} /> : <SeqPage />}
+                {tab === 'sound' ? <SoundPage /> : tab === 'fx' ? <FxPage /> : <SeqPage />}
               </div>
             )}
           </div>

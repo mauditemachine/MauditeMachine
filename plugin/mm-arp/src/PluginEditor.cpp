@@ -322,6 +322,9 @@ void MMArpEditor::timerCallback() {
     o->setProperty("len", fb.len);
     o->setProperty("chord", fb.playing ? fb.chord : -1);
     o->setProperty("midi", fb.playing ? fb.midi : -1);
+    // v46 (la tete de la page SEQ) : CHANCE a saute ce pas (midi -1 sans etre un silence), la duree du pas (ms)
+    o->setProperty("skip", fb.playing && fb.skip);
+    o->setProperty("dur", fb.dur);
     browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
 }
 

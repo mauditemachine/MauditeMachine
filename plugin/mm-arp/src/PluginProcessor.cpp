@@ -265,7 +265,7 @@ juce::String MMArpProcessor::faceInitState() const {
 }
 
 MMArpProcessor::Feedback MMArpProcessor::feedback() const {
-    return {fbPlaying_.load(), internalPlaying_.load(), fbSeq_.load(), fbSlot_.load(), fbPos_.load(), fbLen_.load(), fbChord_.load(), fbMidi_.load()};
+    return {fbPlaying_.load(), internalPlaying_.load(), fbSeq_.load(), fbSlot_.load(), fbPos_.load(), fbLen_.load(), fbChord_.load(), fbMidi_.load(), fbSkip_.load(), fbDur_.load()};
 }
 
 /* ---------------- l'arpege en clip MIDI (le bouton DRAG MIDI de la fenetre) ---------------- */
@@ -1464,6 +1464,8 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         fbLen_.store(sh.len);
         fbChord_.store(sh.chord);
         fbMidi_.store(sh.midi);
+        fbSkip_.store(sh.skip);
+        fbDur_.store(static_cast<int>(std::lround(sh.durMs)));
         fbSeq_.fetch_add(1);
     }
     // v31 : le compteur CPU, par etage (le reste : les reglages, l'arpege, BASS MONO, le CHORUS, la prise de la chaine)

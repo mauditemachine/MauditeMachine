@@ -187,7 +187,8 @@ void Arp::step(ArpSink& sink, int64_t k, double frame, double stepSamples, uint3
         }
         // PROB : une note qui ne joue pas est un silence (son tirage a part : celui de RAND et de DRIFT ne bouge pas)
         const int sp = pos & (ArpProgram::kSteps - 1);
-        if (d != kRest && !probPlays(*p, pos, k, kk, seed)) d = kRest;
+        const bool skip = d != kRest && !probPlays(*p, pos, k, kk, seed);
+        if (skip) d = kRest;
         ArpShown& sh = shown_[shownHead_];
         shownHead_ = (shownHead_ + 1) % kShown;
         sh.frame = static_cast<int64_t>(std::llround(when * sr_));
@@ -196,6 +197,8 @@ void Arp::step(ArpSink& sink, int64_t k, double frame, double stepSamples, uint3
         sh.len = len;
         sh.chord = c;
         sh.midi = d == kRest ? -1 : d;
+        sh.skip = skip;
+        sh.durMs = static_cast<float>(interval * 1000.0);
         // Un silence de la suite : rien ne part, le glissement repartira de la derniere note
         if (d == kRest) continue;
         const double human = 1 + (mulberry01(a) - 0.5) * 0.16 * p->drift;
