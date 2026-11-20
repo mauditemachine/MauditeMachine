@@ -2355,6 +2355,210 @@
         "ON"
       ],
       "help": "v46 (Mika : \"il doit faire mal celui la\") : PUNISH v2, +20 dB dans la saturation, le snarl (cloche +6 dB a 1.4 kHz, -3 dB sous 120 Hz), un second etage dur asymetrique surechantillonne, compression legere, AUTO qui mesure (+3 LU au-dessus du son sans PUNISH), plafond doux a -0.3 dBFS (dsp/Decap.h)"
+    },
+    {
+      "id": "xHellV2",
+      "label": "HELL V2",
+      "section": "hell",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 (Mika : \"la botte secrete de tout le plugin\") : ON, HELL v2, la descente en six cercles (dsp/Hell2.h) ; OFF, l ancien HELL (Hell.cpp). Les instances neuves : ON ; un projet d avant (sans ce reglage) : OFF, son HELL au bit pres. Un preset HELL de la page le met a ON."
+    },
+    {
+      "id": "xHellWarp",
+      "label": "HELL WARP",
+      "section": "hell",
+      "def": 0.224,
+      "help": "II WARP : la profondeur, 0 a 12 demi-tons (12 v^2)"
+    },
+    {
+      "id": "xHellWarpRate",
+      "label": "HELL WARP RATE",
+      "section": "hell",
+      "def": 0.6666666666666666,
+      "steps": [
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR"
+      ],
+      "help": "II WARP : un cycle en notes (1/16 a 4 mesures), cale sur la mesure de l hote"
+    },
+    {
+      "id": "xHellWarpShape",
+      "label": "HELL WARP SHAPE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "WOBBLE",
+        "BEND",
+        "DROP",
+        "STOP",
+        "RANDOM"
+      ],
+      "help": "II WARP : WOBBLE sinus, BEND triangle, DROP la hauteur tombe puis revient, STOP arret de bande en fin de cycle, RANDOM une hauteur tiree a chaque cycle"
+    },
+    {
+      "id": "xHellSpin",
+      "label": "HELL SPIN",
+      "section": "hell",
+      "def": 0.5,
+      "help": "III SPIN : le panoramique qui tournoie"
+    },
+    {
+      "id": "xHellSpinRate",
+      "label": "HELL SPIN RATE",
+      "section": "hell",
+      "def": 0.8333333333333334,
+      "steps": [
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR"
+      ],
+      "help": "III SPIN : un tour en notes ; le balayage du filtre suit"
+    },
+    {
+      "id": "xHellDrunk",
+      "label": "HELL DRUNK",
+      "section": "hell",
+      "def": 0.3,
+      "help": "III SPIN : le chorus ivre, trois voix dont le retard titube (une marche aleatoire lissee, un pas par double-croche)"
+    },
+    {
+      "id": "xHellSweep",
+      "label": "HELL SWEEP",
+      "section": "hell",
+      "def": 0,
+      "help": "III SPIN : le passe-bas resonant qui balaie au rythme de SPIN RATE"
+    },
+    {
+      "id": "xHellShatter",
+      "label": "HELL SHATTER",
+      "section": "hell",
+      "def": 0.35,
+      "help": "IV SHATTER : le son en eclats (granulaire), la part des grains"
+    },
+    {
+      "id": "xHellShatterSize",
+      "label": "HELL SHATTER SIZE",
+      "section": "hell",
+      "def": 0.5,
+      "steps": [
+        "1/64",
+        "1/32",
+        "1/16",
+        "1/8",
+        "1/4"
+      ],
+      "help": "IV SHATTER : la taille des grains en notes (un grain tous les demi-grains, sur la grille du tempo)"
+    },
+    {
+      "id": "xHellShatterSpray",
+      "label": "HELL SHATTER SPRAY",
+      "section": "hell",
+      "def": 0.35,
+      "help": "IV SHATTER : la dispersion : octaves, quintes, grains a l envers, jetes a gauche et a droite"
+    },
+    {
+      "id": "xHellChop",
+      "label": "HELL CHOP",
+      "section": "hell",
+      "def": 0.3,
+      "help": "V CHOP : la chance qu une case de la grille rejoue la case d avant (stutter)"
+    },
+    {
+      "id": "xHellChopGrid",
+      "label": "HELL CHOP GRID",
+      "section": "hell",
+      "def": 0.5,
+      "steps": [
+        "1/64",
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/8T",
+        "1/8",
+        "1/4"
+      ],
+      "help": "V CHOP : la taille d une case, 1/64 a 1/4, calee sur la position de l hote"
+    },
+    {
+      "id": "xHellChopPitch",
+      "label": "HELL CHOP PITCH",
+      "section": "hell",
+      "def": 0.417,
+      "help": "V CHOP : chaque repetition monte ou descend de -12 a +12 demi-tons (round(24 (v - 0.5)), +/- 24 au total)"
+    },
+    {
+      "id": "xHellChopGate",
+      "label": "HELL CHOP GATE",
+      "section": "hell",
+      "def": 0.85,
+      "help": "V CHOP : la longueur de chaque repetition (1 : pleine)"
+    },
+    {
+      "id": "xHellRing",
+      "label": "HELL RING",
+      "section": "hell",
+      "def": 0,
+      "help": "VI METAL : la modulation en anneau"
+    },
+    {
+      "id": "xHellRingTune",
+      "label": "HELL RING TUNE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "NOTE",
+        "NOTE x1.5",
+        "NOTE x2",
+        "NOTE /2",
+        "TEMPO x8",
+        "TEMPO x32"
+      ],
+      "help": "VI METAL : la frequence de l anneau : la note jouee (x1, x1.5, x2, /2) ou le tempo (8 ou 32 fois par temps)"
+    },
+    {
+      "id": "xHellComb",
+      "label": "HELL COMB",
+      "section": "hell",
+      "def": 0,
+      "help": "VI METAL : le peigne resonant accorde sur la note, qui change de hauteur a chaque noire"
+    },
+    {
+      "id": "xHellCombSeq",
+      "label": "HELL COMB SEQ",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OCTAVES",
+        "FIFTHS",
+        "MINOR",
+        "CHROMATIC",
+        "RANDOM"
+      ],
+      "help": "VI METAL : la suite des hauteurs du peigne, une par noire (8 temps puis elle recommence)"
+    },
+    {
+      "id": "xHellDescent",
+      "label": "HELL DESCENT",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "DESCENT",
+        "ALL"
+      ],
+      "help": "MIX : DESCENT les cercles entrent un par un (WARP 10 %, SPIN 22 %, SHATTER 36 %, CHOP 50 %, METAL 64 %), ALL tous ensemble"
     }
   ]
 }

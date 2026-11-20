@@ -335,7 +335,27 @@
     "xMidiIn": 0,
     "xArpHold": 0,
     "xArpRun": 1,
-    "xDPunish2": 0
+    "xDPunish2": 0,
+    "xHellV2": 1,
+    "xHellWarp": 0.224,
+    "xHellWarpRate": 0.6666666666666666,
+    "xHellWarpShape": 0,
+    "xHellSpin": 0.5,
+    "xHellSpinRate": 0.8333333333333334,
+    "xHellDrunk": 0.3,
+    "xHellSweep": 0,
+    "xHellShatter": 0.35,
+    "xHellShatterSize": 0.5,
+    "xHellShatterSpray": 0.35,
+    "xHellChop": 0.3,
+    "xHellChopGrid": 0.5,
+    "xHellChopPitch": 0.417,
+    "xHellChopGate": 0.85,
+    "xHellRing": 0,
+    "xHellRingTune": 0,
+    "xHellComb": 0,
+    "xHellCombSeq": 0,
+    "xHellDescent": 0
   },
   "steps": {
     "acc": [
