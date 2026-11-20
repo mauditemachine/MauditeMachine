@@ -802,3 +802,31 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 ### Ce qui reste a faire / points en suspens
 - RANDOM : presets de reference de Mika attendus.
 - Touches clavier renvoyees a Ableton (a tester sur le Mac).
+
+## 2026-11-20 : v41 a v43, serigraphie nette, knobs = les PNG de Mika, touches en pilules
+
+### Ce qui a ete fait
+- v41 (voyager/pads.ts) : les touches de la face en pilules unies et mates (PILL_KEYS) ; v43 : de vraies pilules (bouts en demi-cercles), a leur taille, un noir un rien plus clair que le cuir (27 / 255, mesure sur 73.webp).
+- v42 (voyager/silk.ts, rig.ts fitSilk, renderer.ts) : la serigraphie est retracee a la definition de l'ecran (taille de la fenetre x DPR, 400 ms apres un redimensionnement) ; ce qui bouge souvent (couronnes WAVE, LED, noms des touches) passe sur de petits encarts.
+- v43 knobs (plugin/arp/vknob.ts, vknobFace.ts, faceExtras.tsx, hellKnob.tsx, pcbui.tsx) : les knobs de la face et des pages d'OPEN sont les PNG de Mika, leurs pixels, seulement decoupes au masque (plugin/mm-arp/web/vknob-cut.py, sources dans vknob-src/) :
+  - mika-knob.png : tous les potards a capuchon de metal de la face (HELL compris), le PNG entier tourne ; aussi les grands knobs d'OPEN ;
+  - le selecteur : WAVEFORM 1 / 2, RANGE 1 / 2 ; le PNG tourne, son capuchon reste fixe ;
+  - le petit : FM, RATIO, OSC 1 / 2, NOISE, SUB, SUB WAVE, DETUNE, SPREAD et les deux FINE ; le PNG tourne, son capuchon reste fixe ;
+  - 74.png (detoure de sa capture au disque, son ombre a part et fixe) : les tout petits knobs des pages d'OPEN.
+  - Face : un quad par calque (InstancedMesh), texture premultipliee, chaine de reductions precalculee (Lanczos sur l'alpha premultiplie), ni lumiere ni courbe de tons ; ombre portee douce et fixe dessous. Le repere d'origine de chaque PNG est compense.
+- v43 touches (pads.ts, silk.ts, rig.ts, faceExtras.tsx) : style de la rangee STYLE d'OPEN (73.webp) pour CLEAR, RANDOM, EDIT, RUN/STOP, PRESET, OPEN, CHORUS et SUB OCT : LED ronde au-dessus (rouge sombre eteinte, accent allumee), pilule pleine d'accent avec un halo a sa forme, nom en accent allume. RUN/STOP n'est plus rouge (accent quand l'arpege joue) ; SUB OCT redevient une touche (plus de levier) ; CHORUS s'allume en marche.
+- Tests : tsc 105 ; build de la face ; captures Chromium muet (?mute=1, --mute-audio), aucune lecture.
+
+### Decisions prises et pourquoi
+- Mika : "je ne veux pas que tu redessines" : aucun pixel retouche, seulement des masques et des marges transparentes ; le redessin vectoriel essaye d'abord est abandonne.
+- mika-knob.png tourne entier (son repere deborde sur le capuchon) ; le petit et le selecteur gardent leur capuchon fixe (decoupe au disque, un demi-pixel en dedans).
+- Le commutateur MODE du filtre etait un potard a capuchon de metal : il prend mika-knob.png.
+- L'encart d'EDIT (ses knobs) n'est pas touche (un autre chantier en cours).
+
+### Ce qui reste a faire / points en suspens
+- Agrandissement (la taille du disque a l'ecran depasse le PNG) : mika-knob.png sur CUTOFF a partir de 1707 px CSS de large en DPR 2 (VOLUME 2134, les potards moyens 2483) ; le selecteur et le petit jamais (jusqu'a 2640) ; OPEN : le knob vedette de HELL des la taille par defaut (x 1,3), les grands knobs (x 1,3) a partir de 2031, les tout petits a partir de 2221.
+- Pas de halo sous la pilule allumee de CHORUS (seulement sous les touches du plateau).
+- A juger sur le Mac de Mika (captures sans GPU).
+
+### Commandes utiles ajoutees
+- python3 plugin/mm-arp/web/vknob-cut.py : refait les calques des knobs (src/v4/plugin/arp/vknob) depuis les PNG de Mika.
