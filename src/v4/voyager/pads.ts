@@ -28,6 +28,8 @@
 import {
   AdditiveBlending,
   Color,
+  ExtrudeGeometry,
+  Shape,
   Mesh,
   DynamicDrawUsage,
   Float32BufferAttribute,
@@ -51,6 +53,9 @@ import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
 import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PAD_QUEUED, PLUGIN_ARP, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
+
+/** v41 (maquette) : les touches de la face en pastilles unies de la page OPEN (option A de la v40) */
+const PILL_KEYS = true;
 import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId, type VoyWhere } from './theme';
 
@@ -164,7 +169,40 @@ function padGeometry(mobile: boolean): BufferGeometry {
  * 2026-11-16 (Mika : "le design des boutons") : une vraie touche de caoutchouc, le corps a l'arete marquee et le dessus
  * en leger plateau, un rien plus clair (son arete accroche la lumiere).
  */
+/**
+ * v41 (maquette, Mika : "je veux ce style de bouton meme dans la face avant partout") : la touche des pages OPEN (option
+ * A de la v40) : une pastille unie et mate aux coins tres arrondis (rayon 45 % du petit cote), un leger chanfrein ; allumee,
+ * son dessus prend l'accent (emissive par instance, ACCENT COLOR de SETTINGS).
+ */
+function pillGeometry(w: number, h: number, d: number, mobile: boolean): BufferGeometry {
+  const r = Math.min(w, d) * 0.45;
+  const bev = Math.min(h * 0.35, r * 0.25);
+  const s = new Shape();
+  const x0 = -w / 2 + bev, x1 = w / 2 - bev, z0 = -d / 2 + bev, z1 = d / 2 - bev;
+  const rr = Math.max(0.001, r - bev);
+  s.moveTo(x0 + rr, z0);
+  s.lineTo(x1 - rr, z0);
+  s.quadraticCurveTo(x1, z0, x1, z0 + rr);
+  s.lineTo(x1, z1 - rr);
+  s.quadraticCurveTo(x1, z1, x1 - rr, z1);
+  s.lineTo(x0 + rr, z1);
+  s.quadraticCurveTo(x0, z1, x0, z1 - rr);
+  s.lineTo(x0, z0 + rr);
+  s.quadraticCurveTo(x0, z0, x0 + rr, z0);
+  const g0 = new ExtrudeGeometry(s, { depth: Math.max(0.001, h - 2 * bev), bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: mobile ? 2 : 4, curveSegments: mobile ? 8 : 16 });
+  // l'extrusion suit z : on la couche (le dessus vers +y), posee sur y = 0
+  g0.rotateX(-Math.PI / 2);
+  g0.computeBoundingBox();
+  g0.translate(0, -(g0.boundingBox?.min.y ?? 0), 0);
+  const o = g0.index ? g0.toNonIndexed() : g0;
+  o.deleteAttribute('uv');
+  o.computeVertexNormals();
+  paintRubber(o);
+  return o;
+}
+
 function keyGeometry(w: number, h: number, d: number, r: number, mobile: boolean): BufferGeometry {
+  if (PLUGIN_ARP && PILL_KEYS) return pillGeometry(w, h * 0.82, d, mobile);
   const body = new RoundedBoxGeometry(w, h * 0.82, d, mobile ? 2 : 4, Math.min(r, (h * 0.82) / 2 - 0.004));
   body.translate(0, (h * 0.82) / 2, 0);
   const ix = Math.min(w, d) * 0.09;
@@ -266,7 +304,7 @@ export class VoyKeys {
     this.btnEm = new InstancedBufferAttribute(new Float32Array(BTNS * 3), 3);
     this.btnEm.setUsage(DynamicDrawUsage);
     bg.setAttribute('instanceEmissive', this.btnEm);
-    this.btnMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad, ...(PLUGIN_ARP ? { roughness: 0.5 } : {}) }), true);
+    this.btnMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad, ...(PLUGIN_ARP ? { roughness: PILL_KEYS ? 0.85 : 0.5 } : {}) }), true);
     this.btnMat.name = 'voyButton';
     this.buttons = new InstancedMesh(bg, this.btnMat, BTNS);
     this.buttons.name = 'voyButtons';
