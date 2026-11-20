@@ -35,6 +35,9 @@ import { SkyPage } from './SkyPage';
 import { HellPage } from './HellPage';
 import { DistoPage } from './DistoPage';
 import { DelayPage } from './DelayPage';
+import { FX2 } from './fx2';
+import { SkyPageA, SkyPageB } from './SkyPage2';
+import { HellPageA, HellPageB } from './HellPage2';
 import { CHORDS, degreeName } from '../../voyager/chords';
 import { SEQ_MIN, SEQ_TOP } from '../../voyager/seq';
 import { arpSpec, SPEC_BINS } from './spec';
@@ -279,14 +282,17 @@ const Grid: React.FC<{ page: GridPage }> = ({ page }) => (
 const HellHost: React.FC = () => {
   const h = useFlash('HELL');
   const d = useFlash('DELAY');
-  return <HellPage flash={(t) => (t === 'HELL' ? h : t === 'HELL DELAY' ? d : false)} />;
+  const fl = (t: string): boolean => (t === 'HELL' ? h : t === 'HELL DELAY' ? d : false);
+  // MAQUETTE v44 : ?fx2=A ou ?fx2=B (fx2.ts) : la page refaite ; sinon celle d'avant
+  return FX2 === 'A' ? <HellPageA flash={fl} /> : FX2 === 'B' ? <HellPageB flash={fl} /> : <HellPage flash={fl} />;
 };
 
 /** REVERB : la reverbe facon BigSky (SkyPage.tsx) ; le cadre REVERB clignote au clic du potard de la face. */
 const SkyHost: React.FC = () => {
   const rev = useFlash('REVERB');
   const typ = useFlash('TYPE');
-  return <SkyPage flash={(t) => (t === 'REVERB' ? rev : t === 'TYPE' ? typ : false)} />;
+  const fl = (t: string): boolean => (t === 'REVERB' ? rev : t === 'TYPE' ? typ : false);
+  return FX2 === 'A' ? <SkyPageA flash={fl} /> : FX2 === 'B' ? <SkyPageB flash={fl} /> : <SkyPage flash={fl} />;
 };
 
 /** DISTO : la page facon Decapitator (DistoPage.tsx) ; le cadre DRIVE clignote au clic du potard DISTO de la face. */

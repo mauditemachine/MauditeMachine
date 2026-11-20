@@ -17,6 +17,8 @@ import { voyParams } from '../../voyager/params';
 import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayLoad, delayStep, delayTimeText, dlIdx } from './delay';
 import { arpExtra } from './extra';
 import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC, useRaise } from './pcbui';
+import { FX2 } from './fx2';
+import { DelayPageA, DelayPageB } from './DelayPage2';
 
 const Row: React.FC<{ top: number; left?: number; w: number; children: React.ReactNode }> = ({ top, left, w, children }) => (
   <div className="mm-p2-cells mm-hell-row" style={{ top, left: left ?? undefined, width: w }}>
@@ -258,7 +260,10 @@ const TapKey: React.FC = () => {
   );
 };
 
-export const DelayPage: React.FC = () => {
+/** MAQUETTE v44 : ?fx2=A ou ?fx2=B montre la page refaite (DelayPage2.tsx) ; sinon celle-ci, inchangee. */
+export const DelayPage: React.FC = () => (FX2 === 'A' ? <DelayPageA /> : FX2 === 'B' ? <DelayPageB /> : <DelayPageV27 />);
+
+const DelayPageV27: React.FC = () => {
   useAll();
   const sync = dlIdx('xDlSync', X('xDlSync')) === 1;
   const X0 = 44;

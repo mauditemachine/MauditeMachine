@@ -47,7 +47,7 @@ const X = (id: string): number => arpExtra.of(id);
 /* ---------------- l'enveloppe de la queue ---------------- */
 
 /** L'enveloppe dessinee (0..1) a l'instant t (s) ; dur : la duree montree. */
-function tail(m: SkyMachineDef): { dur: number; at: (t: number) => number; marks: number[] } {
+export function tail(m: SkyMachineDef): { dur: number; at: (t: number) => number; marks: number[] } {
   const p = SKY_SLOTS.map((id) => X(id));
   const fb = m.preLabel === 'FEEDBACK';
   const pre = fb ? 0 : preOf(X('xSkyPre'));
@@ -227,7 +227,7 @@ const Window: React.FC<{ type: number; x: number; y: number; w: number; h: numbe
 
 /* ---------------- les reglages ---------------- */
 
-type Cell = { k: 'knob' | 'step' | 'rot' | 'sel'; id: string; name: string; lo: string; hi: string; w: number };
+export type Cell = { k: 'knob' | 'step' | 'rot' | 'sel'; id: string; name: string; lo: string; hi: string; w: number };
 
 /** Les bouts de course d'un potard, courts (ils tiennent sous le potard). */
 function endsOf(type: number, id: string): [string, string] {
@@ -245,7 +245,7 @@ function endsOf(type: number, id: string): [string, string] {
   }
 }
 
-const cellOf = (type: number, id: string, n?: number): Cell => {
+export const cellOf = (type: number, id: string, n?: number): Cell => {
   const name = skyLabel(type, id) ?? id;
   const [lo, hi] = endsOf(type, id);
   if (!n) return { k: 'knob', id, name, lo, hi, w: CELL };
@@ -256,7 +256,7 @@ const cellOf = (type: number, id: string, n?: number): Cell => {
   return { k: 'sel', id, name, lo, hi, w: 92 + 28 };
 };
 
-const CellView: React.FC<{ c: Cell; refN: number }> = ({ c, refN }) => {
+export const CellView: React.FC<{ c: Cell; refN: number }> = ({ c, refN }) => {
   const r = `RV${refN}`;
   switch (c.k) {
     case 'knob':
@@ -280,7 +280,7 @@ const FrameOf: React.FC<{ title: string; cells: Cell[]; x: number; y: number; se
   </PcbFrame>
 );
 
-const frameW = (cells: Cell[]): number => cells.reduce((s, c) => s + c.w, 0) + 20;
+export const frameW = (cells: Cell[]): number => cells.reduce((s, c) => s + c.w, 0) + 20;
 
 /** La page. flash : le cadre a faire clignoter (le clic du potard REVERB de la face). */
 export const SkyPage: React.FC<{ flash: (title: string) => boolean }> = ({ flash }) => {
