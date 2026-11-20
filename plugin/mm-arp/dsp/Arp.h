@@ -93,6 +93,10 @@ struct ArpShown {
     int len = 0;
     int chord = -1;
     int midi = -1;
+    // v46 (la tete de la page SEQ) : la note tiree au sort par CHANCE (PROB) ne joue pas (un silence de la suite : false),
+    // la duree du pas (ms : la LED de la tete reste allumee ce temps-la)
+    bool skip = false;
+    float durMs = 0;
 };
 
 class Arp {

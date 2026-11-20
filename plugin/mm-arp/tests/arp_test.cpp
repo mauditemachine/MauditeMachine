@@ -194,6 +194,22 @@ int main() {
         check(sh.chord == 0 && sh.len == 4 && sh.slot == 0, "la note montree a la face");
     }
     {
+        // v46 (la tete de la page SEQ) : CHANCE a 0 % saute le pas (skip, midi -1), une note jouee non ; la duree du pas
+        ArpProgram p = simple(), q = simple();
+        for (int i = 0; i < 16; ++i) p.stepProb[i] = 0;
+        Rec r, r2;
+        Arp a, b;
+        a.prepare(SR);
+        b.prepare(SR);
+        a.setProgram(&p);
+        b.setProgram(&q);
+        a.process(r, 0, 9000, true, 0, PPS, 1);
+        b.process(r2, 0, 9000, true, 0, PPS, 1);
+        const ArpShown s0 = a.shownAt(9000), s1 = b.shownAt(9000);
+        check(s0.skip && s0.midi == -1 && !s1.skip && s1.midi >= 0 && near(s1.durMs, 1000.0 * STEP / SR, 0.01) && near(s0.durMs, s1.durMs),
+              "la tete : CHANCE saute le pas (skip), sa duree en ms");
+    }
+    {
         // Sans progression : les ancres seulement
         ArpProgram p;
         const Rec r = play(p, 0, static_cast<int>(STEP * 4), 512);

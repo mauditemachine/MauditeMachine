@@ -103,6 +103,9 @@ public:
         int len;
         int chord;
         int midi;
+        // v46 : CHANCE a saute la note de ce pas (pas un silence de la suite), la duree du pas en ms
+        bool skip;
+        int dur;
     };
     Feedback feedback() const;
 
@@ -312,6 +315,8 @@ private:
     // Le retour vers la face
     std::atomic<bool> fbPlaying_{false};
     std::atomic<int> fbSeq_{0}, fbSlot_{-1}, fbPos_{0}, fbLen_{0}, fbChord_{-1}, fbMidi_{-1};
+    std::atomic<bool> fbSkip_{false};
+    std::atomic<int> fbDur_{0};
     int64_t lastShownFrame_ = -1;
 
     // L'etat de la face (thread du message)

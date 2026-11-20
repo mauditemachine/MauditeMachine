@@ -1,152 +1,18 @@
 /* =====================================================================================================================
-   v44 (2026-11-20) : les maquettes des pages OPEN (pages2.tsx, maquette.ts : ?mq=navA,soundA,seqA). Un fichier a part
-   (d'autres chantiers touchent hood.css en parallele). Couleur d'accent : var(--mm-accent) (SETTINGS), jamais en dur.
+   v46 (2026-11-20) : les pages OPEN refaites (pages2.tsx) : la barre des pages, SOUND facon Legend, le SEQ. Un fichier a
+   part (d'autres chantiers touchent hood.css en parallele). Couleur d'accent : var(--mm-accent) (SETTINGS), jamais en dur.
    ===================================================================================================================== */
 
-/* ---------------- 1. la barre des pages ---------------- */
+/* ---------------- 1. la barre des pages : des touches mates, le nom grave dessus, une LED dans la touche ---------------- */
 .mm-plugin-arp .mm-nv {
   display: flex;
   flex: none;
   align-items: center;
+  gap: 6px;
   margin: 0 auto 0 26px;
   pointer-events: auto;
 }
-
-/* A : les pilules de STYLE (PcbKey), la LED au-dessus, le nom dessous ; la page montree a la couleur d'accent */
-.mm-plugin-arp .mm-nv-a {
-  gap: 15px;
-  transform: translateY(3px);
-}
-.mm-plugin-arp .mm-nv-a .mm-key {
-  position: relative;
-  gap: 6px;
-}
-.mm-plugin-arp .mm-nv-a .mm-key-led {
-  position: absolute;
-  left: 50%;
-  top: -9px;
-}
-.mm-plugin-arp .mm-nv-a .mm-key-name {
-  font-size: 7.5px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--r-silk);
-}
-.mm-plugin-arp .mm-nv-a .mm-key[data-on='1'] .mm-key-name {
-  color: var(--mm-accent);
-}
-
-/* B : les touches a verrouillage d'un magnetophone : une rangee jointive dans son cadre de metal ; la touche enfoncee reste
-   basse, sa lampe allumee a la couleur d'accent */
-.mm-plugin-arp .mm-nv-b {
-  gap: 0;
-  padding: 3px 3px 5px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #5d5a55 0%, #3b3936 18%, #24221f 60%, #3d3a36 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
-    0 2px 5px rgba(0, 0, 0, 0.7),
-    0 0 0 1px #050404;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key {
-  position: relative;
-  width: 58px;
-  height: 32px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-right: 1px solid #050404;
-  border-radius: 0;
-  font: inherit;
-  cursor: pointer;
-  background: #080707;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key:first-child {
-  border-radius: 2px 0 0 2px;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key:last-child {
-  border-right: 0;
-  border-radius: 0 2px 2px 0;
-}
-/* le dessus de la touche (le plastique), sa levre devant ; enfoncee : plus basse, la levre presque cachee */
-.mm-plugin-arp .mm-nv-b .mm-nv-key::before {
-  content: '';
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  top: 0;
-  height: 26px;
-  border-radius: 1.5px;
-  background: linear-gradient(180deg, #34312e 0%, #262422 45%, #1d1b19 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 1px 0 0 rgba(255, 255, 255, 0.04),
-    0 4px 0 #121110,
-    0 5px 0 #050404;
-  transition: transform 70ms ease-out;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key[data-on='1']::before {
-  transform: translateY(3px);
-  background: linear-gradient(180deg, #1f1d1b 0%, #1a1817 60%, #161413 100%);
-  box-shadow:
-    inset 0 2px 3px rgba(0, 0, 0, 0.7),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-    0 1px 0 #0e0d0c,
-    0 2px 0 #050404;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key:active::before {
-  transform: translateY(3px);
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-lamp {
-  position: absolute;
-  left: 50%;
-  top: 5px;
-  width: 22px;
-  height: 3px;
-  margin-left: -11px;
-  border-radius: 1.5px;
-  background: #2a100d;
-  box-shadow: inset 0 0.5px 0 rgba(0, 0, 0, 0.8), 0 0.5px 0 rgba(255, 255, 255, 0.06);
-  transition: transform 70ms ease-out;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key[data-on='1'] .mm-nv-lamp {
-  transform: translateY(3px);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 50%, #fff), var(--mm-accent));
-  box-shadow:
-    0 0 4px var(--mm-accent),
-    0 0 10px color-mix(in srgb, var(--mm-accent) 60%, transparent);
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-label {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 12px;
-  font-size: 7.5px;
-  line-height: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: rgba(240, 234, 224, 0.62);
-  transition: transform 70ms ease-out;
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key[data-on='1'] .mm-nv-label {
-  transform: translateY(3px);
-  color: var(--mm-accent);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 45%, transparent);
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key:hover .mm-nv-label {
-  color: var(--r-silk);
-}
-.mm-plugin-arp .mm-nv-b .mm-nv-key[data-on='1']:hover .mm-nv-label {
-  color: var(--mm-accent);
-}
-
-/* C : des touches mates (celles de la v40), le nom grave dessus, une LED dans la touche, a gauche du nom ; la page
-   montree : sa LED allumee a la couleur d'accent, son nom eclaire */
-.mm-plugin-arp .mm-nv-c {
-  gap: 6px;
-}
-.mm-plugin-arp .mm-nv-c .mm-nv-key {
+.mm-plugin-arp .mm-nv-key {
   position: relative;
   display: flex;
   align-items: center;
@@ -165,13 +31,13 @@
     0 2px 0 #0a0909,
     0 3px 6px rgba(0, 0, 0, 0.55);
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-key:active {
+.mm-plugin-arp .mm-nv-key:active {
   transform: translateY(1.5px);
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.6),
     0 0.5px 0 #0a0909;
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-lamp {
+.mm-plugin-arp .mm-nv-lamp {
   flex: none;
   width: 5px;
   height: 5px;
@@ -179,31 +45,35 @@
   background: radial-gradient(circle at 36% 32%, rgba(255, 210, 200, 0.3) 0 12%, #4a1712 30%, #2a0b08 100%);
   box-shadow: 0 0 0 1px #070505;
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-key[data-on='1'] {
+.mm-plugin-arp .mm-nv-key[data-on='1'] {
   background: #232120;
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-key[data-on='1'] .mm-nv-lamp {
+.mm-plugin-arp .mm-nv-key[data-on='1'] .mm-nv-lamp {
   background: radial-gradient(circle at 36% 32%, #fff 0 14%, color-mix(in srgb, var(--mm-accent) 55%, #fff) 32%, var(--mm-accent) 70%);
   box-shadow:
     0 0 0 1px #070505,
     0 0 6px 1px var(--mm-accent),
     0 0 14px 3px color-mix(in srgb, var(--mm-accent) 40%, transparent);
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-label {
+.mm-plugin-arp .mm-nv-label {
   font-size: 7.5px;
   line-height: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
   color: rgba(240, 234, 224, 0.55);
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-key[data-on='1'] .mm-nv-label {
+.mm-plugin-arp .mm-nv-key[data-on='1'] .mm-nv-label {
   color: #fff8ee;
 }
-.mm-plugin-arp .mm-nv-c .mm-nv-key:hover .mm-nv-label {
+.mm-plugin-arp .mm-nv-key:hover .mm-nv-label {
   color: var(--r-silk);
 }
+.mm-plugin-arp .mm-nv-key:focus-visible {
+  outline: 1px solid var(--mm-accent);
+  outline-offset: 2px;
+}
 
-/* ---------------- 2. SOUND en colonnes facon Legend ---------------- */
+/* ---------------- 2. SOUND facon Legend ---------------- */
 .mm-plugin-arp .mm-lg-page,
 .mm-plugin-arp .mm-s2-page {
   position: absolute;
@@ -279,10 +149,7 @@
 }
 .mm-plugin-arp .mm-lg-eq .mm-eq-bands {
   left: 6px;
-  top: 222px;
-}
-.mm-plugin-arp .mm-lg-eqb .mm-eq-bands {
-  top: 366px;
+  top: 220px;
 }
 
 /* l'ecran de l'EQ : le Q montre pendant Maj + glisser ou la molette (HoodBoard.tsx EqScreen) */
@@ -317,120 +184,74 @@
 }
 
 /* ---------------- 3. SEQ ---------------- */
-.mm-plugin-arp .mm-s2-tabs,
-.mm-plugin-arp .mm-s2-keys {
+
+/* le pas joue, en clair (la colonne de gauche) */
+.mm-plugin-arp .mm-sx-now {
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 16px;
+  width: 106px;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 5px;
+  pointer-events: none;
 }
-.mm-plugin-arp .mm-s2-keys {
-  right: auto;
-  align-items: center;
-  gap: 6px;
-}
-.mm-plugin-arp .mm-s2-tablab {
-  margin: 4px 6px 0 0;
-  font-size: 7px;
+.mm-plugin-arp .mm-sx-now-lab {
+  font-size: 6.5px;
   font-weight: 700;
   letter-spacing: 0.22em;
   color: var(--r-silk-dim);
 }
-.mm-plugin-arp .mm-s2-tabs .mm-key {
-  position: relative;
-  gap: 5px;
+.mm-plugin-arp .mm-sx-now b {
+  font-size: 19px;
+  line-height: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(240, 234, 224, 0.4);
 }
-.mm-plugin-arp .mm-s2-tabs .mm-key-led {
-  display: none;
-}
-.mm-plugin-arp .mm-s2-tw {
-  position: relative;
-  display: flex;
-}
-/* la LED d'une piste : elle agit au pas joue (pendant la lecture), sinon elle est utilisee */
-.mm-plugin-arp .mm-s2-tled {
-  position: absolute;
-  left: 50%;
-  top: -9px;
-  width: 5px;
-  height: 5px;
-  margin-left: -2.5px;
-}
-.mm-plugin-arp .mm-key-cap > .mm-s2-cled {
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  width: 4px;
-  height: 4px;
-  margin-top: -2px;
-}
-.mm-plugin-arp .mm-s2-keys .mm-key-cap > span {
-  margin-left: 6px;
-}
-/* la piste montree : la touche a la couleur d'accent (la LED dit autre chose : la piste agit au pas joue) */
-.mm-plugin-arp .mm-s2 .mm-s2-tab.is-sel .mm-key-cap {
-  background: color-mix(in srgb, var(--mm-accent) 85%, #1b1a19) !important;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.6),
-    0 2px 0 #0a0909,
-    0 0 10px color-mix(in srgb, var(--mm-accent) 55%, transparent) !important;
-}
-.mm-plugin-arp .mm-s2 .mm-s2-tab .mm-key-name {
-  letter-spacing: 0.14em;
-  color: var(--r-silk);
-}
-.mm-plugin-arp .mm-s2 .mm-s2-tab.is-sel .mm-key-name {
-  color: var(--mm-accent);
-}
-.mm-plugin-arp .mm-s2-keys .mm-key-name,
-.mm-plugin-arp .mm-s2-keys .mm-key-led {
-  display: none;
-}
-.mm-plugin-arp .mm-s2-keys .mm-key {
-  position: relative;
-}
-.mm-plugin-arp .mm-s2-keys .mm-key-cap {
-  font-size: 6.5px;
+.mm-plugin-arp .mm-sx-now i {
+  font-style: normal;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  color: rgba(240, 234, 224, 0.7);
+  font-variant-numeric: tabular-nums;
+  color: var(--r-silk-dim);
 }
-.mm-plugin-arp .mm-s2-keys .mm-s2-tab.is-sel .mm-key-cap {
+.mm-plugin-arp .mm-sx-now-st {
+  flex-basis: 100%;
+  margin-top: 2px;
+  font-size: 6.5px;
+  line-height: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--r-silk-dim);
+}
+.mm-plugin-arp .mm-sx-now[data-state='play'] b,
+.mm-plugin-arp .mm-sx-now[data-state='rest'] b,
+.mm-plugin-arp .mm-sx-now[data-state='skip'] b {
   color: #fff8ee;
 }
-.mm-plugin-arp .mm-s2-help {
-  align-self: center;
-  margin-left: 12px;
-  font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--r-silk-dim);
-  white-space: nowrap;
+.mm-plugin-arp .mm-sx-now[data-state='play'] b {
+  color: var(--mm-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--mm-accent) 55%, transparent);
 }
-.mm-plugin-arp .mm-s2-tabs .mm-s2-help {
-  margin: 3px 0 0 auto;
-}
-.mm-plugin-arp .mm-s2-help b {
-  margin-right: 6px;
-  font-weight: 700;
+.mm-plugin-arp .mm-sx-now[data-state='play'] .mm-sx-now-st {
   color: var(--mm-accent);
 }
-.mm-plugin-arp .mm-s2-help i {
-  font-style: normal;
-  margin: 0 4px;
-  color: var(--r-silk-dim);
+.mm-plugin-arp .mm-sx-now[data-state='skip'] .mm-sx-now-st,
+.mm-plugin-arp .mm-sx-now[data-state='rest'] .mm-sx-now-st {
+  color: var(--r-silk);
 }
 
-/* les numeros de pas, la LED de la tete (a l'accent), les temps (1, 5, 9, 13) un rien plus clairs */
-.mm-plugin-arp .mm-s2-heads {
+/* la rangee des LED, commune a toutes les pistes */
+.mm-plugin-arp .mm-sx-strip {
   position: absolute;
   left: 0;
   right: 0;
-  height: 18px;
+  height: 32px;
+  pointer-events: none;
 }
-.mm-plugin-arp .mm-s2-head {
+.mm-plugin-arp .mm-sx-col {
   position: absolute;
   top: 0;
   display: flex;
@@ -438,192 +259,455 @@
   align-items: center;
   gap: 3px;
 }
-.mm-plugin-arp .mm-s2-head b {
+.mm-plugin-arp .mm-sx-col b {
   font-size: 7.5px;
   line-height: 9px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--r-silk-dim);
 }
-.mm-plugin-arp .mm-s2-head[data-beat='1'] b {
+.mm-plugin-arp .mm-sx-col[data-beat='1'] b {
   color: var(--r-silk);
 }
-.mm-plugin-arp .mm-s2-head i {
-  width: 9px;
-  height: 4px;
-  border-radius: 1px;
+.mm-plugin-arp .mm-sx-led {
+  width: 34px;
+  height: 6px;
+  border-radius: 1.5px;
   background: #2a0f0c;
-  box-shadow: 0 0 0 1px #050404;
+  box-shadow:
+    0 0 0 1px #050404,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
-.mm-plugin-arp .mm-s2-head[data-on='1'] b {
+.mm-plugin-arp .mm-sx-col[data-head='1'] b {
   color: var(--mm-accent);
 }
-.mm-plugin-arp .mm-s2-head[data-on='1'] i {
+.mm-plugin-arp .mm-sx-col[data-head='1'] .mm-sx-led {
   background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 45%, #fff), var(--mm-accent));
   box-shadow:
     0 0 0 1px #050404,
     0 0 6px var(--mm-accent),
-    0 0 14px color-mix(in srgb, var(--mm-accent) 55%, transparent);
+    0 0 16px color-mix(in srgb, var(--mm-accent) 60%, transparent);
 }
-.mm-plugin-arp .mm-s2-head[data-off='1'] {
-  opacity: 0.35;
+/* CHANCE a saute le pas : la LED en creux, a l'accent */
+.mm-plugin-arp .mm-sx-col[data-head='skip'] .mm-sx-led {
+  background: #140807;
+  box-shadow:
+    0 0 0 1px #050404,
+    inset 0 0 0 1.5px var(--mm-accent),
+    0 0 8px color-mix(in srgb, var(--mm-accent) 45%, transparent);
+}
+.mm-plugin-arp .mm-sx-col[data-head='skip'] b {
+  color: var(--mm-accent);
+}
+/* le pas fini, avant le suivant : la LED retombe */
+.mm-plugin-arp .mm-sx-col[data-head='dim'] .mm-sx-led {
+  background: color-mix(in srgb, var(--mm-accent) 30%, #2a0f0c);
+}
+.mm-plugin-arp .mm-sx-dots {
+  display: flex;
+  gap: 2px;
+}
+.mm-plugin-arp .mm-sx-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(240, 234, 224, 0.07);
+}
+.mm-plugin-arp .mm-sx-dots i[data-on='1'] {
+  background: rgba(240, 234, 224, 0.55);
+}
+.mm-plugin-arp .mm-sx-dots i[data-on='1'][data-sel='1'] {
+  background: var(--mm-accent);
+}
+.mm-plugin-arp .mm-sx-col[data-head='1'] .mm-sx-dots i[data-on='1'] {
+  background: #fff8ee;
+  box-shadow: 0 0 4px var(--mm-accent);
+}
+.mm-plugin-arp .mm-sx-col[data-off='1'] {
+  opacity: 0.3;
 }
 
-/* les touches de pas : un verre noir, la valeur dessinee, son nom en clair dessous ; le pas joue s'eclaire */
-.mm-plugin-arp .mm-s2-pads {
+/* les pistes : des touches mates (celles de la barre des pages), leur icone, leur LED */
+.mm-plugin-arp .mm-sx-tabs {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
+  left: 16px;
+  width: 106px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.mm-plugin-arp .mm-s2-pads > * {
-  pointer-events: auto;
+.mm-plugin-arp .mm-sx-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+  margin: 0;
+  padding: 0 0 0 7px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  color: rgba(240, 234, 224, 0.55);
+  background: #1b1a19;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 2px 0 #0a0909,
+    0 3px 6px rgba(0, 0, 0, 0.55);
 }
-.mm-plugin-arp .mm-s2-pad {
+.mm-plugin-arp .mm-sx-tab:active {
+  transform: translateY(1px);
+}
+.mm-plugin-arp .mm-sx-tab span {
+  font-size: 7.5px;
+  line-height: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.mm-plugin-arp .mm-sx-tab:hover {
+  color: var(--r-silk);
+}
+.mm-plugin-arp .mm-sx-tab[data-sel='1'] {
+  color: #fff8ee;
+  background: color-mix(in srgb, var(--mm-accent) 24%, #1b1a19);
+  box-shadow:
+    0 0 0 1px var(--mm-accent),
+    0 2px 0 #0a0909,
+    0 0 12px color-mix(in srgb, var(--mm-accent) 40%, transparent);
+}
+.mm-plugin-arp .mm-sx-tab:focus-visible {
+  outline: 1px solid var(--mm-accent);
+  outline-offset: 2px;
+}
+.mm-plugin-arp .mm-sx-tled {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 32%, rgba(255, 210, 200, 0.3) 0 12%, #4a1712 30%, #2a0b08 100%);
+  box-shadow: 0 0 0 1px #070505;
+}
+.mm-plugin-arp .mm-sx-tled[data-on='1'] {
+  background: radial-gradient(circle at 36% 32%, #fff 0 14%, color-mix(in srgb, var(--mm-accent) 55%, #fff) 32%, var(--mm-accent) 70%);
+  box-shadow:
+    0 0 0 1px #070505,
+    0 0 6px 1px var(--mm-accent);
+}
+.mm-plugin-arp .mm-sx-ico {
+  flex: none;
+  fill: currentColor;
+  opacity: 0.85;
+}
+.mm-plugin-arp .mm-sx-tab[data-sel='1'] .mm-sx-ico {
+  color: var(--mm-accent);
+  opacity: 1;
+}
+.mm-plugin-arp .mm-sx-ico .ln {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mm-plugin-arp .mm-sx-ico .ln.thin {
+  stroke-width: 1.2;
+}
+
+/* les seize touches : un verre noir, la valeur dessinee, son nom en clair dessous ; le pas joue s'eclaire */
+.mm-plugin-arp .mm-sx-grid {
   position: absolute;
+  touch-action: none;
+  cursor: crosshair;
+}
+.mm-plugin-arp .mm-sx-pad {
+  position: absolute;
+  top: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  margin: 0;
-  padding: 0 0 6px;
-  border: 0;
+  padding-top: 0;
   border-radius: 5px;
-  font: inherit;
-  cursor: pointer;
   background: linear-gradient(180deg, #121110, #0b0a0a);
   box-shadow:
     inset 0 0 0 1px #050404,
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 1px 0 rgba(255, 255, 255, 0.04);
-  transition: box-shadow 60ms linear, background 60ms linear;
+  pointer-events: none;
+  transition:
+    box-shadow 60ms linear,
+    background 60ms linear;
 }
-.mm-plugin-arp .mm-s2-pad .mm-g {
-  margin-bottom: auto;
-  margin-top: 8px;
+.mm-plugin-arp .mm-sx-val {
+  display: block;
+  overflow: visible;
 }
-.mm-plugin-arp .mm-s2-val {
+.mm-plugin-arp .mm-sx-txt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  text-align: center;
   font-size: 8px;
   line-height: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: rgba(240, 234, 224, 0.42);
+  letter-spacing: 0.05em;
   white-space: nowrap;
+  color: rgba(240, 234, 224, 0.4);
 }
-.mm-plugin-arp .mm-s2-pad[data-set='1'] .mm-s2-val,
-.mm-plugin-arp .mm-s2-notes .mm-s2-val {
+.mm-plugin-arp .mm-sx-pad[data-set='1'] .mm-sx-txt {
   color: #f6f1e8;
 }
-.mm-plugin-arp .mm-s2-pad[data-rest='1'] .mm-s2-val {
-  color: rgba(240, 234, 224, 0.35);
+.mm-plugin-arp .mm-sx-pad[data-off='1'] {
+  opacity: 0.22;
 }
-.mm-plugin-arp .mm-s2-pad[data-off='1'] {
-  opacity: 0.28;
-  cursor: default;
-}
-.mm-plugin-arp .mm-s2-pad[data-head='1'] {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 22%, #121110), color-mix(in srgb, var(--mm-accent) 10%, #0b0a0a));
+.mm-plugin-arp .mm-sx-pad[data-head='1'] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 24%, #121110), color-mix(in srgb, var(--mm-accent) 10%, #0b0a0a));
   box-shadow:
     inset 0 0 0 1.5px var(--mm-accent),
     0 0 12px color-mix(in srgb, var(--mm-accent) 55%, transparent),
     0 0 26px color-mix(in srgb, var(--mm-accent) 22%, transparent);
 }
-.mm-plugin-arp .mm-s2-pad[data-head='1'] .mm-s2-val {
+.mm-plugin-arp .mm-sx-pad[data-head='1'] .mm-sx-txt {
   color: #fff;
 }
-.mm-plugin-arp .mm-s2-notes {
-  cursor: ns-resize;
+.mm-plugin-arp .mm-sx-pad[data-head='skip'] {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--mm-accent) 70%, transparent),
+    0 0 10px color-mix(in srgb, var(--mm-accent) 30%, transparent);
 }
-.mm-plugin-arp .mm-s2-notes .mm-s2-val {
-  cursor: pointer;
-}
-.mm-plugin-arp .mm-s2-bar {
+.mm-plugin-arp .mm-sx-skip {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 20px;
-  border-radius: 2px 2px 0 0;
-  background: linear-gradient(var(--mm-accent), color-mix(in srgb, var(--mm-accent) 35%, transparent));
-  box-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 35%, transparent);
-  pointer-events: none;
-}
-.mm-plugin-arp .mm-s2-pad[data-head='1'] .mm-s2-bar {
-  background: linear-gradient(color-mix(in srgb, var(--mm-accent) 40%, #fff), var(--mm-accent));
-  box-shadow: 0 0 10px var(--mm-accent);
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-style: normal;
+  font-size: 6px;
+  line-height: 7px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #0b0a0a;
+  background: var(--mm-accent);
 }
 
 /* les dessins des valeurs : au neutre, gris ; une valeur posee, a l'accent */
-.mm-plugin-arp .mm-g .off {
+.mm-plugin-arp .mm-sx-val .off {
   fill: rgba(240, 234, 224, 0.07);
 }
-.mm-plugin-arp .mm-g .lit {
-  fill: rgba(240, 234, 224, 0.55);
+.mm-plugin-arp .mm-sx-val .lit {
+  fill: rgba(240, 234, 224, 0.5);
 }
-.mm-plugin-arp .mm-g .lit.dim {
+.mm-plugin-arp .mm-sx-val .lit.dim {
   fill: rgba(240, 234, 224, 0.28);
 }
-.mm-plugin-arp .mm-g .hot,
-.mm-plugin-arp .mm-g.on .lit {
+.mm-plugin-arp .mm-sx-val .hot,
+.mm-plugin-arp .mm-sx-val.on .lit {
   fill: var(--mm-accent);
 }
-.mm-plugin-arp .mm-g .tank {
+.mm-plugin-arp .mm-sx-val .tank {
   fill: rgba(240, 234, 224, 0.06);
 }
-.mm-plugin-arp .mm-g .ln {
+.mm-plugin-arp .mm-sx-val .tick {
+  fill: rgba(240, 234, 224, 0.16);
+}
+.mm-plugin-arp .mm-sx-val .tick.on {
+  fill: var(--mm-accent);
+}
+.mm-plugin-arp .mm-sx-val:not(.on) .tick.on {
+  fill: rgba(240, 234, 224, 0.6);
+}
+.mm-plugin-arp .mm-sx-val .ln {
   fill: none;
   stroke-width: 2.5;
   stroke-linecap: round;
 }
-.mm-plugin-arp .mm-g .ln.off {
+.mm-plugin-arp .mm-sx-val .ln.off {
   stroke: rgba(240, 234, 224, 0.2);
 }
-.mm-plugin-arp .mm-g .ln.hot {
+.mm-plugin-arp .mm-sx-val .ln.hot {
   fill: none;
   stroke: var(--mm-accent);
 }
-.mm-plugin-arp .mm-s2-pad[data-head='1'] .mm-g .hot {
+.mm-plugin-arp .mm-sx-note .oct {
+  fill: rgba(240, 234, 224, 0.06);
+}
+.mm-plugin-arp .mm-sx-note .oct.root {
+  fill: rgba(240, 234, 224, 0.14);
+}
+.mm-plugin-arp .mm-sx-note .bar {
+  fill: color-mix(in srgb, var(--mm-accent) 30%, transparent);
+}
+.mm-plugin-arp .mm-sx-pad[data-head='1'] .hot {
   filter: drop-shadow(0 0 3px var(--mm-accent));
 }
+.mm-plugin-arp .mm-sx-pad[data-head='1'] .mm-sx-note .bar {
+  fill: color-mix(in srgb, var(--mm-accent) 55%, transparent);
+}
 
-.mm-plugin-arp .mm-s2-gest {
+/* au-dela de la suite : grise, la raison ecrite */
+.mm-plugin-arp .mm-sx-off {
   position: absolute;
-  left: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  text-align: center;
+  pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.32) 0 4px, rgba(0, 0, 0, 0.14) 4px 8px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.mm-plugin-arp .mm-sx-off b {
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: var(--r-silk);
+}
+.mm-plugin-arp .mm-sx-off span {
+  max-width: 300px;
+  font-size: 6.5px;
+  line-height: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--r-silk-dim);
+}
+
+/* la poignee END : tirer a gauche ou a droite regle la longueur */
+.mm-plugin-arp .mm-sx-end {
+  position: absolute;
+  width: 14px;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 2;
+}
+.mm-plugin-arp .mm-sx-end i {
+  position: absolute;
+  left: 6px;
+  top: 11px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--mm-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 70%, transparent);
+}
+.mm-plugin-arp .mm-sx-end i::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 10px;
+  height: 24px;
+  margin-top: -12px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #34312e, #1d1b19);
+  box-shadow:
+    0 0 0 1px var(--mm-accent),
+    0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.mm-plugin-arp .mm-sx-end b {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 6.5px;
+  line-height: 8px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--mm-accent);
+  white-space: nowrap;
+}
+.mm-plugin-arp .mm-sx-end:hover i::after,
+.mm-plugin-arp .mm-sx-end[data-held='1'] i::after {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 60%, #34312e), color-mix(in srgb, var(--mm-accent) 30%, #1d1b19));
+}
+.mm-plugin-arp .mm-sx-end:focus-visible {
+  outline: 1px solid var(--mm-accent);
+  outline-offset: 1px;
+}
+
+/* dessous : ce que fait la piste, les gestes, les touches rapides */
+.mm-plugin-arp .mm-sx-help,
+.mm-plugin-arp .mm-sx-gest {
+  position: absolute;
+  left: 136px;
   margin: 0;
   font-size: 6.5px;
   line-height: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;
+  white-space: nowrap;
   color: var(--r-silk-dim);
-}
-.mm-plugin-arp .mm-s2-clr {
-  position: absolute;
-  flex-direction: row-reverse;
-  gap: 6px;
-}
-.mm-plugin-arp .mm-s2-clr .mm-key-name {
-  font-size: 6.5px;
-  letter-spacing: 0.14em;
-}
-
-/* B : le nom des deux pistes a gauche, la colonne lumineuse de la tete qui balaie les deux */
-.mm-plugin-arp .mm-s2-lname {
-  position: absolute;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--r-silk);
-}
-.mm-plugin-arp .mm-s2-sweep {
-  position: absolute;
-  border-radius: 7px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 26%, transparent), color-mix(in srgb, var(--mm-accent) 10%, transparent));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--mm-accent) 55%, transparent),
-    0 0 22px color-mix(in srgb, var(--mm-accent) 30%, transparent);
   pointer-events: none;
 }
-.mm-plugin-arp .mm-s2-b .mm-s2-pad {
-  border-radius: 4px;
+.mm-plugin-arp .mm-sx-help {
+  font-size: 7px;
+  color: var(--r-silk);
+}
+.mm-plugin-arp .mm-sx-help b {
+  margin-right: 6px;
+  font-weight: 800;
+  color: var(--mm-accent);
+}
+.mm-plugin-arp .mm-sx-quick {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.mm-plugin-arp .mm-sx-q {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  color: rgba(240, 234, 224, 0.7);
+  background: #1b1a19;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 2px 0 #0a0909,
+    0 3px 6px rgba(0, 0, 0, 0.55);
+}
+.mm-plugin-arp .mm-sx-qw {
+  min-width: 54px;
+}
+.mm-plugin-arp .mm-sx-q svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mm-plugin-arp .mm-sx-q:hover:not(:disabled) {
+  color: #fff8ee;
+}
+.mm-plugin-arp .mm-sx-q:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mm-plugin-arp .mm-sx-q:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.mm-plugin-arp .mm-sx-q:focus-visible {
+  outline: 1px solid var(--mm-accent);
+  outline-offset: 2px;
+}
+.mm-plugin-arp .mm-sx-qlab {
+  margin: 0 10px 0 1px;
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--r-silk-dim);
 }

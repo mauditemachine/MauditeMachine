@@ -325,6 +325,9 @@ void MMArpEditor::timerCallback() {
     o->setProperty("len", fb.len);
     o->setProperty("chord", fb.playing ? fb.chord : -1);
     o->setProperty("midi", fb.playing ? fb.midi : -1);
+    // v46 (la tete de la page SEQ) : CHANCE a saute ce pas (midi -1 sans etre un silence), la duree du pas (ms)
+    o->setProperty("skip", fb.playing && fb.skip);
+    o->setProperty("dur", fb.dur);
     // v46 : la position du transport (noires) et le tempo : la tete de lecture de la page DELAY s'y cale
     if (rolling) o->setProperty("ppq", ppq);
     o->setProperty("bpm", proc_.faceBpm());
