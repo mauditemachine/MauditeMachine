@@ -308,7 +308,10 @@ void MMArpEditor::timerCallback() {
     // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
     const auto fb = proc_.feedback();
     ++quietTicks_;
-    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && quietTicks_ < 30) return;
+    const double ppq = proc_.facePpq();
+    const bool rolling = ppq >= 0;
+    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && rolling == lastRolling_ && quietTicks_ < 30) return;
+    lastRolling_ = rolling;
     lastSeq_ = fb.seq;
     lastPlaying_ = fb.playing;
     lastInternal_ = fb.internal;
@@ -322,6 +325,9 @@ void MMArpEditor::timerCallback() {
     o->setProperty("len", fb.len);
     o->setProperty("chord", fb.playing ? fb.chord : -1);
     o->setProperty("midi", fb.playing ? fb.midi : -1);
+    // v46 : la position du transport (noires) et le tempo : la tete de lecture de la page DELAY s'y cale
+    if (rolling) o->setProperty("ppq", ppq);
+    o->setProperty("bpm", proc_.faceBpm());
     browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
 }
 

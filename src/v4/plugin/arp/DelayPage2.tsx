@@ -1,34 +1,44 @@
 /**
- * MAQUETTE v44 : la page DELAY refaite (Mika, 2026-11-20 : "la page entiere doit etre optimisee ! J'aime beaucoup le
- * graphisme de Echo dans Ableton, et aussi voir ce qu'on peut faire avec cet ecran qui pour le mieux est inutile.. Si tu
- * veux afficher de l'info, peut-etre pas ici en plein milieu, peut-etre faire comme un petit ecran comme l'ecran
- * principal mais en plus petit"). Deux options, ?fx2=A ou ?fx2=B (fx2.ts) ; memes reglages que la page d'avant
- * (delay.ts, aucun parametre neuf), ranges autrement :
+ * La page DELAY (v46, 2026-11-20 ; Mika a choisi l'option A des maquettes v44 : "la page entiere doit etre optimisee !
+ * J'aime beaucoup le graphisme de Echo dans Ableton [...] peut-etre faire comme un petit ecran comme l'ecran principal
+ * mais en plus petit"). Les memes reglages que la page d'avant (delay.ts, aucun parametre neuf), ranges autrement :
  *
- * - A : les echos en vedette en haut (facon Echo : les impulsions gauche au-dessus, droite dessous, qui decroissent sur
- *   la grille des temps, les temps L et R en grand a gauche), le petit ecran dans le coin en haut a droite avec les
- *   presets ; dessous trois rangees : le temps / le retour / le mode, la couleur, la boucle.
- * - B : les reglages en haut, les echos en bas sur deux pistes (L, R) comme une bande, le petit ecran dans le coin en
- *   bas a gauche avec les presets.
- *
- * L'ancien cadre TIME / REPEATS / STYLE au milieu disparait (ce qu'il disait passe dans le petit ecran) ; RHYTHM n'a
- * plus son cadre : en mode RHYTHM, l'ecran des echos montre les seize prises et un clic change de motif.
+ * - En haut, les echos en vedette (facon Echo : les impulsions gauche au-dessus, droite dessous, qui decroissent en dB
+ *   sur la grille des temps, les temps L et R en grand a gauche). La tete de lecture suit la position du transport
+ *   (mm_transport ppq : hostClock.ts), l'horloge de la page seulement hors du plugin ou a l'arret.
+ * - Le petit ecran dans le coin en haut a droite (fx2Lcd.tsx, le style de l'ecran principal) : le temps en grand, la
+ *   fiche FEEDBACK, REPEATS, MODE, STYLE, MIX ; un potard touche prend la place du temps ; PREV, NEXT, INIT dessous et la
+ *   pastille PRESETS ouvre la liste.
+ * - Dessous trois rangees : le temps / le retour / le mode, la couleur, la boucle. L'ancien cadre TIME / REPEATS / STYLE
+ *   du milieu n'existe plus (ce qu'il disait est dans le petit ecran) ; RHYTHM n'a plus son cadre : en mode RHYTHM, la vue
+ *   des echos montre les seize prises du motif et un clic passe au motif suivant.
  */
 
-import React, { useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { pattern } from '../../audio/pattern';
 import { voyParams } from '../../voyager/params';
-import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayStep, delayTimeText, dlIdx } from './delay';
+import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayLoad, delayStep, delayTimeText, dlIdx } from './delay';
 import { arpExtra } from './extra';
-import { bpmNow, mockStore } from './fx2';
 import { MiniLcd } from './fx2Lcd';
-import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC } from './pcbui';
+import { hostBeats, hostClockStart, hostTempo } from './hostClock';
+import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC, useRaise } from './pcbui';
 import './fx2.css';
+import './fxPages.css';
+
+hostClockStart();
 
 const X = (id: string): number => arpExtra.of(id);
 const useAll = (): void => {
   useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
   useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
-  useSyncExternalStore(mockStore.subscribe, mockStore.get, mockStore.get);
+  useSyncExternalStore(hostTempo.subscribe, hostTempo.get, hostTempo.get);
+};
+/** Le tempo : celui de l'hote dans le plugin (mm_transport bpm), sinon celui de la face (120 sans transport). */
+const bpmNow = (): number => {
+  const h = hostTempo.get();
+  if (h !== null) return h;
+  const b = pattern.get().bpm;
+  return typeof b === 'number' && b > 0 ? b : 120;
 };
 
 const Row: React.FC<{ top: number; left?: number; w: number; children: React.ReactNode }> = ({ top, left, w, children }) => (
@@ -117,7 +127,11 @@ function sideText(s: number, bpm: number): { big: string; small: string } {
   return { big: s >= 1 ? s.toFixed(2) : `${Math.round(s * 1000)}`, small: s >= 1 ? 'S' : 'MS' };
 }
 
-/** La tete de lecture : elle court sur la duree montree, au tempo (une ligne deplacee sans redessiner la page). */
+/**
+ * La tete de lecture (une ligne deplacee sans redessiner la page) : calee sur la position du transport quand il roule
+ * (hostClock.ts : la mesure d'Ableton, le debut de la vue sur un debut de mesure) ; sinon l'horloge de la page, au tempo.
+ * data-host dit laquelle (la ligne est plus franche quand elle suit l'hote).
+ */
 function usePlayhead(ref: React.RefObject<SVGLineElement | null>, x0: number, x1: number, beats: number, bpm: number): void {
   useEffect(() => {
     let raf = 0;
@@ -128,11 +142,13 @@ function usePlayhead(ref: React.RefObject<SVGLineElement | null>, x0: number, x1
       last = now;
       const el = ref.current;
       if (!el) return;
-      const dur = (beats * 60000) / bpm;
-      const f = (now % dur) / dur;
+      const host = hostBeats(now);
+      const f = host !== null ? (((host % beats) + beats) % beats) / beats : (now % ((beats * 60000) / bpm)) / ((beats * 60000) / bpm);
       const x = (x0 + f * (x1 - x0)).toFixed(1);
       el.setAttribute('x1', x);
       el.setAttribute('x2', x);
+      if (host !== null) el.setAttribute('data-host', '1');
+      else el.removeAttribute('data-host');
     };
     raf = window.requestAnimationFrame(step);
     return () => window.cancelAnimationFrame(raf);
@@ -234,6 +250,28 @@ const EchoMirror: React.FC<{ w: number; h: number }> = ({ w, h }) => {
           );
         })}
         <path className="g-mid" d={`M${x0} ${mid}H${x1}`} />
+        {/* RHYTHM : les seize prises du motif (le premier tour), allumees selon leur niveau, numerotees */}
+        {mode === 4 &&
+          (() => {
+            const t = delayLaws.seconds(bpm);
+            const g = X('xDlGroove') / 3;
+            const feel = 1 + (X('xDlFeel') - 0.5) * 0.12;
+            const lv = DL_RHYTHM_LEVELS[dlIdx('xDlRhythm', X('xDlRhythm'))];
+            return Array.from({ length: 16 }, (_, i) => {
+              const k = i + 1;
+              const x = xs((k + (k % 2 ? g : 0)) * t * feel);
+              if (x > x1) return null;
+              const on = lv[i] > 0;
+              return (
+                <g key={k} className="mm-fxp-step" data-on={on ? '1' : undefined}>
+                  <rect x={x - 4} y={mid - 4} width={8} height={8} rx={1.5} style={{ opacity: on ? 0.35 + 0.65 * lv[i] : 1 }} />
+                  <text x={x} y={k % 2 ? mid - 8 : mid + 15} textAnchor="middle">
+                    {k}
+                  </text>
+                </g>
+              );
+            });
+          })()}
         {/* -12, -24, -36 dB */}
         {[15, 30, 45].map((db) => (
           <g key={db}>
@@ -274,96 +312,6 @@ const EchoMirror: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   );
 };
 
-/* ---------------- B : deux pistes (L, R), comme une bande ---------------- */
-
-const EchoLanes: React.FC<{ w: number; h: number }> = ({ w, h }) => {
-  useAll();
-  const bpm = bpmNow();
-  const { taps, tl, tr, mode } = tapsNow(bpm);
-  const mix = voyParams.of('delay');
-  const beats = spanBeats(taps, bpm);
-  const beat = 60 / bpm;
-  const RW = 104;
-  const x0 = RW + 16;
-  const x1 = w - 14;
-  const laneH = (h - 46) / 2;
-  const lanes = [
-    { side: -1, y0: 22, name: 'L', t: tl },
-    { side: 1, y0: 22 + laneH + 6, name: 'R', t: tr },
-  ];
-  const xs = (s: number): number => x0 + (s / (beats * beat)) * (x1 - x0);
-  const head = useRef<SVGLineElement>(null);
-  usePlayhead(head, x0, x1, beats, bpm);
-  const both = mode === 0;
-  return (
-    <div className="mm-dm-glass mm-fx2-echo mm-fx2-lanes" style={{ width: w, height: h }} role="img" aria-label="Echoes in time on two tracks" onClick={() => mode === 4 && nextRhythm(1)}>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        {lanes.map((ln) => {
-          const base = ln.y0 + laneH;
-          const st = sideText(ln.t, bpm);
-          return (
-            <g key={ln.name}>
-              <rect className="lane" x={x0 - 6} y={ln.y0} width={x1 - x0 + 12} height={laneH} rx={3} />
-              {[0.25, 0.5, 0.75].map((f) => (
-                <path key={f} className="g-db" d={`M${x0} ${(base - f * (laneH - 8)).toFixed(1)}H${x1}`} />
-              ))}
-              <text x={12} y={ln.y0 + 14} className="lr-k">
-                {both ? `${ln.name} = ${ln.name === 'L' ? 'R' : 'L'}` : ln.name}
-              </text>
-              <text x={12} y={ln.y0 + 40} className="lr-big">
-                {st.big}
-              </text>
-              <text x={12} y={ln.y0 + 53} className="lr-small">
-                {st.small}
-              </text>
-              <path className="dry" d={`M${x0} ${base}V${ln.y0 + 6}`} />
-              {mix > 0 &&
-                taps
-                  .filter((p) => p.side === ln.side || p.side === 0)
-                  .map((p, i) => {
-                    const lv = levelOf(p.a);
-                    const hh = Math.max(2, lv * (laneH - 10));
-                    const x = xs(p.t);
-                    return (
-                      <g key={i} className="tap" style={{ opacity: 0.3 + 0.7 * lv }}>
-                        <path d={`M${x.toFixed(1)} ${base}V${(base - hh).toFixed(1)}`} />
-                        <rect x={x - 5} y={base - hh - 1.5} width={10} height={3} rx={1.5} />
-                        {p.k <= 9 && mode !== 4 && (
-                          <text x={x} y={base - hh - 6} textAnchor="middle" className="k-num">
-                            {p.k}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
-            </g>
-          );
-        })}
-        {Array.from({ length: beats * 4 + 1 }, (_, i) => {
-          const x = xs((i * beat) / 4);
-          return <path key={i} className={i % 16 === 0 ? 'g-bar' : i % 4 === 0 ? 'g-beat' : 'g-six'} d={`M${x.toFixed(1)} 22V${h - 22}`} />;
-        })}
-        {Array.from({ length: beats + 1 }, (_, i) => {
-          const bar = Math.floor(i / 4) + 1;
-          const b = (i % 4) + 1;
-          return (
-            <text key={i} x={xs(i * beat)} y={h - 8} textAnchor="middle" className={b === 1 ? 'g-lab bar' : 'g-lab'}>
-              {b === 1 ? `${bar}` : `${bar}.${b}`}
-            </text>
-          );
-        })}
-        <line ref={head} className="head" x1={x0} x2={x0} y1={18} y2={h - 20} />
-        <text x={x0} y={14} className="t-k">
-          {mode === 4 ? `RHYTHM · ${DL_RHYTHMS[dlIdx('xDlRhythm', X('xDlRhythm'))]} · CLICK FOR THE NEXT` : `ECHOES · ${DL_MODES[mode]}`}
-        </text>
-        <text x={x1} y={14} textAnchor="end" className="t-hot">
-          {mix > 0 ? `FEEDBACK ${Math.round(X('xDlFb') * 100)} % · ${beats >= 4 ? `${beats / 4} BAR${beats > 4 ? 'S' : ''}` : `${beats} BEATS`}` : 'MIX 0 · NO ECHO'}
-        </text>
-      </svg>
-    </div>
-  );
-};
-
 /* ---------------- le petit ecran (coin), les presets ---------------- */
 
 function repeats(): number {
@@ -373,7 +321,7 @@ function repeats(): number {
   return Math.max(1, Math.min(99, Math.ceil(Math.log(0.001) / Math.log(Math.max(1e-6, loop)))));
 }
 
-const DelayLcd: React.FC<{ w: number; h: number }> = ({ w, h }) => {
+const DelayLcd: React.FC<{ w: number; h: number; onPill: () => void }> = ({ w, h, onPill }) => {
   useAll();
   const bpm = bpmNow();
   const cur = delayCurrent();
@@ -401,8 +349,52 @@ const DelayLcd: React.FC<{ w: number; h: number }> = ({ w, h }) => {
       ]}
       msg={i >= 0 ? `PRESET ${String(i + 1).padStart(2, '0')} / ${DELAY_PRESETS.length}` : DL_LONG[style]}
       pill="PRESETS"
+      onPill={onPill}
       echoOf={(nm) => nm.startsWith('DELAY') || nm === 'DELAY' || nm.startsWith('MIX')}
     />
+  );
+};
+
+/** La liste des presets (la pastille PRESETS du petit ecran), sous lui. */
+const PresetList: React.FC<{ close: () => void }> = ({ close }) => {
+  useAll();
+  const cur = delayCurrent();
+  const i = cur ? DELAY_PRESETS.indexOf(cur) : -1;
+  return (
+    <ul className="mm-hell-plist mm-fxp-plist" role="listbox" aria-label="DELAY presets">
+      {DELAY_PRESETS.map((q, k) => (
+        <li key={q.name}>
+          <button
+            type="button"
+            role="option"
+            aria-selected={k === i}
+            data-on={k === i ? '1' : undefined}
+            title={q.desc}
+            onClick={() => {
+              delayLoad(q);
+              close();
+            }}
+          >
+            <span>{String(k + 1).padStart(2, '0')}</span>
+            {q.name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+/** Le coin : le petit ecran, PREV / NEXT / INIT, la liste. */
+const Corner: React.FC<{ x: number; y: number; w: number; h: number }> = ({ x, y, w, h }) => {
+  const [list, setList] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useRaise(list, box);
+  return (
+    <div ref={box} className="mm-dm-place mm-fx2-corner" style={{ left: x, top: y, width: w }}>
+      <DelayLcd w={w} h={h} onPill={() => setList((o) => !o)} />
+      <PresetKeys />
+      {list && <PresetList close={() => setList(false)} />}
+    </div>
   );
 };
 
@@ -555,14 +547,14 @@ const DuckFrame: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) =
   </PcbFrame>
 );
 
-/* ---------------- les deux pages ---------------- */
+/* ---------------- la page ---------------- */
 
 const Z = { x: 44, w: 1012 };
 const G = 22;
 
 /** Une rangee de cadres centree : leurs largeurs, leurs x. */
 function rowX(ws: number[]): number[] {
-  const tot = ws.reduce((s, x) => s + x, 0) + G * (ws.length - 1);
+  const tot = ws.reduce((t, x) => t + x, 0) + G * (ws.length - 1);
   let x = Z.x + Math.round((Z.w - tot) / 2);
   return ws.map((w) => {
     const at = x;
@@ -571,7 +563,7 @@ function rowX(ws: number[]): number[] {
   });
 }
 
-/** A : les echos en haut (facon Echo), le petit ecran dans le coin en haut a droite. */
+/** La page : les echos en haut (facon Echo), le petit ecran dans le coin en haut a droite, trois rangees dessous. */
 export const DelayPageA: React.FC = () => {
   useAll();
   const LW = 244;
@@ -587,10 +579,7 @@ export const DelayPageA: React.FC = () => {
       <div className="mm-dm-place" style={{ left: Z.x, top: 64 }}>
         <EchoMirror w={EW} h={186} />
       </div>
-      <div className="mm-dm-place mm-fx2-corner" style={{ left: Z.x + EW + G, top: 64 }}>
-        <DelayLcd w={LW} h={150} />
-        <PresetKeys />
-      </div>
+      <Corner x={Z.x + EW + G} y={64} w={LW} h={150} />
       <TimeFrame x={x1[0]} y={266} w={r1[0]} />
       <FbMixFrame x={x1[1]} y={266} w={r1[1]} />
       <ModeFrame x={x1[2]} y={266} w={r1[2]} />
@@ -599,39 +588,6 @@ export const DelayPageA: React.FC = () => {
       <LoopFrame x={x3[0]} y={522} w={r3[0]} sep />
       <GrooveFrame x={x3[1]} y={522} w={r3[1]} sep />
       <DuckFrame x={x3[2]} y={522} w={r3[2]} />
-    </>
-  );
-};
-
-/** B : les reglages en haut, les echos en bas sur deux pistes, le petit ecran dans le coin en bas a gauche. */
-export const DelayPageB: React.FC = () => {
-  useAll();
-  const r1 = [374, 196, 356];
-  const r2 = [356, 418];
-  const r3 = [196, 268, 196];
-  const x1 = rowX(r1);
-  const x2 = rowX(r2);
-  const x3 = rowX(r3);
-  const LW = 244;
-  const by = 452;
-  return (
-    <>
-      <TimeFrame x={x1[0]} y={60} w={r1[0]} />
-      <FbMixFrame x={x1[1]} y={60} w={r1[1]} />
-      <ModeFrame x={x1[2]} y={60} w={r1[2]} />
-      <ColourFrame x={x2[0]} y={188} w={r2[0]} />
-      <CharFrame x={x2[1]} y={188} w={r2[1]} />
-      <LoopFrame x={x3[0]} y={316} w={r3[0]} sep />
-      <GrooveFrame x={x3[1]} y={316} w={r3[1]} sep />
-      <DuckFrame x={x3[2]} y={316} w={r3[2]} />
-      {/* le bas : le petit ecran dans le coin gauche, les echos sur deux pistes */}
-      <div className="mm-dm-place mm-fx2-corner" style={{ left: Z.x, top: by }}>
-        <DelayLcd w={LW} h={142} />
-        <PresetKeys />
-      </div>
-      <div className="mm-dm-place" style={{ left: Z.x + LW + G, top: by }}>
-        <EchoLanes w={Z.w - LW - G} h={186} />
-      </div>
     </>
   );
 };

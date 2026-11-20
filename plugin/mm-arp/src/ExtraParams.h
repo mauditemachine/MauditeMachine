@@ -118,6 +118,18 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xChDepth) std::snprintf(out, static_cast<size_t>(max), "x%.2f", v <= 0.5 ? 2 * v : 1 + 1.2 * (v - 0.5));
     else if (e == ex_xCrTone) { if (v < 1) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(1500 * std::pow(20000.0 / 1500, v)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
     else if (e == ex_xPuAttack) std::snprintf(out, static_cast<size_t>(max), "%.1f ms", 2 * std::pow(25.0, 2 * v - 1));
+    // v46 : la sortie de la reverbe (dsp/ArpFx.h, 5.)
+    else if (e == ex_xSkyLoCut || e == ex_xSkyHiCut || e == ex_xSkyMidHz) {
+        if ((e == ex_xSkyLoCut && v <= 0) || (e == ex_xSkyHiCut && v >= 1)) std::snprintf(out, static_cast<size_t>(max), "OFF");
+        else {
+            const double hz = e == ex_xSkyLoCut ? 20 * std::pow(100.0, v) : e == ex_xSkyHiCut ? 1000 * std::pow(20.0, v) : 200 * std::pow(40.0, v);
+            if (hz >= 1000) std::snprintf(out, static_cast<size_t>(max), "%.1f kHz", hz / 1000);
+            else std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(hz)));
+        }
+    }
+    else if (e == ex_xSkyMidDb) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", 24 * (v - 0.5));
+    else if (e == ex_xSkyMidQ) std::snprintf(out, static_cast<size_t>(max), "Q %.2f", 0.4 * std::pow(10.0, v));
+    else if (e == ex_xSkyWidth) std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v <= 0.5 ? 200 * v : 100 + 100 * (v - 0.5))));
     else std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 100)));
 }
 

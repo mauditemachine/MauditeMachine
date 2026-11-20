@@ -1,6 +1,6 @@
 /**
- * MAQUETTE v44 : le petit ecran des pages d'effets, du meme style que le grand ecran de la face (voyager/screen.ts :
- * noir profond, os en trois intensites INK / HALF / FAINT, la police d'affichage, peu de mots, des pastilles cernees),
+ * Le petit ecran des pages d'effets (v44, en vrai depuis v46 sur la page DELAY), du meme style que le grand ecran de la
+ * face (voyager/screen.ts : noir profond, os en trois intensites INK / HALF / FAINT, la police d'affichage, peu de mots, des pastilles cernees),
  * en plus petit. Mika (2026-11-20) : "peut-etre faire comme un petit ecran comme l'ecran principal mais en plus petit,
  * ici dans cette fenetre delay".
  *

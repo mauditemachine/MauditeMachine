@@ -379,13 +379,24 @@ double Sky::tank(double inL, double inR, double& oR) {
         const double lo = (sL_[u] = flush(sL_[u] + aL * (r - sL_[u])));
         const double rest = r - lo;
         const double md = (sM_[u] = flush(sM_[u] + aH * (rest - sM_[u])));
-        const double v = gL_[u] * lo + gM_[u] * md + gH_[u] * (rest - md);
+        double v;
+        if (frz_ > 0) {
+            // FREEZE : les gains montent a 1 (l'amortissement leve) avec le fondu
+            const double f = frz_;
+            v = (gL_[u] + f * (1 - gL_[u])) * lo + (gM_[u] + f * (1 - gM_[u])) * md + (gH_[u] + f * (1 - gH_[u])) * (rest - md);
+        } else
+            v = gL_[u] * lo + gM_[u] * md + gH_[u] * (rest - md);
         y_[u] = v;
         sum += v;
         oL += v * OUT_L[i];
         oRr += v * OUT_R[i];
     }
     const double h = sum * (2.0 / N);
+    if (frz_ > 0) {
+        // FREEZE : ce qui entre dans le reseau descend a zero avec le fondu
+        inL *= 1 - frz_;
+        inR *= 1 - frz_;
+    }
     for (int i = 0; i < N; ++i) {
         double x = y_[static_cast<size_t>(i)] - h + ((i & 1) ? inR : inL) * INJ[i];
         if (x > 4 || x < -4) x = 4 * std::tanh(x * 0.25);
@@ -507,10 +518,16 @@ void Sky::reset() {
     }
     fade_ = 1;
     fadeDir_ = 0;
+    frz_ = frzOn_ && algo_ != SKY_SPRING ? 1 : 0;
     wake();
 }
 
 void Sky::set(int machine, const SkyNorm& n, bool now) { setEngine(skyEngine(machine, n), now); }
+
+void Sky::setFreeze(bool on, bool now) {
+    frzOn_ = on;
+    if (now) frz_ = on && algo_ != SKY_SPRING ? 1 : 0;
+}
 
 void Sky::setEngine(const SkyEngine& p, bool now) {
     if (!ready_) {
@@ -737,6 +754,9 @@ void Sky::process(const float* inL, const float* inR, float* outL, float* outR, 
     const double preA = 1 - std::exp(-1 / (0.06 * sr));
     const double fadeStep = 1.0 / FADE_N;
     const long idleN = static_cast<long>(IDLE_S * sr);
+    // FREEZE (v46) : sa cible (SPRING n'a pas de reseau) et son pas (50 ms)
+    const double frzT = frzOn_ && algo != SKY_SPRING ? 1 : 0;
+    const double frzStep = 1 / (0.05 * sr);
     for (int s = s0; s < n; ++s) {
         if (idle_) {
             // tombe au repos en cours de bloc : la suite est nulle tant que rien n'entre
@@ -750,6 +770,12 @@ void Sky::process(const float* inL, const float* inR, float* outL, float* outR, 
         ++count_;
         double xL = hp_[0].run(inL[s]);
         double xR = hp_[1].run(inR[s]);
+        if (frz_ != frzT) frz_ = frz_ < frzT ? std::min(frzT, frz_ + frzStep) : std::max(frzT, frz_ - frzStep);
+        if (frz_ > 0) {
+            // FREEZE : l'entree coupee (les premieres reflexions, la bande, les prises s'eteignent ; le reseau tient)
+            xL *= 1 - frz_;
+            xR *= 1 - frz_;
+        }
         if (algo == SKY_SWELL) {
             const double a = std::fabs(xL) + std::fabs(xR);
             env_ = flush(env_ + (a > env_ ? 0.02 : 0.0004) * (a - env_));
