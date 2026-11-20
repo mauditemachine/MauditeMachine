@@ -5,7 +5,17 @@
  * des tapes), retouche il en sort ; l'arpegiateur joue la progression.
  * Toutes les notes sont dans la gamme : rien ne sonne faux, quoi qu'on
  * touche.
+ *
+ * Le plugin MM-ARP a sa banque (v43, 2026-11-20, Mika : "les notes.. pourquoi
+ * on a pas toutes les fondamentales finalement ? arrange ca !") : les sept
+ * degres de fa diese mineur naturel dans l'ordre (i a VII : le ii manquait),
+ * puis i7 ; le site garde les siens (SITE_CHORDS). CHORDS est l'une ou
+ * l'autre, choisie a l'evaluation (PLUGIN_ARP, comme le reste de la face).
+ * La tonalite reste F# mineur : le plugin n'a pas de selecteur (CHORDS F#
+ * MINOR est une serigraphie, et le C++ pose les memes degres, dsp/Params.cpp).
  */
+
+import { PLUGIN_ARP } from '../theme/base';
 
 /** Notes MIDI (60 = do 4) ; la racine de chaque accord est posee dans l'octave de fa diese 3. */
 const FS3 = 54;
@@ -19,22 +29,79 @@ export interface Chord {
   tones: readonly number[];
   /** racine, en demi-tons au-dessus de fa diese */
   root: number;
+  /** son degre en fa diese mineur (i, VI, iiø...) : l'ecran le montre sous le nom */
+  roman: string;
+  /** sa cle Camelot (le cercle des DJ) ; '' : aucune (un accord diminue n'en a pas) */
+  camelot: string;
 }
 
-export const CHORDS: readonly Chord[] = [
-  { label: 'F#m', aria: 'F sharp minor', root: 0, tones: [0, 3, 7] },
-  { label: 'D', aria: 'D major', root: 8, tones: [0, 4, 7] },
-  { label: 'E', aria: 'E major', root: 10, tones: [0, 4, 7] },
-  { label: 'C#m', aria: 'C sharp minor', root: 7, tones: [0, 3, 7] },
-  { label: 'Bm', aria: 'B minor', root: 5, tones: [0, 3, 7] },
-  { label: 'A', aria: 'A major', root: 3, tones: [0, 4, 7] },
-  { label: 'F#m7', aria: 'F sharp minor seven', root: 0, tones: [0, 3, 7, 10] },
-  { label: 'Dmaj7', aria: 'D major seven', root: 8, tones: [0, 4, 7, 11] },
+/** Les huit accords du site, inchanges (leurs degres et cles Camelot etaient dans voyager/screen.ts). */
+export const SITE_CHORDS: readonly Chord[] = [
+  { label: 'F#m', aria: 'F sharp minor', root: 0, tones: [0, 3, 7], roman: 'i', camelot: '11A' },
+  { label: 'D', aria: 'D major', root: 8, tones: [0, 4, 7], roman: 'VI', camelot: '10B' },
+  { label: 'E', aria: 'E major', root: 10, tones: [0, 4, 7], roman: 'VII', camelot: '12B' },
+  { label: 'C#m', aria: 'C sharp minor', root: 7, tones: [0, 3, 7], roman: 'v', camelot: '12A' },
+  { label: 'Bm', aria: 'B minor', root: 5, tones: [0, 3, 7], roman: 'iv', camelot: '10A' },
+  { label: 'A', aria: 'A major', root: 3, tones: [0, 4, 7], roman: 'III', camelot: '11B' },
+  { label: 'F#m7', aria: 'F sharp minor seven', root: 0, tones: [0, 3, 7, 10], roman: 'i7', camelot: '11A' },
+  { label: 'Dmaj7', aria: 'D major seven', root: 8, tones: [0, 4, 7, 11], roman: 'VImaj7', camelot: '10B' },
 ];
 
 /**
+ * La banque du plugin MM-ARP (v43) : un pad par degre de fa diese mineur naturel (F# G# A B C# D E), dans l'ordre de la
+ * gamme, puis F#m7. Le ii est G#ø (G#m7b5 : G# B D F#) plutot que G#dim (G# B D) : la triade diminuee seule sonne
+ * tendue et scolaire (son triton a nu) ; la septieme ajoute F#, la tonique : l'accord devient Bm pose sur G# (les memes
+ * B D F# que le iv), il garde la note de l'accord de depart et glisse vers iv, v ou i sans heurt, la couleur sombre et
+ * suspendue de la dark disco et de l'italo. Ses quatre notes sont dans la gamme (CHORD 7TH les donnait deja a G#dim).
+ * Dmaj7 quitte les pads : CHORD 7TH le rend sur D (la septieme de la gamme), comme Amaj7 sur A.
+ */
+export const ARP_CHORDS: readonly Chord[] = [
+  { label: 'F#m', aria: 'F sharp minor', root: 0, tones: [0, 3, 7], roman: 'i', camelot: '11A' },
+  { label: 'G#ø', aria: 'G sharp half diminished seven', root: 2, tones: [0, 3, 6, 10], roman: 'iiø', camelot: '' },
+  { label: 'A', aria: 'A major', root: 3, tones: [0, 4, 7], roman: 'III', camelot: '11B' },
+  { label: 'Bm', aria: 'B minor', root: 5, tones: [0, 3, 7], roman: 'iv', camelot: '10A' },
+  { label: 'C#m', aria: 'C sharp minor', root: 7, tones: [0, 3, 7], roman: 'v', camelot: '12A' },
+  { label: 'D', aria: 'D major', root: 8, tones: [0, 4, 7], roman: 'VI', camelot: '10B' },
+  { label: 'E', aria: 'E major', root: 10, tones: [0, 4, 7], roman: 'VII', camelot: '12B' },
+  { label: 'F#m7', aria: 'F sharp minor seven', root: 0, tones: [0, 3, 7, 10], roman: 'i7', camelot: '11A' },
+];
+
+/** Les accords des pads : ceux du plugin MM-ARP, ou ceux du site. */
+export const CHORDS: readonly Chord[] = PLUGIN_ARP ? ARP_CHORDS : SITE_CHORDS;
+
+/**
+ * La marque de la banque du plugin dans ce qu'il garde (le programme envoye au C++, la progression de l'etat du projet,
+ * un preset sur le disque, un preset de l'ecran, un son mis de cote) : chordBank 2. Sans elle, une progression est en
+ * indices du site (SITE_CHORDS : un projet ou un preset d'avant la v43, la banque d'usine, un preset du site) et le
+ * plugin la convertit au chargement (la meme table en C++ : plugin/mm-arp/dsp/Params.cpp kSiteToArp).
+ */
+export const ARP_CHORD_BANK = 2;
+
+/**
+ * Un accord du site dans la banque du plugin : le meme accord (F#m D E C#m Bm A F#m7 -> 0 5 6 4 3 2 7) ; Dmaj7, qui
+ * n'a plus de pad, devient D (le meme accord sans sa septieme ; CHORD 7TH la rend).
+ */
+export const SITE_TO_ARP: readonly number[] = [0, 5, 6, 4, 3, 2, 7, 5];
+
+/**
+ * Une progression gardee, dans la banque du plugin : telle quelle si elle porte ARP_CHORD_BANK, sinon (des indices du
+ * site) convertie par SITE_TO_ARP ; une entree illisible est laissee de cote. Pour le plugin seulement : le site garde
+ * ses indices tels quels.
+ */
+export function arpProgOf(prog: unknown, bank: unknown): number[] {
+  if (!Array.isArray(prog)) return [];
+  const ok = prog.filter((k): k is number => typeof k === 'number' && Number.isInteger(k) && k >= 0 && k < SITE_TO_ARP.length);
+  return bank === ARP_CHORD_BANK ? ok : ok.map((k) => SITE_TO_ARP[k]);
+}
+
+/** Une progression ecrite en indices du site, dans la banque du moment : convertie dans le plugin, telle quelle sur le site. */
+export const fromSiteProg = (p: readonly number[]): readonly number[] => (PLUGIN_ARP ? p.map((k) => SITE_TO_ARP[k] ?? 0) : p);
+
+/**
  * Progressions de RANDOM (indices de CHORDS) : des enchainements qui
- * marchent en indie dance et en dark disco.
+ * marchent en indie dance et en dark disco. Ecrites en indices du site ; le
+ * plugin les prend converties (fromSiteProg) : les memes accords, le meme
+ * sens (F#m D A E reste F#m D A E ; Dmaj7 y devient D).
  */
 export const PROGRESSIONS: readonly (readonly number[])[] = [
   [0, 1, 5, 2],
@@ -45,7 +112,7 @@ export const PROGRESSIONS: readonly (readonly number[])[] = [
   [0, 0, 1, 2],
   [0, 3, 1, 2],
   [6, 4, 7, 2],
-];
+].map(fromSiteProg);
 
 /** Notes de l'accord dans une octave : racine ramenee entre fa diese 3 et mi 4, tri montant. */
 export function chordNotes(i: number): number[] {

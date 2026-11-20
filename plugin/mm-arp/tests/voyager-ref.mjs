@@ -22,8 +22,14 @@ const only = onlyArg > 0 ? process.argv[onlyArg + 1] : '';
 const src = join(out, 'src');
 mkdirSync(src, { recursive: true });
 
-const fix = (code) => code.replace(/from '\.\/(params|chords|seq)'/g, "from './$1.ts'");
-for (const f of ['params', 'chords', 'seq']) writeFileSync(join(src, `${f}.ts`), fix(readFileSync(join(repo, 'src/v4/voyager', `${f}.ts`), 'utf8')));
+// chords.ts lit PLUGIN_ARP (v43 : la banque d'accords du plugin) : ici les accords du site, ceux des presets d'usine du
+// site que jouent ces cas (le moteur seul est compare : les 85 cas ne changent pas)
+const fix = (code) => code.replace(/from '\.\/(params|chords|seq)'/g, "from './$1.ts'").replace("import { PLUGIN_ARP } from '../theme/base';", 'const PLUGIN_ARP = false;');
+for (const f of ['params', 'chords', 'seq']) {
+  const code = fix(readFileSync(join(repo, 'src/v4/voyager', `${f}.ts`), 'utf8'));
+  if (code.includes("from '../")) throw new Error(`voyager/${f}.ts : un import hors de voyager/ (a remplacer ici)`);
+  writeFileSync(join(src, `${f}.ts`), code);
+}
 // La partie MM-ARP de state/factory.ts (ses crans, ARP, arpFactory) : elle ne depend que de voyager/params.ts
 {
   const fac = readFileSync(join(repo, 'src/v4/state/factory.ts'), 'utf8');

@@ -17,7 +17,9 @@ export interface FactoryPreset {
   bpm: number;
   knobs: Record<string, number>;
   seq: unknown;
+  /** en indices des accords du site (voyager/chords.ts SITE_CHORDS), convertis au chargement ; chordBank 2 : ceux du plugin */
   prog: number[];
+  chordBank?: number;
   extra?: Record<string, number>;
   steps?: unknown;
 }

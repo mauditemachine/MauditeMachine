@@ -99,6 +99,10 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                      proc_.unmap(static_cast<int>(o.getProperty("ch", 0)) - 1, static_cast<int>(o.getProperty("cc", -1)));
                  })
                  .withEventListener("mm_unmap_all", [this](juce::var) { proc_.unmapAll(); })
+                 // v43 : la liste des presets du grand ecran ouverte (la face prend haut, bas et Entree) ou fermee (keysToHost)
+                 .withEventListener("mm_keys", [this](juce::var o) {
+                     if (!static_cast<bool>(o.getProperty("on", false))) keysToHost();
+                 })
                  .withEventListener("mm_midimap_get", [this](juce::var) { browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap()); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
@@ -163,6 +167,22 @@ void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
     if (!sizing_ && getWidth() >= kMinW) proc_.setEditorWidth(getWidth());
+}
+
+/*
+ * v43 (Mika : "les presets je veux pouvoir les selectionner a la souris et avec la touche entree je valide le preset !") :
+ * la liste des presets du grand ecran prend haut, bas et Entree (src/v4/hooks/useKeys.ts) tant qu'elle est ouverte ;
+ * elle s'ouvre d'un clic dans la face, et ce clic donne deja le clavier a la WebView (WKWebView devient le premier
+ * repondeur de la fenetre au clic) : rien a demander ici. Surtout pas browser_->grabKeyboardFocus() : dans JUCE 8
+ * (juce_WebBrowserComponent_mac.mm), apres un resignFirstResponder de la WebView, le focus JUCE suivant part a la
+ * traversee et finit en giveAwayKeyboardFocus, la WebView perdrait le clavier au lieu de le prendre.
+ * Fermee (mm_keys {on: false}, envoye seulement si la page avait le clavier et qu'aucun champ de texte ne le tient) : la
+ * vue JUCE de l'editeur redevient le premier repondeur (ComponentPeer::grabFocus) ; aucun composant JUCE ne prend de
+ * touche (keyPressed rend false), chacune remonte la chaine des repondeurs jusqu'a l'hote : le clavier MIDI d'ordinateur
+ * d'Ableton (v38) jusqu'au prochain clic dans la face. Non teste sur Mac ici (Linux, sans WebView) : a verifier par Mika.
+ */
+void MMArpEditor::keysToHost() {
+    if (auto* peer = getPeer()) peer->grabFocus();
 }
 
 void MMArpEditor::setHint(const juce::String& m) {

@@ -40,7 +40,7 @@ import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
 import { CHORDS } from './chords';
 import { VoyKnobs } from './knobs';
-import { VoyScreen, type VoyScreenState } from './screen';
+import { PRESET_LIST, VoyScreen, type VoyScreenState } from './screen';
 import { voyEcho } from './echo';
 import { voyPatch } from './patch';
 import { voyInfoIdOf } from './infoIds';
@@ -233,11 +233,22 @@ export class VoyagerRig {
       enabled: key === 'open',
     });
     const band = 0.72;
+    /**
+     * Le plugin (v43, Mika : "les presets je veux pouvoir les selectionner a la souris et avec la touche entree je valide
+     * le preset") : une zone par ligne de la liste (vlcd-row-<r>, index r : screen.ts PRESET_LIST, la ligne s'arrete a la
+     * bande des touches) a la place de PREV et NEXT ; un clic choisit le preset de la ligne, un double clic le charge
+     * (actions/presets.ts voyPresetRow). Le site garde PREV et NEXT.
+     */
+    const PL = PRESET_LIST;
+    const rowBox = (r: number): HotspotDef => {
+      const v0 = (PL.y0 + r * PL.rowH) / PL.uh;
+      const v1 = Math.min(band, (PL.y0 + (r + 1) * PL.rowH) / PL.uh);
+      return { ...lcdBox('prev', 0.02, 0.96, v0, v1), id: `vlcd-row-${r}`, lcd: undefined, index: r };
+    };
     const lcdDefs = [
       // Demande de Mika (2026-11-03) : seul le coin bas-droite (pastille PRESETS) ouvre les presets, pas tout l'ecran
       lcdBox('open', 0.82, 1, 0.82, 1),
-      lcdBox('prev', 0, 0.5, 0, band),
-      lcdBox('next', 0.5, 1, 0, band),
+      ...(PLUGIN_ARP ? Array.from({ length: PL.rows }, (_, r) => rowBox(r)) : [lcdBox('prev', 0, 0.5, 0, band), lcdBox('next', 0.5, 1, 0, band)]),
       // Cinq touches depuis le 2026-10-27 (LOAD SAVE NAME DEL EXIT, leur nom suit l'etape) : des cinquiemes
       ...PRESET_SLOTS.map((k, i) => lcdBox(k, i / 5, (i + 1) / 5, band, 1)),
     ];
@@ -271,6 +282,11 @@ export class VoyagerRig {
 
   get hotspots(): readonly HotspotDef[] {
     return this.defs;
+  }
+
+  /** Le rang du preset montre sur la ligne r de la liste du grand ecran (vlcd-row-<r>), null : aucun. */
+  presetRowAt(r: number): number | null {
+    return this.lcd.presetRowAt(r);
   }
 
   /** Les volumes pleins : bac, joues, capot (plateau et panneau), carte. */

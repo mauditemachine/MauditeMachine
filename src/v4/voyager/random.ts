@@ -17,6 +17,7 @@
  * II.
  */
 
+import { fromSiteProg } from './chords';
 import { LFO_SHAPES, NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
 
 type Rnd = () => number;
@@ -206,8 +207,11 @@ function acidLine(rnd: Rnd): Step[] {
   return Array.from({ length: 16 }, (_, i) => (i % 4 === 0 && chance(rnd, 0.6) ? 0 : pickOf(rnd, pool)));
 }
 
-/** Progressions courtes pour les basses et l'acid (indices de CHORDS). */
-const SHORT_PROGS: readonly (readonly number[])[] = [[0], [0, 0, 1, 2], [0, 1], [0, 2], [0, 5, 1, 2], [4, 0], [0, 0, 5, 2]];
+/**
+ * Progressions courtes pour les basses et l'acid (indices de CHORDS) : ecrites en indices du site, converties dans le
+ * plugin MM-ARP (v43, chords.ts fromSiteProg : les memes accords dans sa banque).
+ */
+const SHORT_PROGS: readonly (readonly number[])[] = [[0], [0, 0, 1, 2], [0, 1], [0, 2], [0, 5, 1, 2], [4, 0], [0, 0, 5, 2]].map(fromSiteProg);
 
 export interface VoyRandom {
   style: VoyStyle;

@@ -101,7 +101,22 @@ int main(int argc, char** argv) {
     if (knobIndex(f[1].c_str()) != i) fail(-1, "knobIndex(" + f[1] + ")");
   }
   if (knobIndex("nope") != -1 || knobIndex(nullptr) != -1) fail(-1, "knobIndex d'un id inconnu");
+  // v43 : la marque des accords du plugin et la table des indices du site (chords.ts ARP_CHORD_BANK, SITE_TO_ARP)
   std::getline(in, line);
+  if (line.empty() || line[0] != 'B') fail(-1, "params-cases.txt sans la ligne B (relancer params-ref.mjs)");
+  else {
+    std::istringstream ss(line.substr(2));
+    int bank = -1;
+    ss >> bank;
+    if (bank != kChordBank) fail(-1, "chordBank : le site " + std::to_string(bank) + ", le C++ " + std::to_string(kChordBank));
+    for (int c = 0; c < 8; ++c) {
+      int to = -2;
+      ss >> to;
+      if (to != kSiteToArp[c] || chordFromSite(c) != to) fail(-1, "SITE_TO_ARP[" + std::to_string(c) + "] : le site " + std::to_string(to) + ", le C++ " + std::to_string(kSiteToArp[c]));
+    }
+    if (chordFromSite(-1) != -1 || chordFromSite(8) != -1) fail(-1, "chordFromSite hors de 0..7");
+    std::getline(in, line);
+  }
   const int nCases = std::atoi(line.c_str() + 2);
 
   ArpProgram prog;

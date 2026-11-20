@@ -21,6 +21,7 @@ private:
     void presetOpen();
     void presetLoad(const juce::File& f);
     void presetList();
+    void keysToHost();
     juce::WebBrowserComponent::Options options();
 
     struct Browser : juce::WebBrowserComponent {

@@ -830,3 +830,15 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - python3 plugin/mm-arp/web/vknob-cut.py : refait les calques des knobs (src/v4/plugin/arp/vknob) depuis les PNG de Mika.
+
+## 2026-11-20 (suite) : v44, les 7 fondamentales sur les pads, la liste des presets a la souris et au clavier
+
+- Pads du plugin : F#m, G#ø, A, Bm, C#m, D, E, F#m7 (les 7 degres de fa diese mineur dans l'ordre, puis i7). G#ø (G#m7b5)
+  plutot que G#dim : il contient Bm et le F#, glisse vers iv / v / i. Le site garde ses accords (SITE_CHORDS).
+- Compatibilite : les progressions gardees portent chordBank 2 ; sans marque, elles sont lues en indices du site et
+  converties au chargement (TS arpProgOf, C++ parseProg / legacyFromLs, table {0,5,6,4,3,2,7,5}). Seul ecart : Dmaj7 devient
+  D en CHORD BASIC / TRIAD. Aucun parametre hote ajoute.
+- Liste des presets de l'ecran : un clic choisit, un second clic (450 ms) ou Entree charge, haut / bas naviguent, Echap
+  ferme. Les touches ne sont prises QUE liste ouverte ; a la fermeture, la face envoie mm_keys {on:false} et
+  PluginEditor::keysToHost() rend le focus a la vue JUCE (les touches repartent vers Ableton). A verifier sur le Mac.
+- Rapport detaille : docs/reports/2026-11-20-mm-arp-accords-presets.md. tsc 105, voyager_compare 85/85, host 66 ok.
