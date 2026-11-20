@@ -17,6 +17,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { voyParams } from '../../voyager/params';
 import { DISTO_CURVES, DISTO_LONG, DISTO_PRESETS, DISTO_STYLES, distoCurrent, distoCurve, distoInert, distoInit, distoLaws, distoLoad, distoStep } from './disto';
+import { DISTO_MOCK, DistoMock } from './DistoMock';
 import { arpExtra } from './extra';
 import { arpMod } from './modview';
 import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, useRaise } from './pcbui';
@@ -374,7 +375,14 @@ const Row: React.FC<{ top: number; left?: number; w: number; children: React.Rea
   </div>
 );
 
-export const DistoPage: React.FC<{ flash: (title: string) => boolean }> = ({ flash }) => {
+/**
+ * v44 (2026-11-20, phase maquette) : ?distoMock=A|B|C monte une des trois propositions de la page simplifiee
+ * (DistoMock.tsx) a la place de celle-ci ; jamais dans le plugin (pas de parametre d'URL), la page publiee ne change pas.
+ */
+const MOCK_PARTS = { Vu: AttitudeVu, Transfer: TransferGlass };
+export const DistoPage: React.FC<{ flash: (title: string) => boolean }> = (props) => (DISTO_MOCK ? <DistoMock which={DISTO_MOCK} parts={MOCK_PARTS} /> : <DistoPageLive {...props} />);
+
+const DistoPageLive: React.FC<{ flash: (title: string) => boolean }> = ({ flash }) => {
   useExtraAll();
   const v = useVoy();
   const mm = stepIdx('xDStyle', DISTO_STYLES.length) === 0;
