@@ -13,7 +13,11 @@
  * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, bpm ; desc : une
  *   phrase en anglais (ASCII, sans tiret cadratin) ;
  * - chaque .mmarp : NN NOM.mmarp, format mm-arp-preset v1, le meme contenu que factory.json ;
- * - la repartition demandee : BASS 16, ARP 12, PAD 6, DARK 6 (40 presets ; v28, avant 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE).
+ * - la repartition demandee : BASS 16, ARP 12, PAD 6, DARK 6 (40 presets ; v28, avant 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE) ;
+ * - v43 (2026-11-20) : le son analogique a sec (src/v4/plugin/arp/analog.ts analogFaults) : aucun effet (OVERDRIVE,
+ *   CHORUS, DELAY, REVERB, TAPE, GLUE, SIDECHAIN, WARMTH, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH
+ *   PASS, COMB), un passe-bas modere (CUTOFF 0.25 a 0.6, RES 0.45, ENV AMT 0.5, ouvert a 6 kHz au plus), pas trop aigu
+ *   (OCTAVE 0, RANGE 4', FM 0.2, NOISE 0.12) ; HELL, la DISTO, l'EQ 6 bandes et la reverbe BigSky (CLASSIC) au neutre.
  *
  *   node plugin/mm-arp/tests/presets-check.mjs
  */
@@ -22,6 +26,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { VOY_KNOBS } from '../../../src/v4/voyager/params.ts';
+import { analogFaults } from '../../../src/v4/plugin/arp/analog.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PRESETS = join(HERE, '..', 'presets');
@@ -44,6 +49,10 @@ const names = new Set();
 const cats = {};
 const heavy = [];
 const STEP_OK = { acc: [0, 1, 2], slide: [0, 1], gate: [0, 1, 2, 3], rat: [1, 2, 3, 4], prob: [100, 75, 50, 25, 0] };
+const EXTRA_STEPS = Object.fromEntries(EXTRA.filter((e) => e.steps).map((e) => [e.id, e.steps]));
+// v43 : ces sections restent exactement a leur neutre dans la banque (la reverbe BigSky a CLASSIC : xSkyType 0)
+const NEUTRAL = new Set(['hell', 'disto', 'eq', 'chorus', 'sky', 'phaser', 'flanger', 'pump', 'crush', 'space', 'matrix', 'amp', 'dist', 'master', 'reverb']);
+const stepClean = (e, v) => (e.steps ? stepped(e.steps, v) : Math.round(v * 1000) / 1000);
 for (const p of bank.presets ?? []) {
   const who = p.name ?? '?';
   if (typeof p.name !== 'string' || !/^[A-Z0-9-][A-Z0-9 -]{0,23}$/.test(p.name) || p.name.endsWith(' ') || p.name.includes('  ')) err(who, 'nom invalide');
@@ -70,6 +79,10 @@ for (const p of bank.presets ?? []) {
   }
   for (const id of Object.keys(ex)) if (!EXTRA.some((e) => e.id === id)) err(who, `reglage inconnu ${id}`);
   if (ex.xQuality !== 1) err(who, 'QUALITY doit rester a HQ');
+  for (const f of analogFaults(kn, ex, EXTRA_STEPS)) err(who, `v43 : ${f}`);
+  for (const e of EXTRA)
+    if (NEUTRAL.has(e.section) && e.id !== 'xSkyType' && okNum(ex[e.id]) && ex[e.id] !== stepClean(e, e.def)) err(who, `v43 : ${e.id} ${ex[e.id]} au lieu de son neutre ${e.def}`);
+  if (ex.xSkyType !== 0) err(who, 'v43 : la reverbe reste CLASSIC (xSkyType 0)');
   if (ex.xUnison === 1 && (kn.wide ?? 0) >= 0.02) heavy.push(who);
   const st = p.steps ?? {};
   for (const [id, ok] of Object.entries(STEP_OK)) {

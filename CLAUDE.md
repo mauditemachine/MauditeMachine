@@ -87,8 +87,9 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
 - Invariants : tsc --noEmit reste a 105 erreurs ; moteur CLASSIC au bit pres
   du site (voyager_compare 85/85) ; nouveaux parametres hote TOUJOURS en fin
   de liste, les anciens gardes en "OLD ..." avec conversion au chargement ;
-  banque d'usine neutre (presets/build.mjs : HELL MIX <= 0.10, reverb CLASSIC,
-  DISTO neutre). Valider le YAML du workflow avant push.
+  banque d'usine seche (v43, presets/build.mjs + src/v4/plugin/arp/analog.ts :
+  AUCUN effet, passe-bas modere, pas trop aigu ; RANDOM suit les memes regles).
+  Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
 - Etat (v37, 2026-11-19) : face cuir (photo retro/leather.png, npm run

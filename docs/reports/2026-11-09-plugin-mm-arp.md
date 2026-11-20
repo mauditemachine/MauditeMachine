@@ -842,3 +842,18 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   ferme. Les touches ne sont prises QUE liste ouverte ; a la fermeture, la face envoie mm_keys {on:false} et
   PluginEditor::keysToHost() rend le focus a la vue JUCE (les touches repartent vers Ableton). A verifier sur le Mac.
 - Rapport detaille : docs/reports/2026-11-20-mm-arp-accords-presets.md. tsc 105, voyager_compare 85/85, host 66 ok.
+
+## 2026-11-20 (suite 2) : v45, banque d'usine refaite en synthe analogique sec, RANDOM aux memes regles
+
+- Mika : "Tous les presets doivent sonner absolument parfait ! sans filtre pas trop aigu ... vraiment bon synth analog !
+  evite les fx sur tous les presets ! ou des filtres, si tu en utilises alors pas trop intense !"
+- src/v4/plugin/arp/analog.ts : les regles a un seul endroit (banque et RANDOM). Aucun effet (DISTO, CHORUS, DELAY,
+  REVERB, TAPE, GLUE, SIDECHAIN, WARMTH, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH PASS, COMB a 0) ;
+  passe-bas seulement, CUTOFF 0.25..0.6, RES <= 0.45, ENV AMT <= 0.5, jamais ouvert au-dela de 6 kHz ; OCTAVE <= 0,
+  RANGE <= 4', FM <= 0.2, NOISE <= 0.12.
+- presets/build.mjs : 40 presets refaits (BASS 16, ARP 12, PAD 6, DARK 6), 6 renommes ; -23 LUFS (PAD -24). Les 40
+  tiennent les cibles en CLASSIC HQ et PRO STD (crete < -4 dBFS, > 6 kHz < 0.36 %, bas-medium >= 35 %). Avant : 15 hors cibles.
+- RANDOM (hypno.ts) : tire dans les plages de la banque, remet a 0 les effets du VST3 seul (HELL, PHASER, FLANGER, PUMP,
+  CRUSH, SHIMMER, WARMTH, RING, FOLD, HIGH PASS, COMB). 60 tirages : 0 avec effets (60 avant).
+- Outils : presets_render --bars --tail --csv, presets-check (nouvelles regles), tests/random-analog.{ts,mjs}.
+- Ancienne regle de banque (HELL MIX <= 0.10, reverb CLASSIC, DISTO neutre) remplacee par : effets a 0, filtre modere.

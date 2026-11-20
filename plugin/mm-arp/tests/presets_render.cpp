@@ -13,7 +13,7 @@
 // - cale sur le transport depuis ppq 0, le moteur par blocs de 128. 8 mesures a son bpm, puis 3 s de queue (le WAV).
 //
 // Mesures (sur les 8 mesures) : crete (dBFS), sonie RMS (stereo, dBFS, mesures 2 a 8), sonie ponderee K (LUFS sans
-// porte : la cible, -23, les PAD -25 ; v28 : les TEXTURE devenues PAD), centroide spectral (Hz), largeur stereo (cote / milieu, %), part des basses
+// porte : la cible, -23, les PAD -24 depuis la v43, -25 avant ; v28 : les TEXTURE devenues PAD), centroide spectral (Hz), largeur stereo (cote / milieu, %), part des basses
 // (< 150 Hz, %), densite de notes (par mesure), NaN / infini.
 //
 // Descripteurs de caractere (le controle de diversite, 2026-11-11, Mika : "encore un peu trop similaires") :
@@ -273,8 +273,9 @@ struct Render {
 };
 
 constexpr double SR = 48000;
-constexpr int kBars = 8;
-constexpr double kTail = 3.0;
+// --bars / --tail (v43) : 8 mesures et 3 s de queue par defaut (la calibration, le controle de diversite)
+static int kBars = 8;
+static double kTail = 3.0;
 
 // v34 : --pro : le moteur PRO (Voyager::setPro), au surechantillonnage --os tel quel (1 ECO, 2 STD, 4 HQ)
 static bool gPro = false;
@@ -421,6 +422,9 @@ constexpr int kEnv = 8;     // les tranches de l'enveloppe moyenne d'une note
 constexpr int kRh = 32;     // les triples croches de la mesure
 struct Stats {
   double peakDb = -200, rmsDb = -200, lufs = -200, centroid = 0, width = 0, bass = 0, notesPerBar = 0;
+  // v43 (2026-11-20, Mika : "pas trop aigu", "que ca sonne vraiment bon synth analog") : la part d'energie au-dessus de
+  // 6 kHz (%), celle du bas-medium 120-500 Hz (%), le DC (la moyenne de chaque canal, dBFS, la pire des deux)
+  double hf6 = 0, lowMid = 0, dcDb = -200;
   bool nan = false;
   double band[kBands] = {};
   std::vector<int> motif;  // (position en triples croches) x 12 + classe de hauteur, sur les 8 mesures
@@ -473,17 +477,27 @@ Stats measure(const Render& r, double bpm) {
     fft(buf);
     for (size_t k = 0; k <= F / 2; ++k) spec[k] += std::norm(buf[k]);
   }
-  double tot = 0, cw = 0, low = 0;
+  double tot = 0, cw = 0, low = 0, hi6 = 0, lm = 0;
   for (size_t k = 1; k <= F / 2; ++k) {
     const double hz = static_cast<double>(k) * SR / static_cast<double>(F);
     tot += spec[k];
     cw += spec[k] * hz;
     if (hz < 150) low += spec[k];
+    if (hz >= 6000) hi6 += spec[k];
+    if (hz >= 120 && hz < 500) lm += spec[k];
     const int b = static_cast<int>(std::floor(std::log2(hz / 22.0)));
     if (b >= 0 && b < kBands) s.band[b] += spec[k];
   }
   s.centroid = tot > 0 ? cw / tot : 0;
   s.bass = tot > 0 ? 100 * low / tot : 0;
+  s.hf6 = tot > 0 ? 100 * hi6 / tot : 0;
+  s.lowMid = tot > 0 ? 100 * lm / tot : 0;
+  {
+    double mL = 0, mR = 0;
+    for (size_t i = 0; i < N; ++i) mL += r.L[i], mR += r.R[i];
+    const double dc = std::max(std::fabs(mL), std::fabs(mR)) / std::max<double>(1, static_cast<double>(N));
+    s.dcDb = 20 * std::log10(std::max(dc, 1e-10));
+  }
   for (double& b : s.band) b = 10 * std::log10(std::max(b / std::max(tot, 1e-30), 1e-12));
   s.notesPerBar = static_cast<double>(r.notes.size()) / kBars;
   const double spb = 60.0 / bpm / 8.0;  // une triple croche
@@ -637,8 +651,11 @@ constexpr double kUnit[kTerms] = {
     0.30,  // repetition d'une mesure a l'autre
     1.00,  // motif : 1 - part commune (deux presets n'ont presque jamais les memes notes : le terme pese 1 au plus)
 };
-// Les seuils : aucun preset a moins de kMinD d'un autre (le tout), ni a moins de kMinDS par le son seul
-constexpr double kMinD = 2.7, kMinDS = 2.0;
+// Les seuils : aucun preset a moins de kMinD d'un autre (le tout), ni a moins de kMinDS par le son seul.
+// v43 (2026-11-20) : 2.4 et 1.6 (2.7 et 2.0 avant). La banque est seche (aucun effet, la demande de Mika) : la reverbe,
+// le delai, le phaser ou le PUMP ne l'etalent plus (largeur, queues, modulation lente du centroide), et les 16 basses
+// partagent leur registre par choix ; elles se distinguent par la voix, l'enveloppe et le rythme.
+constexpr double kMinD = 2.4, kMinDS = 1.6;
 
 struct Dist {
   double t[kTerms] = {};
@@ -707,7 +724,7 @@ int main(int argc, char** argv) {
   }
   int os = 4;
   int jobs = static_cast<int>(std::max(1u, std::thread::hardware_concurrency()));
-  std::string wav, only, calib;
+  std::string wav, only, calib, csv;
   bool showNotes = false;
   for (int i = 2; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--notes")) showNotes = true;
@@ -720,6 +737,9 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--only") && i + 1 < argc) only = argv[++i];
     else if (!std::strcmp(argv[i], "--calibrate") && i + 1 < argc) calib = argv[++i];
     else if (!std::strcmp(argv[i], "--jobs") && i + 1 < argc) jobs = std::max(1, std::atoi(argv[++i]));
+    else if (!std::strcmp(argv[i], "--bars") && i + 1 < argc) kBars = std::max(2, std::min(16, std::atoi(argv[++i])));
+    else if (!std::strcmp(argv[i], "--tail") && i + 1 < argc) kTail = std::max(0.0, std::min(10.0, std::atof(argv[++i])));
+    else if (!std::strcmp(argv[i], "--csv") && i + 1 < argc) csv = argv[++i];
   }
   std::ifstream in(argv[1]);
   if (!in) {
@@ -742,7 +762,7 @@ int main(int argc, char** argv) {
   std::vector<bool> done(ps.size(), false);
   std::vector<std::string> noteLine(ps.size());
 
-  std::printf("Rendu hors ligne, moteur x%d, 48 kHz, 8 mesures au bpm du preset (aucun son joue)\n\n", os);
+  std::printf("Rendu hors ligne, moteur %s x%d, 48 kHz, %d mesures au bpm du preset (aucun son joue)\n\n", gPro ? "PRO" : "CLASSIC", os, kBars);
   // Les rendus, en parallele (chaque preset a son moteur, sa chaine, son arpege : rien de partage)
   {
     std::vector<size_t> todo;
@@ -799,7 +819,7 @@ int main(int argc, char** argv) {
     const Stats& s = st[i];
     const double dev = s.rmsDb - med;
     const bool tex = ps[i].cat == "PAD";
-    const double target = tex ? -25.0 : -23.0;  // la sonie K visee
+    const double target = tex ? -24.0 : -23.0;  // la sonie K visee (v43 : PAD -24, des nappes courtes et seches)
     const double off = s.lufs - target;
     std::string why;
     if (s.peakDb >= -1) why += " CRETE>-1";
@@ -819,7 +839,27 @@ int main(int argc, char** argv) {
     std::printf("%-3zu %-24s %-8s %4.0f %7.1f %7.1f %7.1f %7.0f %5.0f%% %5.1f%% %6.2f %3s  %.3f (%+.1f LU -> %.3f)%s\n", i + 1, ps[i].name.c_str(), ps[i].cat.c_str(), ps[i].bpm, s.peakDb,
                 s.rmsDb, s.lufs, s.centroid, s.width, s.bass, s.notesPerBar, s.nan ? "OUI" : "non", vol, off, volFix, why.c_str());
   }
-  std::printf("\nSonie visee : -23 LUFS (PAD : -25) ; sonie RMS de reference (mediane hors PAD) : %.1f dBFS\n", med);
+  std::printf("\nSonie visee : -23 LUFS (PAD : -24) ; sonie RMS de reference (mediane hors PAD) : %.1f dBFS\n", med);
+  // v43 : le timbre (part au-dessus de 6 kHz, bas-medium 120-500 Hz, DC)
+  std::printf("\nTimbre (v43) : centroide, part au-dessus de 6 kHz, bas-medium 120-500 Hz, basses < 150 Hz, DC\n");
+  std::printf("%-3s %-24s %7s %7s %7s %7s %8s\n", "#", "NOM", "CENTR", "HF>6K", "BMED", "BAS", "DC");
+  for (size_t i = 0; i < ps.size(); ++i) {
+    if (!done[i]) continue;
+    const Stats& s = st[i];
+    std::printf("%-3zu %-24s %7.0f %6.2f%% %6.1f%% %6.1f%% %8.1f\n", i + 1, ps[i].name.c_str(), s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb);
+  }
+  if (!csv.empty()) {
+    std::ofstream c(csv);
+    c << "n,name,cat,bpm,peak_dbfs,rms_dbfs,lufs,centroid_hz,hf6_pct,lowmid_pct,bass_pct,dc_dbfs,width_pct,crest_db,notes_bar\n";
+    for (size_t i = 0; i < ps.size(); ++i) {
+      if (!done[i]) continue;
+      const Stats& s = st[i];
+      char line[512];
+      std::snprintf(line, sizeof line, "%zu,%s,%s,%.0f,%.2f,%.2f,%.2f,%.1f,%.3f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f\n", i + 1, ps[i].name.c_str(), ps[i].cat.c_str(), ps[i].bpm, s.peakDb,
+                    s.rmsDb, s.lufs, s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb, s.width, s.crest, s.notesPerBar);
+      c << line;
+    }
+  }
   if (!calib.empty()) {
     if (calibJson.size() > 2) calibJson.erase(calibJson.size() - 2, 1);  // la derniere virgule
     calibJson += "}\n";
