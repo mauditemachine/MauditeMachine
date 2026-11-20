@@ -85,7 +85,7 @@ interface Text {
 }
 
 /** Pixels de texture par unite : desktop 163, portrait 200 (plans plus grands). */
-const PPU = PORTRAIT ? 200 : 2048 / VOY_LID_W;
+const PPU0 = PORTRAIT ? 200 : 2048 / VOY_LID_W;
 const K = PORTRAIT ? 1.3 : 1;
 
 export type VoySilkKind = 'panel' | 'deck';
@@ -194,13 +194,66 @@ const LEATHER_LIN = ((LEATHER_MEAN / 255 + 0.055) / 1.055) ** 2.4;
 /** La lumiere du panneau (0..1, 0.5 neutre) : le gain de sa teinte, de 0.6 a 1.4. */
 export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math.max(0, light));
 
+/**
+ * v42 (le plugin, Mika : "je veux exactement la meme nettete que le LEGEND HZ") : ce qui change souvent (les couronnes de
+ * WAVE 1 et WAVE 2 au morphing, les LED des boutons poussoirs) passe sur de petites toiles posees par-dessus la grande :
+ * la grande (graduations, noms, filets) ne se redessine plus a chaque vingtieme de cran, et sa definition peut suivre
+ * l'ecran (setResolution) sans que le morphing coute plus. Le site garde une seule toile.
+ */
+const PATCHES = PLUGIN_ARP;
+
+/** Le materiau d'une toile de serigraphie (la grande ou un encart) : transparent, mat, les noms orange luisent un peu. */
+function silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial {
+  const mat = new MeshStandardMaterial({
+    map,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: offset,
+    polygonOffsetUnits: offset,
+    roughness: 0.7,
+    metalness: 0,
+  });
+  mat.name = 'voySilk';
+  // Les noms orange luisent un peu, comme sur la 808
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * step(0.5, diffuseColor.r - diffuseColor.b) * ${SILK.orangeGlow.toFixed(2)};`
+    );
+  };
+  mat.customProgramCacheKey = () => 'silkOrange';
+  return mat;
+}
+
+/** Un encart (v42) : une couronne de selecteur ou les LED d'un poussoir, sa boite (unites du plan), sa toile, son plan. */
+interface Patch {
+  id: VoyKnobId;
+  kind: 'sel' | 'led';
+  box: [number, number, number, number];
+  canvas: HTMLCanvasElement;
+  ctx: Ctx;
+  tex: CanvasTexture;
+  mesh: Mesh;
+  /** son coin dans la grande toile (px) */
+  X0: number;
+  Y0: number;
+}
+
 export class VoySilk {
   readonly mesh: Mesh;
-  readonly texture: CanvasTexture;
+  texture: CanvasTexture;
   private canvas: HTMLCanvasElement;
   private ctx: Ctx;
   private W: number;
   private H: number;
+  /** pixels de toile par unite (v42 : le plugin la regle sur l'ecran, setResolution) */
+  private ppu = PPU0;
+  /** le coin de la toile ou l'on dessine (px) : 0 pour la grande, celui d'un encart */
+  private ox = 0;
+  private oy = 0;
+  private patches: Patch[] = [];
+  private aniso: number;
   private plane: (typeof PLANE)[VoySilkKind];
   private open = false;
   draws = 0;
@@ -220,8 +273,9 @@ export class VoySilk {
     anisotropy: number
   ) {
     this.plane = PLANE[kind];
-    this.W = Math.round(this.plane.w * PPU);
-    this.H = Math.round(this.plane.d * PPU);
+    this.aniso = anisotropy;
+    this.W = Math.round(this.plane.w * this.ppu);
+    this.H = Math.round(this.plane.d * this.ppu);
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.W;
     this.canvas.height = this.H;
@@ -232,29 +286,11 @@ export class VoySilk {
     const geo = new PlaneGeometry(this.plane.w, this.plane.d);
     geo.rotateX(-Math.PI / 2);
     geo.translate(0, 0, this.plane.cz);
-    const mat = new MeshStandardMaterial({
-      map: this.texture,
-      transparent: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-      roughness: 0.7,
-      metalness: 0,
-    });
-    mat.name = 'voySilk';
-    // Les noms orange luisent un peu, comme sur la 808
-    mat.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * step(0.5, diffuseColor.r - diffuseColor.b) * ${SILK.orangeGlow.toFixed(2)};`
-      );
-    };
-    mat.customProgramCacheKey = () => 'silkOrange';
-    this.mesh = new Mesh(geo, mat);
+    this.mesh = new Mesh(geo, silkMaterial(this.texture, -1));
     this.mesh.name = `voySilk-${kind}`;
     this.mesh.position.y = 0.004;
     this.mesh.receiveShadow = true;
+    if (PATCHES) this.makePatches();
     // Le cuir du panneau, sous la serigraphie (2026-11-16, Mika : "fond en cuir") ; setLook le dose (LEATHER TEXTURE,
     // 0 : la laque d'avant, le plan cache) et regle sa lumiere (plugin/arp/look.ts)
     if (PLUGIN_ARP) {
@@ -315,18 +351,125 @@ export class VoySilk {
   }
 
   private px(x: number): number {
-    return (x + this.plane.w / 2) * PPU;
+    return (x + this.plane.w / 2) * this.ppu - this.ox;
   }
 
   private py(z: number): number {
-    return (z - this.plane.cz + this.plane.d / 2) * PPU;
+    return (z - this.plane.cz + this.plane.d / 2) * this.ppu - this.oy;
+  }
+
+  /**
+   * v42 (le plugin) : la definition de la toile, en pixels par unite, suit celle de l'ecran (rig.ts fitSilk : au moins un
+   * pixel de toile par pixel d'ecran a la taille de la fenetre) ; jamais sous celle d'avant (PPU0). Une nouvelle texture
+   * a chaque taille (three alloue la sienne une fois pour toutes). true si elle a change (tout est redessine).
+   */
+  setResolution(ppu: number): boolean {
+    if (!PLUGIN_ARP) return false;
+    const next = Math.max(PPU0, ppu);
+    if (Math.abs(next - this.ppu) / this.ppu < 0.04) return false;
+    this.ppu = next;
+    this.W = Math.round(this.plane.w * this.ppu);
+    this.H = Math.round(this.plane.d * this.ppu);
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+    const old = this.texture;
+    this.texture = makeCanvasTexture(this.canvas, this.aniso);
+    (this.mesh.material as MeshStandardMaterial).map = this.texture;
+    old.dispose();
+    for (const p of this.patches) this.placePatch(p);
+    this.draw();
+    return true;
+  }
+
+  /** La definition courante (px de toile par unite) et la taille de la grande toile. */
+  get resolution(): { ppu: number; w: number; h: number } {
+    return { ppu: +this.ppu.toFixed(2), w: this.W, h: this.H };
+  }
+
+  /** v42 : les encarts de ce plan : la couronne de chaque selecteur de forme, les LED de chaque bouton poussoir. */
+  private makePatches(): void {
+    const S = VOY_SEL;
+    for (const k of VOY_FACE_KNOBS) {
+      const p = voyKnobPlace(k.id);
+      if (p.where !== this.kind) continue;
+      let box: Patch['box'] | null = null;
+      let kind: Patch['kind'] = 'sel';
+      if (isSelector(k.id)) {
+        // la couronne, les dessins des formes dehors (FM ecrit compris), un peu d'air
+        const half = (S.glyphR + S.glyph.w / 2 + 0.07) * p.s;
+        box = [p.x - half, p.z - half, p.x + half, p.z + half];
+      } else if (isPush(k.id)) {
+        const leds = voyPushLeds(k.id, k.steps ?? []);
+        if (!leds.length) continue;
+        // la LED, sa bague et son halo (2.6 rayons)
+        const e = VOY_LED.r * 2.7 + 0.01;
+        box = [Math.min(...leds.map((l) => l.x)) - e, Math.min(...leds.map((l) => l.z)) - e, Math.max(...leds.map((l) => l.x)) + e, Math.max(...leds.map((l) => l.z)) + e];
+        kind = 'led';
+      }
+      if (!box) continue;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) continue;
+      const tex = makeCanvasTexture(canvas, this.aniso);
+      const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2));
+      mesh.name = `voySilkPatch-${k.id}`;
+      mesh.position.y = 0.0006;
+      mesh.renderOrder = 1;
+      mesh.receiveShadow = true;
+      this.mesh.add(mesh);
+      const patch: Patch = { id: k.id, kind, box, canvas, ctx: ctx as Ctx, tex, mesh, X0: 0, Y0: 0 };
+      this.placePatch(patch);
+      this.patches.push(patch);
+    }
+  }
+
+  /** Un encart a la definition courante : sa toile calee sur les pixels de la grande (memes texels), son plan dessous. */
+  private placePatch(p: Patch): void {
+    const u = this.ppu;
+    const rx = (x: number): number => (x + this.plane.w / 2) * u;
+    const ry = (z: number): number => (z - this.plane.cz + this.plane.d / 2) * u;
+    const X0 = Math.floor(rx(p.box[0]));
+    const Y0 = Math.floor(ry(p.box[1]));
+    const w = Math.max(1, Math.ceil(rx(p.box[2])) - X0);
+    const h = Math.max(1, Math.ceil(ry(p.box[3])) - Y0);
+    p.X0 = X0;
+    p.Y0 = Y0;
+    p.canvas.width = w;
+    p.canvas.height = h;
+    const old = p.tex;
+    p.tex = makeCanvasTexture(p.canvas, this.aniso);
+    (p.mesh.material as MeshStandardMaterial).map = p.tex;
+    old.dispose();
+    const g = new PlaneGeometry(w / u, h / u);
+    g.rotateX(-Math.PI / 2);
+    g.translate((X0 + w / 2) / u - this.plane.w / 2, 0, (Y0 + h / 2) / u - this.plane.d / 2 + this.plane.cz);
+    p.mesh.geometry.dispose();
+    p.mesh.geometry = g;
+  }
+
+  /** Redessine un encart seul (son cran a change) : une petite toile, un petit envoi a la carte graphique. */
+  private drawPatch(p: Patch): void {
+    const keep = this.ctx;
+    this.ctx = p.ctx;
+    this.ox = p.X0;
+    this.oy = p.Y0;
+    try {
+      p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+      if (p.kind === 'sel') this.selectors(p.id);
+      else this.pushLeds(p.id);
+    } finally {
+      this.ctx = keep;
+      this.ox = 0;
+      this.oy = 0;
+    }
+    p.tex.needsUpdate = true;
   }
 
   /** Echelle de chaque texte : maxW d'abord, puis le plus petit corps de son groupe. */
   private scales(items: readonly Text[]): number[] {
     const fit = items.map((it) => {
       if (!it.maxW) return 1;
-      const w = trackedWidth(this.ctx, it.text, (it.cap / SILK.capRatio) * PPU, it.weight ?? SILK.weight) / PPU;
+      const w = trackedWidth(this.ctx, it.text, (it.cap / SILK.capRatio) * this.ppu, it.weight ?? SILK.weight) / this.ppu;
       return w > it.maxW ? it.maxW / w : 1;
     });
     const groups = new Map<string, number>();
@@ -344,7 +487,7 @@ export class VoySilk {
     let items: Text[];
     // Filets entre les sections (desktop), crochets des groupes
     ctx.strokeStyle = silkA(SILK.lineAlpha);
-    ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
+    ctx.lineWidth = Math.max(1, SILK.lineWidth * this.ppu);
     // Les aretes entre les sections (le cuir seul, 2026-11-16, comme des panneaux separes) : un sillon sombre a gauche
     // du filet, un lisere clair a sa droite ; le filet reste
     if (this.kind === 'panel' && this.seam > 0) {
@@ -354,11 +497,11 @@ export class VoySilk {
         const y0 = this.py(l[1]);
         const y1 = this.py(l[3]);
         ctx.fillStyle = `rgba(0, 0, 0, ${(0.7 * this.seam).toFixed(3)})`;
-        ctx.fillRect(x - 0.03 * PPU, y0, 0.026 * PPU, y1 - y0);
+        ctx.fillRect(x - 0.03 * this.ppu, y0, 0.026 * this.ppu, y1 - y0);
         ctx.fillStyle = `rgba(0, 0, 0, ${(0.3 * this.seam).toFixed(3)})`;
-        ctx.fillRect(x - 0.048 * PPU, y0, 0.018 * PPU, y1 - y0);
+        ctx.fillRect(x - 0.048 * this.ppu, y0, 0.018 * this.ppu, y1 - y0);
         ctx.fillStyle = `rgba(255, 250, 240, ${(0.1 * this.seam).toFixed(3)})`;
-        ctx.fillRect(x + 0.006 * PPU, y0, Math.max(1, 0.008 * PPU), y1 - y0);
+        ctx.fillRect(x + 0.006 * this.ppu, y0, Math.max(1, 0.008 * this.ppu), y1 - y0);
       }
       ctx.restore();
     }
@@ -384,7 +527,7 @@ export class VoySilk {
         const a = ((225 - 27 * t) * Math.PI) / 180;
         const ca = Math.cos(a);
         const sa = Math.sin(a);
-        ctx.lineWidth = Math.max(1, (t % 5 === 0 ? 0.022 : 0.012) * PPU);
+        ctx.lineWidth = Math.max(1, (t % 5 === 0 ? 0.022 : 0.012) * this.ppu);
         ctx.beginPath();
         ctx.moveTo(this.px(p.x + ca * r0), this.py(p.z - sa * r0));
         ctx.lineTo(this.px(p.x + ca * (t % 5 === 0 ? r1 + 0.03 : r1)), this.py(p.z - sa * (t % 5 === 0 ? r1 + 0.03 : r1)));
@@ -393,7 +536,7 @@ export class VoySilk {
     }
     // Commutateurs : un repere par position
     ctx.strokeStyle = silkA(0.75);
-    ctx.lineWidth = Math.max(1, 0.016 * PPU);
+    ctx.lineWidth = Math.max(1, 0.016 * this.ppu);
     for (const k of VOY_FACE_KNOBS) {
       const steps = k.steps;
       if (!isSwitch(k.id) || !steps) continue;
@@ -410,7 +553,8 @@ export class VoySilk {
       });
     }
     // Plus d'arcs imprimes autour des potards (2026-10-04, Mika : "les contours des knobs, enleve ca") : seules les couronnes de WAVE 1 et WAVE 2 restent
-    this.selectors();
+    // (v42, le plugin : sur leurs encarts, plus bas)
+    if (!PATCHES) this.selectors();
     // Les rangees d'oscillateurs facon Mini V : echelles, numeros ; les LED des boutons poussoirs
     this.oscScales();
     this.badges();
@@ -421,14 +565,14 @@ export class VoySilk {
       items = panelTexts();
       if (img) {
         const ratio = img.naturalWidth / img.naturalHeight;
-        const w = Math.round(VOY_HEAD.word.w * PPU);
+        const w = Math.round(VOY_HEAD.word.w * this.ppu);
         const h = Math.max(1, Math.round(w / ratio));
         ctx.drawImage(this.tint(img, w, h), Math.round(this.px(VOY_HEAD.word.x)), Math.round(this.py(VOY_HEAD.z) - h / 2));
         items = items.filter((t) => t.group !== 'fallback');
       }
       const mark = logoImage('mark');
       if (mark) {
-        const h = Math.round(VOY_HEAD.mark.h * PPU);
+        const h = Math.round(VOY_HEAD.mark.h * this.ppu);
         const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
         const align = ('align' in VOY_HEAD.mark ? VOY_HEAD.mark.align : 'right') ?? 'right';
         const x0 = align === 'center'
@@ -443,16 +587,17 @@ export class VoySilk {
     const scales = this.scales(items);
     items.forEach((it, i) => {
       const cap = it.cap * scales[i];
-      const fontPx = (cap / SILK.capRatio) * PPU;
+      const fontPx = (cap / SILK.capRatio) * this.ppu;
       const weight = it.weight ?? SILK.weight;
       const w = trackedWidth(ctx, it.text, fontPx, weight);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
       ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(it.alpha ?? SILK.alpha);
-      drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * PPU) / 2, fontPx, weight);
+      drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * this.ppu) / 2, fontPx, weight);
     });
     this.draws += 1;
     this.texture.needsUpdate = true;
+    for (const p of this.patches) this.drawPatch(p);
   }
 
   /**
@@ -463,11 +608,11 @@ export class VoySilk {
   private brackets(): void {
     const ctx = this.ctx;
     const T = VOY_GROUP_TYPE;
-    const fontPx = (T.cap / SILK.capRatio) * PPU;
+    const fontPx = (T.cap / SILK.capRatio) * this.ppu;
     for (const g of VOY_GROUPS) {
       if (g.where !== this.kind) continue;
       const mid = (g.x0 + g.x1) / 2;
-      const half = trackedWidth(ctx, g.text, fontPx, T.weight) / PPU / 2 + T.pad;
+      const half = trackedWidth(ctx, g.text, fontPx, T.weight) / this.ppu / 2 + T.pad;
       const t = g.z - T.tick;
       for (const l of [
         [g.x0, t, g.x0, g.z, mid - half, g.z],
@@ -487,7 +632,7 @@ export class VoySilk {
    * morphing (2026-10-03) : entre deux formes, les deux s'allument, chacune
    * en proportion de sa part.
    */
-  private selectors(): void {
+  private selectors(only?: VoyKnobId): void {
     const ctx = this.ctx;
     const S = VOY_SEL;
     // Machine noire : jaune Typhon, le cran choisi plein. Machine claire (2026-10-03,
@@ -498,7 +643,7 @@ export class VoySilk {
     const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(${dark}, ${a})`);
     const dim = light ? S.dim.light : S.dim.dark;
     for (const k of VOY_FACE_KNOBS) {
-      if (!isSelector(k.id)) continue;
+      if (!isSelector(k.id) || (only && k.id !== only)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const waves = k.id === 'wave1' ? WAVES1 : WAVES2;
@@ -508,7 +653,7 @@ export class VoySilk {
       const half = step / 2 - S.gapDeg / 2;
       const cx = this.px(p.x);
       const cy = this.py(p.z);
-      const rArc = S.arcR * p.s * PPU;
+      const rArc = S.arcR * p.s * this.ppu;
       ctx.lineCap = 'butt';
       waves.forEach((w, i) => {
         const a = 225 - step * i;
@@ -520,13 +665,13 @@ export class VoySilk {
         ctx.globalAlpha = light && on ? alpha : 1;
         // Arc : angles du canvas (y vers le bas), le sens inverse de ceux du panneau
         ctx.strokeStyle = color(alpha, on);
-        ctx.lineWidth = Math.max(1, S.arcW * p.s * PPU);
+        ctx.lineWidth = Math.max(1, S.arcW * p.s * this.ppu);
         ctx.beginPath();
         ctx.arc(cx, cy, rArc, (-(a + half) * Math.PI) / 180, (-(a - half) * Math.PI) / 180);
         ctx.stroke();
         const gx = p.x + Math.cos((a * Math.PI) / 180) * S.glyphR * p.s;
         const gz = p.z - Math.sin((a * Math.PI) / 180) * S.glyphR * p.s;
-        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha, on));
+        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * this.ppu, S.glyph.h * p.s * this.ppu, Math.max(1, S.glyph.stroke * p.s * this.ppu), color(alpha, on));
         ctx.globalAlpha = 1;
       });
     }
@@ -535,10 +680,10 @@ export class VoySilk {
   /** Un texte centre sur (x, z), au corps cap (unites), a l'encre (alpha). */
   private mini(text: string, x: number, z: number, cap: number, alpha: number, weight = 600): void {
     const ctx = this.ctx;
-    const fontPx = (cap / SILK.capRatio) * PPU;
+    const fontPx = (cap / SILK.capRatio) * this.ppu;
     const w = trackedWidth(ctx, text, fontPx, weight);
     ctx.fillStyle = silkA(alpha);
-    drawTracked(ctx, text, this.px(x) - w / 2, this.py(z) + (cap * PPU) / 2, fontPx, weight);
+    drawTracked(ctx, text, this.px(x) - w / 2, this.py(z) + (cap * this.ppu) / 2, fontPx, weight);
   }
 
   /** Un trait de graduation, de r0 a r1 autour de (x, z), a l'angle a (deg). */
@@ -575,7 +720,7 @@ export class VoySilk {
         steps.forEach((label, i) => {
           const a = stepDeg(i, n, throwDeg);
           const zero = sc === 'semi' && i === 7;
-          ctx.lineWidth = Math.max(1, (zero ? 0.02 : 0.013) * PPU);
+          ctx.lineWidth = Math.max(1, (zero ? 0.02 : 0.013) * this.ppu);
           this.tick(p.x, p.z, a, r0, zero ? r1 + 0.03 : r1);
           // RANGE : chaque cran ; SEMI : les impairs (-7 -5 ... +7)
           if (sc === 'semi' && i % 2 === 1) return;
@@ -587,7 +732,7 @@ export class VoySilk {
         for (let t = 0; t <= 10; t += 1) {
           const a = 225 - 27 * t;
           const major = t % 5 === 0;
-          ctx.lineWidth = Math.max(1, (major ? 0.02 : 0.012) * PPU);
+          ctx.lineWidth = Math.max(1, (major ? 0.02 : 0.012) * this.ppu);
           this.tick(p.x, p.z, a, r0, major ? r1 + 0.03 : r1);
         }
         const rt = r1 + 0.1;
@@ -611,9 +756,9 @@ export class VoySilk {
     for (const b of VOY_OSC_BADGES) {
       const x0 = this.px(b.x - B.w / 2);
       const y0 = this.py(b.z - B.h / 2);
-      const w = B.w * PPU;
-      const h = B.h * PPU;
-      const r = B.r * PPU;
+      const w = B.w * this.ppu;
+      const h = B.h * this.ppu;
+      const r = B.r * this.ppu;
       ctx.fillStyle = silkA(0.85);
       ctx.beginPath();
       ctx.moveTo(x0 + r, y0);
@@ -628,9 +773,9 @@ export class VoySilk {
       ctx.fill();
       // Le chiffre en creux : la couleur du panneau passe au travers
       ctx.globalCompositeOperation = 'destination-out';
-      const fontPx = (B.cap / SILK.capRatio) * PPU;
+      const fontPx = (B.cap / SILK.capRatio) * this.ppu;
       const tw = trackedWidth(ctx, b.text, fontPx, 700, 0);
-      drawTracked(ctx, b.text, this.px(b.x) - tw / 2, this.py(b.z) + (B.cap * PPU) / 2, fontPx, 700, 0);
+      drawTracked(ctx, b.text, this.px(b.x) - tw / 2, this.py(b.z) + (B.cap * this.ppu) / 2, fontPx, 700, 0);
       ctx.globalCompositeOperation = 'source-over';
     }
   }
@@ -645,10 +790,19 @@ export class VoySilk {
       if (!isPush(k.id) || voyKnobPlace(k.id).where !== this.kind) continue;
       const cur = this.push[k.id] ?? 0;
       for (const led of voyPushLeds(k.id, k.steps ?? [])) {
-        this.led(led.x, led.z, led.step === cur);
+        // v42 (le plugin) : la LED sur son encart, son nom reste ici
+        if (!PATCHES) this.led(led.x, led.z, led.step === cur);
         this.mini(led.text, led.x, led.tz, 0.05 * K, 0.85);
       }
     }
+  }
+
+  /** Les LED d'un bouton poussoir seules (v42 : son encart). */
+  private pushLeds(id: VoyKnobId): void {
+    const k = VOY_FACE_KNOBS.find((x) => x.id === id);
+    if (!k) return;
+    const cur = this.push[id] ?? 0;
+    for (const led of voyPushLeds(id, k.steps ?? [])) this.led(led.x, led.z, led.step === cur);
   }
 
   /** Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte. */
@@ -656,7 +810,7 @@ export class VoySilk {
     const ctx = this.ctx;
     const x = this.px(lx);
     const y = this.py(lz);
-    const r = VOY_LED.r * PPU;
+    const r = VOY_LED.r * this.ppu;
     if (PLUGIN_ARP) {
       // 2026-11-16 : une vraie LED : la bague noire, la lentille bombee (son reflet), le halo allumee ; eteinte, un
       // rouge sombre qu'on voit
@@ -721,7 +875,9 @@ export class VoySilk {
     if (!isPush(id) || this.push[id] === step) return false;
     this.push = { ...this.push, [id]: step };
     if (voyKnobPlace(id).where !== this.kind) return false;
-    this.draw();
+    const patch = this.patches.find((p) => p.kind === 'led' && p.id === id);
+    if (patch) this.drawPatch(patch);
+    else this.draw();
     return true;
   }
 
@@ -757,7 +913,8 @@ export class VoySilk {
     if (wave1 === this.sel.wave1 && wave2 === this.sel.wave2) return false;
     this.sel = { wave1, wave2 };
     if (!VOY_FACE_KNOBS.some((k) => isSelector(k.id) && voyKnobPlace(k.id).where === this.kind)) return false;
-    this.draw();
+    if (PATCHES) for (const p of this.patches) if (p.kind === 'sel') this.drawPatch(p);
+    if (!PATCHES) this.draw();
     return true;
   }
 
@@ -790,6 +947,14 @@ export class VoySilk {
   }
 
   dispose(): void {
+    for (const p of this.patches) {
+      p.mesh.geometry.dispose();
+      (p.mesh.material as MeshStandardMaterial).dispose();
+      p.tex.dispose();
+      p.canvas.width = 0;
+      p.canvas.height = 0;
+    }
+    this.patches.length = 0;
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshStandardMaterial).dispose();
     this.texture.dispose();

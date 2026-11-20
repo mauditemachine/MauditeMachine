@@ -617,6 +617,20 @@ export class VoyagerRig {
     return this.keys.setHover(slot) || push;
   }
 
+  /**
+   * v42 (le plugin, Mika : "la meme nettete que le LEGEND HZ") : la serigraphie a la definition de l'ecran : dpu, les
+   * pixels d'ecran par unite au plan de la face fermee (renderer.ts) ; au moins un pixel de toile par pixel d'ecran,
+   * plafonne (6144 px de large, la taille de texture de la carte) ; true si elle a ete redessinee.
+   */
+  fitSilk(dpu: number, maxTex: number): boolean {
+    if (!PLUGIN_ARP || !(dpu > 0)) return false;
+    const cap = Math.min(maxTex, 6144) / VOY_LID_W;
+    const ppu = Math.min(cap, Math.ceil(dpu / 8) * 8);
+    const a = this.panelSilk.setResolution(ppu);
+    const b = this.deckSilk.setResolution(ppu);
+    return a || b;
+  }
+
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     this.deckSilk.draw();
@@ -643,6 +657,7 @@ export class VoyagerRig {
       screen: { ...this.lcd.info, size: [...this.lcd.info.size], ladder: [...this.lcd.info.ladder] },
       lastPad: this.lastPad,
       silkDraws: [this.deckSilk.draws, this.panelSilk.draws],
+      silkRes: { panel: this.panelSilk.resolution, deck: this.deckSilk.resolution },
       // Les LED des boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran allume, sur chaque plan
       pushLeds: { panel: { ...this.panelSilk.pushes }, deck: { ...this.deckSilk.pushes } },
       pcb: { prepared: this.pcb.info().prepared },

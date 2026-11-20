@@ -499,6 +499,9 @@ export class Stage {
   private height = 1;
   private hw = 1;
   private ppu = 1;
+  /** v42 (le plugin MM-ARP) : pixels de l'ecran (DPR compris) par unite, face fermee ; la serigraphie s'y regle */
+  private faceDpu = 0;
+  private silkTimer = 0;
   private layoutMobile: boolean;
   private raf = 0;
   private resizeRaf = 0;
@@ -1093,6 +1096,8 @@ export class Stage {
     renderer.setSize(this.width, this.height, false);
     this.stats.dpr = renderer.getPixelRatio();
     this.updateCamera();
+    // v42 (le plugin MM-ARP) : la serigraphie tout de suite a la definition de l'ecran
+    if (PLUGIN_ARP && this.voy) this.voy.fitSilk(this.faceDpu, renderer.capabilities.maxTextureSize);
     this.orbit.apply();
     renderer.clear();
 
@@ -1727,6 +1732,7 @@ export class Stage {
     const head = Math.min(this.height * 0.2, headPx);
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
+    if (PLUGIN_ARP) this.faceDpu = (W / (2 * hwBase)) * this.renderer.getPixelRatio();
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
@@ -2179,6 +2185,13 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     this.stats.dpr = dpr;
     this.updateCamera();
+    // v42 (le plugin MM-ARP) : la serigraphie suit la taille de la fenetre, une fois le geste fini
+    if (PLUGIN_ARP && this.voy) {
+      window.clearTimeout(this.silkTimer);
+      this.silkTimer = window.setTimeout(() => {
+        if (!this.disposed && this.voy?.fitSilk(this.faceDpu, this.renderer.capabilities.maxTextureSize)) this.repaint();
+      }, 400);
+    }
     this.dirty = true;
     this.render(performance.now());
     if (this.dirty) this.kick();
@@ -3762,6 +3775,7 @@ export class Stage {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    window.clearTimeout(this.silkTimer);
     // L'intro demontee avant sa fin (2026-10-18) : la machine qu'elle devait rejoindre passe a la scene suivante
     if (this.introOn && this.introLand) startMachine.defer(this.introLand);
     this.introLand = null;
