@@ -882,3 +882,23 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   (PARALLEL SMASH +0,3 LU, PUNISH BASS +0,1, PUNISH ME 0,0), cretes <= -6,2 dBFS.
 - Tests : decap_test (OFF et OLD au bit pres contre tests/decap_ref.cpp, +3 +/-1 LU, crete, NaN, clics, CLEAN LOW) ;
   host_test 233 reglages ; banque d'usine regeneree (seul ajout "xDPunish2": 0). tsc 105, voyager_compare 85/85.
+
+## 2026-11-20 (suite 4) : v46 (meme build), HELL v2 reel, page A (le vortex)
+
+- Mika : "Pareil pour Hell" (rien n'avait change), puis "pour Hell je veux le A".
+- DSP : plugin/mm-arp/dsp/Hell2.{h,cpp}. Chaine CHOP, ECHO (Hell.cpp tel quel), WARP, SHATTER, METAL, SPIN, puis niveau,
+  MIX et plafond doux -1 dBFS. MIX = descente (DESCENT : les cercles entrent l'un apres l'autre ; ALL : ensemble).
+  Cale sur la position de l'hote (ppq), horloge propre a l'arret ; tirages par case, repetes toutes les 8 mesures (l'export
+  rejoue pareil). Aucune allocation dans le thread audio, MIX glisse sur 20 ms, MIX 0 contourne au bit pres.
+- 20 parametres en fin de liste : xHellV2 (233, OFF/ON) puis Warp ... Descent (252) ; 253 reglages. Projet d'avant (sans
+  xHellV2) : ancien HELL au bit pres ; instance neuve : v2 ; preset disque d'avant avec HELL : ancien HELL.
+- Page HELL = option A (HellPage2.tsx, hell2.css) : MIX au centre, six anneaux, cercles I a III a gauche, IV a VI a
+  droite, presets ; levier V2. HellPage.tsx, hell2_proto.cpp et hell2-bank-gen.mjs supprimes.
+- Banque HELL : 16 presets (THE DESCENT, TAPE DEATH, BARBER SPIRAL, STUTTER GOD, GLASS RAIN, SEASICK, ACID BATH, BLACK
+  HOLE, CATHEDRAL OF RUST, HELICOPTER, MELTDOWN, VERTIGO, DEMON CHOIR, GLITCH PRIEST, LAST CALL, LSD).
+- Mesures (48 kHz, 120 BPM) : cretes <= -1,00 dBFS sur 16 presets x MIX 25/50/75/100, aucun NaN (l'ancienne banque a
+  MIX 50 : +5,1 dBFS, 23 sur 24 au-dessus de 0) ; sync mediane 0,33 (ancienne 0,22) ; difference entre presets
+  mediane 0,99 (ancienne 0,85) ; cout 4,7 % d'un coeur au pire.
+- Tests : hell2_test (MIX 0 au bit pres, descente, blocs 1/64/333 au bit pres, extremes, 44,1 et 96 kHz) branche au
+  CI ; host_test (ordre des parametres, ancien HELL intact). Rapport detaille : docs/reports/2026-11-20-hell-v2-reel.md.
+- Ecoute : 16 MP3 a MIX 75 % envoyes a Mika (hell-v2-ecoute.zip).
