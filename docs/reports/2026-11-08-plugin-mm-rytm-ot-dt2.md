@@ -624,6 +624,15 @@ Mika : « ajoute aussi 808 SUB BOOM en preset d'usine ».
 - **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, 122 BPM, le kick `bd/Bd 808 Sub Boom.wav` part au moteur ; DEEP HOUSE garde ses ids. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 44586746182, avec le lot 41), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 3e1215b.
 
+### Lot 43, Maj tenue = FUNC (2026-11-20)
+
+Mika : « je veux que quand j'appuie sur la touche Shift, que Function soit activee tout le long que je maintiens SHIFT ».
+
+- **Maj (Shift) tenue = FUNC tenue, dans le plugin** (`src/v4/hooks/useKeys.ts`, comme Alt depuis V.5.0) : FUNC s'allume, les touches montrent leur fonction (QUANTIZE, MACHINE, MIXER...), un clic sur une touche fait sa fonction, un pas la sienne (FUNC + TRIG : le mute rapide de sa piste) ; Maj lachee, FUNC s'eteint, rien n'est garde (une tape de Maj ne verrouille pas FUNC). Pas dans un champ (le nom d'un preset : Maj y fait les majuscules) ; la fenetre qui perd le clavier relache FUNC.
+- **Les raccourcis de Maj au clavier gardent leur sens** : une autre touche pendant Maj (Espace, Cmd, une lettre, un chiffre) retire d'abord la FUNC de Maj ; sinon Maj + Espace (STOP) serait devenu FUNC + STOP (PASTE), Maj + Cmd + Z (REDO) aussi.
+- **Les gestes de Maj a la souris aussi** : Maj + clic garde un pad de PERFORM (avant FUNC, inchange), Maj + clic en SOLO ajoute une piste (`actions/face.ts` stepSoloPick : FUNC tenue par Maj seule n'y compte pas, `state/func.ts` shiftOnly), Maj + un pas en MUTE (le mute tenu, avant FUNC), Maj sur un potard (le reglage fin). Le seul geste remplace : Maj + clic sur un pas hors de ces modes faisait un TRIG tenu de plus (le P-LOCK de plusieurs pas, de la face DT2 du site) ; c'est maintenant FUNC + le pas, comme demande (le P-LOCK passe par le clic droit depuis le 2026-11-09).
+- **Verifie** : Chromium (sans son) : Maj enfoncee : FUNC: + A KEY, FUNC allumee, les fonctions sur les touches ; un clic sur TRIG : QUANTIZE ; Maj lachee puis TRIG : la page TRIG ; Maj + Espace ne fait pas PASTE ; PERFORM : Maj + clic garde puis rend le pad ; SOLO : Maj + clic ajoute SD a BD. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -723,6 +732,7 @@ Mika : « ajoute aussi 808 SUB BOOM en preset d'usine ».
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 43 : Maj = FUNC a la souris seulement** : au clavier, Maj sert deja (STOP, REDO, les pas 9 a 16) ; la FUNC de Maj s'efface a la premiere autre touche, la souris profite de la tenue.
 - **Lot 41 : des LFO musicaux plutot que tout au hasard** : une destination, une profondeur et une vitesse choisies selon le role de la piste ; un LFO VOL a fond ou un PITCH de 5 octaves sur un charley casserait le beat. Le kick reste presque toujours stable (le beat se tient).
 - **Lot 40 : un menu en plus du P-LOCK, pas a sa place** : le clic droit pour le P-LOCK est dans les doigts de Mika depuis le 2026-11-09 ; le menu s'ajoute a cote. Les COND les plus jouees en un clic, toutes les autres au potard COND.
 - **Lot 40 : un choix a la fois** : chez Elektron les % sont dans la liste du potard COND ; ici COND et PROB sont deux verrous, le menu les traite comme une seule liste pour que ce qui est allume soit ce qu'on entend.
@@ -750,6 +760,7 @@ Mika : « ajoute aussi 808 SUB BOOM en preset d'usine ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 43)** : la commande mm-rytm ; tenir Shift et cliquer les touches (leurs fonctions jaunes) ; dire si Shift + clic sur un pas doit plutot faire autre chose que le mute rapide.
 - **Cote Mika (lot 42)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : 808 SUB BOOM 1, 2, 3.
 - **Cote Mika (lot 41)** : la commande mm-rytm ; RANDOM plusieurs fois puis la touche LFO sur des pistes differentes : dire si les LFO sont trop sages ou trop fous.
 - **Cote Mika (lot 40)** : la commande mm-rytm ; clic droit sur un pas : 1:2, 1:4, 50 %... ; dire s'il manque une condition dans le menu (FILL demande une touche FILL, absente du plugin).

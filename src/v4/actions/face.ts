@@ -1060,7 +1060,8 @@ export function faceKnobPress(k: number): boolean {
  * solo ou en sort, sinon elle seule passe en solo. true si pris.
  */
 export function stepSoloPick(i: number, stage: Stage | null, add: boolean): boolean {
-  if (!IN_PLUGIN || !DT2_FACE || !dtFace.solo() || func.engaged()) return false;
+  // FUNC tenue par Maj seule (2026-11-20) : Maj y reste l'ajout d'une piste au SOLO
+  if (!IN_PLUGIN || !DT2_FACE || !dtFace.solo() || (func.engaged() && !func.shiftOnly())) return false;
   trigSolo(i, stage, add);
   return true;
 }

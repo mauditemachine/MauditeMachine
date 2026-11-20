@@ -44,6 +44,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
+import { func } from '../state/func';
 import { MODE_HOLD_MS, editGridToggle, editToggle, escape, faceKeyDown, faceKeyTap, faceKeyUp, funcDown, funcUp, liveEraseAll, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, rytmShowPage, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stepToggle, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
 import type { Dt2ButtonId } from '../rytm/dtFaceIds';
 import { TRACK_KEYS } from '../audio/tracks';
@@ -139,6 +140,16 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       if (!on.current) return;
+      // Maj tenue = FUNC (le plugin, 2026-11-20, Mika : "quand j'appuie sur Shift, que Function soit activee tout le long
+      // que je maintiens Shift") : un clic sur une touche pendant la tenue fait sa fonction (jaune), un pas sa fonction ;
+      // relachee sans rien, rien n'est garde. Pas dans un champ (le nom d'un preset : Maj y fait les majuscules)
+      if (PLUGIN && dt && e.key === 'Shift') {
+        if (!e.repeat && !isEditable(e.target)) funcDown('shift', e.timeStamp || performance.now());
+        return;
+      }
+      // Une autre touche du clavier pendant Maj : Maj y garde son sens d'avant (Maj + Espace = STOP, Maj + Cmd + Z, Maj + un
+      // chiffre...), la FUNC de Maj s'en va d'abord (sinon Maj + Espace ferait FUNC + STOP, PASTE)
+      if (PLUGIN && func.get().holders.includes('shift')) funcUp('shift', -1);
       // Alt (Option) tenu = FUNC (V.5.0) : un clic sur une touche pendant la tenue fait sa fonction orange
       if (dt && e.key === 'Alt') {
         e.preventDefault();
@@ -447,6 +458,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
           liveEraseUp(TRACK_KEYS[ti + 8]);
         }
       }
+      // Maj lachee (le plugin, 2026-11-20) : FUNC lachee, sans garde
+      if (e.key === 'Shift') funcUp('shift', -1);
       // Alt lache (V.5.0) : FUNC lachee, sans garde (une tape d'Alt ne garde pas FUNC)
       if (e.key === 'Alt') {
         funcUp('key', -1);
@@ -479,6 +492,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       mKey.current = null;
       // Entree tenue quand la fenetre perd le clavier (V.5.1) : FILL finit, aucune tape ne part
       yesUp('key', null, false);
+      // Maj tenue quand la fenetre perd le clavier (le plugin, 2026-11-20) : son keyup ne viendra pas, FUNC lachee
+      funcUp('shift', -1);
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onUp);

@@ -86,6 +86,13 @@ export const func = {
     }
     if (state.mode === 'once') set(OFF);
   },
+  /**
+   * FUNC n'est tenue que par Maj (le plugin, 2026-11-20, hooks/useKeys.ts) : les gestes de Maj a la souris (SOLO de plusieurs
+   * pistes, garder un pad de PERFORM, le mute tenu) gardent leur sens.
+   */
+  shiftOnly(): boolean {
+    return state.mode === 'held' && state.holders.length > 0 && state.holders.every((h) => h === 'shift');
+  },
   /** Echap, NO, une autre machine, la couche demontee : relachee. */
   cancel(): void {
     swallow.clear();
