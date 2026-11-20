@@ -27,31 +27,31 @@ import {
   PlaneGeometry,
   Quaternion,
   ShaderMaterial,
-  SRGBColorSpace,
   Texture,
-  TextureLoader,
   Vector3,
   type Object3D,
 } from 'three';
 import SPEC from './vknob/vknobSpec.json';
 import k1Url from './vknob/k1.png';
-import k3Url from './vknob/k3.png';
-import k3CapUrl from './vknob/k3-cap.png';
-import selUrl from './vknob/sel.png';
-import selCapUrl from './vknob/sel-cap.png';
+import k1Mip from './vknob/k1-mip.png';
+import k3Mip from './vknob/k3-mip.png';
+import k3CapMip from './vknob/k3-cap-mip.png';
+import selMip from './vknob/sel-mip.png';
+import selCapMip from './vknob/sel-cap-mip.png';
 import tinyUrl from './vknob/tiny.png';
 import tinyShadowUrl from './vknob/tiny-shadow.png';
 
 export type VKnobKind = 'k1' | 'k3' | 'sel';
-type SpecOf = { w: number; h: number; cx: number; cy: number; R: number; ax: number; ay: number; ref: number; cap: boolean; capR?: number };
+type SpecOf = { w: number; h: number; cx: number; cy: number; R: number; ax: number; ay: number; ref: number; cap: boolean; capR?: number; mips?: number[][] };
 /** Les mesures des PNG (vknob-cut.py) : leur taille, le disque, l'axe de rotation, l'angle du repere d'origine. */
 export const VKNOB_SPEC = SPEC as unknown as Record<VKnobKind | 'tiny', SpecOf>;
 /** Les PNG (les pages d'OPEN les posent en CSS : pcbui.tsx). */
 export const VKNOB_URL = { k1: k1Url, tiny: tinyUrl, tinyShadow: tinyShadowUrl } as const;
+/** Les planches des reductions (vknob-cut.py : le niveau 0 puis chaque moitie, Lanczos sur l'alpha premultiplie). */
 const URL_OF: Record<VKnobKind, { rot: string; cap: string | null }> = {
-  k1: { rot: k1Url, cap: null },
-  k3: { rot: k3Url, cap: k3CapUrl },
-  sel: { rot: selUrl, cap: selCapUrl },
+  k1: { rot: k1Mip, cap: null },
+  k3: { rot: k3Mip, cap: k3CapMip },
+  sel: { rot: selMip, cap: selCapMip },
 };
 
 /** L'ombre portee : sa taille (rayons du disque), son decalage vers le bas a droite, sa force. */
@@ -59,7 +59,6 @@ const SHADOW = { size: 1.24, dx: 0.04, dz: 0.09, a: 0.6 } as const;
 
 /* ---------------- textures et materiaux ---------------- */
 
-const loader = new TextureLoader();
 const texCache = new Map<string, Texture>();
 let pending = 0;
 const waiters = new Set<() => void>();
@@ -71,24 +70,41 @@ export function onVKnobLoad(fn: () => void): () => void {
 /** true quand tous les PNG demandes sont la. */
 export const vknobLoaded = (): boolean => pending === 0;
 
-function pngTexture(url: string): Texture {
+/**
+ * La texture d'un calque : ses reductions precalculees (la planche, coupee en niveaux), envoyees telles quelles (pas de
+ * reduction par la carte graphique), premultipliees a l'envoi (le filtrage ne fonce pas le bord), filtrage trilineaire.
+ */
+function pngTexture(url: string, sizes: number[][]): Texture {
   const have = texCache.get(url);
   if (have) return have;
   pending += 1;
-  const t = loader.load(url, () => {
-    pending -= 1;
+  const t = new Texture();
+  const img = new Image();
+  img.onload = () => {
+    let x = 0;
+    const levels = sizes.map(([w, h]) => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      c.getContext('2d')?.drawImage(img, x, 0, w, h, 0, 0, w, h);
+      x += w;
+      return c;
+    });
+    t.image = levels[0];
+    t.mipmaps = levels;
     t.needsUpdate = true;
+    pending -= 1;
     for (const w of waiters) w();
-  });
-  // les pixels du PNG tels quels, premultiplies a l'envoi (le filtrage ne fonce pas le bord), reduits par mipmaps
+  };
+  img.src = url;
   t.premultiplyAlpha = true;
   t.colorSpace = NoColorSpace;
-  t.generateMipmaps = true;
+  t.generateMipmaps = false;
   t.minFilter = LinearMipmapLinearFilter;
   t.magFilter = LinearFilter;
   t.wrapS = ClampToEdgeWrapping;
   t.wrapT = ClampToEdgeWrapping;
-  t.anisotropy = 8;
+  t.anisotropy = 4;
   t.name = url;
   texCache.set(url, t);
   return t;
@@ -112,7 +128,7 @@ function shadowTexture(): CanvasTexture {
   g.fillStyle = grd;
   g.fillRect(0, 0, S, S);
   const t = new CanvasTexture(c);
-  t.colorSpace = SRGBColorSpace;
+  t.colorSpace = NoColorSpace;
   t.premultiplyAlpha = true;
   shadowTex = t;
   return t;
@@ -128,7 +144,8 @@ const FRAG = /* glsl */ `
 uniform sampler2D map;
 varying vec2 vUv;
 void main() {
-  vec4 c = texture2D(map, vUv);
+  // un rien plus net que le filtrage trilineaire seul (les reductions sont deja filtrees : pas de crenelage)
+  vec4 c = texture2D(map, vUv, -0.3);
   if (c.a < 0.002) discard;
   gl_FragColor = c;
 }`;
@@ -213,8 +230,9 @@ export class VKnobSet {
       shadowQuad.rotateX(-Math.PI / 2);
     }
     this.shadow = new InstancedMesh(shadowQuad, layerMaterial(shadowTexture(), 0), count);
-    this.rot = new InstancedMesh(quadOf(kind), layerMaterial(pngTexture(urls.rot), 1), count);
-    this.cap = urls.cap ? new InstancedMesh(quadOf(kind), layerMaterial(pngTexture(urls.cap), 2), count) : null;
+    const mips = VKNOB_SPEC[kind].mips ?? [[VKNOB_SPEC[kind].w, VKNOB_SPEC[kind].h]];
+    this.rot = new InstancedMesh(quadOf(kind), layerMaterial(pngTexture(urls.rot, mips), 1), count);
+    this.cap = urls.cap ? new InstancedMesh(quadOf(kind), layerMaterial(pngTexture(urls.cap, mips), 2), count) : null;
     const layers = [this.shadow, this.rot, this.cap];
     layers.forEach((m, i) => {
       if (!m) return;

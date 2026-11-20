@@ -172,6 +172,7 @@ export class VoyagerRig {
 
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
+    if (this.keys.btnHalos) this.lid.add(this.keys.btnHalos);
     // v43 (le plugin) : une touche allumee : sa LED et son nom (en accent) suivent, sur la serigraphie du plateau
     if (PLUGIN_ARP)
       this.keys.onLit = (id, on) => {

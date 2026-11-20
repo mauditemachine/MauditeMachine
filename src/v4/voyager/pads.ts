@@ -40,9 +40,10 @@ import {
   MeshStandardMaterial,
   PlaneGeometry,
   Quaternion,
+  SRGBColorSpace,
   Vector3,
+  CanvasTexture,
   type BufferGeometry,
-  type CanvasTexture,
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -175,20 +176,18 @@ function padGeometry(mobile: boolean): BufferGeometry {
  * son dessus prend l'accent (emissive par instance, ACCENT COLOR de SETTINGS).
  */
 function pillGeometry(w: number, h: number, d: number, mobile: boolean): BufferGeometry {
-  const r = Math.min(w, d) * 0.45;
+  // v43 (Mika, 73.webp : la rangee STYLE des pages d'OPEN) : une vraie pilule, ses bouts en demi-cercles
+  const r = Math.min(w, d) * 0.5;
   const bev = Math.min(h * 0.35, r * 0.25);
   const s = new Shape();
-  const x0 = -w / 2 + bev, x1 = w / 2 - bev, z0 = -d / 2 + bev, z1 = d / 2 - bev;
   const rr = Math.max(0.001, r - bev);
-  s.moveTo(x0 + rr, z0);
-  s.lineTo(x1 - rr, z0);
-  s.quadraticCurveTo(x1, z0, x1, z0 + rr);
-  s.lineTo(x1, z1 - rr);
-  s.quadraticCurveTo(x1, z1, x1 - rr, z1);
-  s.lineTo(x0 + rr, z1);
-  s.quadraticCurveTo(x0, z1, x0, z1 - rr);
-  s.lineTo(x0, z0 + rr);
-  s.quadraticCurveTo(x0, z0, x0 + rr, z0);
+  const xl = -w / 2 + r;
+  const xr = w / 2 - r;
+  s.moveTo(xl, -rr);
+  s.lineTo(xr, -rr);
+  s.absarc(xr, 0, rr, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(xl, rr);
+  s.absarc(xl, 0, rr, Math.PI / 2, (3 * Math.PI) / 2, false);
   const g0 = new ExtrudeGeometry(s, { depth: Math.max(0.001, h - 2 * bev), bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: mobile ? 2 : 4, curveSegments: mobile ? 8 : 16 });
   // l'extrusion suit z : on la couche (le dessus vers +y), posee sur y = 0
   g0.rotateX(-Math.PI / 2);
@@ -233,12 +232,41 @@ function pushGeometry(mobile: boolean): BufferGeometry {
 
 /** Touche unite (1 x h x 1), mise a l'echelle par instance. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
-  if (PLUGIN_ARP) return keyGeometry(1, VOY_BUTTON.h, 1, VOY_BUTTON.radius, mobile);
+  // v43 (le plugin) : a sa vraie taille (toutes les touches du plateau ont la meme) : les bouts restent des demi-cercles
+  if (PLUGIN_ARP) return keyGeometry(VOY_BUTTONS[0].w, VOY_BUTTON.h, VOY_BUTTONS[0].d, VOY_BUTTON.radius, mobile);
   const g = new RoundedBoxGeometry(1, VOY_BUTTON.h, 1, mobile ? 2 : 3, VOY_BUTTON.radius);
   g.translate(0, VOY_BUTTON.h / 2, 0);
   g.deleteAttribute('uv');
   paintRubber(g);
   return g;
+}
+
+/** v43 (le plugin, 73.webp) : la lumiere d'une pilule allumee (part de celle d'un pad), son halo (marge, force). */
+const HALO_PILL = { fill: 0.42, margin: 0.16, gain: 0.85 } as const;
+
+/** v43 : le halo d'une pilule (w x d) : sa forme floutee, dans une marge m ; blanc (la couleur vient de l'instance). */
+function pillHaloTexture(w: number, d: number, m: number): CanvasTexture {
+  const W = 256;
+  const H = Math.round((W * (d + 2 * m)) / (w + 2 * m));
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  const k = W / (w + 2 * m);
+  const r = (d / 2) * k;
+  const x0 = m * k + r;
+  const x1 = W - m * k - r;
+  g.filter = `blur(${(m * k * 0.42).toFixed(1)}px)`;
+  g.fillStyle = '#fff';
+  g.beginPath();
+  g.arc(x0, H / 2, r, Math.PI / 2, (3 * Math.PI) / 2);
+  g.lineTo(x1, H / 2 - r);
+  g.arc(x1, H / 2, r, -Math.PI / 2, Math.PI / 2);
+  g.closePath();
+  g.fill();
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
 }
 
 export interface VoyKeysOpts {
@@ -252,6 +280,8 @@ export class VoyKeys {
   readonly pads: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly halos: InstancedMesh;
+  /** v43 (le plugin) : le halo des touches du plateau, a la forme de la pilule (73.webp) ; null au site */
+  readonly btnHalos: InstancedMesh | null = null;
   /** les boutons poussoirs, un InstancedMesh par plan : rig.ts pose chacun dans le repere de son plan */
   readonly pushes: Record<VoyWhere, InstancedMesh>;
   private pushEm: Record<VoyWhere, InstancedBufferAttribute>;
@@ -311,12 +341,14 @@ export class VoyKeys {
     this.buttons.castShadow = !opts.mobile;
     this.buttons.receiveShadow = true;
     this.buttons.instanceMatrix.setUsage(DynamicDrawUsage);
-    for (let i = 0; i < BTNS; i += 1) this.buttons.setColorAt(i, col.setRGB(1, 1, 1));
-    this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
+    // v43 (le plugin, 73.webp) : la pilule d'un noir un peu plus clair que le cuir (27 / 255 a l'ecran, mesure)
+    const KEY_K = PLUGIN_ARP ? 2.3 : 1;
+    for (let i = 0; i < BTNS; i += 1) this.buttons.setColorAt(i, col.setRGB(KEY_K, KEY_K, KEY_K));
+    if (!PLUGIN_ARP) this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
     // RUN/STOP : l'albedo de la touche RUN de la 808, divise par celui du caoutchouc
     const rubber = albedo('pad', new Color(), gainOf('pad'));
     // v43 (le plugin, Mika : "RUN/STOP n'est plus rouge") : une touche noire comme les autres, en accent quand l'arpege joue
-    if (PLUGIN_ARP) this.buttons.setColorAt(RUN_I, col.setRGB(1, 1, 1));
+    if (PLUGIN_ARP) this.buttons.setColorAt(RUN_I, col.setRGB(KEY_K, KEY_K, KEY_K));
     else this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
     // Les boutons poussoirs : la matiere des touches (le caoutchouc, sa lumiere par instance), eteints ; un jeu par plan
@@ -340,7 +372,7 @@ export class VoyKeys {
     this.pushEm = { panel: pe, deck: de };
     for (let i = 0; i < PUSHES; i += 1) {
       const s = PUSH_SLOT[i];
-      this.pushes[s.where].setColorAt(s.j, col.setRGB(1, 1, 1));
+      this.pushes[s.where].setColorAt(s.j, col.setRGB(KEY_K, KEY_K, KEY_K));
       this.placePush(i);
     }
     // Son temoin : eteint, une fente (line) ; allume, jaune
@@ -369,6 +401,26 @@ export class VoyKeys {
       this.halos.setMatrixAt(PADS + i, m4.compose(v3.set(b.x, 0.003, b.z), q0, s3.set(b.w * 1.25, 1, b.d * 1.4)));
       this.placeButton(i);
     });
+    if (PLUGIN_ARP) {
+      // v43 : le halo d'une touche allumee epouse sa pilule (un flou de sa forme), les halos carres des pads n'y vont plus
+      const b0 = VOY_BUTTONS[0];
+      const m = HALO_PILL.margin;
+      const tex = pillHaloTexture(b0.w, b0.d, m);
+      const mat = new MeshBasicMaterial({ map: tex, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
+      mat.name = 'voyBtnHalo';
+      const g = new PlaneGeometry(b0.w + 2 * m, b0.d + 2 * m);
+      g.rotateX(-Math.PI / 2);
+      const bh = new InstancedMesh(g, mat, BTNS);
+      bh.name = 'voyBtnHalos';
+      VOY_BUTTONS.forEach((b, i) => {
+        bh.setMatrixAt(i, m4.compose(v3.set(b.x, 0.003, b.z), q0, s3.set(1, 1, 1)));
+        bh.setColorAt(i, col.setRGB(0, 0, 0));
+        this.halos.setMatrixAt(PADS + i, m4.makeScale(0, 0, 0));
+      });
+      bh.instanceMatrix.needsUpdate = true;
+      bh.instanceColor?.setUsage(DynamicDrawUsage);
+      this.btnHalos = bh;
+    }
     this.halos.instanceMatrix.needsUpdate = true;
     this.halos.instanceColor?.setUsage(DynamicDrawUsage);
     for (let i = 0; i < PADS; i += 1) this.setPadGlow(i, this.padRest(i));
@@ -383,7 +435,7 @@ export class VoyKeys {
 
   private placeButton(i: number): void {
     const b = VOY_BUTTONS[i];
-    this.buttons.setMatrixAt(i, m4.compose(v3.set(b.x, this.btnY[i], b.z), q0, s3.set(b.w, 1, b.d)));
+    this.buttons.setMatrixAt(i, m4.compose(v3.set(b.x, this.btnY[i], b.z), q0, PLUGIN_ARP ? s3.set(1, 1, 1) : s3.set(b.w, 1, b.d)));
     this.buttons.instanceMatrix.needsUpdate = true;
     // Le temoin suit sa touche quand elle s'enfonce
     if (i === RUN_I && this.runLed) this.runLed.position.set(b.x, this.btnY[i] + VOY_BUTTON.h + BTN_LED.y, b.z - b.d / 2 + BTN_LED.back);
@@ -403,9 +455,10 @@ export class VoyKeys {
     const em = this.pushEm[where];
     const a = em.array as Float32Array;
     const c = RGB[g];
-    a[j * 3] = c[0];
-    a[j * 3 + 1] = c[1];
-    a[j * 3 + 2] = c[2];
+    const lk = PLUGIN_ARP && g !== 'hover' ? HALO_PILL.fill : 1;
+    a[j * 3] = c[0] * lk;
+    a[j * 3 + 1] = c[1] * lk;
+    a[j * 3 + 2] = c[2] * lk;
     em.needsUpdate = true;
   }
 
@@ -448,6 +501,12 @@ export class VoyKeys {
   private haloColor(i: number, g: Glow, k = 1): void {
     // le plugin (v31) : tous les halos a la couleur d'accent (ORANGE, reglable : refreshAccent)
     const tint = PLUGIN_ARP ? ORANGE : g === 'active' ? YELLOW_HI : g === 'queued' || g === 'orange' || g === 'orangeDim' ? ORANGE : YELLOW;
+    if (this.btnHalos && i >= PADS) {
+      // v43 : le halo de la pilule, un peu plus doux que celui d'un pad
+      this.btnHalos.setColorAt(i - PADS, col.copy(tint).multiplyScalar(HALO[g] * k * HALO_PILL.gain));
+      if (this.btnHalos.instanceColor) this.btnHalos.instanceColor.needsUpdate = true;
+      return;
+    }
     this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO[g] * k));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
   }
@@ -472,6 +531,8 @@ export class VoyKeys {
 
   private setBtnGlow(i: number, g: Glow): void {
     this.btnGlow[i] = g;
+    // v43 (le plugin, 73.webp) : la pilule allumee d'un accent plein, pas blanchi (sa lumiere moins forte qu'un pad)
+    const lk = PLUGIN_ARP && g !== 'hover' ? HALO_PILL.fill : 1;
     const on = g === 'orange' || g === 'active' || g === 'flash' ? 1 : 0;
     if (on !== this.litNow[i]) {
       this.litNow[i] = on;
@@ -480,9 +541,9 @@ export class VoyKeys {
     const k = i === OPEN_I && g === 'orange' ? this.breath : 1;
     const a = this.btnEm.array as Float32Array;
     const c = RGB[g];
-    a[i * 3] = c[0] * k;
-    a[i * 3 + 1] = c[1] * k;
-    a[i * 3 + 2] = c[2] * k;
+    a[i * 3] = c[0] * k * lk;
+    a[i * 3 + 1] = c[1] * k * lk;
+    a[i * 3 + 2] = c[2] * k * lk;
     this.btnEm.needsUpdate = true;
     this.haloColor(PADS + i, g, k);
   }
@@ -675,7 +736,8 @@ export class VoyKeys {
     this.breath = k;
     this.setBtnGlow(OPEN_I, 'orange');
     const f = B.tintMin + (1 - B.tintMin) * phase;
-    this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0] * f, OPEN_TINT[1] * f, OPEN_TINT[2] * f));
+    // v43 (le plugin) : la pilule d'OPEN reste noire, seule sa lumiere respire
+    if (!PLUGIN_ARP) this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0] * f, OPEN_TINT[1] * f, OPEN_TINT[2] * f));
     if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
     return true;
   }
@@ -684,7 +746,7 @@ export class VoyKeys {
     if (this.breath === 1) return false;
     this.breath = 1;
     this.setBtnGlow(OPEN_I, this.btnGlow[OPEN_I]);
-    this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
+    if (!PLUGIN_ARP) this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
     if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
     return true;
   }
@@ -774,5 +836,12 @@ export class VoyKeys {
     this.btnMat.dispose();
     this.haloMat.dispose();
     this.haloTex.dispose();
+    if (this.btnHalos) {
+      this.btnHalos.geometry.dispose();
+      const bm = this.btnHalos.material as MeshBasicMaterial;
+      bm.map?.dispose();
+      bm.dispose();
+      this.btnHalos.dispose();
+    }
   }
 }
