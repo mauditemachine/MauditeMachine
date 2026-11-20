@@ -632,6 +632,7 @@ Mika : « je veux que quand j'appuie sur la touche Shift, que Function soit acti
 - **Les raccourcis de Maj au clavier gardent leur sens** : une autre touche pendant Maj (Espace, Cmd, une lettre, un chiffre) retire d'abord la FUNC de Maj ; sinon Maj + Espace (STOP) serait devenu FUNC + STOP (PASTE), Maj + Cmd + Z (REDO) aussi.
 - **Les gestes de Maj a la souris aussi** : Maj + clic garde un pad de PERFORM (avant FUNC, inchange), Maj + clic en SOLO ajoute une piste (`actions/face.ts` stepSoloPick : FUNC tenue par Maj seule n'y compte pas, `state/func.ts` shiftOnly), Maj + un pas en MUTE (le mute tenu, avant FUNC), Maj sur un potard (le reglage fin). Le seul geste remplace : Maj + clic sur un pas hors de ces modes faisait un TRIG tenu de plus (le P-LOCK de plusieurs pas, de la face DT2 du site) ; c'est maintenant FUNC + le pas, comme demande (le P-LOCK passe par le clic droit depuis le 2026-11-09).
 - **Verifie** : Chromium (sans son) : Maj enfoncee : FUNC: + A KEY, FUNC allumee, les fonctions sur les touches ; un clic sur TRIG : QUANTIZE ; Maj lachee puis TRIG : la page TRIG ; Maj + Espace ne fait pas PASTE ; PERFORM : Maj + clic garde puis rend le pad ; SOLO : Maj + clic ajoute SD a BD. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 44654599545), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f286d0f, branche claude/intelligent-ride-56tyeo, 2026-11-20 01:43 UTC.
 
 ## 2. Decisions prises et pourquoi
 
