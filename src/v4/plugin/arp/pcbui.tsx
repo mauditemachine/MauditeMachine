@@ -32,6 +32,7 @@ import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { distoInert } from './disto';
 import { delayInert } from './delay';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
+import { skyPostInert } from './skyPost';
 import { VKNOB_SPEC, VKNOB_URL } from './vknob';
 
 /* ---------------- la source d'un reglage ---------------- */
@@ -143,6 +144,8 @@ export const inert = (id: string): boolean => {
   if (distoInert(id)) return true;
   // la page DELAY (v27, delay.ts) : OFFSET sans deux cotes, le motif hors RHYTHM, les ms en SYNC...
   if (delayInert(id)) return true;
+  // v46 : la sortie de la reverbe (skyPost.ts) : MID sans gain, la pente d'une coupure eteinte, FREEZE sur CLASSIC et SPRING
+  if (skyPostInert(id, SRC.of, skyTypeIndex(arpExtra.of('xSkyType')))) return true;
   // CRUSH TONE et MIX sans CRUSH ni DOWNSAMPLE
   if ((id === 'xCrTone' || id === 'xCrMix') && SRC.of('xCrushBits') <= 0 && SRC.of('xCrushRate') <= 0) return true;
   const m = MASTER_OF[id];

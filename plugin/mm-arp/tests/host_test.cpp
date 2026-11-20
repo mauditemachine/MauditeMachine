@@ -722,7 +722,10 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::kExtra == 232, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::kExtra >= 232, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        // v46 : les dix reglages de la sortie de la reverbe, apres ARP RUN, dans l'ordre
+        check(mmx::ex_xSkyLoCut >= 232 && mmx::ex_xSkyFreeze == mmx::ex_xSkyLoCut + 9 && mmx::ex_xSkyWidth == mmx::ex_xSkyLoCut + 7,
+              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste (les 232 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme

@@ -35,6 +35,7 @@ private:
     int lastSeq_ = -1;
     bool lastPlaying_ = false;
     bool lastInternal_ = false;
+    bool lastRolling_ = false; // v46 : le transport roule (mm_transport ppq)
     int quietTicks_ = 0;
     // mm_mod : le dernier evenement envoye avait des reglages modules
     bool modSent_ = false;

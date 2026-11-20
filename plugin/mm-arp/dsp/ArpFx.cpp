@@ -150,6 +150,16 @@ double ArpFxLaws::distToneHz(double v) { return 700 * std::pow(18000.0 / 700, cl
 double ArpFxLaws::distPresenceDb(double v) { return 12 * std::max(0.0, clampd(v, 0, 1) - 0.5); }
 double ArpFxLaws::eqDb(double v) { return 24 * (clampd(v, 0, 1) - 0.5); }
 double ArpFxLaws::eqAirDb(double v) { return 20 * (clampd(v, 0, 1) - 0.5); }
+// v46 : la sortie de la reverbe
+double ArpFxLaws::rvLoHz(double v) { return 20 * std::pow(100.0, clampd(v, 0, 1)); }
+double ArpFxLaws::rvMidHz(double v) { return 200 * std::pow(40.0, clampd(v, 0, 1)); }
+double ArpFxLaws::rvMidDb(double v) { return 24 * (clampd(v, 0, 1) - 0.5); }
+double ArpFxLaws::rvMidQ(double v) { return 0.4 * std::pow(10.0, clampd(v, 0, 1)); }
+double ArpFxLaws::rvHiHz(double v) { return 1000 * std::pow(20.0, clampd(v, 0, 1)); }
+double ArpFxLaws::rvWidth(double v) {
+    const double x = clampd(v, 0, 1);
+    return x <= 0.5 ? 2 * x : 0.5 + x;
+}
 
 namespace detail {
 
@@ -2343,6 +2353,9 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     loopTR_.prepare(sr_, 0x27D4EB2Fu);
     loopR_.prepare(sr_, 0x165667B1u);
     duck_.prepare(sr_);
+    rvEq_.prepare(sr_);
+    rvDuck_.prepare(sr_);
+    rvW_ = rvWT_;
     tape_.voicing(1, 1);
     lpHz_ = lpHzT_ = PP_LOWPASS;
     hpHz_ = hpHzT_ = PP_HIGHPASS;
@@ -2568,6 +2581,7 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     pre_.set(s, now);
     pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now, s.puAttack, s.puCurve);
     shim_.set(s.shimmer, now);
+    rvPostSet(s, first || now);
     eq_.set(s.eqLow, s.eqMid, s.eqHigh, s.eqAir, now);
     const int dm = dModeOf(s);
     if (now) {
@@ -2707,6 +2721,61 @@ void ArpFx::retimeDelay(double seconds) {
     }
 }
 
+// v46 : la sortie de la reverbe (voir ArpFx.h, 5.)
+void ArpFx::rvPostSet(const ArpFxSettings& s, bool now) {
+    const auto c01 = [](double v, double d) { return std::isfinite(v) ? clampd(v, 0, 1) : d; };
+    EqBandSettings b[ParamEq::kBands];
+    const double lo = c01(s.rvLoCut, 0), hi = c01(s.rvHiCut, 1), mdb = ArpFxLaws::rvMidDb(c01(s.rvMidDb, 0.5));
+    b[0].on = lo > 0;
+    b[0].type = ParamEq::T_HP;
+    b[0].hz = ArpFxLaws::rvLoHz(lo);
+    b[0].q = 0.7071067811865476;
+    b[0].slope = s.rvLoSlope >= 1 ? 1 : 0;
+    b[1].on = mdb != 0;
+    b[1].type = ParamEq::T_BELL;
+    b[1].hz = ArpFxLaws::rvMidHz(c01(s.rvMidHz, 0.5));
+    b[1].db = mdb;
+    b[1].q = ArpFxLaws::rvMidQ(c01(s.rvMidQ, 0.3));
+    b[2].on = hi < 1;
+    b[2].type = ParamEq::T_LP;
+    b[2].hz = ArpFxLaws::rvHiHz(hi);
+    b[2].q = 0.7071067811865476;
+    b[2].slope = s.rvHiSlope >= 1 ? 1 : 0;
+    rvEq_.set(b, 0, now);
+    rvWT_ = ArpFxLaws::rvWidth(c01(s.rvWidth, 0.5));
+    if (now) rvW_ = rvWT_;
+    rvDuck_.set(c01(s.rvDuck, 0), 0.25);
+    // FREEZE : la BigSky seule (CLASSIC n'a pas de reseau a tenir)
+    sky_.setFreeze(s.rvFreeze && s.skyType > 0 && s.skyType <= kSkyMachines, now);
+}
+
+void ArpFx::rvPost(const float* dL, const float* dR, float* roL, float* roR, int n) {
+    rvEq_.process(roL, roR, n); // contournee au neutre (au bit pres)
+    const bool duck = rvDuck_.on();
+    if (rvW_ == 1 && rvWT_ == 1 && !duck) return;
+    const double k = 1 - std::exp(-1 / (0.02 * sr_));
+    for (int i = 0; i < n; ++i) {
+        float l = roL[i], r = roR[i];
+        if (rvW_ != rvWT_) {
+            rvW_ += k * (rvWT_ - rvW_);
+            if (std::fabs(rvW_ - rvWT_) < 1e-6) rvW_ = rvWT_;
+        }
+        if (rvW_ != 1) {
+            const float w = static_cast<float>(rvW_);
+            const float m = 0.5f * (l + r), sd = 0.5f * (l - r) * w;
+            l = m + sd;
+            r = m - sd;
+        }
+        if (duck) {
+            const float g = rvDuck_.gain(std::max(std::fabs(dL[i]), std::fabs(dR[i])));
+            l *= g;
+            r *= g;
+        }
+        roL[i] = l;
+        roR[i] = r;
+    }
+}
+
 void ArpFx::delayClear() {
     std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
     std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
@@ -2732,6 +2801,9 @@ void ArpFx::reset() {
     rhythm_.reset();
     for (EchoLoop* l : {&loopDL_, &loopDR_, &loopTL_, &loopTR_, &loopR_}) l->reset();
     duck_.reset();
+    rvEq_.reset();
+    rvDuck_.reset();
+    rvW_ = rvWT_;
     mW_ = 0;
     mF_ = 0.25;
     std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
@@ -3063,6 +3135,8 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         }
     }
     if (shOn) shim_.process(roL, roR, q0, n);
+    // v46 : la sortie de la reverbe (l'EQ, WIDTH, DUCK) ; rien a son neutre
+    rvPost(dL, dR, roL, roR, n);
     clock_.reverb += nowS() - tR;
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
     if (!xPost_)

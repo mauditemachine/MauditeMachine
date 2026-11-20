@@ -328,7 +328,17 @@
     "xEngine": 1,
     "xMidiIn": 0,
     "xArpHold": 0,
-    "xArpRun": 1
+    "xArpRun": 1,
+    "xSkyLoCut": 0,
+    "xSkyLoSlope": 0,
+    "xSkyMidHz": 0.5,
+    "xSkyMidDb": 0.5,
+    "xSkyMidQ": 0.3,
+    "xSkyHiCut": 1,
+    "xSkyHiSlope": 0,
+    "xSkyWidth": 0.5,
+    "xSkyDuck": 0,
+    "xSkyFreeze": 0
   },
   "steps": {
     "acc": [

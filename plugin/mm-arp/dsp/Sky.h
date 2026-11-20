@@ -19,6 +19,9 @@
 //   par canal pour une impulsion de 1 a chaque reglage de depart (SKY_GAIN), comme la reponse de la reverbe d'avant.
 // - Au repos (une seconde de silence en entree et en sortie), plus rien n'est calcule ; au reveil tout repart d'un etat
 //   vide : le rendu ne depend pas de la taille des blocs.
+// - setFreeze (v46, la page REVERB) : FREEZE tient la queue sans fin : en 50 ms, l'entree (et tout ce qui entre dans le
+//   reseau) descend a zero et les gains des lignes montent a 1 (l'amortissement leve) ; le reseau (Householder, passe-
+//   tout) ne perd plus rien. SPRING n'a pas de reseau : FREEZE n'y fait rien. Coupe : la suite exacte d'avant.
 #pragma once
 
 #include <array>
@@ -74,6 +77,10 @@ public:
     void setEngine(const SkyEngine& p, bool now = false);
     void process(const float* inL, const float* inR, float* outL, float* outR, int n);
     bool idle() const { return idle_; }
+    /** v46 FREEZE : la queue tenue (fondu de 50 ms ; now : pose d'emblee). Thread audio, sans allocation. */
+    void setFreeze(bool on, bool now = false);
+    /** La part de FREEZE engagee (0 : coupe, 1 : tenue). */
+    double freezeAmount() const { return frz_; }
 
     // ---- les pieces (publiques pour Sky.cpp ; rien a regler de dehors) ----
     struct Line {
@@ -183,6 +190,9 @@ private:
     bool idle_ = false;
     long count_ = 0;
     uint32_t seed_ = 0x5a17u;
+    // FREEZE (v46)
+    bool frzOn_ = false;
+    double frz_ = 0;
 };
 
 } // namespace mmarp

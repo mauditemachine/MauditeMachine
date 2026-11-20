@@ -1,0 +1,83 @@
+/*
+ * v46 : les pages DELAY et REVERB definitives (l'option A des maquettes v44, fx2.css garde leur base). Ce qui s'ajoute :
+ * la tete de lecture calee sur le transport, les seize prises de RHYTHM, la liste des presets du petit ecran, le Tr60
+ * par bande, FREEZE et les pastilles de sortie sur la cascade de la reverbe.
+ */
+
+/* ---------------- DELAY ---------------- */
+.mm-plugin-arp .mm-fx2-echo .head[data-host='1'] {
+  stroke: color-mix(in srgb, var(--mm-accent) 35%, #fff);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mm-accent) 70%, transparent));
+}
+
+.mm-plugin-arp .mm-fx2-echo .mm-fxp-step rect {
+  fill: rgba(246, 241, 231, 0.06);
+  stroke: rgba(246, 241, 231, 0.28);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-fx2-echo .mm-fxp-step[data-on='1'] rect {
+  fill: var(--mm-accent);
+  stroke: color-mix(in srgb, var(--mm-accent) 50%, #fff);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 70%, transparent));
+}
+
+.mm-plugin-arp .mm-fx2-echo .mm-fxp-step text {
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  font-size: 6px;
+  font-weight: 700;
+  fill: rgba(246, 241, 231, 0.35);
+}
+
+.mm-plugin-arp .mm-fx2-echo .mm-fxp-step[data-on='1'] text {
+  fill: rgba(246, 241, 231, 0.8);
+}
+
+.mm-plugin-arp .mm-fx2-corner .mm-fxp-plist {
+  top: 202px;
+}
+
+/* ---------------- REVERB ---------------- */
+.mm-plugin-arp .mm-fx2-wf .mm-fxp-t60 .b {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  fill: rgba(244, 241, 234, 0.45);
+}
+
+.mm-plugin-arp .mm-fx2-wf .mm-fxp-t60 .bv {
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  fill: #f6f1e7;
+}
+
+.mm-plugin-arp .mm-fx2-wf .mm-fxp-t60 rect {
+  fill: var(--mm-accent);
+  opacity: 0.75;
+}
+
+.mm-plugin-arp .mm-fx2-wf .mm-fxp-chips {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  fill: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-fx2-wf .mm-fxp-frz {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  fill: #cfe8ff;
+  filter: drop-shadow(0 0 4px rgba(170, 215, 255, 0.7));
+}
+
+.mm-plugin-arp .mm-fx2-wf[data-frozen='1'] .line.front {
+  stroke: #e3f2ff;
+  filter: drop-shadow(0 0 4px rgba(170, 215, 255, 0.8));
+}
+
+.mm-plugin-arp .mm-fx2-wf[data-frozen='1'] .fill {
+  fill: color-mix(in srgb, var(--mm-accent) 14%, rgba(170, 215, 255, 0.18));
+}

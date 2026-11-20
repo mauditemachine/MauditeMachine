@@ -13,6 +13,7 @@ import spec from '../../../../plugin/mm-arp/extra-params.json';
 import { skyText, skyTypeIndex } from './skyModel';
 import { hellShiftText, LFO_BEAT_NAMES } from './hell';
 import { delayText } from './delay';
+import { skyPostText } from './skyPost';
 
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
@@ -166,6 +167,12 @@ function text(id: string, v: number): string {
   if (EQ_FREQ.test(id)) return hz(eqLaws.hz(v));
   if (EQ_GAIN.test(id)) return `${signed(eqLaws.db(v), 1)} dB`;
   if (EQ_Q.test(id)) return `Q ${eqLaws.q(v).toFixed(2)}`;
+  // v46 : la sortie de la reverbe (l'EQ, WIDTH, DUCK : skyPost.ts) ; FREEZE et les pentes : leurs crans
+  if (p.section === 'sky') {
+    const t = skyPostText(id, v);
+    if (t !== null) return t;
+    if (p.steps) return p.steps[extraStepIndex(id, v)];
+  }
   // la reverbe facon BigSky : le texte depend de la machine (skyModel.ts)
   if (p.section === 'sky' && id !== 'xSkyType') return skyText(skyTypeIndex(values.xSkyType ?? 0), id, v);
   if (id === 'xPbRange' && p.steps) return `${p.steps[extraStepIndex(id, v)]} ST`;
