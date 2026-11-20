@@ -13,7 +13,7 @@
  * Caches, gardes et toujours actifs (les projets et les presets sonnent pareil) : MORPH, DYNAMICS, FEEDBACK, BOX SIZE et
  * MIX, ENV SPEED, LFO SHAPE, la matrice du multibande. Quand l'un d'eux agit : EXTRA ON et RESET sur l'EQ.
  * &distoDemo=<preset> charge un preset au montage, &distoSel=LC|TONE|HC|PRE|POST|CLEAN choisit le point de l'EQ (les
- * captures, Chromium muet) ; &punishVar=B|C montre une autre forme de PUNISH (les propositions a Mika, A par defaut).
+ * captures, Chromium muet) ; &punishVar=A|B montre une autre forme de PUNISH (les propositions a Mika ; C, son choix, par defaut).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -586,15 +586,15 @@ const CabKey: React.FC = () => {
 type PunishKind = 'A' | 'B' | 'C';
 /**
  * v46, Mika : "pas le bouton en rouge comme ca !" ; ce qu'il aime : les touches de STYLE, une LED, allumees a l'accent
- * (SETTINGS). Trois formes proposees, A par defaut (&punishVar=B|C pour les captures) :
+ * (SETTINGS). Trois formes proposees ; Mika a choisi C (2026-11-20), le defaut (&punishVar=A|B pour les captures) :
  * - A : une grande touche de STYLE, la LED au-dessus, PUNISH grave dessous ;
  * - B : une touche mate large, la LED dans la touche, PUNISH grave dessus ;
  * - C : le levier OFF / ON en grand, la LED a cote, PUNISH en grosses lettres.
  */
 const PUNISH_KIND: PunishKind = (() => {
-  if (typeof location === 'undefined') return 'A';
+  if (typeof location === 'undefined') return 'C';
   const m = /[?&]punishVar=([ABC])\b/.exec(location.search);
-  return m ? (m[1] as PunishKind) : 'A';
+  return m ? (m[1] as PunishKind) : 'C';
 })();
 
 const Punish: React.FC<{ kind?: PunishKind }> = ({ kind = PUNISH_KIND }) => {
