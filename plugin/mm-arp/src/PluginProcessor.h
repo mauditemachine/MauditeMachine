@@ -119,6 +119,10 @@ public:
     float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
     // ATTITUDE, le VU de la page DISTO (2026-11-17, v25) : 0..1 pour -20..+3 dB dans la saturation ; NaN : DISTO coupee
     float distoVu() const { return distoVu_.load(std::memory_order_relaxed); }
+    // v46 : la position (en noires, ppq) et le tempo du transport au debut du dernier bloc, pour la tete de lecture de la
+    // page DELAY (mm_transport) ; -1 quand rien ne joue (ni l'hote, ni l'horloge interne)
+    double facePpq() const { return facePpq_.load(std::memory_order_relaxed); }
+    double faceBpm() const { return faceBpm_.load(std::memory_order_relaxed); }
     // v27 : l'analyseur de la page SOUND, seulement quand la face dit que la page est visible (le thread audio copie
     // alors la sortie dans un anneau ; specFrame, thread du message, en tire 96 bandes en dB, de 20 Hz a 20 kHz)
     void setSpecOn(bool on) { specOn_.store(on, std::memory_order_relaxed); }
@@ -190,6 +194,7 @@ private:
     double hellNoteHz_ = 0;
     std::atomic<float> hellLfo_{std::numeric_limits<float>::quiet_NaN()};
     std::atomic<float> distoVu_{std::numeric_limits<float>::quiet_NaN()};
+    std::atomic<double> facePpq_{-1}, faceBpm_{120};
     void migrateHell();
     // La pedale DISTORTION (xDist, xDistTone), masquee en v25 : un projet qui l'avait passe a la DISTO (convertPedal)
     void convertPedal();

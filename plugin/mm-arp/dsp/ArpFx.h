@@ -154,6 +154,20 @@
 //                 15 kHz, +8.4 a 20 kHz a 48 kHz (son coefficient est cale sur le modele analogique a 10 kHz : a
 //                 20 kHz la transformee bilineaire le replierait sur Nyquist et il ne resterait rien dans la bande)
 // ----------------------------------------------------------------------------------------------------------------
+//
+// 5. LA SORTIE DE LA REVERBE (v46, 2026-11-20, Mika : la page REVERB option A ; le plugin seul). Sur le mouille de la
+//    reverbe seul (apres le convolueur ou la BigSky et SHIMMER : CLASSIC en profite aussi), avant la prise :
+//      rvLoCut    0 : OFF ; sinon un passe-haut 20 Hz x 100^v (rvLoSlope : 12 ou 24 dB par octave, Butterworth)
+//      rvMidHz    une cloche a 200 Hz x 40^v, rvMidDb 24 (v - 0.5) dB, rvMidQ 0.4 x 10^v
+//      rvHiCut    1 : OFF ; sinon un passe-bas 1 kHz x 20^v (rvHiSlope : 12 ou 24 dB par octave)
+//                 (les trois : une instance de ParamEq, ses SVF lisses, contournee au bit pres quand rien n'est engage)
+//      rvWidth    milieu / cote : 0 mono, 0.5 : 100 % (contournee), 1 : 150 % ; glisse en 20 ms
+//      rvDuck     la reverbe baisse sous le son sec (sec + bas, l'enveloppe du DUCKING du DELAY : EchoDuck, retour
+//                 250 ms) ; 0 : contourne
+//      rvFreeze   la queue tenue (Sky::setFreeze : les gains du reseau a 1, son entree coupee, fondu de 50 ms) ; les
+//                 machines BigSky seulement, sauf SPRING (pas de reseau) ; sans effet sur CLASSIC
+//    A ces defauts : la chaine d'avant, au bit pres (tests/sky_test.cpp).
+// ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
 #include <array>
@@ -165,6 +179,7 @@
 #include <vector>
 
 #include "Echo.h"
+#include "ParamEq.h"
 #include "Sky.h"
 
 namespace mmarp {
@@ -226,6 +241,17 @@ struct ArpFxSettings {
     double chRate = 0.5, chDepth = 0.5, chWidth = 1, chMix = 0.5;
     double crTone = 1, crMix = 1;   // CRUSH TONE (1 : aucun passe-bas), CRUSH MIX (1 : celui d'avant)
     double puAttack = 0.5, puCurve = 0.5;
+    // --- v46 : la sortie de la reverbe (voir en tete, 5.) ; a ces defauts : contournee au bit pres ---
+    double rvLoCut = 0;         // LOW CUT (0 : OFF), 20 Hz x 100^v
+    int rvLoSlope = 0;          // 0 : 12, 1 : 24 dB par octave
+    double rvMidHz = 0.5;       // MID, 200 Hz x 40^v
+    double rvMidDb = 0.5;       // GAIN, 24 (v - 0.5) dB (0.5 : la cloche contournee)
+    double rvMidQ = 0.3;        // Q, 0.4 x 10^v
+    double rvHiCut = 1;         // HIGH CUT (1 : OFF), 1 kHz x 20^v
+    int rvHiSlope = 0;          // 0 : 12, 1 : 24 dB par octave
+    double rvWidth = 0.5;       // WIDTH : 0 mono, 0.5 : 100 % (contournee), 1 : 150 %
+    double rvDuck = 0;          // DUCK (0 : contourne)
+    bool rvFreeze = false;      // FREEZE (les machines BigSky sauf SPRING)
 };
 
 /**
@@ -272,6 +298,13 @@ struct ArpFxLaws {
     static double distPresenceDb(double v);   // sa presence (3.5 kHz) : 0 jusqu'a 0.5, puis 12 (v - 0.5) dB
     static double eqDb(double v);             // LOW, MID, HIGH : 24 x (v - 0.5)
     static double eqAirDb(double v);          // AIR : 20 x (v - 0.5)
+    // v46 : la sortie de la reverbe
+    static double rvLoHz(double v);           // 20 x 100^v (0 : OFF)
+    static double rvMidHz(double v);          // 200 x 40^v
+    static double rvMidDb(double v);          // 24 x (v - 0.5)
+    static double rvMidQ(double v);           // 0.4 x 10^v
+    static double rvHiHz(double v);           // 1000 x 20^v (1 : OFF)
+    static double rvWidth(double v);          // 2 v jusqu'a 0.5, puis 0.5 + v (1 : 100 %, 1.5 : 150 %)
 };
 
 namespace detail {
@@ -851,6 +884,12 @@ private:
     EchoDuck duck_;
     double eWidth_ = 1;
     detail::TapeDelay::X tx_;
+    // v46 : la sortie de la reverbe (l'EQ trois points, WIDTH, DUCK) ; rien de calcule a son neutre
+    ParamEq rvEq_;
+    EchoDuck rvDuck_;
+    double rvW_ = 1, rvWT_ = 1;
+    void rvPostSet(const ArpFxSettings& s, bool now);
+    void rvPost(const float* dL, const float* dR, float* roL, float* roR, int n);
     // v27 : le CHORUS enrichi
     double chMixD_ = 1, chMixW_ = 1, chWidth_ = 1, chRateMul_ = 1, chDepthMul_ = 1;
     bool chBoth_ = false;

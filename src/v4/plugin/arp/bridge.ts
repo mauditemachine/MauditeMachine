@@ -169,7 +169,11 @@ function onTransport(o: unknown): void {
   // v46 : CHANCE a saute ce pas, sa duree (la tete de la page SEQ, pages2.tsx)
   stepLive.skip = h.playing && x.skip === true;
   stepLive.dur = Math.max(0, num(x.dur, 0));
-  stepLive.t = performance.now();
+  // l'heure du pas : a un nouveau pas seulement (le C++ renvoie aussi la meme position, une fois par seconde)
+  if (h.seq !== stepLive.seq || !h.playing) {
+    stepLive.seq = h.seq;
+    stepLive.t = performance.now();
+  }
   arpExternal.head(h);
   // Les boucles de rendu se reveillent (scene/renderer.ts : extHead.onWake)
   extHead.wake();

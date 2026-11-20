@@ -788,10 +788,13 @@ int main() {
         check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra >= 233, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
         // v46 : les 20 reglages de HELL v2, ensemble, apres DISTO PUNISH (v2) (xHellV2 d'abord)
         {
-            bool inOrder = mmx::ex_xHellV2 == 233 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1 && mmx::ex_xHellDescent == 252 && mmx::kExtra == 253;
+            bool inOrder = mmx::ex_xHellV2 == 233 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1 && mmx::ex_xHellDescent == 252;
             for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) inOrder = inOrder && mmx::allIndex(mmarp::Hell2::kKeyIds[k]) == mmarp::kKnobs + mmx::ex_xHellV2 + 1 + (k - mmarp::Hell2::kWarp);
             check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste, apres DISTO PUNISH (v2) (les 233 d'avant gardent leur place)");
         }
+        // v46 : les dix reglages de la sortie de la reverbe, apres HELL v2, dans l'ordre
+        check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra == 263,
+              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres HELL v2 (les 253 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme

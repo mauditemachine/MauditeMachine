@@ -836,6 +836,12 @@ bool sameV27(const mmarp::ArpFxSettings& a, const mmarp::ArpFxSettings& b) {
            eq(a.chDepth, b.chDepth) && eq(a.chWidth, b.chWidth) && eq(a.chMix, b.chMix) && eq(a.crTone, b.crTone) && eq(a.crMix, b.crMix) &&
            eq(a.puAttack, b.puAttack) && eq(a.puCurve, b.puCurve);
 }
+// v46 : la sortie de la reverbe (l'EQ, WIDTH, DUCK, FREEZE)
+bool sameRvPost(const mmarp::ArpFxSettings& a, const mmarp::ArpFxSettings& b) {
+    const auto eq = [](double x, double y) { return !(x < y || x > y); };
+    return eq(a.rvLoCut, b.rvLoCut) && a.rvLoSlope == b.rvLoSlope && eq(a.rvMidHz, b.rvMidHz) && eq(a.rvMidDb, b.rvMidDb) && eq(a.rvMidQ, b.rvMidQ) &&
+           eq(a.rvHiCut, b.rvHiCut) && a.rvHiSlope == b.rvHiSlope && eq(a.rvWidth, b.rvWidth) && eq(a.rvDuck, b.rvDuck) && a.rvFreeze == b.rvFreeze;
+}
 } // namespace
 
 // Les potards ou le programme ont change : le moteur, la chaine et l'arpege en sont tires (thread audio, sans allocation)
@@ -928,6 +934,17 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         fx.sky.lowEnd = ex_[mmx::ex_xSkyLow];
         fx.sky.p = {{ex_[mmx::ex_xSkyP1], ex_[mmx::ex_xSkyP2], ex_[mmx::ex_xSkyP3], ex_[mmx::ex_xSkyP4], ex_[mmx::ex_xSkyP5]}};
         const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+        // v46 : la sortie de la reverbe (dsp/ArpFx.h, 5.) ; a leurs defauts : contournee au bit pres
+        fx.rvLoCut = ex_[mmx::ex_xSkyLoCut];
+        fx.rvLoSlope = st(mmx::ex_xSkyLoSlope);
+        fx.rvMidHz = ex_[mmx::ex_xSkyMidHz];
+        fx.rvMidDb = ex_[mmx::ex_xSkyMidDb];
+        fx.rvMidQ = ex_[mmx::ex_xSkyMidQ];
+        fx.rvHiCut = ex_[mmx::ex_xSkyHiCut];
+        fx.rvHiSlope = st(mmx::ex_xSkyHiSlope);
+        fx.rvWidth = ex_[mmx::ex_xSkyWidth];
+        fx.rvDuck = ex_[mmx::ex_xSkyDuck];
+        fx.rvFreeze = st(mmx::ex_xSkyFreeze) == 1;
         // v27 : la page DELAY (dsp/Echo.h) ; DLY TIME, TAPE et DELAY MODE d'avant sont masques (convertDelay). Le banc
         // (testLegacyDelay) peut encore rendre l'ancien DELAY tel quel, pour comparer au bit pres
         if (testLegacyDelay) dlyFree_ = 0;
@@ -997,7 +1014,7 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
                           eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir) && fx.skyType == fxNow_.skyType && eq(fx.sky.decay, fxNow_.sky.decay) &&
                           eq(fx.sky.pre, fxNow_.sky.pre) && eq(fx.sky.tone, fxNow_.sky.tone) && eq(fx.sky.mod, fxNow_.sky.mod) && eq(fx.sky.lowEnd, fxNow_.sky.lowEnd) &&
                           eq(fx.sky.p[0], fxNow_.sky.p[0]) && eq(fx.sky.p[1], fxNow_.sky.p[1]) && eq(fx.sky.p[2], fxNow_.sky.p[2]) && eq(fx.sky.p[3], fxNow_.sky.p[3]) &&
-                          eq(fx.sky.p[4], fxNow_.sky.p[4]) && sameV27(fx, fxNow_);
+                          eq(fx.sky.p[4], fxNow_.sky.p[4]) && sameV27(fx, fxNow_) && sameRvPost(fx, fxNow_);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -1187,6 +1204,9 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     const bool playing = hostPlaying || internal;
     const bool arpRun = internal || exRaw_[mmx::ex_xArpRun]->load() >= 0.5f;
     const double pps = bpm / 60.0 / sr;
+    // v46 : la tete de lecture de la page DELAY suit le transport (mm_transport ppq, bpm)
+    facePpq_.store(playing ? std::max(0.0, ppq) : -1.0, std::memory_order_relaxed);
+    faceBpm_.store(bpm, std::memory_order_relaxed);
     if (internal) internalPpq_ += n * pps;
 
     // Un nouveau programme de la face (la suite, la progression)

@@ -50,9 +50,9 @@ export const STEP_TRACKS: readonly TrackSpec[] = [
 /**
  * v46 : la tete de la page SEQ, en plus de mm_transport pos (voyager/arp.ts headState), posee par bridge.ts a chaque
  * position : skip (CHANCE a saute la note du pas joue : midi -1 sans etre un silence de la suite), dur (la duree du pas,
- * ms ; 0 : un C++ d'avant la v46), t (l'arrivee, performance.now()).
+ * ms ; 0 : un C++ d'avant la v46), t (l'arrivee du pas, performance.now()), seq (son numero).
  */
-export const stepLive = { skip: false, dur: 0, t: 0 };
+export const stepLive = { skip: false, dur: 0, t: 0, seq: -1 };
 
 const SPEC: Record<StepTrack, TrackSpec> = Object.fromEntries(STEP_TRACKS.map((t) => [t.id, t])) as Record<StepTrack, TrackSpec>;
 const TRACK_IDS: readonly StepTrack[] = STEP_TRACKS.map((t) => t.id);
