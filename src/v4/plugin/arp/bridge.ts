@@ -361,11 +361,14 @@ function applyExtra(raw: unknown): void {
   if (dist !== undefined) voyParams.set('dist', dist);
   // un preset d'avant la page DELAY (v27) : son ancien DELAY (DLY TIME, TAPE, DELAY MODE) y passe, au bit pres (delay.ts)
   const x = delayFromOld(xd, { delay: voyParams.of('delay'), dlyTime: voyParams.of('dlyTime'), tape: voyParams.of('tape') });
+  // v46 : un preset d'avant HELL v2 qui se servait de HELL (MIX au-dessus de 0) garde l'ancien HELL, son son
+  const oldHell = typeof x.xHellV2 !== 'number' && typeof x.xHellMix === 'number' && x.xHellMix > 0;
   for (const id of EXTRA_IDS) {
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
     // un preset d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
     else if (id === 'xSkyType') arpExtra.set(id, 0);
+    else if (id === 'xHellV2' && oldHell) arpExtra.set(id, 0);
     else if (id !== 'xQuality' && id !== 'xEngine') arpExtra.set(id, arpExtra.def(id));
   }
 }
