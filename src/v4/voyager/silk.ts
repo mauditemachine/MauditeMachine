@@ -82,6 +82,8 @@ interface Text {
   ink?: 'bone' | 'orange';
   maxW?: number;
   group?: string;
+  /** v42 : le nom d'OPEN / CLOSE (son encart, le plugin) */
+  key?: 'open';
 }
 
 /** Pixels de texture par unite : desktop 163, portrait 200 (plans plus grands). */
@@ -167,6 +169,7 @@ function deckTexts(open: boolean): Text[] {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
     const nav = b.id === 'open' || b.id === 'preset';
     out.push({
+      key: b.id === 'open' ? 'open' : undefined,
       text: label,
       x: b.x,
       z: b.z + b.d / 2 + VOY_BUTTON.labelGap,
@@ -228,10 +231,13 @@ function silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial 
   return mat;
 }
 
-/** Un encart (v42) : une couronne de selecteur ou les LED d'un poussoir, sa boite (unites du plan), sa toile, son plan. */
+/**
+ * Un encart (v42) : une couronne de selecteur, les LED d'un poussoir ou le nom d'OPEN (CLOSE capot ouvert), sa boite
+ * (unites du plan), sa toile, son plan.
+ */
 interface Patch {
-  id: VoyKnobId;
-  kind: 'sel' | 'led';
+  id: string;
+  kind: 'sel' | 'led' | 'txt';
   box: [number, number, number, number];
   canvas: HTMLCanvasElement;
   ctx: Ctx;
@@ -408,21 +414,32 @@ export class VoySilk {
         box = [Math.min(...leds.map((l) => l.x)) - e, Math.min(...leds.map((l) => l.z)) - e, Math.max(...leds.map((l) => l.x)) + e, Math.max(...leds.map((l) => l.z)) + e];
         kind = 'led';
       }
-      if (!box) continue;
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) continue;
-      const tex = makeCanvasTexture(canvas, this.aniso);
-      const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2));
-      mesh.name = `voySilkPatch-${k.id}`;
-      mesh.position.y = 0.0006;
-      mesh.renderOrder = 1;
-      mesh.receiveShadow = true;
-      this.mesh.add(mesh);
-      const patch: Patch = { id: k.id, kind, box, canvas, ctx: ctx as Ctx, tex, mesh, X0: 0, Y0: 0 };
-      this.placePatch(patch);
-      this.patches.push(patch);
+      if (box) this.addPatch(k.id, kind, box);
     }
+    // Le nom d'OPEN (CLOSE capot ouvert) : il change a chaque ouverture, la grande toile du plateau ne bouge plus
+    const b = VOY_BUTTONS.find((x) => x.id === 'open');
+    if (b && this.kind === 'deck') {
+      const z = b.z + b.d / 2 + VOY_BUTTON.labelGap;
+      const cap = PORTRAIT ? 0.12 : 0.08;
+      const half = (b.w + 0.12) / 2 + 0.04;
+      this.addPatch('open', 'txt', [b.x - half, z - cap, b.x + half, z + cap]);
+    }
+  }
+
+  private addPatch(id: string, kind: Patch['kind'], box: Patch['box']): void {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const tex = makeCanvasTexture(canvas, this.aniso);
+    const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2));
+    mesh.name = `voySilkPatch-${id}`;
+    mesh.position.y = 0.0006;
+    mesh.renderOrder = 1;
+    mesh.receiveShadow = true;
+    this.mesh.add(mesh);
+    const patch: Patch = { id, kind, box, canvas, ctx: ctx as Ctx, tex, mesh, X0: 0, Y0: 0 };
+    this.placePatch(patch);
+    this.patches.push(patch);
   }
 
   /** Un encart a la definition courante : sa toile calee sur les pixels de la grande (memes texels), son plan dessous. */
@@ -457,8 +474,12 @@ export class VoySilk {
     this.oy = p.Y0;
     try {
       p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
-      if (p.kind === 'sel') this.selectors(p.id);
-      else this.pushLeds(p.id);
+      if (p.kind === 'sel') this.selectors(p.id as VoyKnobId);
+      else if (p.kind === 'led') this.pushLeds(p.id as VoyKnobId);
+      else {
+        const items = deckTexts(this.open);
+        this.drawTexts(items, this.scales(items), 'open');
+      }
     } finally {
       this.ctx = keep;
       this.ox = 0;
@@ -586,8 +607,20 @@ export class VoySilk {
     } else {
       items = deckTexts(this.open);
     }
-    const scales = this.scales(items);
+    this.drawTexts(items, this.scales(items));
+    this.draws += 1;
+    this.texture.needsUpdate = true;
+    for (const p of this.patches) this.drawPatch(p);
+  }
+
+  /**
+   * Les textes (corps de leur groupe : scales) ; only : celui de cette cle seul (son encart, v42) ; sans only, tous sauf
+   * ceux qui ont un encart.
+   */
+  private drawTexts(items: readonly Text[], scales: readonly number[], only?: Text['key']): void {
+    const ctx = this.ctx;
     items.forEach((it, i) => {
+      if (only ? it.key !== only : PATCHES && it.key) return;
       const cap = it.cap * scales[i];
       const fontPx = (cap / SILK.capRatio) * this.ppu;
       const weight = it.weight ?? SILK.weight;
@@ -597,9 +630,6 @@ export class VoySilk {
       ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(it.alpha ?? SILK.alpha);
       drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * this.ppu) / 2, fontPx, weight);
     });
-    this.draws += 1;
-    this.texture.needsUpdate = true;
-    for (const p of this.patches) this.drawPatch(p);
   }
 
   /**
@@ -942,7 +972,15 @@ export class VoySilk {
   setOpen(open: boolean): boolean {
     if (this.kind !== 'deck' || open === this.open) return false;
     this.open = open;
-    this.draw();
+    // v42 (le plugin) : le nom seul, sur son encart, tant que les noms du groupe (PRESET) gardent leur corps
+    const patch = this.patches.find((p) => p.kind === 'txt');
+    const navScale = (o: boolean): number => {
+      const items = deckTexts(o);
+      const sc = this.scales(items);
+      return sc[items.findIndex((t) => t.key === 'open')] ?? 1;
+    };
+    if (patch && navScale(open) === navScale(!open)) this.drawPatch(patch);
+    else this.draw();
     return true;
   }
 
