@@ -44,39 +44,41 @@ import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, say, setFullName, SRC } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
+import { MQ } from './maquette';
+import { NavKeys2, SeqPage2, SoundPage2 } from './pages2';
 
 /** Le cadre de la page (la fenetre de base du VST3). */
 const PAGE_W = 1100;
 const PAGE_H = 704;
 /** La zone des reglages : toute la largeur de la carte. */
-const ZONE = { x: 44, w: 1012 };
+export const ZONE = { x: 44, w: 1012 };
 const FRAME_GAP = 22;
 /** Les touches du bandeau : celles de la face, en plus petit (le bandeau reste bas). */
 const STRIP_KEY = { w: 44, h: 16 };
 
 /* ---------------- les reglages, page par page ---------------- */
 
-type Ctl =
+export type Ctl =
   | { k: 'knob'; id: string; name: string; lo: string; hi: string; full?: string; big?: boolean; fine?: boolean }
   | { k: 'step'; id: string; name: string; full?: string }
   | { k: 'rot'; id: string; name: string; full?: string }
   | { k: 'sel'; id: string; name: string; w: number; full?: string };
 
-interface FrameSpec {
+export interface FrameSpec {
   title: string;
   ctls: Ctl[];
   /** la LED du titre : l'effet agit */
   led?: () => boolean;
 }
 
-const knob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full });
+export const knob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full });
 /** Le petit knob fin (2026-11-17) : un reglage secondaire ; les potards du MM-RYTM (knob) gardent les principaux. */
 const fine = (id: string, name: string, full?: string): Ctl => ({ k: 'knob', id, name, lo: '', hi: '', full, fine: true });
 const step = (id: string, name: string, full?: string): Ctl => ({ k: 'step', id, name, full });
 const sel = (id: string, name: string, w: number, full?: string): Ctl => ({ k: 'sel', id, name, w, full });
 const rot = (id: string, name: string, full?: string): Ctl => ({ k: 'rot', id, name, full });
 
-const X = (id: string): number => arpExtra.of(id);
+export const X = (id: string): number => arpExtra.of(id);
 
 const CELL_W = 80;
 const ROT_W = 108;
@@ -90,8 +92,8 @@ const stepW = (id: string): number => {
 };
 const FINE_W = 56;
 const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' ? ROT_W : c.k === 'sel' ? c.w + 28 : c.big ? 104 : c.fine ? FINE_W : CELL_W);
-const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
-const FRAME_H = 112;
+export const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
+export const FRAME_H = 112;
 
 type GridPage = 'sound';
 
@@ -165,7 +167,7 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
  * Les designateurs : les TWEAKS gardent ceux de la carte verte (RV5 a RV19, SW1 a SW3, dans l'ordre de VOY_TWEAKS), les
  * reglages du VST3 seul suivent (RV20, SW4...), dans l'ordre des pages.
  */
-const REFS: Record<string, string> = {};
+export const REFS: Record<string, string> = {};
 {
   let rvT = 5;
   let swT = 1;
@@ -201,7 +203,7 @@ const REFS: Record<string, string> = {};
   // la pedale DISTORTION est masquee (2026-11-17, v25) : plus nulle part ; la page DISTO a ses noms (DistoPage.tsx)
 }
 
-const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
+export const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
 const useHoodPage = () => useSyncExternalStore(hoodPage.subscribe, hoodPage.get, hoodPage.get);
 
 const CtlCell: React.FC<{ c: Ctl }> = ({ c }) => {
@@ -219,7 +221,7 @@ const CtlCell: React.FC<{ c: Ctl }> = ({ c }) => {
 };
 
 /** Le cadre montre par le clic d'un potard de la face : il clignote une fois. */
-function useFlash(title: string): boolean {
+export function useFlash(title: string): boolean {
   const { focus, focusN } = useHoodPage();
   const [on, setOn] = useState(false);
   useEffect(() => {
@@ -236,7 +238,7 @@ function useFlash(title: string): boolean {
   return on;
 }
 
-const Frame: React.FC<{ f: FrameSpec; x: number; y: number; sep?: boolean }> = ({ f, x, y, sep }) => {
+export const Frame: React.FC<{ f: FrameSpec; x: number; y: number; sep?: boolean }> = ({ f, x, y, sep }) => {
   const flash = useFlash(f.title);
   return (
     <PcbFrame title={f.title} x={x} y={y} w={frameW(f)} h={FRAME_H} led={f.led ? f.led() : undefined} flash={flash} sep={sep}>
@@ -316,7 +318,7 @@ const FxPage: React.FC = () => {
 
 const MATRIX_W = 960;
 
-const Matrix: React.FC<{ y: number }> = ({ y }) => {
+export const Matrix: React.FC<{ y: number }> = ({ y }) => {
   const v = useExtraAll();
   const flash = useFlash('MOD MATRIX');
   const col = (c: number) =>
@@ -358,10 +360,10 @@ const Matrix: React.FC<{ y: number }> = ({ y }) => {
 
 /* ---------------- SEQ : le sequenceur par pas ---------------- */
 
-const useSteps = () => useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
+export const useSteps = () => useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
 
 /** La tete (mm_transport) : "pos|len" pendant la lecture, '' a l'arret. */
-const headKey = (): string => {
+export const headKey = (): string => {
   const h = arpExternal.headState;
   return h.playing && h.pos >= 0 ? `${h.pos}|${h.len}` : '';
 };
@@ -389,8 +391,8 @@ const stepX = (i: number): number => 92 + i * STEP_PITCH + Math.floor(i / 4) * 8
 const STEPS_W = stepX(STEPS_N - 1) + 44 + 60;
 
 /** RANDOM : trois styles (hypno.ts), NEW SEQ tire une suite et ses pistes ; RANDOM de la face prend le meme style. */
-const RND_W = 236;
-const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
+export const RND_W = 236;
+export const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
   const style = useSyncExternalStore(hypnoStyle.subscribe, hypnoStyle.get, hypnoStyle.get);
   const st = useSteps();
   const flash = useFlash('RANDOM');
@@ -411,7 +413,7 @@ const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
   );
 };
 
-const SEQ_ROW: FrameSpec[] = [
+export const SEQ_ROW: FrameSpec[] = [
   { title: 'ARP', ctls: [knob('xSwing', 'SWING', '0', 'FULL')] },
   { title: 'LFO 1 +', ctls: [sel('xLfo1Dest2', 'TARGET 2', 80, 'LFO 1 TARGET 2'), knob('xLfo1Depth2', 'DEPTH 2', '0', 'FULL', 'LFO 1 DEPTH 2')] },
   {
@@ -454,7 +456,7 @@ const SeqPage: React.FC = () => {
  */
 let notesView: number | null = null;
 const notesViewL = new Set<() => void>();
-const notesViewStore = {
+export const notesViewStore = {
   get: (): number | null => notesView,
   set(v: number | null): void {
     notesView = v;
@@ -671,7 +673,7 @@ const EQ_TYPES = extraParam('xQ1Type')?.steps ?? [];
 /** La bande choisie de l'EQ (la page ; 1 a 6). */
 let eqBand = 3;
 const eqBandL = new Set<() => void>();
-const eqBandStore = {
+export const eqBandStore = {
   get: (): number => eqBand,
   set(b: number): void {
     eqBand = Math.max(1, Math.min(6, b));
@@ -684,7 +686,7 @@ const eqBandStore = {
     };
   },
 };
-const qid = (b: number, k: 'On' | 'Type' | 'Freq' | 'Gain' | 'Q' | 'Slope'): string => `xQ${b}${k}`;
+export const qid = (b: number, k: 'On' | 'Type' | 'Freq' | 'Gain' | 'Q' | 'Slope'): string => `xQ${b}${k}`;
 interface EqB {
   on: boolean;
   type: string;
@@ -733,7 +735,7 @@ const useSpec = () => useSyncExternalStore(arpSpec.subscribe, arpSpec.get, arpSp
  * L'ecran de l'EQ : la courbe (la somme des bandes allumees), l'analyseur du C++ (PRE ou POST, page ouverte seulement),
  * les six points : un clic choisit la bande, glisser regle FREQ (de gauche a droite) et GAIN (de haut en bas), Maj : fin.
  */
-const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
+export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   useExtraAll();
   const sel = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
   const spec = useSpec();
@@ -765,18 +767,42 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
       anaPts.push(`${fx(f).toFixed(1)},${y.toFixed(1)}`);
     });
   const nodeY = (b: EqB): number => fy(b.type === 'HP' || b.type === 'LP' || b.type === 'NOTCH' ? 0 : b.g);
-  const drag = useRef<{ b: number; x: number; y: number; f: number; g: number } | null>(null);
+  // v44 (Mika : "avec la touche Shift je veux pouvoir changer le Q de chaque point") : Maj + glisser vertical (ou la
+  // molette sur un point) regle le Q du point saisi ; sa valeur s'affiche a cote du point pendant le geste
+  const drag = useRef<{ b: number; x: number; y: number; f: number; g: number; q: number; mode: 'fg' | 'q' } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
+  const [qShow, setQShow] = useState(0);
+  const qTimer = useRef(0);
+  const showQ = (b: number, ms = 0): void => {
+    window.clearTimeout(qTimer.current);
+    setQShow(b);
+    if (ms > 0) qTimer.current = window.setTimeout(() => setQShow(0), ms);
+  };
+  useEffect(() => () => window.clearTimeout(qTimer.current), []);
   const scale = (): number => {
     const el = svg.current;
     if (!el) return 1;
     return el.getBoundingClientRect().width / w || 1;
   };
+  const anchor = (d: NonNullable<typeof drag.current>, e: { clientX: number; clientY: number }, mode: 'fg' | 'q'): void => {
+    d.mode = mode;
+    d.x = e.clientX;
+    d.y = e.clientY;
+    d.f = X(qid(d.b, 'Freq'));
+    d.g = X(qid(d.b, 'Gain'));
+    d.q = X(qid(d.b, 'Q'));
+  };
   const onNode = (b: number) => (e: React.PointerEvent<SVGGElement>): void => {
     e.preventDefault();
     e.stopPropagation();
     eqBandStore.set(b);
-    drag.current = { b, x: e.clientX, y: e.clientY, f: X(qid(b, 'Freq')), g: X(qid(b, 'Gain')) };
+    const d = { b, x: 0, y: 0, f: 0, g: 0, q: 0, mode: 'fg' as 'fg' | 'q' };
+    anchor(d, e, e.shiftKey ? 'q' : 'fg');
+    drag.current = d;
+    if (e.shiftKey) {
+      say(qid(b, 'Q'));
+      showQ(b);
+    }
     try {
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -786,7 +812,16 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   const onMove = (e: React.PointerEvent<SVGGElement>): void => {
     const d = drag.current;
     if (!d) return;
-    const k = scale() * (e.shiftKey ? 8 : 1);
+    const k = scale();
+    // Maj enfoncee ou relachee en cours de geste : on repart de la ou on en est (pas de saut)
+    if (e.shiftKey !== (d.mode === 'q')) anchor(d, e, e.shiftKey ? 'q' : 'fg');
+    if (d.mode === 'q') {
+      // 160 px (a l'echelle de l'ecran) pour toute la course ; vers le haut : plus de Q (plus etroit)
+      SRC.set(qid(d.b, 'Q'), d.q - (e.clientY - d.y) / k / 160);
+      say(qid(d.b, 'Q'));
+      showQ(d.b);
+      return;
+    }
     const dx = (e.clientX - d.x) / k;
     const dy = (e.clientY - d.y) / k;
     SRC.set(qid(d.b, 'Freq'), d.f + dx / (w - 28));
@@ -798,8 +833,67 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
     }
   };
   const onUp = (): void => {
+    const d = drag.current;
     drag.current = null;
+    if (d?.mode === 'q') showQ(d.b, 900);
   };
+  // la molette sur un point (avec ou sans Maj) : son Q ; Maj + molette donne deltaX sur macOS, on prend les deux
+  useEffect(() => {
+    const el = svg.current;
+    if (!el) return undefined;
+    let acc = 0;
+    const onWheel = (e: WheelEvent): void => {
+      const node = (e.target as Element | null)?.closest?.('[data-b]');
+      if (!node) return;
+      e.preventDefault();
+      const b = Number((node as HTMLElement | SVGElement).dataset.b);
+      acc += e.deltaY || e.deltaX;
+      const t = Math.trunc(acc / 40);
+      if (t === 0) return;
+      acc -= t * 40;
+      eqBandStore.set(b);
+      SRC.set(qid(b, 'Q'), X(qid(b, 'Q')) - t * 0.02);
+      say(qid(b, 'Q'));
+      showQ(b, 900);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  // le Q montre : une bulle a cote du point, la largeur de la bande (BELL, NOTCH) et la courbe de la bande seule
+  const qb = qShow > 0 ? bands[qShow - 1] : null;
+  const qOverlay = (() => {
+    if (!qb || qShow < 1) return null;
+    const x = fx(qb.f);
+    const y = nodeY(qb);
+    const own: string[] = [];
+    for (let i = 0; i <= 160; i += 1) {
+      const f = 20 * Math.pow(1000, i / 160);
+      own.push(`${fx(f).toFixed(1)},${fy(Math.max(-18, Math.min(18, bandDb(qb, f)))).toFixed(1)}`);
+    }
+    const bw = qb.type === 'BELL' || qb.type === 'NOTCH' ? (2 * Math.asinh(1 / (2 * qb.q))) / Math.LN2 : 0;
+    const x1 = bw > 0 ? Math.max(14, fx(qb.f / Math.pow(2, bw / 2))) : 0;
+    const x2 = bw > 0 ? Math.min(w - 14, fx(qb.f * Math.pow(2, bw / 2))) : 0;
+    const by = y > h - 52 ? y - 22 : y + 20;
+    const label = `Q ${qb.q.toFixed(2)}`;
+    const sub = bw > 0 ? `${bw.toFixed(2)} OCT` : qb.type === 'HP' || qb.type === 'LP' ? 'RESONANCE' : 'SLOPE';
+    const bx = Math.max(40, Math.min(w - 40, x));
+    const top = y < 44 ? y + 14 : y - 40;
+    return (
+      <g className="eq-q" pointerEvents="none">
+        <polyline className="eq-q-own" points={own.join(' ')} />
+        {bw > 0 && (
+          <path className="eq-q-bw" d={`M${x1.toFixed(1)} ${by - 4}v8M${x1.toFixed(1)} ${by}H${x2.toFixed(1)}M${x2.toFixed(1)} ${by - 4}v8`} />
+        )}
+        <rect className="eq-q-tip" x={bx - 34} y={top} width={68} height={26} rx={3} />
+        <text className="eq-q-val" x={bx} y={top + 12} textAnchor="middle">
+          {label}
+        </text>
+        <text className="eq-q-sub" x={bx} y={top + 21} textAnchor="middle">
+          {sub}
+        </text>
+      </g>
+    );
+  })();
   const sb = bands[sel - 1];
   const head = `${sel} · ${sb.type} · ${extraTextOf(qid(sel, 'Freq')).toUpperCase()}${sb.type === 'HP' || sb.type === 'LP' ? ` · ${[12, 24, 48][sb.slope]} DB/OCT` : sb.type === 'NOTCH' ? '' : ` · ${extraTextOf(qid(sel, 'Gain')).toUpperCase()}`} · Q ${sb.q.toFixed(2)}${sb.on ? '' : ' · OFF'}`;
   // l'ancien EQ 4 bandes d'un projet d'avant, encore actif (v27, OLD EQ) : dit dans l'en-tete de l'ecran, RESET a cote (v28)
@@ -834,8 +928,9 @@ const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
         {anaPts.length > 0 && <polygon className="ana" points={`${fx(20 * Math.pow(1000, 0.5 / SPEC_BINS)).toFixed(1)},${h - 14} ${anaPts.join(' ')} ${fx(20 * Math.pow(1000, (SPEC_BINS - 0.5) / SPEC_BINS)).toFixed(1)},${h - 14}`} />}
         <polyline className="eq-fill" points={`14,${fy(0)} ${pts.join(' ')} ${w - 14},${fy(0)}`} />
         <polyline className="main" points={pts.join(' ')} />
+        {qOverlay}
         {bands.map((b, i) => (
-          <g key={i} className="eq-node" data-on={b.on ? '1' : undefined} data-sel={i + 1 === sel ? '1' : undefined} onPointerDown={onNode(i + 1)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ cursor: 'grab' }}>
+          <g key={i} className="eq-node" data-b={i + 1} data-on={b.on ? '1' : undefined} data-sel={i + 1 === sel ? '1' : undefined} onPointerDown={onNode(i + 1)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ cursor: 'grab' }}>
             <circle cx={fx(b.f)} cy={nodeY(b)} r={i + 1 === sel ? 9 : 7.5} />
             <text x={fx(b.f)} y={nodeY(b) + 3.2} textAnchor="middle">
               {i + 1}
@@ -860,7 +955,7 @@ const extraTextOf = (id: string): string => SRC.text(id);
 const OLD_EQ = ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'] as const;
 
 /** BAND 1 a 6 (la LED : allumee), ON de la bande choisie. */
-const EqBandKeys: React.FC = () => {
+export const EqBandKeys: React.FC = () => {
   useExtraAll();
   const sel = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
   const on = X(qid(sel, 'On')) >= 0.5;
@@ -1172,7 +1267,7 @@ const Panel: React.FC<{ onClose: () => void; stage: Stage | null }> = ({ onClose
           <span className="mm-r-word" />
           <span className="mm-r-model">MM-ARP</span>
         </button>
-        <PageKeys onClose={onClose} />
+        {MQ.nav ? <NavKeys2 v={MQ.nav} onClose={onClose} /> : <PageKeys onClose={onClose} />}
         {/* v31 : le compteur CPU de cette instance, avant SETTINGS et la croix */}
         <HoodCpuMeter stage={stage} />
         {/* Les reglages d'aspect (2026-11-16) : le cuir, la lumiere du panneau */}
@@ -1301,7 +1396,7 @@ const HoodBody: React.FC<{ stage: Stage | null; leaving: boolean }> = ({ stage, 
               <Overlay which={overlay} />
             ) : (
               <div className="mm-p2-tab" key={tab} data-tab={tab}>
-                {tab === 'sound' ? <SoundPage /> : tab === 'fx' ? <FxPage /> : <SeqPage />}
+                {tab === 'sound' ? MQ.sound ? <SoundPage2 v={MQ.sound} /> : <SoundPage /> : tab === 'fx' ? <FxPage /> : MQ.seq ? <SeqPage2 v={MQ.seq} /> : <SeqPage />}
               </div>
             )}
           </div>
