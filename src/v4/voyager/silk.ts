@@ -195,10 +195,12 @@ const LEATHER_LIN = ((LEATHER_MEAN / 255 + 0.055) / 1.055) ** 2.4;
 export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math.max(0, light));
 
 /**
- * v42 (le plugin, Mika : "je veux exactement la meme nettete que le LEGEND HZ") : ce qui change souvent (les couronnes de
- * WAVE 1 et WAVE 2 au morphing, les LED des boutons poussoirs) passe sur de petites toiles posees par-dessus la grande :
- * la grande (graduations, noms, filets) ne se redessine plus a chaque vingtieme de cran, et sa definition peut suivre
- * l'ecran (setResolution) sans que le morphing coute plus. Le site garde une seule toile.
+ * v42 (le plugin, Mika : "essaie de faire quelque chose de vectoriel, comme ca ca passe de toute facon avec toutes les
+ * tailles", le meme dessin) : la serigraphie est retracee depuis ses traces (textes, traits, arcs) a la definition de
+ * l'ecran (setResolution : la taille de la fenetre x DPR, un pixel de toile par pixel d'ecran), donc nette a toutes les
+ * tailles. Ce qui change souvent (les couronnes de WAVE 1 et WAVE 2 au morphing, les LED des boutons poussoirs) passe sur
+ * de petites toiles posees par-dessus la grande : la grande ne se redessine plus a chaque vingtieme de cran, et sa
+ * definition peut monter sans que le morphing coute plus. Le site garde une seule toile, a sa definition d'avant.
  */
 const PATCHES = PLUGIN_ARP;
 
@@ -911,9 +913,11 @@ export class VoySilk {
   /** Les positions des selecteurs de forme ; true si le panneau a ete redessine. */
   setSelectors(wave1: number, wave2: number): boolean {
     if (wave1 === this.sel.wave1 && wave2 === this.sel.wave2) return false;
+    const was = this.sel;
     this.sel = { wave1, wave2 };
     if (!VOY_FACE_KNOBS.some((k) => isSelector(k.id) && voyKnobPlace(k.id).where === this.kind)) return false;
-    if (PATCHES) for (const p of this.patches) if (p.kind === 'sel') this.drawPatch(p);
+    // v42 (le plugin) : la couronne qui a bouge, seule, sur son encart
+    if (PATCHES) for (const p of this.patches) if (p.kind === 'sel' && was[p.id as 'wave1' | 'wave2'] !== this.sel[p.id as 'wave1' | 'wave2']) this.drawPatch(p);
     if (!PATCHES) this.draw();
     return true;
   }
