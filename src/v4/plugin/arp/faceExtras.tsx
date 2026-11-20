@@ -349,6 +349,16 @@ const LFO_SECS: LfoSec[] = [
   { title: 'HELL LFO', ctls: [lpot('HELL LFO', 'xHellLfoRate', 'SPEED'), lpot('HELL LFO', 'xHellLfoShape', 'SHAPE'), lpot('HELL LFO', 'xHellLfoTarget', 'TARGET'), lpot('HELL LFO', 'xHellLfoAmt', 'DEPTH', true)], sub: [llev('HELL LFO', 'xHellLfoSync', 'SYNC'), llev('HELL LFO', 'xHellLfoStereo', 'STEREO')] },
   { title: 'DISTO LFO', ctls: [lpot('DISTO LFO', 'xDLfoRate', 'SPEED'), lpot('DISTO LFO', 'xDLfoShape', 'SHAPE'), lpot('DISTO LFO', 'xDLfoTarget', 'TARGET'), lpot('DISTO LFO', 'xDLfoAmt', 'DEPTH', true)], sub: [llev('DISTO LFO', 'xDLfoSync', 'SYNC')] },
 ];
+/**
+ * HELL v2 (v46, xHellV2 a ON : les instances neuves, les presets de la banque) n'a plus le LFO de l'ancien HELL : la page
+ * LFO montre alors ses deux mouvements, WARP (la hauteur qui ondule : vitesse, forme, profondeur) et SPIN (la piece qui
+ * tourne). Un projet d'avant (xHellV2 a OFF, l'ancien moteur) garde HELL LFO.
+ */
+const LFO_SECS_V2: LfoSec[] = LFO_SECS.map((s) =>
+  s.title === 'HELL LFO'
+    ? { title: 'HELL WARP', ctls: [lpot('HELL WARP', 'xHellWarpRate', 'SPEED'), lpot('HELL WARP', 'xHellWarpShape', 'SHAPE'), lpot('HELL WARP', 'xHellWarp', 'DEPTH', true)], sub: [lpot('HELL SPIN', 'xHellSpin', 'SPIN'), lpot('HELL SPIN', 'xHellSpinRate', 'SPIN RATE')] }
+    : s,
+);
 /** La page FX MOD : les modulations des effets, leurs vitesses et profondeurs (et ce qui les cale ou les ecarte). */
 const FXMOD_SECS: LfoSec[] = [
   { title: 'PHASER', ctls: [lpot('PHASER', 'xPhRate', 'SPEED'), lpot('PHASER', 'xPhDepth', 'DEPTH', true)], sub: [llev('PHASER', 'xPhSync', 'SYNC'), lpot('PHASER', 'xPhSpread', 'SPREAD')] },
@@ -356,7 +366,10 @@ const FXMOD_SECS: LfoSec[] = [
   { title: 'CHORUS', ctls: [lpot('CHORUS', 'xChRate', 'SPEED'), lpot('CHORUS', 'xChDepth', 'DEPTH', true)] },
   { title: 'PUMP', ctls: [lpot('PUMP', 'xPumpRate', 'SPEED'), lpot('PUMP', 'xPumpDepth', 'DEPTH', true), lpot('PUMP', 'xPumpShape', 'RELEASE')] },
 ];
-const LFO_CTLS: LfoCtl[] = [...LFO_SECS, ...FXMOD_SECS].flatMap((s) => [...s.ctls, ...(s.sub ?? [])]);
+const LFO_CTLS: LfoCtl[] = [...new Map([...LFO_SECS, ...LFO_SECS_V2, ...FXMOD_SECS].flatMap((s) => [...s.ctls, ...(s.sub ?? [])]).map((c) => [c.id, c])).values()];
+/** Ce que l'encart montre : la page choisie ; LFO selon le moteur de HELL (lfo2 : HELL v2). */
+type EncView = EncartPage | 'lfo2';
+const encView = (): EncView => (encPage === 'lfo' && valOf('xHellV2') >= 0.5 ? 'lfo2' : encPage);
 for (const c of LFO_CTLS) {
   registerDialSpec(ED + c.id, {
     value: () => valOf(c.id),
@@ -536,10 +549,10 @@ function encart(): { tex: CanvasTexture; place: EncPlace[]; scale: number; f: nu
  * Les pages LFO et FX MOD (la maquette B) : une rangee de sections facon MOD, le titre au-dessus du plus grand potard,
  * chaque nom sous sa piece ; dessous, les reglages de plus de chaque section (potards plus petits, leviers).
  */
-function encartMod(page: 'lfo' | 'fxmod'): { tex: CanvasTexture; place: EncPlace[] } {
-  const P = encPanel(page);
+function encartMod(page: 'lfo' | 'lfo2' | 'fxmod'): { tex: CanvasTexture; place: EncPlace[] } {
+  const P = encPanel(page === 'lfo2' ? 'lfo' : page);
   const { text, Z0, ink, dim } = P;
-  const secs = page === 'lfo' ? LFO_SECS : FXMOD_SECS;
+  const secs = page === 'lfo' ? LFO_SECS : page === 'lfo2' ? LFO_SECS_V2 : FXMOD_SECS;
   const place: EncPlace[] = [];
   // les potards de la face (R : celui des potards de MOD), un rien plus grand pour DEPTH, comme sur la face
   const o = { r: 0.265, rb: 0.32, cs: 0.63, cb: 0.73 };
@@ -643,10 +656,10 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     // 4. l'encart d'EDIT : trois pages (SYNTH | LFO | FX MOD, v46), chacune son panneau serigraphie et ses pieces 3D, enfants
     //    de l'ecran qui monte ; chaque piece sa zone de prise, active seulement sur sa page ; la bascule, toujours
     const sq = rig.seqScreen;
-    const texs: Partial<Record<EncartPage, CanvasTexture>> = {};
+    const texs: Partial<Record<EncView, CanvasTexture>> = {};
     let panelMat: MeshStandardMaterial | null = null;
-    const edDefs: { d: HotspotDef; page: EncartPage | null }[] = [];
-    const pageGroups: Partial<Record<EncartPage, Group>> = {};
+    const edDefs: { d: HotspotDef; page: EncView | null }[] = [];
+    const pageGroups: Partial<Record<EncView, Group>> = {};
     const tabKeys: Mesh[] = [];
     let tabOn: MeshStandardMaterial | null = null;
     let tabOff: MeshStandardMaterial | null = null;
@@ -659,7 +672,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       keyGeo.translate(0, 0.035, 0);
       const ledGeo = new CircleGeometry(0.026, 20);
       ledGeo.rotateX(-Math.PI / 2);
-      const pageGroup = (p: EncartPage): Group => {
+      const pageGroup = (p: EncView): Group => {
         const grp = new Group();
         grp.name = `encart-${p}`;
         sq.group.add(grp);
@@ -723,8 +736,10 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         }
         edDefs.push({ d: { id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: p.c.k === 'knob' ? 'disc' : 'box', x: p.x, z: p.z + (p.c.k === 'keys' ? -0.02 : 0), hx, hz, y0: 0, y1, enabled: false, machine: 'voy' }, page: 'synth' });
       }
-      // les pages LFO et FX MOD : le potard de la face (k1, le PNG de Mika, comme MOD), les leviers
-      for (const page of ['lfo', 'fxmod'] as const) {
+      // les pages LFO (deux : l'ancien HELL, HELL v2) et FX MOD : le potard de la face (k1, le PNG de Mika, comme MOD),
+      // les leviers ; les zones de la page HELL v2 : ved-h2-<id> (les memes reglages sur les deux pages LFO)
+      for (const page of ['lfo', 'lfo2', 'fxmod'] as const) {
+        const hid = (id: string): string => (page === 'lfo2' ? `ved-h2-${id}` : `ved-${id}`);
         const m = encartMod(page);
         texs[page] = m.tex;
         const grp = pageGroup(page);
@@ -734,7 +749,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           set.place(i, p.x, y + VKNOB_LIFT, p.z, p.R);
           turns.push(() => set.setAngle(i, potAngle(valOf(p.c.id))));
           const r = Math.max(0.2, p.R * 1.1);
-          edDefs.push({ d: { id: `ved-${p.c.id}`, kind: 'encoder', param: (ED + p.c.id) as EncId, layer: sq.group, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: y + 0.1, enabled: false, machine: 'voy' }, page });
+          edDefs.push({ d: { id: hid(p.c.id), kind: 'encoder', param: (ED + p.c.id) as EncId, layer: sq.group, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: y + 0.1, enabled: false, machine: 'voy' }, page });
         });
         grp.add(...set.meshes);
         disposers.push(() => set.dispose());
@@ -747,7 +762,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           grp.add(lv.group);
           levers.push(lv);
           turns.push(() => lv.set(valOf(id) >= 0.5));
-          edDefs.push({ d: { id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: 'box', x: p.x, z: p.z, hx: 0.3 * (p.s / 0.9), hz: 0.16, y0: 0, y1: y + 0.17, enabled: false, machine: 'voy' }, page });
+          edDefs.push({ d: { id: hid(id), kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: 'box', x: p.x, z: p.z, hx: 0.3 * (p.s / 0.9), hz: 0.16, y0: 0, y1: y + 0.17, enabled: false, machine: 'voy' }, page });
         }
       }
       // la bascule : trois touches, celle de la page montree allumee a la couleur d'accent (comme EDIT)
@@ -765,7 +780,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         tabKeys.push(k);
         edDefs.push({ d: { id: `ved-@${p.id}`, kind: 'encoder', param: TAB_DIAL(p.id) as EncId, layer: sq.group, shape: 'box', x: tb.x, z: tb.z[i] + 0.06, hx: TAB_KEY.w / 2 + 0.02, hz: 0.2, y0: 0, y1: y + 0.08, enabled: false, machine: 'voy' }, page: null });
       });
-      panelMat = new MeshStandardMaterial({ map: texs[encartPage.get()] ?? null, roughness: 0.78, metalness: 0.05 });
+      panelMat = new MeshStandardMaterial({ map: texs[encView()] ?? null, roughness: 0.78, metalness: 0.05 });
       sq.cover(panelMat);
       sq.inert = true;
       disposers.push(() => {
@@ -783,7 +798,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     // les zones de l'encart ne prennent que tant qu'il est monte (EDIT), et seulement celles de la page montree
     const syncEdit = (): void => {
       const on = editor.get() === 'voy';
-      const pg = encartPage.get();
+      const pg = encView();
       let ch = false;
       for (const { d, page } of edDefs) {
         const want = on && (page === null || page === pg);
@@ -795,8 +810,11 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       if (ch) stage.hit.invalidate();
     };
     // la page montree : son panneau, ses pieces, sa touche allumee (la couleur d'accent du moment, SETTINGS)
+    let shown: EncView | null = null;
     const showPage = (): void => {
-      const pg = encartPage.get();
+      const pg = encView();
+      shown = pg;
+      const tab = encartPage.get();
       for (const [p, grp] of Object.entries(pageGroups)) if (grp) grp.visible = p === pg;
       const tex = texs[pg];
       if (panelMat && tex && panelMat.map !== tex) panelMat.map = tex;
@@ -807,7 +825,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           tabOn.emissive.set(acc);
         }
       }
-      tabKeys.forEach((k, i) => (k.material = ENC_PAGES[i].id === pg ? tabOn! : tabOff!));
+      tabKeys.forEach((k, i) => (k.material = ENC_PAGES[i].id === tab ? tabOn! : tabOff!));
       syncEdit();
       stage.invalidate();
     };
@@ -828,9 +846,13 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         // v31 : la cadence du rendu (frames rendues, rAF, temps JS des rendus, DPR, taille du canevas)
         stats: () => ({ frames: stage.stats.frames, rafs: stage.stats.rafs, renderMs: stage.stats.renderMs, dpr: stage.stats.dpr, loop: stage.stats.loopActive }),
         stage: () => stage,
+        // v46 : la page de l'encart d'EDIT (synth, lfo, fxmod) sans passer par un clic (captures)
+        encart: (p: EncartPage) => encartPage.set(p),
       };
     const turn = (): void => {
       for (const t of turns) t();
+      // HELL V2 bascule (un preset, un projet) : la page LFO suit son moteur
+      if (sq && shown !== null && shown !== encView()) showPage();
       stage.invalidate();
     };
     turn();
