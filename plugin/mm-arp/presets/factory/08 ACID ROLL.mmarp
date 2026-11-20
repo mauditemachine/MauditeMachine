@@ -328,6 +328,7 @@
     "xMidiIn": 0,
     "xArpHold": 0,
     "xArpRun": 1,
+    "xDPunish2": 0,
     "xSkyLoCut": 0,
     "xSkyLoSlope": 0,
     "xSkyMidHz": 0.5,

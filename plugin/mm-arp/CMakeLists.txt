@@ -49,8 +49,12 @@ add_executable(mmarp_hell_test tests/hell_test.cpp)
 target_link_libraries(mmarp_hell_test PRIVATE mmarp_dsp)
 add_test(NAME hell COMMAND mmarp_hell_test)
 # DISTO facon Decapitator (2026-11-16, porte de la branche claude/admiring-feynman-5zsgxp le 2026-11-17)
-add_executable(mmarp_decap_test tests/decap_test.cpp)
+# v46 : avec la DISTO d'avant (tests/decap_ref.cpp, MM_DECAP_NO_V2), compilee avec les options du DSP : OFF et l'ancien
+# PUNISH au bit pres
+add_executable(mmarp_decap_test tests/decap_test.cpp tests/decap_ref.cpp)
 target_link_libraries(mmarp_decap_test PRIVATE mmarp_dsp)
+get_target_property(MM_DSP_OPTS mmarp_dsp COMPILE_OPTIONS)
+set_source_files_properties(tests/decap_ref.cpp PROPERTIES COMPILE_OPTIONS "${MM_DSP_OPTS}")
 add_test(NAME decap COMMAND mmarp_decap_test)
 # v27 : la page DELAY, l'EQ parametrique et son analyseur, le rack enrichi
 add_executable(mmarp_echo_test tests/echo_test.cpp)

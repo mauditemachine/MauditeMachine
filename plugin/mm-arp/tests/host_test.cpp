@@ -281,6 +281,7 @@ int main() {
             // DISTO (2026-11-17, v25) : style P, PUNISH, DRIVE a fond, trois bandes, FEEDBACK, MORPH vers FOLD, BOX
             X("xDStyle")->setValueNotifyingHost(5.f / 12);
             X("xDPunish")->setValueNotifyingHost(1.f);
+            X("xDPunish2")->setValueNotifyingHost(1.f); // v46 : PUNISH v2 (l'emporte sur l'ancien)
             X("xDBands")->setValueNotifyingHost(1.f);
             X("xDFb")->setValueNotifyingHost(1.f);
             X("xDMorph")->setValueNotifyingHost(0.5f);
@@ -601,7 +602,7 @@ int main() {
             dA = std::max(dA, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(a)[i])));
             pk = std::max(pk, static_cast<double>(std::fabs(std::get<0>(now)[i])));
         }
-        check(std::get<1>(old) == nDisto && nDisto == 52 && pk > 0.01 && d <= 0 && dA > 0.001,
+        check(std::get<1>(old) == nDisto && nDisto == 53 && pk > 0.01 && d <= 0 && dA > 0.001,
               "DISTO : un projet d'avant (" + std::to_string(std::get<1>(old)) + " reglages de la DISTO absents, DISTO 0.6) sonne au bit pres comme avant ; le style A change le son (ecart " +
                   juce::String(dA, 3).toStdString() + ")");
         // la pedale : convertie
@@ -722,10 +723,10 @@ int main() {
         // les neufs sont en fin de liste : l'index des anciens ne bouge pas
         check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
         // v32 : EXPORT HQ, le seul neuf, en fin de liste
-        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::kExtra >= 232, "v32 / v34 : EXPORT HQ puis ENGINE ajoutes en fin de liste (les 227 d'avant gardent leur place)");
-        // v46 : les dix reglages de la sortie de la reverbe, apres ARP RUN, dans l'ordre
-        check(mmx::ex_xSkyLoCut >= 232 && mmx::ex_xSkyFreeze == mmx::ex_xSkyLoCut + 9 && mmx::ex_xSkyWidth == mmx::ex_xSkyLoCut + 7,
-              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste (les 232 d'avant gardent leur place)");
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra == 243, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        // v46 : les dix reglages de la sortie de la reverbe, apres DISTO PUNISH, dans l'ordre
+        check(mmx::ex_xSkyLoCut == 233 && mmx::ex_xSkyWidth == 240 && mmx::ex_xSkyFreeze == 242,
+              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres DISTO PUNISH (les 233 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme

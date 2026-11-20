@@ -1,7 +1,7 @@
 /* =====================================================================================================================
-   DISTO v44, MAQUETTES (2026-11-20, DistoMock.tsx, seulement avec ?distoMock=A|B|C) : DRIVE en grand, PUNISH en trois
-   formes (touche carree, interrupteur a capot, champignon) avec un halo rouge qui suit l'ATTITUDE, STYLE par familles,
-   un seul EQ graphique, les presets par famille. Fichier a part : hood.css n'est pas touche.
+   DISTO (v46, 2026-11-20 : la page A des maquettes v44, validee par Mika ; DistoPage.tsx) : DRIVE en grand, PUNISH dans
+   la famille des touches du plugin (jamais rouge : allume a l'accent de SETTINGS, --mm-accent), STYLE par familles, un
+   seul EQ graphique, les presets en liste par famille. Fichier a part : hood.css n'est pas touche.
    ===================================================================================================================== */
 
 .mm-plugin-arp .mm-d2-place {
@@ -52,377 +52,229 @@
   text-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 40%, transparent);
 }
 
-/* ---------------- PUNISH ---------------- */
+/* ---------------- PUNISH (v46 : Mika, "pas le bouton en rouge comme ca !") ---------------- */
+/* la piece : 116 x 118 a droite du DRIVE ; A, B ou C (DistoPage.tsx Punish) */
 .mm-plugin-arp .mm-d2-pun {
-  --att: 0;
   position: relative;
-  display: block;
+  width: 116px;
+  height: 118px;
+}
+
+.mm-plugin-arp .mm-d2-pun[data-inert='1'] > * {
+  opacity: 0.45;
+}
+
+/* la LED de PUNISH : la lentille des LED du plugin, a la couleur d'accent */
+.mm-plugin-arp .mm-d2-pun .mm-d2-pun-led,
+.mm-plugin-arp .mm-d2-pun .mm-key-led {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 32%, rgba(255, 255, 255, 0.28) 0 12%, color-mix(in srgb, var(--mm-accent) 24%, #0d0c0b) 30%, color-mix(in srgb, var(--mm-accent) 12%, #050505) 100%);
+  box-shadow:
+    0 0 0 1.2px #070505,
+    0 0 0 1.8px rgba(255, 255, 255, 0.06),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-pun-led,
+.mm-plugin-arp .mm-d2-pun .mm-key-led[data-on='1'] {
+  background: radial-gradient(circle at 36% 32%, #fffef8 0 14%, color-mix(in srgb, var(--mm-accent) 50%, #fff) 30%, var(--mm-accent) 62%, color-mix(in srgb, var(--mm-accent) 55%, #000) 100%);
+  box-shadow:
+    0 0 0 1.2px #070505,
+    0 0 7px 1px color-mix(in srgb, var(--mm-accent) 85%, transparent),
+    0 0 18px 4px color-mix(in srgb, var(--mm-accent) 35%, transparent);
+}
+
+/* CLASSIC : l'ancien PUNISH d'un projet d'avant (le premier appui le convertit) */
+.mm-plugin-arp .mm-d2-pun-sub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  font-size: 6.5px;
+  line-height: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: color-mix(in srgb, var(--mm-accent) 70%, #8a8478);
+}
+
+/* A : la touche de STYLE en grand, la LED au-dessus, PUNISH grave dessous */
+.mm-plugin-arp .mm-d2-pun[data-kind='A'] .mm-d2-punkey {
+  position: absolute;
+  left: 6px;
+  top: 26px;
+  gap: 11px;
+}
+
+.mm-plugin-arp .mm-d2-pun[data-kind='A'] .mm-key-cap {
+  border-radius: 7px;
+}
+
+.mm-plugin-arp .mm-d2-pun[data-kind='A'] .mm-key-led {
+  left: 50%;
+  top: -16px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+}
+
+.mm-plugin-arp .mm-d2-pun[data-kind='A'] .mm-key-name {
+  font-size: 13px;
+  line-height: 15px;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  margin-right: -0.34em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-d2-pun[data-kind='A'] .mm-key[data-on='1'] .mm-key-name {
+  color: var(--mm-accent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--mm-accent) 45%, transparent);
+}
+
+/* B : la touche mate large, la LED dans la touche, PUNISH grave dessus */
+.mm-plugin-arp .mm-d2-punB {
+  position: absolute;
+  left: 4px;
+  top: 22px;
+  width: 108px;
+  height: 64px;
   margin: 0;
   padding: 0;
   border: 0;
-  background: none;
+  border-radius: 6px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.035), transparent 60%),
+    linear-gradient(180deg, #1b1a19 0%, #161514 60%, #121110 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+    0 4px 0 #060605,
+    0 6px 12px rgba(0, 0, 0, 0.65);
   color: inherit;
   font: inherit;
   cursor: pointer;
   outline: none;
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out;
 }
 
-/* le halo : sur le cuir, autour de la piece ; il respire avec l'ATTITUDE (--att) */
-.mm-plugin-arp .mm-d2-pun::before {
-  content: '';
-  position: absolute;
-  inset: -46px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 34, 18, calc(0.22 + 0.22 * var(--att))), rgba(255, 34, 18, calc(0.08 * var(--att))) 62%, transparent);
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-on='1']::before {
-  opacity: 1;
-}
-
-.mm-plugin-arp .mm-d2-pun-halo {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 12px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-pun-halo {
-  opacity: 1;
+.mm-plugin-arp .mm-d2-punB:active {
+  transform: translateY(3px);
   box-shadow:
-    0 0 calc(14px + 18px * var(--att)) calc(4px + 8px * var(--att)) rgba(255, 40, 24, calc(0.45 + 0.35 * var(--att))),
-    0 0 calc(44px + 50px * var(--att)) calc(12px + 18px * var(--att)) rgba(255, 30, 16, calc(0.18 + 0.2 * var(--att)));
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 0 #060605,
+    0 2px 5px rgba(0, 0, 0, 0.55);
 }
 
-.mm-plugin-arp .mm-d2-pun-led {
+.mm-plugin-arp .mm-d2-punB .mm-d2-pun-led {
+  left: 50%;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+}
+
+.mm-plugin-arp .mm-d2-punB b {
   position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #6a2018, #2c0705 75%);
-  box-shadow: 0 0 0 1.2px #070505;
+  left: 0;
+  right: 0;
+  top: 30px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: #0a0908;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.11),
+    0 -1px 0 rgba(0, 0, 0, 0.7);
 }
 
-.mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-pun-led {
-  background: radial-gradient(circle at 40% 35%, #fff4ee 0 14%, #ff8f72 32%, #ff2f1d 66%, #a5140b 100%);
+.mm-plugin-arp .mm-d2-punB[data-on='1'] {
   box-shadow:
-    0 0 0 1.2px #070505,
-    0 0 7px 2px rgba(255, 52, 32, 0.9),
-    0 0 18px 4px rgba(255, 52, 32, 0.4);
+    inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 38%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+    0 4px 0 #060605,
+    0 6px 16px color-mix(in srgb, var(--mm-accent) 22%, rgba(0, 0, 0, 0.6));
 }
 
-.mm-plugin-arp .mm-d2-pun-sub {
+.mm-plugin-arp .mm-d2-punB[data-on='1'] b {
+  color: var(--mm-accent);
+  text-shadow:
+    0 0 8px color-mix(in srgb, var(--mm-accent) 55%, transparent),
+    0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.mm-plugin-arp .mm-d2-punB:focus-visible {
+  outline: 1.5px solid var(--mm-accent);
+  outline-offset: 2px;
+}
+
+/* C : le levier OFF / ON des pages, en double, la LED a cote, PUNISH en grosses lettres */
+.mm-plugin-arp .mm-d2-pun[data-kind='C'] .mm-d2-punC {
+  left: 2px;
+  top: 24px;
+  width: 92px;
+  height: 42.2px;
+}
+
+.mm-plugin-arp .mm-d2-pun[data-kind='C'] .mm-d2-pun-led {
+  left: 101px;
+  top: 40px;
+  width: 10px;
+  height: 10px;
+}
+
+.mm-plugin-arp .mm-d2-punC-names {
   position: absolute;
-  left: -10px;
-  right: -10px;
-  bottom: 0;
+  left: 2px;
+  top: 72px;
+  width: 92px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 7px;
+  justify-content: space-between;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+.mm-plugin-arp .mm-d2-punC-names b {
+  font-size: 7.5px;
   line-height: 9px;
   font-weight: 700;
-  letter-spacing: 0.22em;
-  color: var(--r-silk-dim);
-  white-space: nowrap;
+  letter-spacing: 0.12em;
+  color: rgba(236, 232, 224, 0.5);
 }
 
-.mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-pun-sub {
-  color: #ff6a4b;
-  text-shadow: 0 0 6px rgba(255, 80, 50, 0.6);
+.mm-plugin-arp .mm-d2-punC-names b[data-on='1'] {
+  color: #ece8e0;
 }
 
-/* A : la grosse touche carree, caoutchouc rouge */
-.mm-plugin-arp .mm-d2-pun[data-kind='key'] .mm-d2-pun-led {
-  left: 50%;
-  top: 0;
-  margin-left: -3.5px;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='key'] .mm-d2-pun-halo,
-.mm-plugin-arp .mm-d2-pun[data-kind='key'] .mm-d2-pun-cap {
-  left: 2px;
-  right: 2px;
-  top: 14px;
-  bottom: 18px;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='key'] .mm-d2-pun-cap {
+.mm-plugin-arp .mm-d2-punC-name {
   position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #4c100d 0%, #36090a 55%, #260605 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.65),
-    inset 0 2px 0 rgba(255, 170, 150, 0.16),
-    inset 0 -4px 6px rgba(0, 0, 0, 0.55),
-    0 5px 0 #140302,
-    0 9px 16px rgba(0, 0, 0, 0.8);
-  transition:
-    transform 70ms ease-out,
-    box-shadow 70ms ease-out,
-    background 70ms;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='key'] .mm-d2-pun-cap b {
-  font-size: 15px;
-  line-height: 15px;
+  left: -4px;
+  right: -4px;
+  top: 88px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 16px;
   font-weight: 900;
-  letter-spacing: 0.14em;
-  color: rgba(255, 190, 176, 0.5);
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  color: var(--r-silk);
 }
 
-.mm-plugin-arp .mm-d2-pun[data-kind='key'][data-on='1'] .mm-d2-pun-cap {
-  transform: translateY(3px);
-  background: radial-gradient(120% 100% at 50% 20%, #ff7a62 0%, #ff2a18 38%, #d0120a 70%, #8e0905 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(60, 0, 0, 0.6),
-    inset 0 2px 0 rgba(255, 230, 220, 0.5),
-    inset 0 -5px 10px rgba(110, 0, 0, 0.55),
-    inset 0 0 18px rgba(255, 220, 200, 0.25),
-    0 2px 0 #3a0503;
+.mm-plugin-arp .mm-d2-pun[data-kind='C'][data-on='1'] .mm-d2-punC-name {
+  color: var(--mm-accent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--mm-accent) 45%, transparent);
 }
 
-.mm-plugin-arp .mm-d2-pun[data-kind='key'][data-on='1'] .mm-d2-pun-cap b {
-  color: #fff6f2;
-  text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.7),
-    0 1px 0 rgba(120, 0, 0, 0.6);
-}
-
-/* B : l'interrupteur a capot rouge (le capot leve : arme) */
-.mm-plugin-arp .mm-d2-pun[data-kind='switch'] .mm-d2-pun-halo {
-  left: 50%;
-  top: 14px;
-  width: 98px;
-  height: 140px;
-  margin-left: -49px;
-  border-radius: 14px;
-}
-
-.mm-plugin-arp .mm-d2-sw-plate {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  width: 98px;
-  height: 140px;
-  margin-left: -49px;
-  border-radius: 12px;
-  background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
-    linear-gradient(165deg, #4a4846 0%, #2a2928 45%, #161515 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.7),
-    0 0 0 1.5px #070606,
-    0 8px 18px rgba(0, 0, 0, 0.8);
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > i {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #d8d6d2, #7a7874 55%, #3a3836);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > i::after {
-  content: '';
-  position: absolute;
-  left: 1.5px;
-  right: 1.5px;
-  top: 4px;
-  height: 1px;
-  background: rgba(20, 20, 20, 0.8);
-  transform: rotate(-35deg);
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > .s1 {
-  left: 7px;
-  top: 7px;
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > .s2 {
-  right: 7px;
-  top: 7px;
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > .s3 {
-  left: 7px;
-  bottom: 7px;
-}
-
-.mm-plugin-arp .mm-d2-sw-plate > .s4 {
-  right: 7px;
-  bottom: 7px;
-}
-
-.mm-plugin-arp .mm-d2-sw-slot {
-  position: absolute;
-  left: 50%;
-  top: 66px;
-  width: 26px;
-  height: 26px;
-  margin-left: -13px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, #050505 0 40%, #3a3836 44%, #121111 70%);
-  box-shadow:
-    0 0 0 1px #070606,
-    inset 0 1px 2px rgba(0, 0, 0, 0.9);
-}
-
-/* le levier chrome : bas (OFF), haut (ON) */
-.mm-plugin-arp .mm-d2-sw-bat {
-  position: absolute;
-  left: 50%;
-  top: 79px;
-  width: 11px;
-  height: 40px;
-  margin-left: -5.5px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #5a5a5a 0%, #f4f4f4 38%, #b8b8b8 55%, #4a4a4a 100%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
-  transform-origin: 50% 0;
-  transition: transform 90ms ease-out;
-}
-
-.mm-plugin-arp .mm-d2-sw-bat::after {
-  content: '';
-  position: absolute;
-  left: -2.5px;
-  bottom: -4px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff 0 12%, #c8c8c8 40%, #5a5a5a 100%);
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='switch'][data-on='1'] .mm-d2-sw-bat {
-  transform: rotate(180deg);
-}
-
-/* le capot : ferme sur le levier (OFF), leve (ON) */
-.mm-plugin-arp .mm-d2-sw-cover {
-  position: absolute;
-  left: 50%;
-  top: 42px;
-  width: 58px;
-  height: 88px;
-  margin-left: -29px;
-  border-radius: 8px 8px 14px 14px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0 8%, transparent 20% 80%, rgba(0, 0, 0, 0.25) 92%),
-    linear-gradient(180deg, rgba(232, 34, 22, 0.94), rgba(160, 12, 8, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 210, 200, 0.5),
-    inset 0 -3px 6px rgba(70, 0, 0, 0.6),
-    0 6px 10px rgba(0, 0, 0, 0.75);
-  transform-origin: 50% 0;
-  transition: transform 140ms ease-out;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='switch'][data-on='1'] .mm-d2-sw-cover {
-  transform: perspective(220px) rotateX(-74deg);
-  background: linear-gradient(180deg, rgba(255, 90, 70, 0.95), rgba(190, 18, 10, 0.95));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 230, 220, 0.6),
-    0 0 18px rgba(255, 40, 24, 0.85);
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='switch'] .mm-d2-pun-sub {
-  font-size: 11px;
-  line-height: 13px;
-  letter-spacing: 0.28em;
-  bottom: 6px;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='switch'] .mm-d2-pun-sub .mm-d2-pun-led {
-  position: relative;
-}
-
-/* C : le champignon rouge dans sa bague */
-.mm-plugin-arp .mm-d2-dome-bezel {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 140px;
-  height: 140px;
-  margin-left: -70px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 38%, #34322f 0%, #1a1918 62%, #0c0b0b 100%);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -3px 8px rgba(0, 0, 0, 0.7),
-    0 0 0 2px #050505,
-    0 10px 22px rgba(0, 0, 0, 0.8);
-}
-
-.mm-plugin-arp .mm-d2-dome-bezel svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.mm-plugin-arp .mm-d2-dome-bezel text {
-  font-size: 6.6px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  fill: rgba(240, 234, 224, 0.55);
-}
-
-.mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-dome-bezel text {
-  fill: #ff7a5e;
-}
-
-.mm-plugin-arp .mm-d2-dome {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 90px;
-  height: 90px;
-  margin: -45px 0 0 -45px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, #ff9a8a 0 5%, #c41b12 30%, #7c0b06 70%, #3d0503 100%);
-  box-shadow:
-    0 6px 0 #2a0302,
-    0 11px 16px rgba(0, 0, 0, 0.75),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.45);
-  transition:
-    transform 70ms ease-out,
-    box-shadow 70ms ease-out;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='dome'] .mm-d2-pun-halo {
-  left: 50%;
-  top: 25px;
-  width: 90px;
-  height: 90px;
-  margin-left: -45px;
-  border-radius: 50%;
-}
-
-.mm-plugin-arp .mm-d2-pun[data-kind='dome'][data-on='1'] .mm-d2-dome {
-  transform: translateY(3px);
-  background: radial-gradient(circle at 38% 30%, #ffffff 0 5%, #ff8a72 20%, #ff2414 52%, #b40c05 100%);
-  box-shadow:
-    0 3px 0 #2a0302,
-    inset 0 0 22px rgba(255, 240, 220, 0.45),
-    inset 0 -6px 10px rgba(110, 0, 0, 0.45);
-}
-
-/* le cadre de PUNISH rougit quand il est enfonce */
-.mm-plugin-arp .mm-p2-frame:has(.mm-d2-pun[data-on='1']) {
-  background: radial-gradient(60% 55% at 70% 38%, rgba(255, 30, 16, 0.07), transparent 70%);
+.mm-plugin-arp .mm-d2-pun[data-kind='C'] .mm-d2-pun-sub {
+  bottom: -10px;
 }
 
 /* ---------------- STYLE par familles ---------------- */
@@ -519,133 +371,6 @@
   color: var(--r-silk-dim);
 }
 
-/* B : les onglets de familles */
-.mm-plugin-arp .mm-d2-famtabs {
-  position: absolute;
-  left: 0;
-  top: 24px;
-}
-
-.mm-plugin-arp .mm-d2-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 0 16px;
-}
-
-.mm-plugin-arp .mm-d2-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  height: 40px;
-  margin: 0;
-  padding: 7px 10px;
-  border: 1px solid rgba(240, 234, 224, 0.16);
-  border-radius: 9px;
-  background: #1b1a19;
-  color: var(--r-silk);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 2px 0 #0a0909;
-}
-
-.mm-plugin-arp .mm-d2-tab b {
-  font-size: 10px;
-  line-height: 12px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-}
-
-.mm-plugin-arp .mm-d2-tab i {
-  font-style: normal;
-  font-size: 6px;
-  line-height: 8px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--r-silk-dim);
-}
-
-.mm-plugin-arp .mm-d2-tab[data-on='1'] {
-  border-color: var(--mm-accent);
-  box-shadow:
-    0 2px 0 #0a0909,
-    0 0 10px color-mix(in srgb, var(--mm-accent) 30%, transparent);
-}
-
-.mm-plugin-arp .mm-d2-tab[data-has='1'] b {
-  color: var(--mm-accent);
-}
-
-.mm-plugin-arp .mm-d2-tabkeys {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin: 22px 0 0;
-}
-
-.mm-plugin-arp .mm-d2-tabkeys .mm-d2-stkey .mm-key-cap {
-  font-size: 8.5px;
-}
-
-.mm-plugin-arp .mm-d2-tabkeys .mm-d2-letter {
-  font-size: 12px;
-}
-
-.mm-plugin-arp .mm-d2-long {
-  height: 22px;
-  margin: 14px 18px 0;
-  font-size: 7.5px;
-  line-height: 11px;
-  letter-spacing: 0.06em;
-  color: var(--r-silk-dim);
-  text-align: center;
-}
-
-.mm-plugin-arp .mm-d2-tabmm {
-  display: flex;
-  justify-content: center;
-  margin-top: 26px;
-}
-
-/* C : une colonne par famille */
-.mm-plugin-arp .mm-d2-famcol {
-  position: absolute;
-  inset: 18px 10px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.mm-plugin-arp .mm-d2-feel {
-  text-align: center;
-  font-size: 6.5px;
-  line-height: 9px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  color: var(--r-silk-dim);
-}
-
-.mm-plugin-arp .mm-d2-colkeys {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 10px 0 12px;
-}
-
-.mm-plugin-arp .mm-d2-colpre {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-top: 8px;
-  border-top: 1px solid var(--r-line);
-}
-
-.mm-plugin-arp .mm-d2-famcol[data-on='1'] .mm-d2-feel {
-  color: var(--mm-accent);
-}
-
 /* ---------------- PRESETS ---------------- */
 .mm-plugin-arp .mm-d2-plist {
   position: absolute;
@@ -733,8 +458,8 @@
   height: 5px;
   margin-left: auto;
   border-radius: 50%;
-  background: #ff2f1d;
-  box-shadow: 0 0 5px rgba(255, 52, 32, 0.8);
+  background: var(--mm-accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--mm-accent) 70%, transparent);
 }
 
 .mm-plugin-arp .mm-d2-pkeys {
@@ -742,56 +467,6 @@
   justify-content: space-around;
   padding-top: 12px;
   height: 34px;
-}
-
-.mm-plugin-arp .mm-d2-pwin {
-  position: absolute;
-  left: 12px;
-  top: 20px;
-}
-
-.mm-plugin-arp .mm-d2-pglass {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 4px;
-  background: linear-gradient(#0b0906, #141008);
-  box-shadow:
-    0 0 0 2px #050505,
-    0 0 0 3px rgba(255, 255, 255, 0.08),
-    inset 0 2px 10px rgba(0, 0, 0, 0.95);
-}
-
-.mm-plugin-arp .mm-d2-pnum {
-  font-size: 6.5px;
-  line-height: 8px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: rgba(244, 241, 234, 0.45);
-}
-
-.mm-plugin-arp .mm-d2-pglass b {
-  font-size: 13px;
-  line-height: 15px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--mm-accent);
-  text-shadow: 0 0 8px color-mix(in srgb, var(--mm-accent) 40%, transparent);
-}
-
-.mm-plugin-arp .mm-d2-precipe {
-  font-size: 6.5px;
-  line-height: 9px;
-  letter-spacing: 0.08em;
-  color: rgba(244, 241, 234, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mm-plugin-arp .mm-d2-pwin .mm-d2-pkeys {
-  padding-top: 10px;
 }
 
 /* ---------------- l'EQ ---------------- */
@@ -921,9 +596,4 @@
 
 .mm-plugin-arp .mm-d2-cabkey .mm-key-led {
   display: none;
-}
-
-.mm-plugin-arp .mm-d2-eqctl[data-compact='1'] .mm-d2-eqkeys {
-  gap: 14px 6px;
-  padding-left: 0;
 }
