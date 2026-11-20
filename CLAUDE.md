@@ -92,14 +92,17 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v37, 2026-11-19) : face cuir (photo retro/leather.png, npm run
-  plugin:arp:leather), knobs face a jupe mate, knobs d'OPEN qui tournent
-  (knob-base / knob-grip / knob-cap), accent #FF0066 reglable (SETTINGS),
-  pages OPEN : SOUND (EQ 6 bandes), DISTO, DELAY, HELL, REVERB, SEQ ;
-  compteur CPU ; 8 voix ; moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ,
-  EXPORT HQ ; taille par defaut 1496 px.
-- En cours (v38) : selecteur MIDI IN (NOTES / ARP / LAYER), suppression des
-  raccourcis clavier (Mika joue au clavier MIDI de l'ordi dans Ableton),
-  ENGINE deplace dans SETTINGS (icone hamburger), knobs nets a grande
-  taille, aigu du moteur PRO. RANDOM : Mika doit envoyer des presets de
-  reference ("fat et cristallin").
+- Etat (v48, 2026-11-20) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+  sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
+  accent reglable (SETTINGS), pads = 7 fondamentales de F#m (G#ø), liste
+  des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
+  dans la touche), SOUND A (EQ en haut, Maj = Q, Alt = fin), DISTO A
+  (un seul EQ, CLEAN LOW, PUNISH v2 en levier, xDPunish2), DELAY A (echos
+  facon Echo, cale sur le ppq de l'hote), HELL v2 (vortex, six cercles,
+  xHellV2..xHellDescent), REVERB A (cascade 3D, EQ / WIDTH / DUCK /
+  FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END).
+  Encart EDIT : SYNTH | LFO | FX MOD. 263 parametres hote. Banque d'usine
+  v45 seche. Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
+- Regle : une refonte n'est "faite" que si elle est la page PAR DEFAUT du
+  build publie ; une maquette derriere un drapeau d'URL ne compte pas
+  (Mika, 2026-11-20 : "t'as rien branle", il ne voyait rien changer).
