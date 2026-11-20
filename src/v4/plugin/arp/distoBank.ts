@@ -1,5 +1,5 @@
 /**
- * DISTO v44, PROPOSITION (2026-11-20, phase maquette, rien n'est branche sur la page publiee). Mika : "trouve moi des
+ * DISTO, la banque de la page (v44 proposee, v46 publiee : disto.ts DISTO_PRESETS). Mika : "trouve moi des
  * presets recopie les settings de decapitator !" et, sur les touches STYLE : "tout ca devrait etre mieux place ou combine
  * par famille dans les presets de la disto !".
  *
@@ -130,7 +130,8 @@ export function distoValues(o: DistoUnits): Record<string, number> {
   const v: Record<string, number> = { ...DEF };
   v.dist = o.drive;
   v.xDStyle = pick('xDStyle', o.st);
-  v.xDPunish = o.punish ? 1 : 0;
+  v.xDPunish = 0;
+  v.xDPunish2 = o.punish ? 1 : 0;
   v.xDLow = lowV(o.low ?? 0);
   v.xDThump = o.thump ? 1 : 0;
   v.xDTone = bip(o.tone ?? 0);
@@ -176,7 +177,8 @@ const B = (name: string, family: DistoFamilyId, recipe: string, desc: string, u:
 /**
  * La banque. La recette : les reglages lus comme sur un Decapitator (DRIVE et TONE a son echelle 0..10 et -5..+5).
  * OUTPUT : la correction mesuree hors ligne (MUNICH BASS et NEON ARP, moteur x8) pour qu'aucun preset ne saute de plus de
- * 1.5 dB en sonie face au son sec (AUTO fait le gros du travail).
+ * 1.5 dB en sonie face au son sec (AUTO fait le gros du travail). v46 : les trois presets PUNISH recales avec PUNISH v2
+ * (MUNICH BASS, NEON ARP, PLUCK ARP, aucun son : PARALLEL SMASH -0.5, PUNISH BASS -0.5, PUNISH ME -1).
  */
 export const DISTO_BANK: readonly DistoBankPreset[] = [
   // TAPE : doux, chaud
@@ -197,7 +199,7 @@ export const DISTO_BANK: readonly DistoBankPreset[] = [
   // TUBE : le grain
   B('LEAD GRIT', 'TUBE', 'T · DRIVE 4 · LOW CUT 150 · TONE +2 · HIGH CUT 12K · MIX 50', 'The vocal grit recipe on a lead: forward, half dry', { st: 'T', drive: 0.4, low: 150, tone: 0.4, high: 12000, mix: 0.5, out: 1 }),
   B('PENTODE BITE', 'TUBE', 'P · DRIVE 5.5 · LOW CUT 90 · TONE +2 · HIGH CUT 9K · MIX 80', 'Bright and buzzing, the synth recipe', { st: 'P', drive: 0.55, low: 90, tone: 0.4, high: 9000, mix: 0.8 }),
-  B('PARALLEL SMASH', 'TUBE', 'P · DRIVE 10 · PUNISH · HIGH CUT 7K STEEP · MIX 30', 'Everything smashed, mixed in under the dry', { st: 'P', drive: 1, punish: true, high: 7000, steep: true, mix: 0.3 }),
+  B('PARALLEL SMASH', 'TUBE', 'P · DRIVE 10 · PUNISH · HIGH CUT 7K STEEP · MIX 30', 'Everything smashed, mixed in under the dry', { st: 'P', drive: 1, punish: true, high: 7000, steep: true, mix: 0.3, out: -0.5 }),
   B('PUNISH BASS', 'TUBE', 'T · DRIVE 6 · PUNISH · LOW CUT 40 + THUMP · TONE -1 · HIGH CUT 4.5K STEEP · MIX 55', 'A bass that bites, the sub kept clean under 110 Hz', {
     out: -0.5,
     st: 'T',
@@ -221,5 +223,5 @@ export const DISTO_BANK: readonly DistoBankPreset[] = [
   B('OCTAVE GHOST', 'DESTROY', 'RECT · DRIVE 5.5 · PRE HP 300 · POST LP 9K · MIX 60', 'Rectifier: an octave up shimmering over the note', { st: 'RECT', drive: 0.55, mix: 0.6, pre: { mode: 'HP', hz: 300 }, post: { mode: 'LP', hz: 9000 }, out: 1.5 }),
   B('FOLD WOBBLE', 'DESTROY', 'FOLD · DRIVE 4.5 · HIGH CUT 9K · MIX 70 · LFO 1/8 DRIVE', 'The folder breathing in eighths', { st: 'FOLD', drive: 0.45, high: 9000, mix: 0.7, out: -1, lfo: { shape: 'SINE', rate: '1/8', amt: 0.5, tgt: 'DRIVE' } }),
   B('BIT CRUSH', 'DESTROY', 'CRUSH · DRIVE 4 · POST LP 4.5K · MIX 75', 'Bit crusher tamed by a resonant low-pass', { st: 'CRUSH', drive: 0.4, mix: 0.75, post: { mode: 'LP', hz: 4500, reso: 0.3 } }),
-  B('PUNISH ME', 'DESTROY', 'RECT · DRIVE 9 · PUNISH · HIGH CUT 6K STEEP · MIX 50', 'Everything to the right, the sub kept clean under 90 Hz', { st: 'RECT', drive: 0.9, punish: true, high: 6000, steep: true, mix: 0.5, clean: 90 }),
+  B('PUNISH ME', 'DESTROY', 'RECT · DRIVE 9 · PUNISH · HIGH CUT 6K STEEP · MIX 50', 'Everything to the right, the sub kept clean under 90 Hz', { st: 'RECT', drive: 0.9, punish: true, high: 6000, steep: true, mix: 0.5, clean: 90, out: -1 }),
 ];

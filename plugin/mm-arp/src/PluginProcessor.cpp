@@ -1336,7 +1336,9 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         ds.mm = st == 0;
         ds.style = st > 0 ? st - 1 : 0;
         ds.drive = knobs_[static_cast<size_t>(mmarp::kn_dist)];
-        ds.punish = mmx::exStep(mmx::ex_xDPunish, ex_[mmx::ex_xDPunish]) == 1;
+        ds.punish = mmx::exStep(mmx::ex_xDPunish, ex_[mmx::ex_xDPunish]) == 1; // OLD DISTO PUNISH, au bit pres
+        // v46 : PUNISH v2 (DISTO PUNISH, en fin de liste) ; la face convertit l'ancien au premier appui
+        ds.punish2 = mmx::exStep(mmx::ex_xDPunish2, ex_[mmx::ex_xDPunish2]) == 1;
         ds.low = ex_[mmx::ex_xDLow];
         ds.thump = mmx::exStep(mmx::ex_xDThump, ex_[mmx::ex_xDThump]) == 1;
         ds.tone = ex_[mmx::ex_xDTone];

@@ -14,6 +14,12 @@
 //   - ENV (plus ou moins de mordant sur les forts), LFO (chaque cible ; MIX module de plus de 3 dB)
 //   - la sortie ne depend pas de la taille des blocs (tout en service), MIX 0 au bit pres tout en service
 //   - ni NaN ni sous-normaux ; le cout : une bande x8, et le pire cas (trois bandes, MORPH, FEEDBACK, tout)
+// v46 (PUNISH v2, CLEAN LOW) :
+//   - OFF et l'ancien PUNISH (OLD) au bit pres contre la DISTO d'avant (tests/decap_ref.cpp), blocs fixes et au hasard
+//   - PUNISH v2 sur trois boucles (basse, lead, pluck ; styles A T P E, DRIVE 3 et 6, AUTO) : +3 +/- 1 LU (BS.1770) en
+//     moyenne au-dessus du meme son sans PUNISH, chaque cas a +/- 2 ; crete <= -0.3 dBFS, meme AUTO coupe a +18 dB ;
+//     aucun NaN ; entree et sortie sans clic
+//   - CLEAN LOW : LOW CUT ne coupe que la bande saturee (le 50 Hz propre passe)
 
 #include "../dsp/Decap.h"
 
@@ -28,6 +34,9 @@
 
 using mmarp::Decap;
 using mmarp::DecapSettings;
+
+// tests/decap_ref.cpp : la DISTO d'avant la v46
+void decapRefRender(const void* s, std::size_t size, float* L, float* R, int n, int block);
 
 namespace {
 
@@ -119,6 +128,87 @@ void fft(std::vector<std::complex<double>>& a) {
             }
         }
     }
+}
+
+// v46 : la sonie integree BS.1770 (ponderation K a 48 kHz, blocs de 400 ms a 75 %, portes -70 LUFS et -10 LU), stereo
+double lufs(const std::vector<float>& L, const std::vector<float>& R, int from) {
+    const auto kw = [&](const std::vector<float>& x) {
+        std::vector<double> y(x.size() - from);
+        double a1 = 0, a2 = 0, b1 = 0, b2 = 0, c1 = 0, c2 = 0, d1 = 0, d2 = 0;
+        for (size_t i = from; i < x.size(); ++i) {
+            const double in = x[i];
+            const double s1 = 1.53512485958697 * in - 2.69169618940638 * a1 + 1.19839281085285 * a2 + 1.69065929318241 * b1 - 0.73248077421585 * b2;
+            a2 = a1;
+            a1 = in;
+            b2 = b1;
+            b1 = s1;
+            const double s2 = s1 - 2 * c1 + c2 + 1.99004745483398 * d1 - 0.99007225036621 * d2;
+            c2 = c1;
+            c1 = s1;
+            d2 = d1;
+            d1 = s2;
+            y[i - from] = s2;
+        }
+        return y;
+    };
+    const std::vector<double> l = kw(L), r = kw(R);
+    const int blk = static_cast<int>(0.4 * kSr), hop = blk / 4;
+    std::vector<double> z;
+    for (int i = 0; i + blk <= static_cast<int>(l.size()); i += hop) {
+        double s = 0;
+        for (int k = i; k < i + blk; ++k) s += l[k] * l[k] + r[k] * r[k];
+        z.push_back(s / blk);
+    }
+    const auto gated = [&](double gate) {
+        double s = 0;
+        int n = 0;
+        for (double v : z)
+            if (-0.691 + 10 * std::log10(std::max(1e-30, v)) > gate) {
+                s += v;
+                ++n;
+            }
+        return n ? -0.691 + 10 * std::log10(s / n) : -200.0;
+    };
+    return gated(gated(-70) - 10);
+}
+
+/** v46 : trois boucles synthetiques au niveau de la prise : une basse (octaves en doubles croches, filtre qui s'ouvre,
+ *  crete -5 dBFS), un lead (deux scies, crete -15 dBFS), un pluck (scie et sinus tres courts, crete -10 dBFS). */
+std::vector<float> loop(int kind, int n) {
+    std::vector<float> a(n);
+    const int step = 5760; // une double croche a 125 BPM
+    const int bass[8] = {33, 45, 33, 45, 31, 43, 36, 48};
+    const int lead[8] = {69, 72, 76, 79, 81, 76, 72, 67};
+    const int pl[8] = {81, 84, 88, 86, 84, 79, 76, 79};
+    double ph = 0, ph2 = 0, lp = 0;
+    for (int i = 0; i < n; ++i) {
+        const int k = (i / step) % 8;
+        const double t = (i % step) / kSr;
+        double v;
+        if (kind == 0) {
+            const double f = 440 * std::pow(2.0, (bass[k] - 69) / 12.0);
+            ph = std::fmod(ph + f / kSr, 1.0);
+            const double saw = 2 * ph - 1;
+            const double fc = 200 + 2500 * std::exp(-t * 18);
+            lp += (saw - lp) * (1 - std::exp(-2 * kPi * fc / kSr));
+            v = std::exp(-t * 6) * (lp + 0.6 * std::sin(2 * kPi * ph));
+        } else if (kind == 1) {
+            const double f = 440 * std::pow(2.0, (lead[k] - 69) / 12.0);
+            ph = std::fmod(ph + f / kSr, 1.0);
+            ph2 = std::fmod(ph2 + f * 1.004 / kSr, 1.0);
+            v = std::min(1.0, t * 200) * std::exp(-t * 3) * ((2 * ph - 1) + (2 * ph2 - 1)) * 0.5;
+        } else {
+            const double f = 440 * std::pow(2.0, (pl[k] - 69) / 12.0);
+            ph = std::fmod(ph + f / kSr, 1.0);
+            v = std::exp(-t * 28) * (0.6 * (2 * ph - 1) + std::sin(2 * kPi * ph));
+        }
+        a[i] = static_cast<float>(v);
+    }
+    double pk = 1e-9;
+    for (float v : a) pk = std::max(pk, std::fabs(static_cast<double>(v)));
+    const double target = std::pow(10.0, (kind == 0 ? -5 : kind == 1 ? -15 : -10) / 20.0);
+    for (float& v : a) v = static_cast<float>(v * target / pk);
+    return a;
 }
 
 DecapSettings base(int style, double drive, bool autoGain = false) {
@@ -635,6 +725,141 @@ int main() {
         render(M, N, w);
         const double ms3 = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count();
         check("CPU pire cas (3 bandes x2 x4 x8, MORPH, FEEDBACK, tout)", ms3 < 3 * ms + 20, "%.0f ms par seconde d'audio (%.2f fois une bande)", ms3, ms3 / ms);
+    }
+    // 10. v46 : OFF et l'ancien PUNISH au bit pres contre la DISTO d'avant (tests/decap_ref.cpp)
+    {
+        std::vector<DecapSettings> cases;
+        DecapSettings a = base(Decap::STYLE_T, 0.6, true);
+        a.low = 0.42;
+        a.thump = true;
+        a.tone = 0.4;
+        a.high = 0.5;
+        a.steep = true;
+        a.mix = 0.55;
+        cases.push_back(a);
+        a.punish = true;
+        cases.push_back(a);
+        DecapSettings b = base(Decap::STYLE_P, 1.0, true);
+        b.punish = true;
+        b.high = 0.62;
+        b.steep = true;
+        b.mix = 0.3;
+        cases.push_back(b);
+        DecapSettings w = base(Decap::STYLE_E, 0.55, true);
+        w.punish = true;
+        w.morph = 0.4;
+        w.morphTo = Decap::STYLE_FOLD;
+        w.dyn = 0.3;
+        w.fb = 0.4;
+        w.bands = 3;
+        w.band[0].bypass = true;
+        w.envAmt = 0.7;
+        w.lfoAmt = 0.8;
+        w.lfoTarget = Decap::T_TONE;
+        w.preMode = Decap::F_HP;
+        w.postMode = Decap::F_LP;
+        w.box = 2;
+        w.low = 0.3;
+        cases.push_back(w);
+        DecapSettings c2 = base(Decap::STYLE_FUZZ, 0.7, true);
+        c2.punish = true;
+        c2.bands = 2;
+        c2.band[0].drive = 0.3;
+        c2.low = 0.2;
+        cases.push_back(c2);
+        bool same = true;
+        int nCase = 0;
+        for (const DecapSettings& cs : cases)
+            for (int blk : {128, 37}) {
+                auto L = arp(48000), R = loop(0, 48000);
+                auto M = L, N = R;
+                render(L, R, cs, {}, blk);
+                decapRefRender(&cs, sizeof cs, M.data(), N.data(), static_cast<int>(M.size()), blk);
+                same = same && L == M && R == N;
+                ++nCase;
+            }
+        check("v46 : OFF et OLD PUNISH au bit pres (la DISTO d'avant)", same, "%.0f cas (styles, multibande, blocs)", nCase);
+    }
+    // 11. v46 : PUNISH v2, +3 LU au-dessus du son sans PUNISH, crete sous -0.3 dBFS, aucun NaN
+    {
+        const int n = 48000 * 6, from = 48000;
+        const double ceil = std::pow(10.0, -0.3 / 20);
+        double worst = 0, peak = 0, sumAll = 0;
+        bool fin = true;
+        double mean[3] = {0, 0, 0};
+        int cnt = 0;
+        const int sts[4] = {Decap::STYLE_A, Decap::STYLE_T, Decap::STYLE_P, Decap::STYLE_E};
+        for (int kind = 0; kind < 3; ++kind) {
+            const auto src = loop(kind, n);
+            int k = 0;
+            for (int st : sts)
+                for (double dr : {0.3, 0.6}) {
+                    auto L = src, R = src, M = src, N = src;
+                    DecapSettings s = base(st, dr, true);
+                    render(L, R, s);
+                    s.punish2 = true;
+                    render(M, N, s);
+                    const double d = lufs(M, N, from) - lufs(L, R, from);
+                    for (size_t i = 0; i < M.size(); ++i) {
+                        fin = fin && std::isfinite(M[i]) && std::isfinite(N[i]);
+                        peak = std::max(peak, static_cast<double>(std::max(std::fabs(M[i]), std::fabs(N[i]))));
+                    }
+                    if (std::getenv("DECAP_VERBOSE")) std::printf("  PUNISH v2 boucle %d %c DRIVE %.1f : %+.2f LU\n", kind, "ATPE"[k / 2], dr * 10, d);
+                    worst = std::max(worst, std::fabs(d - 3));
+                    mean[kind] += d / 8;
+                    sumAll += d;
+                    ++cnt;
+                    ++k;
+                }
+        }
+        bool meanOk = true;
+        for (double m : mean) meanOk = meanOk && std::fabs(m - 3) <= 1;
+        check("v46 : PUNISH v2, +3 +/- 1 LU par boucle (basse, lead, pluck)", meanOk, "%+.2f / %+.2f / %+.2f LU", mean[0], mean[1], mean[2]);
+        check("v46 : PUNISH v2, chaque cas a +3 +/- 2 LU", worst <= 2, "ecart max %.2f LU (%.0f cas)", worst, cnt);
+        // a fond : DRIVE 10, AUTO coupe, OUTPUT +18 dB, la boucle de basse
+        {
+            auto L = loop(0, n), R = L;
+            DecapSettings s = base(Decap::STYLE_FUZZ, 1.0, false);
+            s.out = 1;
+            s.punish2 = true;
+            render(L, R, s, {}, 0);
+            for (size_t i = 0; i < L.size(); ++i) {
+                fin = fin && std::isfinite(L[i]) && std::isfinite(R[i]);
+                peak = std::max(peak, static_cast<double>(std::max(std::fabs(L[i]), std::fabs(R[i]))));
+            }
+        }
+        check("v46 : PUNISH v2, crete <= -0.3 dBFS (meme AUTO coupe, +18 dB)", peak <= ceil, "%.2f dBFS", db(peak));
+        check("v46 : PUNISH v2, aucun NaN", fin);
+        (void)sumAll;
+    }
+    // 12. v46 : PUNISH v2 entre et sort sans clic ; le traite a bien change (le snarl, le second etage)
+    {
+        auto L = loop(1, 96000), R = L;
+        DecapSettings s = base(Decap::STYLE_A, 0.4, true);
+        DecapSettings on = s;
+        on.punish2 = true;
+        render(L, R, s, {{24000, on}, {60000, s}});
+        double jump = 0, ref = 0;
+        const auto src = loop(1, 96000);
+        for (size_t i = 1; i < src.size(); ++i) ref = std::max(ref, static_cast<double>(std::fabs(src[i] - src[i - 1])));
+        for (size_t i = 4800; i < L.size(); ++i) jump = std::max(jump, static_cast<double>(std::fabs(L[i] - L[i - 1])));
+        check("v46 : PUNISH v2, entree et sortie sans clic", jump < ref * 4, "saut %.4f (entree %.4f)", jump, ref);
+    }
+    // 13. v46 : CLEAN LOW (2 bandes, la basse contournee a 110 Hz) : LOW CUT (300 Hz) ne coupe que la bande saturee
+    {
+        auto L = sine(50, 0.01, 96000), R = L;
+        DecapSettings s = base(Decap::STYLE_T, 0.5, true);
+        s.bands = 2;
+        s.xLo = std::log(110.0 / 40) / std::log(25.0);
+        s.band[0].bypass = true;
+        s.low = 0.02 + 0.98 * std::log(300.0 / 20) / std::log(50.0);
+        render(L, R, s);
+        const double g = db(rms(L, skip)) - db(0.01 / std::sqrt(2.0));
+        auto M = sine(50, 0.01, 96000), N = M;
+        s.band[0].bypass = false;
+        render(M, N, s);
+        const double g2 = db(rms(M, skip)) - db(0.01 / std::sqrt(2.0));
+        check("v46 : CLEAN LOW, LOW CUT sur la bande saturee seulement", std::fabs(g) < 1 && g2 < -15, "50 Hz %.1f dB (sans CLEAN %.1f dB)", g, g2);
     }
     std::printf("\n%s\n", fails ? "ECHEC" : "tous les controles OK");
     return fails ? 1 : 0;
