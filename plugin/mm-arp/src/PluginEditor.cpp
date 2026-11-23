@@ -315,6 +315,16 @@ void MMArpEditor::timerCallback() {
             if (v != v) continue;
             add(MMArpProcessor::kModIds[i], static_cast<double>(v));
         }
+        // v50 : chaque reglage hote vise par un emplacement actif de la matrice (xMx, cible 32 + k), sa valeur effective
+        // (une fois par reglage ; cutoff, res... ont deja leur arc ci-dessus, qui compte aussi la matrice)
+        for (int j = 0; j < mmx::kModSlots; ++j) {
+            const int k = proc_.modShowK(j);
+            if (k < 0 || k >= mmx::kAll) continue;
+            const float v = proc_.modShowV(j);
+            const juce::String id(mmx::allId(k));
+            if (v != v || ids.contains(juce::var(id))) continue;
+            add(mmx::allId(k), static_cast<double>(v));
+        }
         // le VU du LFO de HELL (2026-11-17) : sa sortie, de 0 a 1
         const float hl = proc_.hellLfo();
         if (hl == hl) add("hellLfo", 0.5 + 0.5 * static_cast<double>(hl));

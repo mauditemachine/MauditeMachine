@@ -237,6 +237,20 @@
 //    0.001 dB des RIF jusqu'a 18 kHz (44.1 et 48 kHz) ; repliement sur 0..20 kHz au pire -95 dB (RIF : -80 dB a 48 kHz,
 //    -26 dB a 44.1 kHz dans leur bande de transition) ; spectre du moteur par tiers d'octave a 0.03 dB d'EXACT ; plus
 //    leger que les RIF. Le changement attend le silence, comme setOs. false (le defaut) : le site au bit pres.
+//
+// 12. v50 (2026-11-23, Mika : LFO 1 a 4 et la matrice de l'encart LFO ; le plugin seul). Meme regle : chaque cle a son
+//    defaut rend le moteur d'avant AU BIT PRES (voyager_compare 85/85, les empreintes de hq / hq2 / hq3).
+//    - LFO 1 et LFO 2 en FREE : cles l1Free / l2Free (0 SYNC, le defaut : la phase calee sur le transport, comme avant ;
+//      1 FREE : une phase libre), l1Hz / l2Hz (0..50 Hz). En FREE la phase avance de Hz / sampleRate par echantillon du
+//      contexte, bloc apres bloc, quelles que soient les ancres ; le hasard du LFO 1 (RND, S&H) suit ses cycles libres.
+//    - La matrice passe a 14 lignes : mNSrc... (N = 1..6, la page SEQ) puis xNSrc, xNDst, xNAmt (N = 1..8, les
+//      emplacements xMx du plugin), le MEME code : une ligne xN reglee comme une ligne mN donne la meme sortie, au bit
+//      pres. xNAmt va de -4 a 4 (le plugin y met (2 Amt - 1) x l'echelle d'un potard dirige vers son chemin par voix).
+//    - Deux sources de plus : 12 LFO 3, 13 LFO 4 (-1..1), communes, donnees par extLfo(l3, l4) avant chaque process() :
+//      la valeur a la fin du bloc, le moteur glisse lineairement depuis la precedente (au rythme interne).
+//    - xNDst = 32 + k (jusqu'a 1023) : une cible hors du moteur (le reglage hote k du plugin). La ligne n'agit pas sur le
+//      son ; sa quantite glisse et change de cible comme les autres (par 0) ; sa contribution (quantite x source a la
+//      fin du bloc, une source par voix : la voix la plus recente) se lit par modTaps, le plugin l'applique a k.
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
@@ -319,6 +333,16 @@ class Voyager {
   void pitchBend(double v);
   void modWheel(double v);
   void aftertouch(double v);
+  /** v50 (voir 12.) : LFO 3 et LFO 4, -1..1, leur valeur a la fin du prochain process() (le moteur y glisse). */
+  void extLfo(double lfo3, double lfo4);
+  /** v50 : une ligne xN de la matrice : sa destination en cours (1..19, ou 32 + k) et sa contribution a la fin du
+   * dernier bloc (quantite lissee x source ; une source par voix : la voix la plus recente) ; {0, 0} : au repos. */
+  struct ModTap {
+    int dst;
+    double v;
+  };
+  static constexpr int kModTaps = 8;
+  void modTaps(ModTap* out8) const;
   void beat(double timeSec, double beat, double bpm, bool run);
   void noteOff(double midi, double timeSec);
   void cancel(double timeSec);

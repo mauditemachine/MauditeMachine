@@ -9,6 +9,9 @@
 //     crans    "210" (2 HQ, 1 STD, 0 ECO)         moteur  pro | classic | both
 //     blocs    "128" ou "32,64,128,512"           passages : le meilleur de N (defaut 1)
 //   MMARP_LATENCY=zero | exact : impose LATENCY (sans effet sur un build d'avant la v49)
+// v50 : les scenes "INIT + MOD 4 / 8" et "CAS DE MIKA + MOD 4 / 8" : la matrice de l'encart LFO engagee (4 puis 8
+// emplacements xMx, chemins par voix et generiques) ; un build d'avant la v50 les joue sans matrice (filtre : "MOD").
+// Le filtre "=NOM" ne garde que la scene de ce nom exact (ex. "=INIT").
 // (depuis la racine du depot)
 #include "PluginProcessor.h"
 
@@ -233,6 +236,38 @@ int main(int argc, char** argv) {
         scenes.push_back({"DISTO 3 BANDES", juce::var(), {{"dist", 0.7}, {"xDStyle", 1.0 / 12}, {"xDBands", 1.0}}});
         scenes.push_back({"WARMTH SEULE", juce::var(), {{"xWarmth", 0.6}}});
     }
+    // v50 : la matrice de l'encart LFO engagee (les emplacements xMx), sur INIT et sur le cas de Mika : 4 puis 8 emplacements,
+    // chemins melanges (par voix : FILTER CUTOFF, PAN ; generiques, le rendu par tranches de 32 : DELAY FEEDBACK, OSC 2
+    // LEVEL, MASTER WIDTH, PHASER RATE, EQ 3 GAIN, A ENV DECAY), les 4 LFO, une enveloppe, RANDOM, S&H, VELOCITY
+    {
+        const auto slot = [](int n, int src, const char* dst, double amt) {
+            const std::string b = "xMx" + std::to_string(n);
+            const int code = std::strncmp(dst, "m:", 2) == 0 ? std::atoi(dst + 2) : mmx::kModDstBase + mmx::allIndex(dst);
+            return std::vector<std::pair<std::string, double>>{{b + "Src", src / 13.0}, {b + "Dst", code / 1023.0}, {b + "Amt", 0.5 + 0.5 * amt}};
+        };
+        std::vector<std::pair<std::string, double>> m4, m8;
+        for (const auto& v : {slot(1, 6, "cutoff", 0.3), slot(2, 7, "xDlFb", 0.3), slot(3, 13, "osc2", -0.4), slot(4, 9, "xWidth", 0.5)}) m4.insert(m4.end(), v.begin(), v.end());
+        m4.push_back({"xLfo2Sync", 0});
+        m4.push_back({"xLfo4Sync", 0});
+        m8 = m4;
+        for (const auto& v : {slot(5, 12, "xPhRate", 0.4), slot(6, 11, "m:15", 0.6), slot(7, 10, "xQ3Gain", 0.3), slot(8, 1, "aD", 0.3)}) m8.insert(m8.end(), v.begin(), v.end());
+        m8.push_back({"xQ3On", 1});
+        for (const auto& base : {std::string("INIT"), std::string("CAS DE MIKA")}) {
+            Scene b0;
+            bool found = false;
+            for (const auto& sc : scenes)
+                if (sc.name == base) b0 = sc, found = true;
+            if (!found) continue;
+            for (int k : {4, 8}) {
+                Scene s = b0;
+                s.name = base + " + MOD " + std::to_string(k);
+                s.bank = false;
+                const auto& add = k == 4 ? m4 : m8;
+                s.extra.insert(s.extra.end(), add.begin(), add.end());
+                scenes.push_back(s);
+            }
+        }
+    }
     // l'instance qui attend (transport arrete, rien ne sonne) : ce que coute une piste muette dans le projet
     {
         std::vector<Scene> more;
@@ -263,7 +298,8 @@ int main(int argc, char** argv) {
     for (const int engine : engines)
         for (const int blk : blockList)
             for (const auto& sc : scenes) {
-                if (!filter.empty() && sc.name.find(filter) == std::string::npos) continue;
+                // (v50 : "=NOM" ne garde que la scene de ce nom exact ; sinon une partie du nom)
+                if (!filter.empty() && (filter[0] == '=' ? sc.name != filter.substr(1) : sc.name.find(filter) == std::string::npos)) continue;
                 for (char qc : qs) {
                     const int q = qc - '0';
                     if (q < 0 || q > 2) continue;

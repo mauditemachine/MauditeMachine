@@ -375,16 +375,24 @@ inline double foldAdaa2(const SinTab& T, double x0, double* st, double a, bool f
 // ---------------------------------------------------------------------------------------------------------------
 // Les extensions du 2026-11-11, suite (le plugin seul : les controleurs, la matrice de modulation, VOICE MODE,
 // FEEDBACK, AMP MODE). Voir Voyager.h. Chaque cle a son neutre : aucun de ces chemins ne tourne.
-constexpr int MX_ROWS = 6;
-enum { MS_OFF = 0, MS_VEL, MS_MW, MS_AT, MS_PB, MS_KEY, MS_LFO1, MS_LFO2, MS_FENV, MS_AENV, MS_SH, MS_RND, MS_COUNT };
+// v50 : 14 lignes, les 6 de la page SEQ (mNSrc...) puis les 8 emplacements de l'encart LFO (xNSrc...), le meme code.
+constexpr int MX_ROWS = 14;
+constexpr int MX_OLD = 6;
+constexpr int MX_NEW = MX_ROWS - MX_OLD;
+// (v50 : LFO 3 et LFO 4, calcules par le plugin et donnes par extLfo, a la fin : les codes d'avant ne bougent pas)
+enum { MS_OFF = 0, MS_VEL, MS_MW, MS_AT, MS_PB, MS_KEY, MS_LFO1, MS_LFO2, MS_FENV, MS_AENV, MS_SH, MS_RND, MS_LFO3, MS_LFO4, MS_COUNT };
 enum {
   MD_OFF = 0, MD_PITCH, MD_O2PITCH, MD_WAVE, MD_FM, MD_OSCMIX, MD_NOISE, MD_SUB, MD_RING, MD_FOLD, MD_CUTOFF, MD_RES,
   MD_ENV, MD_DRIVE, MD_AMP, MD_PAN, MD_STACK, MD_LFO1D, MD_LFO2D, MD_COMB, MD_COUNT
 };
+// v50 : une destination 32 + k (k : un reglage hote du plugin) n'agit pas dans le moteur ; il en calcule seulement la
+// contribution (quantite lissee x source, a la fin de chaque bloc : modTaps), que le plugin applique au reglage k
+constexpr int MD_TAP0 = 32;
+constexpr int MD_TAP_MAX = 1023;
 /** Une source par voix (les autres sont communes a toutes les voix). */
 inline bool mxVoiceSrc(int s) { return s == MS_VEL || s == MS_KEY || s == MS_FENV || s == MS_AENV || s == MS_SH || s == MS_RND; }
 /** Une source a deux signes (-1..1) ; les autres vont de 0 a 1. */
-inline bool mxBipolar(int s) { return s == MS_PB || s == MS_KEY || s == MS_LFO1 || s == MS_LFO2 || s == MS_SH || s == MS_RND; }
+inline bool mxBipolar(int s) { return s == MS_PB || s == MS_KEY || s == MS_LFO1 || s == MS_LFO2 || s == MS_SH || s == MS_RND || s == MS_LFO3 || s == MS_LFO4; }
 constexpr double MX_PITCH = 1200;     // PITCH et OSC 2 PITCH : +/-12 demi-tons a amt 1
 constexpr double MX_WAVE = 2;         // WAVE : 2 formes d'onde (la loi du LFO 1)
 constexpr double MX_FM = 0.6;         // FM : +/-0.6 (la loi du LFO 1)
@@ -494,8 +502,14 @@ enum PId {
   P_xRing, P_xFold, P_xNoiseCol, P_xUnison, P_xHpf, P_xComb, P_xCombFb,
   // 2026-11-11, suite : la matrice (6 lignes : source, destination, quantite), le bend, VOICE MODE, FEEDBACK, AMP MODE
   P_m1Src, P_m1Dst, P_m1Amt, P_m2Src, P_m2Dst, P_m2Amt, P_m3Src, P_m3Dst, P_m3Amt, P_m4Src, P_m4Dst, P_m4Amt,
-  P_m5Src, P_m5Dst, P_m5Amt, P_m6Src, P_m6Dst, P_m6Amt, P_pbRange, P_voiceMode, P_xFeedback, P_ampMode, P_COUNT
+  P_m5Src, P_m5Dst, P_m5Amt, P_m6Src, P_m6Dst, P_m6Amt, P_pbRange, P_voiceMode, P_xFeedback, P_ampMode,
+  // v50 : LFO 1 et LFO 2 en FREE (une phase libre en Hz) ; les 8 lignes de plus de la matrice (xNSrc, xNDst, xNAmt)
+  P_l1Free, P_l1Hz, P_l2Free, P_l2Hz,
+  P_x1Src, P_x1Dst, P_x1Amt, P_x2Src, P_x2Dst, P_x2Amt, P_x3Src, P_x3Dst, P_x3Amt, P_x4Src, P_x4Dst, P_x4Amt,
+  P_x5Src, P_x5Dst, P_x5Amt, P_x6Src, P_x6Dst, P_x6Amt, P_x7Src, P_x7Dst, P_x7Amt, P_x8Src, P_x8Dst, P_x8Amt, P_COUNT
 };
+/** v50 : la premiere cle (source) de la ligne r de la matrice ; + 1 la destination, + 2 la quantite. */
+inline int mxP(int r) { return r < MX_OLD ? P_m1Src + 3 * r : P_x1Src + 3 * (r - MX_OLD); }
 struct PDef {
   const char* name;
   double lo, hi;
@@ -532,6 +546,17 @@ const PDef PDEFS[P_COUNT] = {
     {"m6Src", 0, MS_COUNT - 1, true, 0}, {"m6Dst", 0, MD_COUNT - 1, true, 0}, {"m6Amt", -1, 1, false, 0},
     {"pbRange", 1, 24, false, 2},    {"voiceMode", 0, 2, true, 0},    {"xFeedback", 0, 1, false, 0},
     {"ampMode", 0, 3, true, 0},
+    // v50 (leurs defauts : SYNC, aucune ligne : le moteur d'avant au bit pres)
+    {"l1Free", 0, 1, true, 0},       {"l1Hz", 0, 50, false, 1},       {"l2Free", 0, 1, true, 0},
+    {"l2Hz", 0, 50, false, 1},
+    {"x1Src", 0, MS_COUNT - 1, true, 0}, {"x1Dst", 0, MD_TAP_MAX, true, 0}, {"x1Amt", -4, 4, false, 0},
+    {"x2Src", 0, MS_COUNT - 1, true, 0}, {"x2Dst", 0, MD_TAP_MAX, true, 0}, {"x2Amt", -4, 4, false, 0},
+    {"x3Src", 0, MS_COUNT - 1, true, 0}, {"x3Dst", 0, MD_TAP_MAX, true, 0}, {"x3Amt", -4, 4, false, 0},
+    {"x4Src", 0, MS_COUNT - 1, true, 0}, {"x4Dst", 0, MD_TAP_MAX, true, 0}, {"x4Amt", -4, 4, false, 0},
+    {"x5Src", 0, MS_COUNT - 1, true, 0}, {"x5Dst", 0, MD_TAP_MAX, true, 0}, {"x5Amt", -4, 4, false, 0},
+    {"x6Src", 0, MS_COUNT - 1, true, 0}, {"x6Dst", 0, MD_TAP_MAX, true, 0}, {"x6Amt", -4, 4, false, 0},
+    {"x7Src", 0, MS_COUNT - 1, true, 0}, {"x7Dst", 0, MD_TAP_MAX, true, 0}, {"x7Amt", -4, 4, false, 0},
+    {"x8Src", 0, MS_COUNT - 1, true, 0}, {"x8Dst", 0, MD_TAP_MAX, true, 0}, {"x8Amt", -4, 4, false, 0},
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1031,7 +1056,18 @@ struct Voyager::Impl {
     MxRow rows[MX_ROWS];
     int lastMask = 0, lastV = 0;
     uint32_t seedSH = 0, seedRnd = 0;
+    // v50 : la contribution des 8 lignes xN (quantite lissee x source) et leur destination, a la fin du dernier bloc
+    double tap[MX_NEW] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int tapDst[MX_NEW] = {0, 0, 0, 0, 0, 0, 0, 0};
+    bool tapLive = false;
   } xmx;
+  // v50 : LFO 3 et LFO 4 (le plugin les calcule : extLfo) : la valeur a la fin du bloc d'avant, celle a la fin du
+  // prochain (le moteur glisse lineairement de l'une a l'autre) ; LFO 1 et LFO 2 en FREE : leur phase (en cycles, non
+  // repliee : le hasard des formes RND / S&H change a chaque cycle) au debut du prochain bloc
+  struct ExtLfo {
+    double l3 = 0, l4 = 0, l3T = 0, l4T = 0;
+    double ph1 = 0, ph2 = 0;
+  } xl;
   // Ce que la face montre des modulations (Voyager.h ModView) : ecrit au dernier echantillon de chaque bloc
   ModView modv;
   // MONO / LEGATO : la voix, les notes tenues (dans l'ordre ou elles sont parties)
@@ -1227,9 +1263,9 @@ struct Voyager::Impl {
     for (int i = 0; i < nv; i += 1) voices[i].rOff = hashU(xmx.seedRnd, -1 - i);
     for (int r = 0; r < MX_ROWS; r += 1) {
       MxRow& R = xmx.rows[r];
-      R.src = static_cast<int>(p[P_m1Src + 3 * r]);
-      R.dst = static_cast<int>(p[P_m1Dst + 3 * r]);
-      R.a = R.src != 0 && R.dst != 0 ? p[P_m1Amt + 3 * r] : 0;
+      R.src = static_cast<int>(p[mxP(r)]);
+      R.dst = static_cast<int>(p[mxP(r) + 1]);
+      R.a = R.src != 0 && R.dst != 0 ? p[mxP(r) + 2] : 0;
     }
     xfb.g = p[P_xFeedback];
     xa.k = coef(AMP_AVG_S, sampleRate);
@@ -2292,11 +2328,57 @@ struct Voyager::Impl {
   void processBlock(float* L, float* R, int N) {
     bool x = differs(xc.pbT, 0) || differs(xc.mwT, 0) || differs(xc.atT, 0) || differs(xc.pb, 0) || differs(xc.mw, 0) || differs(xc.at, 0) || differs(xc.pbC, 0);
     x = x || p[P_xFeedback] > 0 || xfb.g > 0;
-    for (int r = 0; r < MX_ROWS && !x; r += 1) x = (p[P_m1Src + 3 * r] != 0 && p[P_m1Dst + 3 * r] != 0 && differs(p[P_m1Amt + 3 * r], 0)) || differs(xmx.rows[r].a, 0);
-    if (x)
+    for (int r = 0; r < MX_ROWS && !x; r += 1) x = (p[mxP(r)] != 0 && p[mxP(r) + 1] != 0 && differs(p[mxP(r) + 2], 0)) || differs(xmx.rows[r].a, 0);
+    if (x) {
       processBlockT<true>(L, R, N);
-    else
+      tapsDone();
+    } else {
       processBlockT<false>(L, R, N);
+      if (xmx.tapLive) {
+        xmx.tapLive = false;
+        for (int j = 0; j < MX_NEW; j += 1) {
+          xmx.tap[j] = 0;
+          xmx.tapDst[j] = 0;
+        }
+      }
+    }
+    // v50 : LFO 3 / 4 arrives a leur cible ; les phases libres de LFO 1 / 2 avancent (meme en SYNC : sans effet)
+    xl.l3 = xl.l3T;
+    xl.l4 = xl.l4T;
+    xl.ph1 += N * (p[P_l1Hz] / sampleRate);
+    xl.ph2 += N * (p[P_l2Hz] / sampleRate);
+  }
+  /** v50 : la valeur d'une source a la fin du bloc (une source par voix : celle de la voix la plus recente). */
+  double srcNow(int s) const {
+    const Voice& lv = voices[xmx.lastV];
+    switch (s) {
+      case MS_VEL: return lv.velS;
+      case MS_MW: return xc.mw;
+      case MS_AT: return xc.at;
+      case MS_PB: return xc.pb;
+      case MS_KEY: return keyOf(lv.logf);
+      case MS_LFO1: return lfoOut;
+      case MS_LFO2: return xs.lfo2;
+      case MS_FENV: return lv.on ? lv.fV : 0;
+      case MS_AENV: return lv.on ? lv.aV : 0;
+      case MS_SH: return lv.shS;
+      case MS_RND: return lv.rS;
+      case MS_LFO3: return xl.l3T;
+      case MS_LFO4: return xl.l4T;
+      default: return 0;
+    }
+  }
+  /** v50 : les contributions des 8 lignes xN a la fin du bloc (modTaps) ; rien du son n'en depend. */
+  void tapsDone() {
+    bool live = false;
+    for (int j = 0; j < MX_NEW; j += 1) {
+      const MxRow& R = xmx.rows[MX_OLD + j];
+      const bool on = differs(R.a, 0) && R.src != MS_OFF && R.dst != MD_OFF;
+      xmx.tap[j] = on ? R.a * srcNow(R.src) : 0;
+      xmx.tapDst[j] = on ? R.dst : 0;
+      live = live || on;
+    }
+    xmx.tapLive = live;
   }
 };
 
@@ -2323,16 +2405,27 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
   const bool ext = x1Want != 0 || l2Want != 0 || xs.d1 != 0 || xs.d2 != 0 || xs.a1 != 0 || xs.a2 != 0;
   const double l2Beats = jsm::max(0.125, p[P_l2Beats]);
   const int l2Shape = static_cast<int>(p[P_l2Shape]);
+  // v50 : LFO 1 / LFO 2 en FREE : la phase avance de Hz / sampleRate par echantillon du contexte (xl.ph1, xl.ph2 : au
+  // debut du bloc) ; en SYNC (le defaut), le calcul d'avant, au bit pres
+  const bool l1Free = p[P_l1Free] != 0;
+  const bool l2Free = p[P_l2Free] != 0;
+  const double l1Inc = p[P_l1Hz] / sampleRate;
+  const double l2Inc = p[P_l2Hz] / sampleRate;
   // 2026-11-11, suite : ce qui tourne dans ce bloc. La matrice : une ligne voulue (source, destination, quantite) ou
   // encore en route ; les controleurs : une cible ou une valeur lissee non nulle. A 0 : rien de tout cela ne tourne.
   int mWs[MX_ROWS], mWd[MX_ROWS];
   double mWa[MX_ROWS];
   bool mxBlk0 = false, mxComb0 = false, mxL20 = false;
+  // v50 : les lignes qui bougent dans ce bloc (une ligne au repos, sa quantite et sa cible a 0 et posees, n'y change
+  // rien : les boucles par echantillon ne passent que sur celles-ci, dans l'ordre, au bit pres)
+  int mAct[MX_ROWS];
+  int nAct = 0;
   for (int r = 0; r < MX_ROWS; r += 1) {
-    mWs[r] = static_cast<int>(p[P_m1Src + 3 * r]);
-    mWd[r] = static_cast<int>(p[P_m1Dst + 3 * r]);
-    mWa[r] = mWs[r] != 0 && mWd[r] != 0 ? p[P_m1Amt + 3 * r] : 0;
+    mWs[r] = static_cast<int>(p[mxP(r)]);
+    mWd[r] = static_cast<int>(p[mxP(r) + 1]);
+    mWa[r] = mWs[r] != 0 && mWd[r] != 0 ? p[mxP(r) + 2] : 0;
     const MxRow& R = xmx.rows[r];
+    if (mWs[r] != R.src || mWd[r] != R.dst || differs(mWa[r], 0) || differs(R.a, 0)) mAct[nAct++] = r;
     if (differs(mWa[r], 0) || differs(R.a, 0)) {
       mxBlk0 = true;
       if (mWd[r] == MD_COMB || R.dst == MD_COMB) mxComb0 = true;
@@ -2399,7 +2492,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     }
     const double x = t0 + N - 1;
     dueBeats(x);
-    lfoOut = lfoRaw(beatAt(x) / lfoBeats, static_cast<int>(p[P_lfoShape]));
+    lfoOut = lfoRaw(l1Free ? xl.ph1 + (N - 1) * l1Inc : beatAt(x) / lfoBeats, static_cast<int>(p[P_lfoShape]));
     // En silence : les quantites du 2026-11-11 posees (comme celles des LFO)
     xq.ring = p[P_xRing];
     xq.fold = p[P_xFold];
@@ -2415,7 +2508,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       xs.a1 = x1Want != 0 ? p[P_xl1Amt] : 0;
       xs.a2 = l2Want != 0 ? p[P_l2Amt] : 0;
       if (l2Want != 0) {
-        const double cyc2 = beatAt(x) / l2Beats;
+        const double cyc2 = l2Free ? xl.ph2 + (N - 1) * l2Inc : beatAt(x) / l2Beats;
         const double c2 = jsm::floor(cyc2);
         if (c2 != xs.idx2) l2Cycle(c2);
         xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
@@ -2438,7 +2531,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       }
       if (mxL2Blk && l2Want == 0) {
         // le LFO 2 source de la matrice, sa destination propre a OFF : sa valeur de fin de bloc
-        const double cyc2 = beatAt(x) / l2Beats;
+        const double cyc2 = l2Free ? xl.ph2 + (N - 1) * l2Inc : beatAt(x) / l2Beats;
         const double c2 = jsm::floor(cyc2);
         if (c2 != xs.idx2) l2Cycle(c2);
         xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
@@ -2575,7 +2668,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     const double x = fr + static_cast<double>(i2 - i * OS) / OS;
     if (beats.size() > 0 && beats.at(0).f <= x) dueBeats(x);
     const double pos = tp.b + (x - tp.f) * tp.k;
-    const double cyc = pos / lfoBeats;
+    const double cyc = l1Free ? xl.ph1 + (x - t0) * l1Inc : pos / lfoBeats;
     const double cI = jsm::floor(cyc);
     if (cI != rIdx) {
       rIdx = cI;
@@ -2633,10 +2726,13 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     double mxF1 = 1, mxF2 = 1, mxDrvG = 0;
     bool mxLfoD = false, mxDrvOn = false;
     double gMw = 0, gAt = 0, gPb = 0, gL1 = 0, gL2 = 0;  // les sources communes de cet echantillon
+    double gL3 = 0, gL4 = 0;                             // v50 : LFO 3 et LFO 4 (extLfo, glisses sur le bloc)
+    bool tapVS = false;                                  // v50 : une ligne 32 + k lit une source par voix lissee
     if (mxBlk) {
       const bool nn = i2 % OS == 0;
       bool l2Src = false;
-      for (int r = 0; r < MX_ROWS; r += 1) {
+      for (int ri = 0; ri < nAct; ri += 1) {
+        const int r = mAct[ri];
         MxRow& R = xmx.rows[r];
         const double tgt = R.src == mWs[r] && R.dst == mWd[r] ? mWa[r] : 0;
         R.a += (tgt - R.a) * K;
@@ -2652,7 +2748,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       if (l2Src && xs.d2 == 0) {
         // le LFO 2 source de la matrice, sa destination propre a OFF : il tourne ici (comme plus bas)
         if (nn) {
-          const double cyc2 = pos / l2Beats;
+          const double cyc2 = l2Free ? xl.ph2 + (fr - t0) * l2Inc : pos / l2Beats;
           const double c2 = jsm::floor(cyc2);
           if (c2 != xs.idx2) l2Cycle(c2);
           xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
@@ -2664,14 +2760,25 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       gPb = xc.pb;
       gL1 = lfoOut;
       gL2 = xs.lfo2;
+      {
+        const double u = (x - t0 + 1) / N;
+        gL3 = xl.l3 + (xl.l3T - xl.l3) * u;
+        gL4 = xl.l4 + (xl.l4T - xl.l4) * u;
+      }
       double dd1 = 0, dd2 = 0;
-      for (int r = 0; r < MX_ROWS; r += 1) {
-        const MxRow& R = xmx.rows[r];
+      for (int ri = 0; ri < nAct; ri += 1) {
+        const MxRow& R = xmx.rows[mAct[ri]];
         if (!differs(R.a, 0) || R.src == MS_OFF || R.dst == MD_OFF) continue;
         const bool vs = mxVoiceSrc(R.src);
         srcM |= 1 << R.src;
+        if (R.dst >= MD_COUNT) {
+          // v50 : une cible hors du moteur (32 + k) : rien ici, sa contribution est lue a la fin du bloc (tapsDone) ;
+          // ses sources par voix lissees (VELOCITY, S&H, RANDOM) tournent dans la boucle des voix
+          if (R.src == MS_VEL || R.src == MS_SH || R.src == MS_RND) tapVS = true;
+          continue;
+        }
         if (R.dst == MD_LFO1D || R.dst == MD_LFO2D || (R.dst == MD_DRIVE && !vs)) {
-          double sv = R.src == MS_MW ? gMw : R.src == MS_AT ? gAt : R.src == MS_PB ? gPb : R.src == MS_LFO1 ? gL1 : gL2;
+          double sv = R.src == MS_MW ? gMw : R.src == MS_AT ? gAt : R.src == MS_PB ? gPb : R.src == MS_LFO1 ? gL1 : R.src == MS_LFO3 ? gL3 : R.src == MS_LFO4 ? gL4 : gL2;
           if (vs) {
             // (les LFO sont communs : une source par voix y prend la valeur de la voix la plus recente)
             const Voice& lv = voices[xmx.lastV];
@@ -2756,7 +2863,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       if (xs.d2 != 0) {
         // Le LFO 2 : sa forme au rythme du contexte (tenue), lissee 2 ms au taux interne comme le LFO 1
         if (newNoise) {
-          const double cyc2 = pos / l2Beats;
+          const double cyc2 = l2Free ? xl.ph2 + (fr - t0) * l2Inc : pos / l2Beats;
           const double c2 = jsm::floor(cyc2);
           if (c2 != xs.idx2) l2Cycle(c2);
           xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
@@ -3147,7 +3254,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
       else
         v.fV -= v.fV * cc.fRel * ve;
       v.logf += (v.logT - v.logf) * (v.gK > 0 ? v.gK : cc.glide);
-      if (mxV) {
+      if (mxV || tapVS) {
         // 2026-11-11, suite : la matrice, par voix
         // les sources de la voix (la velocite et S&H lisses 5 ms, le bruit lent : un segment par temps, par position)
         if (srcM & (1 << MS_VEL)) v.velS += (v.vel - v.velS) * xc.k;
@@ -3169,7 +3276,9 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
           }
           v.rS += (v.rRaw - v.rS) * lfoK;
         }
-        const double S[MS_COUNT] = {0, v.velS, gMw, gAt, gPb, (srcM & (1 << MS_KEY)) != 0 ? keyOf(v.logf) : 0, gL1, gL2, v.fV, v.aV, v.shS, v.rS};
+      }
+      if (mxV) {
+        const double S[MS_COUNT] = {0, v.velS, gMw, gAt, gPb, (srcM & (1 << MS_KEY)) != 0 ? keyOf(v.logf) : 0, gL1, gL2, v.fV, v.aV, v.shS, v.rS, gL3, gL4};
         // les sommes par destination (seules les destinations visees sont remises a 0 puis lues)
         double mv[MD_COUNT];
         for (int r = 0; r < nVR; r += 1) mv[vr[r].dst] = 0;
@@ -4460,6 +4569,13 @@ void Voyager::note(double timeSec, double midi, double gateSec, double accent, d
 void Voyager::pitchBend(double v) { m_->xc.pbT = v != v ? 0 : v < -1 ? -1 : v > 1 ? 1 : v; }
 void Voyager::modWheel(double v) { m_->xc.mwT = v != v ? 0 : v < 0 ? 0 : v > 1 ? 1 : v; }
 void Voyager::aftertouch(double v) { m_->xc.atT = v != v ? 0 : v < 0 ? 0 : v > 1 ? 1 : v; }
+void Voyager::extLfo(double lfo3, double lfo4) {
+  m_->xl.l3T = lfo3 != lfo3 ? 0 : lfo3 < -1 ? -1 : lfo3 > 1 ? 1 : lfo3;
+  m_->xl.l4T = lfo4 != lfo4 ? 0 : lfo4 < -1 ? -1 : lfo4 > 1 ? 1 : lfo4;
+}
+void Voyager::modTaps(ModTap* out) const {
+  for (int j = 0; j < MX_NEW; j += 1) out[j] = {m_->xmx.tapDst[j], m_->xmx.tap[j]};
+}
 void Voyager::beat(double timeSec, double b, double bpm, bool run) { m_->addBeat(timeSec, b, bpm, run); }
 void Voyager::noteOff(double midi, double timeSec) { m_->msgNoteOff(midi, timeSec); }
 void Voyager::cancel(double timeSec) { m_->msgCancel(timeSec); }

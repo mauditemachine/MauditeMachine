@@ -698,7 +698,8 @@ const V27 = EXTRA.slice(V27_FROM);
  * EQ et l'ancien mode du DELAY, la matrice, les modes de voix, FEEDBACK, AMP MODE, la pedale masquee, le rack (ses
  * reglages fins), FILTER + (COMB FB). Seuls comptent la voix, ses LFO, le swing et le sequenceur.
  */
-const NEUTRAL_SECTIONS = new Set(['reverb', 'master', 'phaser', 'flanger', 'pump', 'crush', 'old', 'space', 'matrix', 'voice', 'amp', 'dist', 'hell', 'sky', 'filter']);
+// v50 : la matrice de l'encart LFO (section mod, xMx1..8) aussi : ses emplacements restent a OFF dans toute la banque
+const NEUTRAL_SECTIONS = new Set(['reverb', 'master', 'phaser', 'flanger', 'pump', 'crush', 'old', 'space', 'matrix', 'voice', 'amp', 'dist', 'hell', 'sky', 'filter', 'mod']);
 const EXTRA_STEPS = Object.fromEntries(EXTRA.filter((e) => e.steps).map((e) => [e.id, e.steps]));
 
 function full(p) {

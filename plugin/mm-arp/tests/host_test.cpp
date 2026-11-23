@@ -797,7 +797,7 @@ int main() {
         check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra >= 263,
               "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres HELL v2 (les 253 d'avant gardent leur place)");
         // v49 : LATENCY (ZERO / EXACT) en fin de liste, apres REVERB FREEZE
-        check(mmx::ex_xLatency == 263 && mmx::kExtra == 264 && std::strcmp(mmx::kExtraDefs[mmx::ex_xLatency].steps[1], "ZERO") == 0 && mmx::kExtraDefs[mmx::ex_xLatency].def == 1,
+        check(mmx::ex_xLatency == 263 && mmx::kExtra >= 264 && std::strcmp(mmx::kExtraDefs[mmx::ex_xLatency].steps[1], "ZERO") == 0 && mmx::kExtraDefs[mmx::ex_xLatency].def == 1,
               "v49 : LATENCY ajoute en fin de liste (263, ZERO par defaut ; les 263 d'avant gardent leur place)");
     }
     {
@@ -1251,6 +1251,85 @@ int main() {
             check(same && differs && sa.peak > 0.01 && sc.finite && std::fabs(dl) < 0.05,
                   "v49 : projet d'avant (EXACT) au bit pres comme LATENCY EXACT (" + std::string(same ? "oui" : "NON") + ", crete " + juce::String(sa.peak, 3).toStdString() +
                       ") ; ZERO (DISTO, WARMTH, moteur) " + std::string(differs ? "autre" : "IDENTIQUE") + ", a " + juce::String(dl, 3).toStdString() + " dB d'EXACT");
+        }
+    }
+    // v50 : LFO 1 / 2 FREE, LFO 4, la matrice de l'encart LFO (xMx1..8) : 31 reglages en fin de liste, neutres
+    {
+        // 1. les compteurs et l'ordre du contrat (apres LATENCY, 263)
+        {
+            const char* ids[7] = {"xLfo1Sync", "xLfo1Hz", "xLfo2Sync", "xLfo2Hz", "xLfo4Rate", "xLfo4Shape", "xLfo4Sync"};
+            bool order = true;
+            for (int i = 0; i < 7; ++i) order = order && mmx::allIndex(ids[i]) == mmarp::kKnobs + 264 + i;
+            for (int n = 1; n <= 8; ++n)
+                for (int r = 0; r < 3; ++r) {
+                    const std::string id = "xMx" + std::to_string(n) + (r == 0 ? "Src" : r == 1 ? "Dst" : "Amt");
+                    order = order && mmx::allIndex(id.c_str()) == mmarp::kKnobs + 271 + 3 * (n - 1) + r;
+                }
+            MMArpProcessor p;
+            check(order && mmx::kExtra == 295 && mmx::kAll == 357 && p.getParameters().size() == 360 && mmx::ex_xLatency == 263,
+                  "v50 : 31 reglages en fin de liste dans l'ordre du contrat (264 a 294 ; 295 reglages du VST3 seul, " + std::to_string(p.getParameters().size()) +
+                      " parametres hote)");
+        }
+        // 2. les valeurs par defaut (neutres), les crans, le texte de l'hote
+        {
+            const auto& D = mmx::kExtraDefs;
+            const auto is = [](double a, double b) { return std::fabs(a - b) < 1e-12; };
+            bool defs = is(D[mmx::ex_xLfo1Sync].def, 1) && is(D[mmx::ex_xLfo2Sync].def, 1) && is(D[mmx::ex_xLfo4Sync].def, 1) && is(D[mmx::ex_xLfo1Hz].def, 0.4) &&
+                        is(D[mmx::ex_xLfo2Hz].def, 0.4) && is(D[mmx::ex_xLfo4Rate].def, 0.4) && is(D[mmx::ex_xLfo4Shape].def, 0) && D[mmx::ex_xLfo4Shape].nSteps == 7;
+            for (int j = 0; j < 8; ++j) {
+                const int e = mmx::ex_xMx1Src + 3 * j;
+                defs = defs && is(D[e].def, 0) && D[e].nSteps == 14 && std::strcmp(D[e].steps[12], "LFO 3") == 0 && is(D[e + 1].def, 0) && D[e + 1].nSteps == 1024 &&
+                       D[e + 1].steps == nullptr && is(D[e + 2].def, 0.5) && D[e + 2].nSteps == 0;
+            }
+            MMArpProcessor p;
+            auto* dst = p.knobParam(mmx::allIndex("xMx3Dst"));
+            const juce::String t0 = dst->getText(0.f, 32), t1 = dst->getText(54.f / 1023, 32), t2 = dst->getText(25.f / 1023, 32), t3 = dst->getText(10.f / 1023, 32);
+            const juce::String ta = p.knobParam(mmx::allIndex("xMx3Amt"))->getText(0.75f, 32), ts = p.knobParam(mmx::allIndex("xMx3Src"))->getText(1.f, 32);
+            defs = defs && t0 == "OFF" && t1 == "FILTER CUTOFF" && t2 == "---" && t3 == "CUTOFF" && ta == "+50 %" && ts == "LFO 4";
+            check(defs, "v50 : defauts neutres (SYNC, 0.4, OFF, 0.5), DEST a 1024 crans ; texte de l'hote : " + t0.toStdString() + ", " + t1.toStdString() + ", " + t2.toStdString() +
+                            ", " + t3.toStdString() + ", " + ta.toStdString() + ", " + ts.toStdString());
+        }
+        // 3. un projet d'avant (sans les 31 reglages) s'ouvre a leurs defauts, quelle que soit la valeur que l'instance avait,
+        // et sonne au bit pres comme le meme projet avec les defauts poses
+        {
+            const auto render = [&](bool drop, std::vector<float>& L) {
+                MMArpProcessor a;
+                juce::MemoryBlock mb;
+                a.getStateInformation(mb);
+                auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                juce::ValueTree params = st.getChild(0);
+                for (int i = params.getNumChildren(); --i >= 0;) {
+                    const int e = mmx::allIndex(params.getChild(i).getProperty("id").toString().toRawUTF8()) - mmarp::kKnobs;
+                    if (drop && e >= mmx::ex_xLfo1Sync) params.removeChild(i, nullptr);
+                }
+                st.setProperty("program", program(), nullptr);
+                st.setProperty("seed", 777, nullptr);
+                juce::MemoryBlock m2;
+                juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                MMArpProcessor p;
+                // l'instance avait autre chose avant l'ouverture : une route LFO 1 -> FILTER CUTOFF, LFO 1 en FREE
+                p.knobParam(mmx::allIndex("xMx1Src"))->setValueNotifyingHost(6.f / 13);
+                p.knobParam(mmx::allIndex("xMx1Dst"))->setValueNotifyingHost(54.f / 1023);
+                p.knobParam(mmx::allIndex("xMx1Amt"))->setValueNotifyingHost(0.9f);
+                p.knobParam(mmx::allIndex("xLfo1Sync"))->setValueNotifyingHost(0.f);
+                p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                bool atDef = true;
+                for (int e = mmx::ex_xLfo1Sync; e <= mmx::ex_xMx8Amt; ++e)
+                    atDef = atDef && std::fabs(static_cast<double>(p.knobParam(mmarp::kKnobs + e)->getValue()) - mmx::kExtraDefs[e].def) < 1e-6;
+                Head h;
+                h.playing = true;
+                p.setPlayHead(&h);
+                p.prepareToPlay(48000, 128);
+                run(p, h, 48000 * 2, 128, nullptr, &L);
+                return atDef;
+            };
+            std::vector<float> a, b;
+            const bool da = render(true, a), db2 = render(false, b);
+            double pk = 0;
+            for (float v : a) pk = std::max(pk, static_cast<double>(std::fabs(v)));
+            check(da && db2 && a == b && pk > 0.01, "v50 : projet d'avant sans les 31 reglages : leurs defauts a l'ouverture (" + std::string(da ? "oui" : "NON") +
+                                                        "), le son au bit pres (" + std::string(a == b ? "oui" : "NON") + ", crete " + juce::String(pk, 3).toStdString() + ")");
         }
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);

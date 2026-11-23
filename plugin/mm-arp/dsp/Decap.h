@@ -181,6 +181,14 @@ public:
     void set(const DecapSettings& s);
     void process(float* L, float* R, int n);
     bool active() const { return e_ > 0 || target_ > 0; }
+    // v50 : l'etat du LFO (phase, valeur lissee, tirage, generateur), en lecture seule : le LFO 3 de la matrice de
+    // modulation (dsp/ModLfo.h) s'y cale quand la DISTO tourne. Rien du son n'en depend.
+    void lfoState(double& ph, double& sm, double& rnd, uint32_t& rng) const {
+        ph = lfoPh_;
+        sm = lfoSm_;
+        rnd = lfoRnd_;
+        rng = rng_;
+    }
     int latency() const { return active() && !cur_.zl ? kLatency : 0; }
     // ATTITUDE (le VU de la page) : le niveau qui entre dans la saturation, en dB (0 : la courbe commence a mordre)
     double attitudeDb() const { return vuDb_; }
