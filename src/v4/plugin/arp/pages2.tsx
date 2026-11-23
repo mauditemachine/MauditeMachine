@@ -322,7 +322,12 @@ function useChord(): { chord: number; notes: SeqStep[]; len: number } {
 const PW = 44;
 const sx = (i: number): number => 136 + i * 53 + Math.floor(i / 4) * 8;
 const GRID_R = sx(STEPS_N - 1) + PW;
-const T = { strip: 50, pads: 92, padH: 108, area: 80, foot: 208 };
+/** v51 : les touches prennent la hauteur laissee par la matrice (partie dans l'encart d'EDIT en v50) : plus de bande
+ * vide sous la rangee RANDOM / ARP / LFO, et plus de precision quand on dessine (108 de haut avant). */
+const PAD_H = 298;
+const T = { strip: 50, pads: 92, padH: PAD_H, area: PAD_H - 28, foot: 92 + PAD_H + 8 };
+/** la hauteur du cadre STEP SEQUENCER (sous les touches : l'aide et les gestes) */
+const SEQ_H = T.foot + 42;
 /** Le dessin d'une valeur : sa zone dans la touche (le haut : le plus). */
 const AREA = { top: 6, h: T.area - 6 };
 
@@ -440,7 +445,7 @@ const Val: React.FC<{ t: StepTrack; v: number }> = ({ t, v }) => {
     case 'rat': {
       const gap = 3;
       const bw = (w - 10 - gap * (v - 1)) / v;
-      const bh = 18 + k * 12;
+      const bh = 18 + (k * (AREA.h - 38)) / 3;
       body = (
         <>
           {Array.from({ length: v }, (_, j) => (
@@ -701,7 +706,7 @@ const StepsBox: React.FC = () => {
   };
   const isDef = sel === 'notes' ? !sq.edit : arpSteps.isDefault(sel);
   return (
-    <PcbFrame title="STEP SEQUENCER" x={ZONE.x} y={60} w={ZONE.w} h={250} className="mm-sx" flash={flash}>
+    <PcbFrame title="STEP SEQUENCER" x={ZONE.x} y={60} w={ZONE.w} h={SEQ_H} className="mm-sx" flash={flash}>
       <SeqTop chord={chord} len={len} />
       {/* le pas joue, en clair */}
       <div className="mm-sx-now" style={{ top: T.strip - 2 }} data-state={state === 'PLAYING' ? 'play' : state === 'REST' ? 'rest' : state === 'STOPPED' ? 'stop' : 'skip'} role="status" aria-live="off">
@@ -725,7 +730,7 @@ const StepsBox: React.FC = () => {
         ))}
       </div>
       {/* les pistes : une touche par piste, son icone, sa LED (elle agit au pas joue ; a l'arret : elle est utilisee) */}
-      <div className="mm-sx-tabs" style={{ top: T.pads }} role="radiogroup" aria-label="Track">
+      <div className="mm-sx-tabs" style={{ top: T.pads, height: T.padH }} role="radiogroup" aria-label="Track">
         {LANES.map((t) => (
           <button key={t} type="button" role="radio" aria-checked={t === sel} data-track={t} className="mm-sx-tab" data-sel={t === sel ? '1' : undefined} onClick={() => laneStore.set(t)}>
             <i className="mm-sx-tled" data-on={laneLed(t) ? '1' : undefined} aria-hidden="true" />
@@ -812,10 +817,11 @@ const StepsBox: React.FC = () => {
   );
 };
 
-/** SEQ : le sequenceur en haut, RANDOM, ARP, les LFO dessous (v50 : la matrice est dans l'encart d'EDIT, page LFO). */
+/** SEQ : le sequenceur en haut, RANDOM, ARP, les LFO dessous (v50 : la matrice est dans l'encart d'EDIT, page LFO ; v51 : le
+ * sequenceur prend sa place, la rangee descend au bas du capot). */
 export const SeqPage: React.FC = () => {
   useExtraAll();
-  const y = 330;
+  const y = 60 + SEQ_H + 20;
   const GAP = 16;
   const rowW = SEQ_ROW.reduce((s, f) => s + frameW(f), 0) + GAP * SEQ_ROW.length + RND_W;
   let x = ZONE.x + Math.round((ZONE.w - rowW) / 2);

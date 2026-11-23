@@ -1016,3 +1016,16 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   quand la DISTO s'engage (lisse 1,5 ms), clic sur les fenetres de la matrice et viseur, Echap pendant une
   assignation, taille du menu DESTINATION, point des LFO cale sur la mesure, sensibilite de NOTE dans SQ, CPU reel
   avec 8 emplacements. Page SEQ : une bande vide reste sous ARP / LFO 1 + / LFO 2 (a retirer si Mika le veut).
+
+## 2026-11-23 (suite) : v51, page SEQ sans bande vide
+
+- Demande de Mika : "enleve aussi la bande vide dans la page SEQ" (la place laissee par la matrice partie dans l'encart
+  d'EDIT en v50).
+- src/v4/plugin/arp/pages2.tsx : les touches du sequenceur passent de 108 a 298 de haut (PAD_H ; zone de dessin 80 ->
+  270), le cadre STEP SEQUENCER de 250 a 440 (SEQ_H), la rangee RANDOM / ARP / LFO 1 + / LFO 2 descend de 330 a 520 :
+  bas du contenu a 638 pour un capot de 658. Les dessins des pistes suivent la hauteur (RATCHET mis a l'echelle, les
+  autres l'etaient deja) ; le geste vertical (crayon, NOTE) gagne en precision.
+- pages2.css : les six onglets de piste (NOTES a CHANCE) passent de 18 a 26 de haut et se repartissent sur toute la
+  hauteur des touches.
+- Rien ne change pour le son, les parametres hote (295), la page SQ de l'encart ni le site.
+- Tests : tsc 105, face en Chromium muet (smoke 8 lignes, func.js et func2.js TOUT OK), captures des six pistes.

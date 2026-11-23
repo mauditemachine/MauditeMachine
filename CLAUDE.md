@@ -92,7 +92,7 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v50, 2026-11-23 ; v49 le meme jour) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v51, 2026-11-23 ; v49 et v50 le meme jour) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
   accent reglable (SETTINGS), pads = 7 fondamentales de F#m (G#ø), liste
   des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
@@ -101,7 +101,7 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   facon Echo, cale sur le ppq de l'hote), HELL v2 (vortex, six cercles,
   xHellV2..xHellDescent), REVERB A (cascade 3D, EQ / WIDTH / DUCK /
   FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END ; sans
-  matrice depuis v50). Encart EDIT (v50, option C) : SYNTH | LFO | SQ |
+  matrice depuis v50 ; v51 : touches hautes, plus de bande vide). Encart EDIT (v50, option C) : SYNTH | LFO | SQ |
   FX MOD ; LFO 1 a 4 (LFO 3 = LFO de la DISTO) + MOD MATRIX 8 lignes au
   viseur (xMx1..8, cibles 32 + k = reglage hote k, table generee
   modTable.ts / ModTable.inc par extra-gen.mjs) ; anciennes routes jamais

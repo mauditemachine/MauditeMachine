@@ -334,14 +334,15 @@
   width: 106px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  /* v51 : les six pistes reparties sur toute la hauteur des touches */
+  justify-content: space-between;
 }
 .mm-plugin-arp .mm-sx-tab {
   position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 18px;
+  height: 26px;
   margin: 0;
   padding: 0 0 0 7px;
   border: 0;
