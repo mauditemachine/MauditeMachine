@@ -126,6 +126,11 @@ public:
     // v27 : l'analyseur de la page SOUND, seulement quand la face dit que la page est visible (le thread audio copie
     // alors la sortie dans un anneau ; specFrame, thread du message, en tire 96 bandes en dB, de 20 Hz a 20 kHz)
     void setSpecOn(bool on) { specOn_.store(on, std::memory_order_relaxed); }
+    // v49 LATENCY : declare a l'hote la latence que le moteur a en ce moment, si elle a change (thread du message : le
+    // timer de l'instance ; le banc l'appelle lui-meme). En ZERO elle reste a 0 ; en EXACT elle suit QUALITY et ENGINE.
+    void syncLatency();
+    // la latence que le moteur a en ce moment (ce que syncLatency declarera)
+    int latencyNow() const { return latNow_.load(std::memory_order_relaxed); }
     // Le banc seulement (tests/host_test.cpp) : rendre l'ancien DELAY (DLY TIME, TAPE, DELAY MODE) comme avant la v27
     static inline bool testLegacyDelay = false;
     bool specOn() const { return specOn_.load(std::memory_order_relaxed); }
@@ -252,6 +257,11 @@ private:
     void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
     int osAsked_ = 4;
     static int osFor(double sr, double quality, bool exportHq, bool pro);
+    // v49 LATENCY (ZERO / EXACT) : le mode demande au dernier bloc ; la latence que le moteur a en ce moment (thread audio),
+    // declaree a l'hote par le timer (thread du message : setLatencySamples n'est pas pour le thread audio) quand elle
+    // change ; en ZERO elle reste a 0
+    bool zlAsked_ = false;
+    std::atomic<int> latNow_{0};
     void timerCallback() override;
     juce::SpinLock revLock_;
     std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;

@@ -359,7 +359,8 @@
     "xSkyHiSlope": 0,
     "xSkyWidth": 0.5,
     "xSkyDuck": 0,
-    "xSkyFreeze": 0
+    "xSkyFreeze": 0,
+    "xLatency": 1
   },
   "steps": {
     "acc": [

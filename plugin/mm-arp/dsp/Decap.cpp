@@ -343,7 +343,23 @@ void Decap::prepare(double sampleRate) {
         for (int c = 0; c < 2; ++c) {
             p.up[static_cast<size_t>(c)].assign(2 * kTaps, 0.0);
             p.dn[static_cast<size_t>(c)].assign(static_cast<size_t>(2 * banks_[2].nd), 0.0);
+            zDesign(p.z[static_cast<size_t>(c)]);
         }
+    // v49 LATENCY ZERO : le sec, et le retard de groupe au grave des demi-bandes (aller et retour), arrondi
+    for (ZChain& z : zDry_) zDesign(z);
+    {
+        // le retard de groupe d'un passe-tout du premier ordre (c + z^-1) / (1 + c z^-1) au continu : (1 - c) / (1 + c)
+        // echantillons de son taux ; une demi-bande : la moyenne de ses deux chaines (la seconde : un echantillon haut de
+        // plus), au taux haut
+        const auto gdHalf = [](const IirDown2& d) {
+            double g0 = 0, g1 = 1;
+            for (int i = 0; i < d.n; ++i) (i % 2 == 0 ? g0 : g1) += 2 * (1 - d.c[i]) / (1 + d.c[i]);
+            return 0.5 * (g0 + g1);
+        };
+        const ZChain& z = zDry_[0];
+        const double gd = 2 * (gdHalf(z.d2) / 2 + gdHalf(z.d4) / 4 + gdHalf(z.d8) / 8);
+        zGd_ = static_cast<int>(std::lround(gd));
+    }
     for (int c = 0; c < 2; ++c) {
         fbBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ / 40) + 2 * kLatency + 8, 0.0);
         boxBuf_[static_cast<size_t>(c)].assign(static_cast<size_t>(sr_ * 0.012) + 8, 0.0);
@@ -382,8 +398,25 @@ void Decap::punClear() {
     punGm_ = 0;
 }
 
+void Decap::zDesign(ZChain& z) {
+    // les memes demi-bandes que les decimateurs du moteur (Voyager.cpp, LATENCY ZERO), dans les deux sens
+    double c[IirHalfband::kMaxCoefs];
+    IirHalfband::designN(8, 0.035, c);
+    z.u2.set(c, 8);
+    z.d2.set(c, 8);
+    IirHalfband::designN(4, 0.2, c);
+    z.u4.set(c, 4);
+    z.lu4.set(c, 4);
+    z.d4.set(c, 4);
+    IirHalfband::designN(5, 0.2, c);
+    z.u8.set(c, 5);
+    z.lu8.set(c, 5);
+    z.d8.set(c, 5);
+}
+
 void Decap::clearState() {
     for (Path& p : path_) {
+        for (ZChain& z : p.z) z.clear();
         for (auto& v : p.up) std::fill(v.begin(), v.end(), 0.0);
         for (auto& v : p.dn) std::fill(v.begin(), v.end(), 0.0);
         p.upW = p.dnW = 0;
@@ -395,6 +428,7 @@ void Decap::clearState() {
         p.s2ok = {};
     }
     ch_ = {};
+    for (ZChain& z : zDry_) z.clear();
     for (auto& v : fbBuf_) std::fill(v.begin(), v.end(), 0.0);
     for (auto& v : boxBuf_) std::fill(v.begin(), v.end(), 0.0);
     fbW_ = boxW_ = 0;
@@ -408,14 +442,18 @@ void Decap::clearState() {
 
 void Decap::configure() {
     const bool bandsChanged = nb_ != std::clamp(want_.bands, 1, 3);
+    const bool zlChanged = cur_.zl != want_.zl;
     cur_ = want_;
     nb_ = std::clamp(cur_.bands, 1, 3);
-    // une bande : x8 ; deux : x4 et x8 ; trois : x2, x4 et x8
+    // une bande : x8 ; deux : x4 et x8 ; trois : x2, x4 et x8 (v49 LATENCY ZERO : les memes, la meme phase par ZChain)
     static const int kOsOf[3][3] = {{2, 0, 0}, {1, 2, 0}, {0, 1, 2}};
+    if (zlChanged)
+        for (ZChain& z : zDry_) z.clear();
     for (int b = 0; b < 3; ++b) {
         Path& p = path_[static_cast<size_t>(b)];
         const int bi = b < nb_ ? kOsOf[nb_ - 1][b] : 2;
-        if (p.bank != &banks_[static_cast<size_t>(bi)] || bandsChanged) {
+        if (p.bank != &banks_[static_cast<size_t>(bi)] || bandsChanged || zlChanged) {
+            for (ZChain& z : p.z) z.clear();
             p.bank = &banks_[static_cast<size_t>(bi)];
             p.os = p.bank->os;
             for (auto& v : p.up) std::fill(v.begin(), v.end(), 0.0);
@@ -454,6 +492,7 @@ void Decap::set(const DecapSettings& s) {
     want_.preMode = std::clamp(s_.preMode, 0, 4);
     want_.postMode = std::clamp(s_.postMode, 0, 4);
     want_.box = std::clamp(s_.box, 0, 4);
+    want_.zl = s_.zeroLatency;
     for (int b = 0; b < 3; ++b) want_.bandStyle[static_cast<size_t>(b)] = s_.band[static_cast<size_t>(b)].style;
     // ce qui ne s'entend pas change sans fondu : la cible du MORPH a 0, le style d'une bande hors service
     const bool morphOn = s_.morph > 0 || (s_.lfoTarget == T_MORPH && s_.lfoAmt != 0.5);
@@ -555,7 +594,7 @@ void Decap::coefs(int mode) {
     svfSet(t.fbBp, fbHz_, 2, sr);
     t.fbBp.mode = F_BP;
     const int maxD = static_cast<int>(fbBuf_[0].size()) - 2;
-    t.fbD = std::clamp(static_cast<int>(std::lround(sr / fbHz_)) - (kLatency + 1), 0, maxD);
+    t.fbD = std::clamp(static_cast<int>(std::lround(sr / fbHz_)) - ((cur_.zl ? zGd_ : kLatency) + 1), 0, maxD);
     {
         const double d0 = drive_;
         double G = 1;
@@ -875,11 +914,19 @@ void Decap::process(float* L, float* R, int n) {
                 std::vector<double>& dh = p.dn[static_cast<size_t>(c)];
                 int dwi = p.dnW;
                 double dec = 0;
+                // v49 LATENCY ZERO : les huit echantillons hauts par les demi-bandes RII (zv : le mouille a decimer)
+                const bool zlOn = cur_.zl;
+                double zu[8], zv[8];
+                if (zlOn) p.z[static_cast<size_t>(c)].up(u, zu, os);
                 for (int q = 0; q < os; ++q) {
                     double acc = 0;
-                    const double* pq = &bk.ph[static_cast<size_t>(q * kTaps)];
-                    const double* hq = &hb[static_cast<size_t>(w + kTaps)];
-                    for (int k = 0; k < kTaps; ++k) acc += pq[k] * hq[-k];
+                    if (zlOn) {
+                        acc = zu[q];
+                    } else {
+                        const double* pq = &bk.ph[static_cast<size_t>(q * kTaps)];
+                        const double* hq = &hb[static_cast<size_t>(w + kTaps)];
+                        for (int k = 0; k < kTaps; ++k) acc += pq[k] * hq[-k];
+                    }
                     double z;
                     if (sh.skip) {
                         // la bande contournee : le sec seul, l'ADAA suit sans calculer
@@ -929,6 +976,10 @@ void Decap::process(float* L, float* R, int n) {
                         z = sh.mix >= 1 ? wet : acc * sh.invG + (wet - acc * sh.invG) * sh.mix;
                     }
                     if (z < 1e-25 && z > -1e-25) z = 0;
+                    if (zlOn) {
+                        zv[q] = z;
+                        continue;
+                    }
                     dh[static_cast<size_t>(dwi)] = z;
                     dh[static_cast<size_t>(dwi + nd)] = z;
                     if (q == 0) {
@@ -941,6 +992,7 @@ void Decap::process(float* L, float* R, int n) {
                     }
                     dwi = dwi + 1 == nd ? 0 : dwi + 1;
                 }
+                if (zlOn) dec = p.z[static_cast<size_t>(c)].down(zv, os);
                 sum += nb_ > 1 ? dec * p.level * p.solo : dec;
             }
             if (punAct) {
@@ -1032,7 +1084,14 @@ void Decap::process(float* L, float* R, int n) {
             if (t.post.mode != F_OFF) y = filt(s.postF, t.post, y);
             double wet = y * dynG_ * sw_;
             if (wet < 1e-25 && wet > -1e-25) wet = 0;
-            const double dryD = dry_[static_cast<size_t>(c)][static_cast<size_t>(dw + 1 == DN ? 0 : dw + 1)];
+            double dryD = dry_[static_cast<size_t>(c)][static_cast<size_t>(dw + 1 == DN ? 0 : dw + 1)];
+            if (cur_.zl) {
+                // v49 LATENCY ZERO : le sec par les memes demi-bandes que le mouille (aller et retour, sans saturation)
+                double d8[8];
+                ZChain& zc = zDry_[static_cast<size_t>(c)];
+                zc.up(x, d8, 8);
+                dryD = zc.down(d8, 8);
+            }
             double proc = (dryD + (wet - dryD) * mixEff) * out_;
             if (punAct) proc += (ceilG(proc) - proc) * pun_;
             const double r = e_ >= 1 ? proc : x * dir_ + (proc - x * dir_) * e_;
@@ -1056,6 +1115,11 @@ void Decap::process(float* L, float* R, int n) {
         boxW_ = boxW_ + 1 == boxN ? 0 : boxW_ + 1;
     }
     // Les queues sous le denormal
+    if (cur_.zl) {
+        for (ZChain& z : zDry_) z.flush();
+        for (int b = 0; b < nb_; ++b)
+            for (ZChain& z : path_[static_cast<size_t>(b)].z) z.flush();
+    }
     for (Ch& s : ch_) {
         for (double* p : {&s.tilt, &s.pre, &s.post, &s.lc1, &s.lc2, &s.dcx, &s.dcy, &s.slp, &s.hc0, &s.ha1, &s.ha2, &s.hb1, &s.hb2, &s.fbLast})
             if (std::fabs(*p) < 1e-20) *p = 0;

@@ -74,8 +74,16 @@
 // l'echantillon, coupures tous les 16 echantillons (la sortie ne depend pas de la taille des blocs), les changements de
 // STYLE, de bandes, de modes par un fondu de 6 ms, mise en route et arret par un fondu de 20 ms. Contournee : l'entree
 // au bit pres, sans retard. Aucune allocation dans process.
+//
+// v49 LATENCY ZERO (DecapSettings::zeroLatency, les instances neuves) : le meme surechantillonnage par demi-bandes RII a
+// phase minimale (Halfband.h, celles des decimateurs du moteur) : plus de retard pur (32 echantillons de moins), le
+// retard de groupe au grave ~5.6 echantillons aller-retour ; les bandes gardent leurs taux et la meme phase (ZChain) ; le
+// sec de MIX passe par le meme aller-retour ; la boucle du FEEDBACK compte ce retard. Mesure (latency_test) : petit
+// signal a 0.001 dB d'EXACT en 3 bandes, niveau sature a 0.01 dB, une bande 72 -> 40 ms par seconde, 3 bandes 161 -> 107.
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
+
+#include "Halfband.h"
 
 #include <array>
 #include <cstdint>
@@ -128,6 +136,11 @@ struct DecapSettings {
     double boxSize = 0.5, boxMix = 1;
     // v46
     bool punish2 = false;  // PUNISH v2 (l'emporte sur punish)
+    // v49 LATENCY ZERO : le surechantillonnage par demi-bandes RII a phase minimale (Halfband.h) au lieu des RIF a
+    // phase lineaire : aucun retard pur (latency() = 0) ; le multibande garde ses taux (x2, x4, x8) avec la meme phase
+    // (ZChain) ; le sec de MIX passe par les memes demi-bandes (en phase avec le mouille). false : la DISTO d'avant, au
+    // bit pres.
+    bool zeroLatency = false;
 };
 
 class Decap {
@@ -168,7 +181,7 @@ public:
     void set(const DecapSettings& s);
     void process(float* L, float* R, int n);
     bool active() const { return e_ > 0 || target_ > 0; }
-    int latency() const { return active() ? kLatency : 0; }
+    int latency() const { return active() && !cur_.zl ? kLatency : 0; }
     // ATTITUDE (le VU de la page) : le niveau qui entre dans la saturation, en dB (0 : la courbe commence a mordre)
     double attitudeDb() const { return vuDb_; }
     // le nombre de bandes en service et le surechantillonnage de chacune (le cout)
@@ -181,6 +194,75 @@ private:
         std::vector<double> ph; // os x kTaps
         std::vector<double> hd; // kLatency x os + 1 (decimation, gain 1)
     };
+    // v49 LATENCY ZERO : x1 -> x8 puis x8 -> x1 par trois demi-bandes RII de chaque cote. Une bande a x2 ou x4 (le
+    // multibande, comme EXACT) sature a son taux puis repasse par les etages qui lui manquent (lu4, lu8 : lineaires) :
+    // toutes les bandes ont alors exactement la meme reponse lineaire (la meme phase aux coupures), pour le cout de la
+    // saturation a x2 / x4.
+    struct ZChain {
+        IirUp2 u2, u4, u8, lu4, lu8;
+        IirDown2 d8, d4, d2;
+        void clear() {
+            u2.clear();
+            u4.clear();
+            u8.clear();
+            lu4.clear();
+            lu8.clear();
+            d8.clear();
+            d4.clear();
+            d2.clear();
+        }
+        // x1 -> os (2, 4 ou 8 echantillons dans o)
+        void up(double x, double* o, int os) {
+            double a[2], b[4];
+            u2.run(x, a[0], a[1]);
+            if (os == 2) {
+                o[0] = a[0];
+                o[1] = a[1];
+                return;
+            }
+            u4.run(a[0], b[0], b[1]);
+            u4.run(a[1], b[2], b[3]);
+            if (os == 4) {
+                for (int k = 0; k < 4; ++k) o[k] = b[k];
+                return;
+            }
+            for (int k = 0; k < 4; ++k) u8.run(b[k], o[2 * k], o[2 * k + 1]);
+        }
+        // os -> x8 (les etages lineaires qui manquent) -> x1
+        // (des declarations successives : l'ordre des arguments d'une fonction n'est pas garanti en C++)
+        double down(const double* in, int os) {
+            double b[4], c[8];
+            const double* i8 = in;
+            if (os < 8) {
+                if (os == 2) {
+                    lu4.run(in[0], b[0], b[1]);
+                    lu4.run(in[1], b[2], b[3]);
+                } else {
+                    for (int k = 0; k < 4; ++k) b[k] = in[k];
+                }
+                for (int k = 0; k < 4; ++k) lu8.run(b[k], c[2 * k], c[2 * k + 1]);
+                i8 = c;
+            }
+            const double e0 = d8.run(i8[0], i8[1]);
+            const double e1 = d8.run(i8[2], i8[3]);
+            const double e2 = d8.run(i8[4], i8[5]);
+            const double e3 = d8.run(i8[6], i8[7]);
+            const double f0 = d4.run(e0, e1);
+            const double f1 = d4.run(e2, e3);
+            return d2.run(f0, f1);
+        }
+        void flush() {
+            u2.flush();
+            u4.flush();
+            u8.flush();
+            lu4.flush();
+            lu8.flush();
+            d8.flush();
+            d4.flush();
+            d2.flush();
+        }
+    };
+    static void zDesign(ZChain& z);
     struct Path {
         int os = 8;
         const Bank* bank = nullptr;
@@ -193,6 +275,8 @@ private:
         std::array<bool, 2> s2ok{};
         // les gains lisses de la bande
         double gB = 1, mix = 1, level = 1, solo = 1;
+        // v49 LATENCY ZERO : les demi-bandes RII de la bande (un canal chacune)
+        std::array<ZChain, 2> z{};
     };
     struct Svf {
         double s1 = 0, s2 = 0;
@@ -218,8 +302,10 @@ private:
     struct Config {
         int style = 0, morphTo = 0, bands = 1, preMode = 0, postMode = 0, box = 0;
         std::array<int, 3> bandStyle{{-1, -1, -1}};
+        bool zl = false; // v49 LATENCY ZERO
         bool operator==(const Config& o) const {
-            return style == o.style && morphTo == o.morphTo && bands == o.bands && preMode == o.preMode && postMode == o.postMode && box == o.box && bandStyle == o.bandStyle;
+            return style == o.style && morphTo == o.morphTo && bands == o.bands && preMode == o.preMode && postMode == o.postMode && box == o.box && bandStyle == o.bandStyle &&
+                   zl == o.zl;
         }
     };
     Config cur_, want_;
@@ -234,6 +320,10 @@ private:
     std::array<Path, 3> path_;
     std::array<std::array<double, kLatency + 1>, 2> dry_{};
     int dryW_ = 0;
+    // v49 LATENCY ZERO : le sec de MIX par les memes demi-bandes (en phase avec le mouille), le retard de groupe des
+    // demi-bandes au grave (echantillons de base, la boucle du FEEDBACK en tient compte)
+    std::array<ZChain, 2> zDry_{};
+    int zGd_ = 0;
     // le LFO, les enveloppes, le VU
     double lfoPh_ = 0, lfoSm_ = 0, lfoRnd_ = 0;
     uint32_t rng_ = 22222u;

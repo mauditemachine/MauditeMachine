@@ -96,7 +96,8 @@ int main() {
         Head h;
         p.setPlayHead(&h);
         p.prepareToPlay(48000, 512);
-        check(p.getLatencySamples() >= 16 && p.getLatencySamples() <= 24, "latence declaree (les decimateurs seuls) : " + juce::String(p.getLatencySamples()).toStdString());
+        // v49 : une instance neuve est en LATENCY ZERO : rien a declarer (EXACT, les decimateurs du site : 16 a 21)
+        check(p.getLatencySamples() == 0, "v49 : instance neuve en LATENCY ZERO, latence declaree " + juce::String(p.getLatencySamples()).toStdString());
         // Sans programme, transport arrete : silence
         Stats s = run(p, h, 48000, 512);
         check(s.finite && s.peak <= 0, "sans programme : silence");
@@ -793,8 +794,11 @@ int main() {
             check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste, apres DISTO PUNISH (v2) (les 233 d'avant gardent leur place)");
         }
         // v46 : les dix reglages de la sortie de la reverbe, apres HELL v2, dans l'ordre
-        check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra == 263,
+        check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra >= 263,
               "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres HELL v2 (les 253 d'avant gardent leur place)");
+        // v49 : LATENCY (ZERO / EXACT) en fin de liste, apres REVERB FREEZE
+        check(mmx::ex_xLatency == 263 && mmx::kExtra == 264 && std::strcmp(mmx::kExtraDefs[mmx::ex_xLatency].steps[1], "ZERO") == 0 && mmx::kExtraDefs[mmx::ex_xLatency].def == 1,
+              "v49 : LATENCY ajoute en fin de liste (263, ZERO par defaut ; les 263 d'avant gardent leur place)");
     }
     {
         // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
@@ -1114,6 +1118,140 @@ int main() {
         check(runDb > -45 && stopDb < -90 && fbStop && kept && againDb > -45,
               "v40 ARP RUN sous l'hote : RUN " + juce::String(runDb, 1).toStdString() + " dB, STOP " + juce::String(stopDb, 1).toStdString() + " dB (afficheur a l'arret), relance " +
                   juce::String(againDb, 1).toStdString() + " dB, pause gardee dans le projet");
+    }
+    {
+        // v49 (Mika : "le moins de ms possible") : LATENCY. Une instance neuve en ZERO : 0 declare a 44.1, 48 et 96 kHz, en
+        // CLASSIC comme en PRO, a chaque QUALITY, en temps reel et a l'export, et jamais de changement en jouant (QUALITY
+        // bouge, ENGINE bouge). Un projet d'avant (sans LATENCY) : EXACT, la latence du site, qui suit QUALITY quand elle
+        // change (declaree par le thread du message), et son son au bit pres (le meme que LATENCY a EXACT pose a la main).
+        const auto withState = [](MMArpProcessor& p, bool dropLatency, float latency) {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;) {
+                juce::ValueTree c = params.getChild(i);
+                if (c.getProperty("id").toString() == "xLatency") {
+                    if (dropLatency) params.removeChild(i, nullptr);
+                    else c.setProperty("value", latency, nullptr);
+                }
+            }
+            st.setProperty("program", program(), nullptr);
+            st.setProperty("seed", 777, nullptr); // la meme graine : les memes tirages (DRIFT...)
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        };
+        // 1. instance neuve : ZERO partout
+        {
+            bool allZero = true;
+            std::string why;
+            for (double sr : {44100.0, 48000.0, 96000.0})
+                for (float eng : {0.f, 1.f})
+                    for (float q : {0.f, 0.5f, 1.f})
+                        for (bool offline : {false, true}) {
+                            MMArpProcessor p;
+                            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(eng);
+                            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+                            p.setNonRealtime(offline);
+                            p.prepareToPlay(sr, 256);
+                            if (p.getLatencySamples() != 0) {
+                                allZero = false;
+                                why += " " + std::to_string(static_cast<int>(sr)) + (eng > 0 ? "/PRO" : "/CLASSIC") + "/Q" + juce::String(q, 1).toStdString() + "=" +
+                                       std::to_string(p.getLatencySamples());
+                            }
+                        }
+            MMArpProcessor fresh;
+            check(allZero && fresh.knobParam(mmx::allIndex("xLatency"))->getValue() == 1.f,
+                  "v49 LATENCY ZERO (instance neuve) : 0 declare a 44.1 / 48 / 96 kHz, CLASSIC et PRO, ECO / STD / HQ, temps reel et export" + why);
+        }
+        // 2. en jouant, ZERO : QUALITY et ENGINE bougent, la latence reste 0 ; le son est fini
+        {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 128);
+            withState(p, false, 1.f);
+            bool still = p.getLatencySamples() == 0;
+            Stats s = run(p, h, 48000, 128);
+            bool fin = s.finite && s.peak > 0.001;
+            for (float q : {1.f, 0.f, 0.5f})
+                for (float eng : {0.f, 1.f}) {
+                    p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+                    p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(eng);
+                    for (int k = 0; k < 40; ++k) {
+                        const Stats r = run(p, h, 1200, 128);
+                        fin = fin && r.finite;
+                        p.syncLatency();
+                        still = still && p.getLatencySamples() == 0 && p.latencyNow() == 0;
+                    }
+                }
+            s = run(p, h, 48000, 128);
+            check(still && fin && s.peak > 0.001, "v49 LATENCY ZERO en jouant : QUALITY ECO / STD / HQ et ENGINE CLASSIC / PRO changes, la latence reste 0, le son fini");
+        }
+        // 3. un projet d'avant (sans LATENCY) : EXACT, la latence du site, qui suit QUALITY
+        {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            p.setPlayHead(&h);
+            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+            withState(p, true, 0.f);
+            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+            p.prepareToPlay(48000, 128);
+            const bool exact = p.knobParam(mmx::allIndex("xLatency"))->getValue() == 0.f;
+            const int l0 = p.getLatencySamples();
+            run(p, h, 24000, 128);
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(1.f);
+            run(p, h, 48000, 128);
+            p.syncLatency();
+            const int l1 = p.getLatencySamples();
+            // puis LATENCY a ZERO en jouant : le moteur change au silence, la latence declaree tombe a 0
+            p.knobParam(mmx::allIndex("xLatency"))->setValueNotifyingHost(1.f);
+            run(p, h, 48000, 128);
+            p.syncLatency();
+            const int l2 = p.getLatencySamples();
+            check(exact && l0 == 19 && l1 == 21 && l2 == 0,
+                  "v49 : projet d'avant en EXACT, latence " + std::to_string(l0) + " (CLASSIC STD), " + std::to_string(l1) + " apres QUALITY HQ (declaree), " + std::to_string(l2) +
+                      " apres LATENCY ZERO");
+        }
+        // 4. le son d'un projet d'avant (EXACT) : le meme au bit pres que LATENCY a EXACT pose a la main (ZERO, lui, change
+        // le son : les demi-bandes RII ; meme sonie a 0.05 dB pres, en avance de la latence d'EXACT)
+        {
+            const auto render = [&](bool drop, float lat, std::vector<float>& L) {
+                MMArpProcessor p;
+                Head h;
+                h.playing = true;
+                p.setPlayHead(&h);
+                withState(p, drop, lat);
+                p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+                p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+                p.knobParam(mmx::allIndex("dist"))->setValueNotifyingHost(0.5f);
+                p.knobParam(mmx::allIndex("xDStyle"))->setValueNotifyingHost(1.f / 12);
+                p.knobParam(mmx::allIndex("xWarmth"))->setValueNotifyingHost(0.5f);
+                p.prepareToPlay(48000, 128);
+                return run(p, h, 48000 * 3, 128, nullptr, &L);
+            };
+            std::vector<float> a, b, c;
+            const Stats sa = render(true, 0.f, a), sb = render(false, 0.f, b), sc = render(false, 1.f, c);
+            const bool same = a == b;
+            bool differs = false;
+            for (size_t i = 0; i < a.size() && i < c.size(); ++i) differs = differs || a[i] != c[i];
+            // (la sonie hors des bords : EXACT est en retard de ses latences, 19 + 32 + 39 echantillons)
+            const auto mid = [](const std::vector<float>& x) {
+                double e = 0;
+                for (size_t i = 24000; i + 4800 < x.size(); ++i) e += static_cast<double>(x[i]) * x[i];
+                return std::sqrt(e / static_cast<double>(x.size() - 28800));
+            };
+            const double dl = db(mid(c)) - db(mid(a));
+            check(same && differs && sa.peak > 0.01 && sc.finite && std::fabs(dl) < 0.05,
+                  "v49 : projet d'avant (EXACT) au bit pres comme LATENCY EXACT (" + std::string(same ? "oui" : "NON") + ", crete " + juce::String(sa.peak, 3).toStdString() +
+                      ") ; ZERO (DISTO, WARMTH, moteur) " + std::string(differs ? "autre" : "IDENTIQUE") + ", a " + juce::String(dl, 3).toStdString() + " dB d'EXACT");
+        }
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

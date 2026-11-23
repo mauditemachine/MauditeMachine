@@ -347,6 +347,23 @@ void Sky::tankConfigure(double scale, double apG, double depth, double rate) {
         dp1_[static_cast<size_t>(i)] = r1 / sr_;
         dp2_[static_cast<size_t>(i)] = r2 / sr_;
     }
+    zLeft_ = 0; // v49 : les phaseurs se recalent sur les nouveaux pas
+}
+
+// v49 : les phaseurs (sin, cos) sur les phases exactes, les rotations d'un echantillon
+void Sky::zResync() {
+    for (int i = 0; i < N; ++i) {
+        const size_t u = static_cast<size_t>(i);
+        zs1_[u] = std::sin(TWO_PI * ph1_[u]);
+        zc1_[u] = std::cos(TWO_PI * ph1_[u]);
+        zs2_[u] = std::sin(TWO_PI * ph2_[u]);
+        zc2_[u] = std::cos(TWO_PI * ph2_[u]);
+        rs1_[u] = std::sin(TWO_PI * dp1_[u]);
+        rc1_[u] = std::cos(TWO_PI * dp1_[u]);
+        rs2_[u] = std::sin(TWO_PI * dp2_[u]);
+        rc2_[u] = std::cos(TWO_PI * dp2_[u]);
+    }
+    zLeft_ = kResync;
 }
 
 void Sky::tankDecay(double t60, double low, double mid, double hi, double fLow, double fHi) {
@@ -365,6 +382,10 @@ void Sky::tankDecay(double t60, double low, double mid, double hi, double fLow, 
 double Sky::tank(double inL, double inR, double& oR) {
     const double aL = 1 - aLow_, aH = 1 - aHi_, dep = depth_;
     double sum = 0, oL = 0, oRr = 0;
+    // v49 LATENCY ZERO : les sinus de la modulation par rotation (recales tous les kResync echantillons)
+    const bool zf = fast_ && dep > 0;
+    if (zf && zLeft_ <= 0) zResync();
+    if (zf) --zLeft_;
     for (int i = 0; i < N; ++i) {
         const size_t u = static_cast<size_t>(i);
         double p1 = ph1_[u] + dp1_[u];
@@ -373,7 +394,17 @@ double Sky::tank(double inL, double inR, double& oR) {
         if (p2 >= 1) p2 -= 1;
         ph1_[u] = p1;
         ph2_[u] = p2;
-        const double mod = dep > 0 ? dep * (0.62 * std::sin(TWO_PI * p1) + 0.38 * std::sin(TWO_PI * p2)) : 0;
+        double mod = 0;
+        if (zf) {
+            const double s1 = zs1_[u] * rc1_[u] + zc1_[u] * rs1_[u], c1 = zc1_[u] * rc1_[u] - zs1_[u] * rs1_[u];
+            const double s2 = zs2_[u] * rc2_[u] + zc2_[u] * rs2_[u], c2 = zc2_[u] * rc2_[u] - zs2_[u] * rs2_[u];
+            zs1_[u] = s1;
+            zc1_[u] = c1;
+            zs2_[u] = s2;
+            zc2_[u] = c2;
+            mod = dep * (0.62 * s1 + 0.38 * s2);
+        } else if (dep > 0)
+            mod = dep * (0.62 * std::sin(TWO_PI * p1) + 0.38 * std::sin(TWO_PI * p2));
         double r = lines_[u].readF(len_[u] + dep + mod + 2);
         if (tApG_ > 0) r = aps_[u].run(r);
         const double lo = (sL_[u] = flush(sL_[u] + aL * (r - sL_[u])));
@@ -417,6 +448,7 @@ void Sky::prepare(double sampleRate) {
         ph1_[static_cast<size_t>(i)] = std::fmod(i * 0.37, 1.0);
         ph2_[static_cast<size_t>(i)] = std::fmod(i * 0.61 + 0.2, 1.0);
     }
+    zLeft_ = 0;
     for (auto& l : pre_) l.alloc(static_cast<int>(std::ceil(1.35 * sr_)));
     for (int c = 0; c < 2; ++c)
         for (int i = 0; i < 4; ++i) {
@@ -496,6 +528,7 @@ void Sky::wake() {
         ph1_[static_cast<size_t>(i)] = std::fmod(i * 0.37, 1.0);
         ph2_[static_cast<size_t>(i)] = std::fmod(i * 0.61 + 0.2, 1.0);
     }
+    zLeft_ = 0;
     for (int i = 0; i < 3; ++i) springs_[static_cast<size_t>(i)].ph = i * 0.3;
     for (auto& c : shift_)
         for (auto& s : c) s.ph = 0;
