@@ -77,6 +77,11 @@ public:
     void setEngine(const SkyEngine& p, bool now = false);
     void process(const float* inL, const float* inR, float* outL, float* outR, int n);
     bool idle() const { return idle_; }
+    // v49 LATENCY ZERO : la modulation du reseau par phaseurs (moins de calcul, ecart < 1e-12) ; false : au bit pres
+    void setFast(bool on) {
+        if (on != fast_) zLeft_ = 0;
+        fast_ = on;
+    }
     /** v46 FREEZE : la queue tenue (fondu de 50 ms ; now : pose d'emblee). Thread audio, sans allocation. */
     void setFreeze(bool on, bool now = false);
     /** La part de FREEZE engagee (0 : coupe, 1 : tenue). */
@@ -116,6 +121,7 @@ private:
     void wake();
     void vowelCoefs();
     double tank(double inL, double inR, double& oR);
+    void zResync();
     void tankConfigure(double scale, double apG, double depth, double rate);
     void tankDecay(double t60, double low, double mid, double hi, double fLow, double fHi);
     double shiftRun(int c, int v);
@@ -131,6 +137,13 @@ private:
     std::array<Allpass, 8> aps_;
     std::array<double, 8> len_{}, apLen_{}, gL_{}, gM_{}, gH_{}, sL_{}, sM_{}, ph1_{}, ph2_{}, dp1_{}, dp2_{}, y_{};
     double depth_ = 0, tApG_ = 0, aLow_ = 0, aHi_ = 0;
+    // v49 LATENCY ZERO (le chemin rapide) : les deux sinus de modulation de chaque ligne par rotation de phaseurs (sin,
+    // cos) au lieu de std::sin, recales sur les phases exactes tous les kResync echantillons (ecart < 1e-12) ; fast_ faux :
+    // std::sin, au bit pres comme avant
+    static constexpr int kResync = 1024;
+    bool fast_ = false;
+    int zLeft_ = 0;
+    std::array<double, 8> zs1_{}, zc1_{}, zs2_{}, zc2_{}, rs1_{}, rc1_{}, rs2_{}, rc2_{};
     // l'entree
     std::array<Line, 2> pre_;
     std::array<std::array<Allpass, 4>, 2> dif_;

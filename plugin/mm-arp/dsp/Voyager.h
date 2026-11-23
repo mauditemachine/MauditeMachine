@@ -27,7 +27,8 @@
 //   v.noteOff(midi, t)                  // t NaN = maintenant
 //   v.cancel(t); v.stop(t);             // t NaN = 0 (comme "m.time || 0" du JS)
 //   v.process(L, R, n);                 // n de 1 a 4096 (le JS : 128), sortie stereo float, aucune allocation
-//   v.latencySamples();                 // retard fixe des decimateurs, arrondi (x8 : 21, x4 : 19, x2 : 16, x1 : 0)
+//   v.latencySamples();                 // retard fixe des decimateurs, arrondi (x8 : 21, x4 : 19, x2 : 16, x1 : 0) ;
+//                                       // 0 a tout taux en LATENCY ZERO (le plugin, v49 : voir 11.)
 //
 // Capacites fixes (aucune allocation apres le constructeur) : 1024 notes en attente, 512 ancres ; au-dela, le
 // nouvel element est ignore (le JS n'a pas de limite). Le mode 'probe' (tests du site) n'est pas porte.
@@ -227,6 +228,15 @@
 //    points d'un coeur pres sur la machine de test) : les controleurs seuls ou une ligne commune (MOD WHEEL -> LFO 1
 //    DEPTH) +3 % ; une ligne par voix (VELOCITY -> CUTOFF) +9 / +10 % ; 6 lignes legeres (CUTOFF, PAN, AMP, PITCH,
 //    ENV AMT, OSC MIX) +24 / +26 % ; 6 lignes par voix dont WAVE et RES +46 / +50 % ; FEEDBACK +6 % ; AMP MODE +1 %.
+//
+// 11. LATENCY ZERO (v49, 2026-11-23, Mika : "le moins de ms possible" ; le plugin seul) : VoyagerOptions::zeroLatency ou
+//    setZeroLatency(true) : les trois decimateurs RIF a phase lineaire (63, 31, 23 points de Kaiser, 16 a 21 echantillons
+//    de retard) deviennent des demi-bandes RII polyphases a phase minimale (dsp/Halfband.h : 8, 4 et 5 coefficients de
+//    passe-tout), en double d'un bout a l'autre. latencySamples() = 0 a tout taux ; le retard de groupe qui reste au grave :
+//    1.7 (x2), 2.4 (x4), 2.8 (x8) echantillons de base, non declare. Mesures (tests/latency_test.cpp) : amplitude a
+//    0.001 dB des RIF jusqu'a 18 kHz (44.1 et 48 kHz) ; repliement sur 0..20 kHz au pire -95 dB (RIF : -80 dB a 48 kHz,
+//    -26 dB a 44.1 kHz dans leur bande de transition) ; spectre du moteur par tiers d'octave a 0.03 dB d'EXACT ; plus
+//    leger que les RIF. Le changement attend le silence, comme setOs. false (le defaut) : le site au bit pres.
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
@@ -249,6 +259,9 @@ struct VoyagerOptions {
   int softVoices = 0;
   uint32_t seed = 808;
   bool seeded = true;  // false : comme unseeded() du JS (graine tiree de std::random_device, non reproductible)
+  // v49 (le plugin, LATENCY ZERO) : les decimateurs RII a phase minimale (dsp/Halfband.h) au lieu des RIF a phase
+  // lineaire du site : latencySamples() = 0 a tout taux. false (le defaut) : le site au bit pres.
+  bool zeroLatency = false;
 };
 
 /** Un reglage par son id (Voyager::paramIndex) : le chemin temps reel des messages 'params'. */
@@ -327,6 +340,14 @@ class Voyager {
   /** v34 (le plugin) : le moteur PRO (les oscillateurs au taux de base, le reste au taux OS) ; false : CLASSIC, au bit pres */
   void setPro(bool on);
   bool pro() const;
+  /**
+   * v49 LATENCY (le plugin) : true, les decimateurs RII a phase minimale (latencySamples() = 0 a tout taux) ; false, les
+   * RIF du site (au bit pres). Le changement attend le silence comme setOs (voix en 12 ms, au plus 0.3 s) ; osPending()
+   * est vrai jusque-la. zeroLatency() : le mode en service ; zeroLatencyWanted() : celui demande.
+   */
+  void setZeroLatency(bool on);
+  bool zeroLatency() const;
+  bool zeroLatencyWanted() const;
   int os() const;
   bool osPending() const;
 

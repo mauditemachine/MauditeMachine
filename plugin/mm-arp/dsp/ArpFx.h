@@ -94,6 +94,11 @@
 //             n'est que retarde : aucun filtre sur le son direct. Engagee, elle retarde la sortie de
 //             masterLatencySamples() = 39 echantillons (0 quand warmth = 0) ; ses lignes se remplissent 64
 //             echantillons puis le fondu de 20 ms couvre le passage. THD (sinus 1 kHz de 0.5) : 7 % a 1, 2.4 % a 0.5.
+//             v49 LATENCY ZERO (setZeroLatency, les instances neuves) : le x4 local par demi-bandes RII a phase minimale
+//             (Halfband.h), le son direct par le meme aller-retour (en phase avec la part non lineaire) : plus de retard
+//             pur (latency() = 0 ; ~4.8 echantillons de retard de groupe au grave) ; petit signal plat a 0.001 dB.
+//             ZERO endort aussi le DELAY du site (envoi a 0, rien n'en sort depuis plus que sa ligne : lignes et filtres
+//             a zero, plus rien n'est calcule ; il se reveille au premier envoi) et module la BigSky par phaseurs.
 //      bass   0..1 (0.5 neutre)      plateau grave a 120 Hz, -6 .. +6 dB (12 x (v - 0.5)), second ordre, Q 0.707
 //      air    0..1 (0.5 neutre)      plateau aigu a 10 kHz, -6 .. +6 dB
 //      width  0..1 (0.5 neutre)      0 : mono ; 1 : le cote x2 ; au-dessus de 0.5 seul le cote au-dessus de 150 Hz
@@ -169,6 +174,8 @@
 //    A ces defauts : la chaine d'avant, au bit pres (tests/sky_test.cpp).
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
+
+#include "Halfband.h"
 
 #include <array>
 #include <atomic>
@@ -528,8 +535,11 @@ public:
     void reset();
     void set(double warmth, double bass, double air, double width, bool now);
     void process(float* L, float* R, int n);
-    int latency() const { return wOn_.target > 0 ? kLatency : 0; }
+    int latency() const { return wOn_.target > 0 && !zl_ ? kLatency : 0; }
     bool bypassed() const { return !wActive_ && !bActive_ && !aActive_ && !sActive_; }
+    // v49 LATENCY ZERO : WARMTH par demi-bandes RII a phase minimale (Halfband.h), le sec par les memes : aucun retard
+    // pur ; false : la WARMTH d'avant, au bit pres. Changee engagee : elle repart du sec (64 echantillons, fondu de 20 ms).
+    void setZeroLatency(bool on);
 
 private:
     struct Glide { // une rampe de 20 ms, en S (pente nulle aux deux bouts : ni saut ni coude)
@@ -582,6 +592,20 @@ private:
         double dcX = 0, dcY = 0;
     } wc_[2];
     int wI_ = 0, wIb_ = 0, wJb_ = 0, wJa_ = 0, wHold_ = 0;
+    // v49 LATENCY ZERO : x1 -> x4 (u2, u4), la part non lineaire x4 -> x1 (n4, n2), le sec x4 -> x1 (l4, l2)
+    struct WarmZ {
+        IirUp2 u2, u4;
+        IirDown2 n4, n2, l4, l2;
+        void clear() {
+            u2.clear();
+            u4.clear();
+            n4.clear();
+            n2.clear();
+            l4.clear();
+            l2.clear();
+        }
+    } wz_[2];
+    bool zl_ = false;
     // BASS, AIR
     Glide bDb_, aDb_;
     bool bActive_ = false, aActive_ = false;
@@ -774,6 +798,15 @@ public:
     bool reverbBusy() const { return conv_.busy(); }
     /** Le retard de la section master : 39 echantillons quand WARMTH est engagee, 0 sinon. */
     int masterLatencySamples() const { return master_.latency(); }
+    // v49 LATENCY ZERO : WARMTH sans retard pur (Master::setZeroLatency) ; thread audio, sans allocation
+    // (et la modulation du reseau de la reverbe BigSky par phaseurs : Sky::setFast)
+    // (et le DELAY du site endormi quand son envoi est a 0 et ses lignes muettes : processPiece)
+    void setZeroLatency(bool on) {
+        master_.setZeroLatency(on);
+        sky_.setFast(on);
+        if (!on) dSleep_ = false; // (endormi, ses lignes sont vides : EXACT repart de la)
+        zl_ = on;
+    }
     /** Le rack du 2026-11-11 : la position de l'hote au premier echantillon du prochain process (PUMP). Thread audio. */
     void setTransport(double ppq, double ppqPerSample, bool playing) {
         ppq_ = ppq;
@@ -842,6 +875,10 @@ private:
     detail::WebDelay dl_, dr_;
     std::array<float, Q> lpHist_{};
     int lpHistI_ = 0;
+    // v49 LATENCY ZERO : le DELAY du site s'endort (lignes et filtres a zero, rien n'est calcule) quand son envoi est a 0
+    // et que rien n'en sort (sous 1e-7) depuis plus que sa ligne ; il se reveille au premier envoi
+    bool zl_ = false, dSleep_ = false;
+    long dQuiet_ = 0;
     double delayAt_ = 0;
     // TAPE
     detail::Param tSend_, tFb_, tAmt_, tTime_;

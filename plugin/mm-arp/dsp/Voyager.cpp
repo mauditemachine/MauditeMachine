@@ -2,6 +2,8 @@
 // (en francais, les dates, les mesures) sont la reference ; ici seulement ce qui change de forme en C++.
 #include "Voyager.h"
 
+#include "Halfband.h"
+
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -953,6 +955,43 @@ struct Voyager::Impl {
   std::vector<float> raw, rawR, mid, midR, mid8, mid8R;
   Decimator d8, d4, d2, d8R, d4R, d2R;
   bool hasD8 = false, hasD4 = false, hasD2 = false;
+  // v49 LATENCY ZERO (le plugin) : les demi-bandes RII a phase minimale (Halfband.h) a la place des RIF a phase lineaire,
+  // un canal chacune ; zl : en service ; zlWant : un changement attend le silence (-1 : rien), comme setOs
+  struct ZDec {
+    IirDown2 s8, s4, s2;
+    void clear() {
+      s8.clear();
+      s4.clear();
+      s2.clear();
+    }
+  } zd[2];
+  bool zl = false;
+  int zlWant = -1;
+  // (les appels d'etage sont des declarations successives : l'ordre des arguments d'une fonction n'est pas garanti en C++)
+  // (pas de rincage ici : il dependrait de la taille des blocs ; le silence du moteur remet les etages a zero)
+  static void zRun(ZDec& z, const float* in, int N, int OS, float* out) {
+    if (OS == 8) {
+      for (int i = 0; i < N; i += 1) {
+        const float* x = in + 8 * i;
+        const double a = z.s8.run(x[0], x[1]);
+        const double b = z.s8.run(x[2], x[3]);
+        const double c = z.s8.run(x[4], x[5]);
+        const double d = z.s8.run(x[6], x[7]);
+        const double e = z.s4.run(a, b);
+        const double f = z.s4.run(c, d);
+        out[i] = static_cast<float>(z.s2.run(e, f));
+      }
+    } else if (OS == 4) {
+      for (int i = 0; i < N; i += 1) {
+        const float* x = in + 4 * i;
+        const double e = z.s4.run(x[0], x[1]);
+        const double f = z.s4.run(x[2], x[3]);
+        out[i] = static_cast<float>(z.s2.run(e, f));
+      }
+    } else {
+      for (int i = 0; i < N; i += 1) out[i] = static_cast<float>(z.s2.run(in[2 * i], in[2 * i + 1]));
+    }
+  }
   // QUALITY (setOs) : le taux demande (0 : rien en attente), les echantillons sans voix et ceux depuis la demande
   int osWant = 0;
   int64_t osQuiet = 0, osWait = 0;
@@ -1059,6 +1098,18 @@ struct Voyager::Impl {
     nv = o.maxVoices >= 1 && o.maxVoices <= MAX_VOICES ? o.maxVoices : MAX_VOICES;
     softVoices = o.softVoices >= 1 && o.softVoices < nv ? o.softVoices : 0;
     for (int i = 0; i < nv; i += 1) voices[i].init(rnd);
+    // v49 LATENCY ZERO : les trois etages RII (mesures par tests/latency_test.cpp contre les RIF : attenuation >= celle
+    // des RIF partout ou un repli tombe dans 0..20 kHz, bande passante plate a 1e-6 dB pres jusqu'a 20 kHz)
+    for (ZDec& z : zd) {
+      double hc[IirHalfband::kMaxCoefs];
+      IirHalfband::designN(5, 0.2, hc);  // x8 -> x4 : transition 0.15..0.35 du taux x8, ~120 dB
+      z.s8.set(hc, 5);
+      IirHalfband::designN(4, 0.2, hc);  // x4 -> x2 : transition 0.15..0.35 du taux x4, ~100 dB
+      z.s4.set(hc, 4);
+      IirHalfband::designN(8, 0.035, hc);  // x2 -> x1 : transition 0.2325..0.2675 du taux x2, ~95 dB
+      z.s2.set(hc, 8);
+    }
+    zl = o.zeroLatency;
     {
       // COMB : deux lignes par voix (G, D), pour la note la plus grave au taux x8 (une puissance de 2 : un masque)
       int len = 64;
@@ -1236,7 +1287,8 @@ struct Voyager::Impl {
   void requestOs(int want) {
     if (!(want == 1 || want == 2 || want == 4 || want == 8)) return;
     if (want == os) {
-      osWant = 0;
+      // (v49 : un changement de LATENCY en attente le reste, au meme taux)
+      osWant = zlWant >= 0 ? os : 0;
       return;
     }
     if (osWant == 0) {
@@ -1246,6 +1298,32 @@ struct Voyager::Impl {
     osWant = want;
     mono.n = 0;
     // Les voix se taisent comme sur un stop (12 ms) ; le taux change quand elles sont eteintes
+    for (int i = 0; i < nv; i += 1) {
+      Voice& v = voices[i];
+      if (!v.on) continue;
+      v.aStage = 3;
+      v.fStage = 3;
+      v.quick = true;
+    }
+  }
+  /** v49 LATENCY : les demi-bandes RII (true) ou RIF (false) ; le changement attend le silence, comme setOs. */
+  void requestZl(bool z) {
+    const int w = z ? 1 : 0;
+    if (zlWant == w) return;
+    if (z == zl) {
+      // retour au mode en cours : plus rien n'attend (sauf un changement de taux)
+      zlWant = -1;
+      if (osWant == os) osWant = 0;
+      return;
+    }
+    zlWant = w;
+    if (osWant == 0) {
+      osQuiet = 0;
+      osWait = 0;
+      osWant = os;
+    }
+    mono.n = 0;
+    // Les voix se taisent comme sur un stop (12 ms) ; le mode change quand elles sont eteintes
     for (int i = 0; i < nv; i += 1) {
       Voice& v = voices[i];
       if (!v.on) continue;
@@ -1270,6 +1348,12 @@ struct Voyager::Impl {
   void applyOs() {
     os = osWant;
     osWant = 0;
+    if (zlWant >= 0) {
+      zl = zlWant == 1;
+      zlWant = -1;
+    }
+    zd[0].clear();
+    zd[1].clear();
     for (int i = 0; i < nv; i += 1) {
       Voice& v = voices[i];
       v.on = false;
@@ -2308,6 +2392,10 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     if (hasD2) {
       d2.clear();
       d2R.clear();
+    }
+    if (zl) {
+      zd[0].clear();
+      zd[1].clear();
     }
     const double x = t0 + N - 1;
     dueBeats(x);
@@ -4288,7 +4376,11 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
   }
   flushTiny();
   // Retour a la frequence du contexte : les demi-bandes en cascade, un canal chacune
-  if (OS == 8) {
+  if (zl && OS > 1) {
+    // v49 LATENCY ZERO : les demi-bandes RII, en double d'un bout a l'autre (sans l'arrondi en float des etages)
+    zRun(zd[0], rawL, N, OS, L);
+    if (R) zRun(zd[1], rawRp, N, OS, R);
+  } else if (OS == 8) {
     d8.run(rawL, 8 * N, mid8.data());
     d4.run(mid8.data(), 4 * N, mid.data());
     d2.run(mid.data(), 2 * N, L);
@@ -4391,6 +4483,7 @@ const ModView& Voyager::modView() const { return m_->modv; }
 int Voyager::latencySamples() const {
   // Les demi-bandes (31 coefficients au rythme x4 : 15 / 4 ; 63 au rythme x2 : 31 / 2), en echantillons du contexte
   // (x8 : 23 coefficients de plus au rythme x8, 11 / 8 : 20.625 -> 21)
+  if (m_->zl) return 0;  // v49 LATENCY ZERO : aucune latence pure (le retard de groupe RII : ~2 echantillons au grave)
   const int os = m_->os;
   const double d = os == 8 ? 11.0 / 8 + 15.0 / 4 + 31.0 / 2 : os == 4 ? 15.0 / 4 + 31.0 / 2 : os == 2 ? 31.0 / 2 : 0;
   return static_cast<int>(jsm::round(d));
@@ -4411,6 +4504,9 @@ int Voyager::fullVoices() const {
 int Voyager::heals() const { return m_->heals; }
 void Voyager::setOs(int os) { m_->requestOs(os); }
 void Voyager::setPro(bool on) { m_->pro = on; }
+void Voyager::setZeroLatency(bool on) { m_->requestZl(on); }
+bool Voyager::zeroLatency() const { return m_->zl; }
+bool Voyager::zeroLatencyWanted() const { return m_->zlWant >= 0 ? m_->zlWant == 1 : m_->zl; }
 bool Voyager::pro() const { return m_->pro; }
 int Voyager::os() const { return m_->os; }
 bool Voyager::osPending() const { return m_->osWant != 0; }

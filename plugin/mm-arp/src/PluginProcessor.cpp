@@ -422,9 +422,17 @@ int MMArpProcessor::osFor(double sr, double quality, bool exportHq, bool pro) {
     return sr > 60000 ? std::max(1, os / 2) : os;
 }
 
+// v49 : la latence declaree suit celle du moteur (EXACT : elle change avec QUALITY ou ENGINE ; ZERO : toujours 0).
+// Avant la v49 elle n'etait declaree qu'a prepareToPlay : changer QUALITY en jouant decalait le son de 2 a 5 echantillons.
+void MMArpProcessor::syncLatency() {
+    const int want = latNow_.load(std::memory_order_relaxed);
+    if (want != getLatencySamples()) setLatencySamples(want);
+}
+
 // Thread du message (il tourne fenetre fermee) : SIZE, TONE ou PRE DELAY ont bouge, une nouvelle reponse se calcule
 // ici et part vers le thread audio ; les anciennes sont liberees ici aussi
 void MMArpProcessor::timerCallback() {
+    syncLatency();
     while (fx_.takeRetiredReverb()) {}
     // v31 : une reponse calculee par le fil de la reverb part au thread audio (comme avant, en fondu enchaine)
     {
@@ -616,6 +624,9 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         const bool hadQuality = params.getChildWithProperty("id", "xQuality").isValid();
         // v46 : un projet d'avant HELL v2 (sans xHellV2) garde l'ancien HELL, au bit pres ; les instances neuves : HELL v2
         const bool hadHellV2 = params.getChildWithProperty("id", "xHellV2").isValid();
+        // v49 : un projet d'avant LATENCY (sans xLatency) garde les filtres a phase lineaire (EXACT), son son au bit pres ;
+        // les instances neuves : ZERO
+        const bool hadLatency = params.getChildWithProperty("id", "xLatency").isValid();
         // les reglages du VST3 seul que le projet ne connaissait pas : leur depart (le son d'avant), quelle que soit la
         // valeur que l'instance avait avant l'ouverture
         std::vector<int> missing;
@@ -636,6 +647,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
             if (auto* prm = apvts.getParameter("xEngine")) prm->setValueNotifyingHost(0.f);
         if (!hadHellV2)
             if (auto* prm = apvts.getParameter("xHellV2")) prm->setValueNotifyingHost(0.f);
+        if (!hadLatency)
+            if (auto* prm = apvts.getParameter("xLatency")) prm->setValueNotifyingHost(0.f);
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -649,6 +662,7 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     // la premiere version : la reverbe d'avant, l'ancien DELAY, l'ancien HELL
     if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
     if (auto* prm = apvts.getParameter("xHellV2")) prm->setValueNotifyingHost(0.f);
+    if (auto* prm = apvts.getParameter("xLatency")) prm->setValueNotifyingHost(0.f);
     convertDelay();
 }
 
@@ -1044,11 +1058,15 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     if (const char* e = std::getenv("MMARP_SOFT_VOICES")) o.softVoices = std::atoi(e);
 #endif
     osAsked_ = o.os;
+    // v49 LATENCY : ZERO (les instances neuves) ou EXACT (un projet d'avant)
+    zlAsked_ = exRaw_[mmx::ex_xLatency]->load() >= 0.5f;
+    o.zeroLatency = zlAsked_;
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
     voy_->setPro(pro);
     cpuPro_.store(pro, std::memory_order_relaxed);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
+    fx_.setZeroLatency(zlAsked_);
     hell_.prepare(sampleRate);
     hell2_.prepare(sampleRate);
     hellV2Was_ = -1;
@@ -1093,6 +1111,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
         if (!pending_ && current_) pending_ = current_;
         current_.reset();
     }
+    latNow_.store(voy_->latencySamples() + fx_.latencySamples(), std::memory_order_relaxed);
     setLatencySamples(voy_->latencySamples() + fx_.latencySamples());
 }
 
@@ -1248,6 +1267,15 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         }
         if (pro != voy_->pro()) voy_->setPro(pro);
         cpuPro_.store(pro, std::memory_order_relaxed);
+        // v49 LATENCY : ZERO ou EXACT (le moteur change au silence, comme QUALITY ; WARMTH et la DISTO suivent)
+        const bool zl = mmx::exStep(mmx::ex_xLatency, ex_[mmx::ex_xLatency]) == 1;
+        if (zl != zlAsked_) {
+            voy_->setZeroLatency(zl);
+            fx_.setZeroLatency(zl);
+            zlAsked_ = zl;
+        }
+        // la latence du moteur en ce moment (le timer la declare a l'hote si elle a change)
+        latNow_.store(voy_->latencySamples() + fx_.latencySamples(), std::memory_order_relaxed);
     }
     // Une nouvelle reponse de reverb (SIZE, TONE, PRE DELAY), calculee par le thread du message
     if (revLock_.tryEnter()) {
@@ -1419,6 +1447,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         ds.box = stp(mmx::ex_xDBox);
         ds.boxSize = ex_[mmx::ex_xDBoxSize];
         ds.boxMix = ex_[mmx::ex_xDBoxMix];
+        ds.zeroLatency = zlAsked_; // v49 LATENCY ZERO : sans les 32 echantillons de retard
         // la saturation au niveau de la prise : le gain de VOLUME du site (audio/synth.ts volGain)
         ds.ref = mmarp::ArpFxLaws::volGain(knobs_[static_cast<size_t>(mmarp::kn_volume)], knobs_[static_cast<size_t>(mmarp::kn_delay)], knobs_[static_cast<size_t>(mmarp::kn_reverb)]);
         decap_.set(ds);

@@ -1294,6 +1294,18 @@ void Master::prepare(double sr) {
     hbB_.half = 16;
     hbB_.c = 15;
     halfband(31, 9, hbB_.h);
+    // v49 LATENCY ZERO : les demi-bandes RII du moteur (Voyager.cpp) : x2 <-> x1, puis x4 <-> x2
+    for (WarmZ& z : wz_) {
+        double c[IirHalfband::kMaxCoefs];
+        IirHalfband::designN(8, 0.035, c);
+        z.u2.set(c, 8);
+        z.n2.set(c, 8);
+        z.l2.set(c, 8);
+        IirHalfband::designN(4, 0.2, c);
+        z.u4.set(c, 4);
+        z.n4.set(c, 4);
+        z.l4.set(c, 4);
+    }
     wTb_ = std::tanh(WARM_BIAS);
     dcR_ = std::exp(-2 * PI * WARM_DC_HZ / sr);
     // la compensation de niveau : un sinus de 0.3 garde son RMS (le continu de la courbe retire, comme le bloqueur)
@@ -1326,7 +1338,22 @@ void Master::prepare(double sr) {
 
 void Master::warmClear() {
     for (WarmCh& c : wc_) c = WarmCh();
+    for (WarmZ& z : wz_) z.clear();
     wI_ = wIb_ = wJb_ = wJa_ = 0;
+}
+
+void Master::setZeroLatency(bool on) {
+    if (on == zl_) return;
+    zl_ = on;
+    if (wActive_) {
+        // engagee : elle repart du sec, comme a l'engagement (les lignes se remplissent, puis le fondu)
+        warmClear();
+        wOn_.setNow(0);
+        wHold_ = 64;
+        wOn_.to(wAmt_.target > 0 ? 1 : 0, rampN_);
+    } else {
+        warmClear();
+    }
 }
 
 // les etats a zero, les reglages poses sans rampe
@@ -1447,7 +1474,31 @@ void Master::process(float* L, float* R, int n) {
             const double ms = on;
             const double* eA = hbA_.h.data();
             const double* eB = hbB_.h.data();
-            for (int c = 0; c < 2; ++c) {
+            for (int c = 0; zl_ && c < 2; ++c) {
+                // v49 LATENCY ZERO : x4 par les demi-bandes RII ; le sec par le meme aller-retour (en phase)
+                WarmCh& w = wc_[c];
+                WarmZ& z = wz_[c];
+                const double xin = x[c];
+                double a2[2], b4[4];
+                z.u2.run(xin, a2[0], a2[1]);
+                z.u4.run(a2[0], b4[0], b4[1]);
+                z.u4.run(a2[1], b4[2], b4[3]);
+                double hv[4];
+                for (int k = 0; k < 4; ++k) hv[k] = wInv_ != 0 ? warmCurve(b4[k], wG_, wInv_, wTb_) - b4[k] : 0;
+                // (des declarations successives : l'ordre des arguments d'une fonction n'est pas garanti en C++)
+                const double n0 = z.n4.run(hv[0], hv[1]);
+                const double n1 = z.n4.run(hv[2], hv[3]);
+                const double y1 = z.n2.run(n0, n1);
+                const double l0 = z.l4.run(b4[0], b4[1]);
+                const double l1 = z.l4.run(b4[2], b4[3]);
+                const double dr = z.l2.run(l0, l1);
+                const double hd = y1 - w.dcX + dcR_ * w.dcY;
+                w.dcX = y1;
+                w.dcY = std::fabs(hd) < 1e-30 ? 0 : hd;
+                const double y = wK_ * (dr + w.dcY);
+                x[c] = ms >= 1 ? y : xin + ms * (y - xin);
+            }
+            for (int c = 0; !zl_ && c < 2; ++c) {
                 WarmCh& w = wc_[c];
                 const double xin = x[c];
                 w.dry[static_cast<size_t>(wI_ & 63)] = xin;
@@ -1542,6 +1593,16 @@ void Master::process(float* L, float* R, int n) {
         for (int c = 0; c < 2; ++c) {
             if (std::fabs(f->ic1[c]) < 1e-20) f->ic1[c] = 0;
             if (std::fabs(f->ic2[c]) < 1e-20) f->ic2[c] = 0;
+        }
+    // v49 LATENCY ZERO : les demi-bandes RII de WARMTH (une queue qui s'eteint)
+    if (zl_ && wActive_)
+        for (WarmZ& z : wz_) {
+            z.u2.flush();
+            z.u4.flush();
+            z.n4.flush();
+            z.n2.flush();
+            z.l4.flush();
+            z.l2.flush();
         }
 }
 
@@ -2976,6 +3037,17 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* rinL = bRL_.data();
     float* rinR = bRR_.data();
     bool dXf = dMode_ != dWant_ || dXf_.moving();
+    // v49 LATENCY ZERO : le DELAY endormi le reste tant que son envoi est a 0 sur tout le morceau
+    bool dSkip = false;
+    if (zl_ && dSleep_) {
+        bool silent = !dXf;
+        for (int i = 0; silent && i < n; ++i) silent = aDs_[static_cast<size_t>(i)] == 0.f;
+        if (silent) dSkip = true;
+        else {
+            dSleep_ = false;
+            dQuiet_ = 0;
+        }
+    }
     const bool shOn = !shim_.bypassed();
     const int q0 = static_cast<int>(frame_ % Q);
     const double tD = nowS(); // v31 : le DELAY (avec l'insert, VOLUME et les envois de cette boucle) et la bande
@@ -3004,85 +3076,92 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         dR[i] = vR + lg;
         // DELAY : l'envoi, le passe-haut, gauche <-> droite (la droite lit le passe-bas gauche du bloc d'avant)
         const float ds = aDs_[static_cast<size_t>(i)];
-        const float fbv = aFb_[static_cast<size_t>(i)];
-        const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
-        // v27 : les temps de chaque cote (GROOVE, FEEL, OFFSET, PRIME) et le pleurage (WOBBLE) ; au neutre : dt
-        float dtL = dt, dtR = dt;
-        if (xTime_ || xMod_) {
-            double a = dt * kL_, b = dt * kR_;
-            if (xMod_) {
-                a += wowS_ * std::sin(TAU * mW_) + fltS_ * std::sin(TAU * mF_);
-                b += wowS_ * std::sin(TAU * (mW_ + 0.25)) + fltS_ * std::sin(TAU * (mF_ + 0.3));
-                mW_ += 0.55 / sr_;
-                if (mW_ >= 1) mW_ -= 1;
-                mF_ += 6.5 / sr_;
-                if (mF_ >= 1) mF_ -= 1;
+        float lpLo = 0, lpRo = 0;
+        if (!dSkip) {
+            const float fbv = aFb_[static_cast<size_t>(i)];
+            const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
+            // v27 : les temps de chaque cote (GROOVE, FEEL, OFFSET, PRIME) et le pleurage (WOBBLE) ; au neutre : dt
+            float dtL = dt, dtR = dt;
+            if (xTime_ || xMod_) {
+                double a = dt * kL_, b = dt * kR_;
+                if (xMod_) {
+                    a += wowS_ * std::sin(TAU * mW_) + fltS_ * std::sin(TAU * mF_);
+                    b += wowS_ * std::sin(TAU * (mW_ + 0.25)) + fltS_ * std::sin(TAU * (mF_ + 0.3));
+                    mW_ += 0.55 / sr_;
+                    if (mW_ >= 1) mW_ -= 1;
+                    mF_ += 6.5 / sr_;
+                    if (mF_ >= 1) mF_ -= 1;
+                }
+                dtL = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, a)));
+                dtR = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, b)));
             }
-            dtL = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, a)));
-            dtR = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, b)));
-        }
-        const auto lim = [](float x) { return 1.2f * std::tanh(x * (1 / 1.2f)); };
-        float lpLo, lpRo;
-        if (dMode_ == 0) {
-            const float sm = 0.5f * (vL * ds + vR * ds);
-            const float h = dHp_.run(sm);
-            const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
-            lpRo = lpR_.run(dr_.run(rIn, dtR, sr_));
-            if (xLoopD_) lpRo = loopDR_.run(lpRo, ds);
-            if (xLim_) lpRo = lim(lpRo);
-            const float lIn = h + fbv * lpRo;
-            lpLo = lpL_.run(dl_.run(lIn, dtL, sr_));
-            if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
-            if (xLim_) lpLo = lim(lpLo);
-            lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
-            if (++lpHistI_ == Q) lpHistI_ = 0;
-        } else if (dMode_ <= 2) {
-            // STEREO / WIDE (le plugin seul) : deux lignes paralleles, chacune sa reinjection ; WIDE : la gauche a 3/4
-            const float hL = dHp_.run(vL * ds);
-            const float hR = dHpR_.run(vR * ds);
-            lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dtL * 0.75f : dtL, sr_));
-            lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dtR, sr_));
-            if (xLoopD_) {
-                lpLo = loopDL_.run(lpLo, ds);
-                lpRo = loopDR_.run(lpRo, ds);
+            const auto lim = [](float x) { return 1.2f * std::tanh(x * (1 / 1.2f)); };
+            if (dMode_ == 0) {
+                const float sm = 0.5f * (vL * ds + vR * ds);
+                const float h = dHp_.run(sm);
+                const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
+                lpRo = lpR_.run(dr_.run(rIn, dtR, sr_));
+                if (xLoopD_) lpRo = loopDR_.run(lpRo, ds);
+                if (xLim_) lpRo = lim(lpRo);
+                const float lIn = h + fbv * lpRo;
+                lpLo = lpL_.run(dl_.run(lIn, dtL, sr_));
+                if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
+                if (xLim_) lpLo = lim(lpLo);
+                lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
+                if (++lpHistI_ == Q) lpHistI_ = 0;
+            } else if (dMode_ <= 2) {
+                // STEREO / WIDE (le plugin seul) : deux lignes paralleles, chacune sa reinjection ; WIDE : la gauche a 3/4
+                const float hL = dHp_.run(vL * ds);
+                const float hR = dHpR_.run(vR * ds);
+                lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dtL * 0.75f : dtL, sr_));
+                lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dtR, sr_));
+                if (xLoopD_) {
+                    lpLo = loopDL_.run(lpLo, ds);
+                    lpRo = loopDR_.run(lpRo, ds);
+                }
+                if (xLim_) {
+                    lpLo = lim(lpLo);
+                    lpRo = lim(lpRo);
+                }
+                dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
+                dFbR_ = std::fabs(lpRo) < 1e-20f ? 0.f : lpRo;
+            } else if (dMode_ == 3) {
+                // v27 SINGLE : une ligne, au centre
+                const float sm = 0.5f * (vL * ds + vR * ds);
+                const float h = dHp_.run(sm);
+                lpLo = lpL_.run(dl_.run(h + fbv * dFbL_, dtL, sr_));
+                if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
+                if (xLim_) lpLo = lim(lpLo);
+                dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
+                lpRo = lpLo;
+            } else {
+                // v27 RHYTHM : seize prises au pas du temps
+                const float sm = 0.5f * (vL * ds + vR * ds);
+                const float h = dHp_.run(sm);
+                rhythm_.run(h, dtL, fbv, xLoopD_ ? &loopR_ : nullptr, ds, lpLo, lpRo);
+                if (xLim_) {
+                    lpLo = lim(lpLo);
+                    lpRo = lim(lpRo);
+                }
             }
-            if (xLim_) {
-                lpLo = lim(lpLo);
-                lpRo = lim(lpRo);
+            if (dXf) {
+                // un changement de mode en cours
+                const float g = static_cast<float>(dXf_.next());
+                lpLo *= g;
+                lpRo *= g;
+                if (!dXf_.moving()) {
+                    if (dMode_ != dWant_) {
+                        delayClear();
+                        dMode_ = dWant_;
+                        dXf_.to(1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
+                    } else
+                        dXf = false;
+                }
             }
-            dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
-            dFbR_ = std::fabs(lpRo) < 1e-20f ? 0.f : lpRo;
-        } else if (dMode_ == 3) {
-            // v27 SINGLE : une ligne, au centre
-            const float sm = 0.5f * (vL * ds + vR * ds);
-            const float h = dHp_.run(sm);
-            lpLo = lpL_.run(dl_.run(h + fbv * dFbL_, dtL, sr_));
-            if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
-            if (xLim_) lpLo = lim(lpLo);
-            dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
-            lpRo = lpLo;
-        } else {
-            // v27 RHYTHM : seize prises au pas du temps
-            const float sm = 0.5f * (vL * ds + vR * ds);
-            const float h = dHp_.run(sm);
-            rhythm_.run(h, dtL, fbv, xLoopD_ ? &loopR_ : nullptr, ds, lpLo, lpRo);
-            if (xLim_) {
-                lpLo = lim(lpLo);
-                lpRo = lim(lpRo);
-            }
-        }
-        if (dXf) {
-            // un changement de mode en cours
-            const float g = static_cast<float>(dXf_.next());
-            lpLo *= g;
-            lpRo *= g;
-            if (!dXf_.moving()) {
-                if (dMode_ != dWant_) {
-                    delayClear();
-                    dMode_ = dWant_;
-                    dXf_.to(1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
-                } else
-                    dXf = false;
+            // v49 LATENCY ZERO : combien de temps le DELAY est reste muet, sans envoi
+            if (zl_) {
+                if (ds != 0.f || std::fabs(lpLo) + std::fabs(lpRo) > 1e-7f) dQuiet_ = 0;
+                else ++dQuiet_;
             }
         }
         mL[i] = lpLo;
@@ -3101,6 +3180,11 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
             rinL[i] += shim_.backL(q0 + i);
             rinR[i] += shim_.backR(q0 + i);
         }
+    }
+    // v49 LATENCY ZERO : muet depuis plus que sa ligne : il s'endort (lignes et filtres a zero)
+    if (zl_ && !dSleep_ && !dXf && dQuiet_ > static_cast<long>(dl_.buf.size()) + Q) {
+        delayClear();
+        dSleep_ = true;
     }
     // 4. la bande
     float* toL = bHiL_.data(); // le haut n'est plus lu

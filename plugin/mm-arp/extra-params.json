@@ -2641,6 +2641,17 @@
         "ON"
       ],
       "help": "v46 : la queue tenue sans fin (les machines BigSky sauf SPRING : les gains du reseau a 1, l'entree coupee, en fondu de 50 ms) ; sans effet sur CLASSIC et SPRING"
+    },
+    {
+      "id": "xLatency",
+      "label": "LATENCY",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "EXACT",
+        "ZERO"
+      ],
+      "help": "v49 (Mika : \"le moins de ms possible\") : ZERO, aucune latence declaree a l'hote (les decimateurs du moteur, la DISTO et WARMTH par demi-bandes RII a phase minimale, plates a 1e-6 dB pres jusqu'a 20 kHz, repliement au plus celui d'EXACT ; et le chemin leger : la BigSky modulee par phaseurs, le DELAY du site endormi sans envoi) ; EXACT, les filtres a phase lineaire du site, au bit pres (16 a 21 echantillons declares selon QUALITY). Les instances neuves : ZERO ; un projet d'avant (sans ce reglage) : EXACT, son son au bit pres. Le changement attend le silence (12 ms, comme QUALITY)."
     }
   ]
 }
