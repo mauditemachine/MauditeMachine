@@ -970,3 +970,49 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Rapports detailles : docs/reports/2026-11-23-optimisation-dsp.md, docs/reports/2026-11-23-optimisation-face.md.
 - A verifier sur le Mac : compteur CPU d'Ableton sur DELAY et HELL (composition GPU), la face qui se coupe bien fenetre
   recouverte, LATENCY affiche 0 dans Live (ancien projet : passer LATENCY a ZERO dans SETTINGS).
+
+## 2026-11-23 (suite) : v50, LFO 1 a 4 et MOD MATRIX dans EDIT (option C), page SQ
+
+- Mika (images 83 a 86) : "je voudrais que tous les LFo tu les mettes dans la partie du bas EDIT fait un classement et
+  du rangement, je veux que les Lfo puissent etre assignable partout dans le plugin avec un target [...] SQ c'est le
+  sequenceur [...] la meme chose que dans la page sequenceur mais en plus simple et plus petit". Maquettes A / B / C +
+  SQ + VISEUR ; choix : "C et SQ ok, go". Contrat commun moteur / face (scratchpad v50/CONTRAT-v50.md), deux chantiers
+  en parallele.
+- 31 parametres hote en fin de liste (264 -> 295, dernier xMx8Amt) : xLfo1Sync / xLfo1Hz, xLfo2Sync / xLfo2Hz (FREE en
+  Hz, 0.02 x 500^v ; SYNC par defaut = l'ancien), xLfo4Rate / Shape / Sync (nouveau LFO 4), puis 8 emplacements
+  xMx{n}Src (14 sources : les 12 de xM + LFO 3 + LFO 4), xMx{n}Dst (champ "nsteps": 1024 : 0 OFF, 1..19 les cibles
+  synthe de xM, 32 + k le reglage hote d'indice k), xMx{n}Amt (bipolaire, 0.5 = rien). LFO 3 = le LFO de la DISTO,
+  devenu source globale.
+- Table des cibles GENEREE (une source, extra-gen.mjs --check) : src/v4/plugin/arp/modTable.ts et
+  plugin/mm-arp/src/ModTable.inc ; 205 cibles groupees OSC / FILTER / ENV / ARP / LFO / SOUND / DISTO / DELAY / HELL /
+  REVERB / MASTER. Exclus : crans, leviers, xM* / xMx*, OLD (tape, xDist, OLD EQ), duck, xRevSize / Tone / Pre (la
+  reponse CLASSIC se calcule hors du thread audio). KEY est bipolaire (-2,5 a +2,5 autour du do central).
+- Compatibilite : rien n'est converti. Les anciennes routes (lfoDest / lfoAmt, xLfo1Dest2, xLfo2Dest, xDLfoTarget,
+  xM1..6) restent actives avec leur code ; la face les montre comme "lignes liees" de la matrice quand elles ne sont
+  pas neutres. 800 empreintes sur 800 identiques a v49 (50 scenes, CLASSIC / PRO, ECO / STD / HQ, blocs 37 / 128 /
+  512, EXACT) ; voyager_compare 85/85 et --blocks ; un projet d'avant s'ouvre et sonne au bit pres. Un emplacement xMx
+  vers une cible synthe = la meme ligne xM au bit pres (209 / 209).
+- Moteur : cibles synthe calculees par voix ; les potards CUTOFF, RES, ENV AMT, FM, NOISE, RING, FOLD, COMB passent par
+  ce chemin avec une echelle ; les autres cibles par un chemin generique par tranches de 32 echantillons, lisse (10 ms
+  sur HELL), seulement quand un emplacement vise une cible generique. Aucun emplacement actif : cout +0,1 a +0,2 %.
+  4 emplacements : +21 a +25 % en INIT, 8 : +31 a +37 % ; cas 8 voix de Mika + 8 emplacements : +17 a +19 %. LFO
+  mesures au millieme (FREE 2,501 / 3,701 Hz, LFO 4 cale sur le transport). Nouveau test mod_test (26 controles, CI).
+- Face, par defaut sans drapeau : bascule de l'encart SYNTH | LFO | SQ | FX MOD (ouvre sur LFO). Page LFO : LFO 1 a 4
+  (SPEED, SHAPE, levier FREE / SYNC, forme avec point anime, vitesse ecrite a cote du titre) et MOD MATRIX 2 x 4
+  (SOURCE, AMT, DESTINATION par familles, viseur), pagination au dela de 8 routes. Viseur : les potards ciblables de
+  la face, de l'encart et de la page OPEN montree s'allument, ecran "CLICK A KNOB > LFO 1", clic = assigne sans bouger
+  le potard ; Echap / second clic / EDIT baisse = annule. Arcs de modulation sur les cibles (mm_tick.m). La section MOD
+  quitte la face (AMP EG descend) : plugin seulement, le site ne change pas. FX MOD : PHASER, FLANGER, CHORUS, PUMP +
+  HELL WARP / SPIN (HELL v2) ou HELL LFO. Page SQ : 16 pas (NOTE, ACCENT, SLIDE, GATE / RATCHET / CHANCE), STEPS,
+  RATE, SWING, RANDOM, CLEAR, partagee avec la page SEQ (seqEdit.ts) ; la matrice xM quitte la page SEQ. RANDOM laisse
+  les emplacements a OFF ; un preset sans xMx les remet a OFF.
+- CPU face au repos : 0 image/s face, SYNTH, SQ, face cachee ; 30 images/s page LFO (le point SVG seul).
+- Fusion : params.ts n'importe plus theme/base (presets/build.mjs, fx-ref.mjs le lisent tels quels sous Node) : meme
+  lecture de PLUGIN_ARP en local.
+- Tests : CI DSP complete, mod_test, host_test, extra-gen / build.mjs / params-gen / hell-gen --check, face 43
+  controles en Chromium muet (func.js 32, func2.js 11), tsc 105.
+- Rapports detailles : docs/reports/2026-11-23-mod-matrix-dsp.md, docs/reports/2026-11-23-mod-matrix-face.md.
+- A ecouter / verifier sur le Mac : HELL MIX module vite (carre), MASTER VOLUME module en carre, saut de phase du LFO 3
+  quand la DISTO s'engage (lisse 1,5 ms), clic sur les fenetres de la matrice et viseur, Echap pendant une
+  assignation, taille du menu DESTINATION, point des LFO cale sur la mesure, sensibilite de NOTE dans SQ, CPU reel
+  avec 8 emplacements. Page SEQ : une bande vide reste sous ARP / LFO 1 + / LFO 2 (a retirer si Mika le veut).

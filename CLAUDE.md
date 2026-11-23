@@ -92,7 +92,7 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v49, 2026-11-23 ; v48 le 2026-11-20) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v50, 2026-11-23 ; v49 le meme jour) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
   accent reglable (SETTINGS), pads = 7 fondamentales de F#m (G#ø), liste
   des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
@@ -100,12 +100,20 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   (un seul EQ, CLEAN LOW, PUNISH v2 en levier, xDPunish2), DELAY A (echos
   facon Echo, cale sur le ppq de l'hote), HELL v2 (vortex, six cercles,
   xHellV2..xHellDescent), REVERB A (cascade 3D, EQ / WIDTH / DUCK /
-  FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END).
-  Encart EDIT : SYNTH | LFO | FX MOD. 264 parametres hote (dernier :
-  xLatency, LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
-  change par un preset). Banque d'usine v45 seche. Moteurs CLASSIC / PRO,
-  QUALITY ECO/STD/HQ, 8 voix. v49 : face au repos (mm_tick unique, rien
-  face cachee), demi-bandes RII a phase minimale (dsp/Halfband.h).
+  FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END ; sans
+  matrice depuis v50). Encart EDIT (v50, option C) : SYNTH | LFO | SQ |
+  FX MOD ; LFO 1 a 4 (LFO 3 = LFO de la DISTO) + MOD MATRIX 8 lignes au
+  viseur (xMx1..8, cibles 32 + k = reglage hote k, table generee
+  modTable.ts / ModTable.inc par extra-gen.mjs) ; anciennes routes jamais
+  converties, montrees en "lignes liees" ; section MOD retiree de la face
+  du plugin (le site la garde). 295 parametres hote (dernier : xMx8Amt ;
+  xLatency : LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
+  change par un preset). Banque d'usine v45 seche, emplacements xMx a
+  OFF (RANDOM aussi). Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
+  v49 : face au repos (mm_tick unique, rien face cachee), demi-bandes RII
+  a phase minimale (dsp/Halfband.h). src/v4/voyager/params.ts est lu par
+  Node (presets/build.mjs, fx-ref.mjs) : n'y importer ni theme/base ni un
+  module du site ; window seulement derriere typeof window.
 - Regle : une refonte n'est "faite" que si elle est la page PAR DEFAUT du
   build publie ; une maquette derriere un drapeau d'URL ne compte pas
   (Mika, 2026-11-20 : "t'as rien branle", il ne voyait rien changer).

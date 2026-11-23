@@ -74,7 +74,17 @@
  * (lfoShapeStep, foldLegacyKnobs).
  */
 
-import { PLUGIN_ARP } from '../theme/base';
+// v50 : la meme lecture que PLUGIN_ARP (theme/base.ts), sans l'importer : ce fichier est lu tel quel par Node
+// (plugin/mm-arp/presets/build.mjs, tests/fx-ref.mjs, tests/params-ref.mjs), ou theme/base ne se resout pas.
+const PLUGIN_ARP: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__ === 'arp') return true;
+    return new URLSearchParams(window.location.search).get('plugin') === 'arp';
+  } catch {
+    return false;
+  }
+})();
 
 export type VoyKnobId =
   | 'rate'
