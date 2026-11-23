@@ -30,6 +30,7 @@ import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
 import { FaceExtras } from './faceExtras';
 import { FaceModArcs } from './FaceModArcs';
+import { Encart50Overlay } from './Encart50Overlay';
 import { FaceLook, FaceLookButton } from './LookPanel';
 import { FaceCpuMeter } from './CpuMeter';
 import './hypno';
@@ -151,6 +152,7 @@ const ArpFace: React.FC = () => {
         <HellKnob stage={stage} />
         <FaceExtras stage={stage} />
         <FaceModArcs stage={stage} />
+        <Encart50Overlay stage={stage} />
         <FaceLook stage={stage} />
         <FaceLookButton stage={stage} />
         <FaceCpuMeter stage={stage} />

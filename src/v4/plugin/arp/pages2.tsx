@@ -20,14 +20,15 @@
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { arp, arpExternal } from '../../voyager/arp';
-import { CHORDS, degreeMidi, degreeName, type ArpMode } from '../../voyager/chords';
-import { stepIndex, voyParams } from '../../voyager/params';
-import { poolSteps, seq, SEQ_MAX, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
+import { CHORDS } from '../../voyager/chords';
+import { voyParams } from '../../voyager/params';
+import { seq, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
 import { extHead } from '../head';
 import { HOOD_PAGES, hoodPage, hoodPageIndex } from './hoodPage';
 import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, stepLive, type StepTrack } from './steps';
-import { EqBandKeys, EqScreen, eqBandStore, Frame, FRAME_H, frameW, Matrix, notesViewStore, qid, RandomBox, RND_W, SEQ_ROW, useExtraAll, useFlash, useSteps, X, ZONE } from './HoodBoard';
+import { EqBandKeys, EqScreen, eqBandStore, Frame, frameW, qid, RandomBox, RND_W, SEQ_ROW, useExtraAll, useFlash, useSteps, X, ZONE } from './HoodBoard';
+import { knobNote, lastOn, LEVELS, noteName, notesViewStore, rotate, SOFT_RANDOM, writeNotes } from './seqEdit';
 import './pages2.css';
 
 /* =====================================================================================================================
@@ -242,10 +243,7 @@ const GESTURE: Record<'notes' | 'track', string> = {
   track: 'CLICK: ON / OFF · DRAG UP / DOWN: VALUE · DRAG ACROSS: DRAW · RIGHT OR DOUBLE CLICK: RESET · DRAG END: LENGTH',
 };
 const DEF: Record<StepTrack, number> = Object.fromEntries(STEP_TRACKS.map((t) => [t.id, t.def])) as Record<StepTrack, number>;
-/** Les niveaux d'une piste, du plus bas au plus haut (glisser vers le haut : plus). */
-const LEVELS: Record<StepTrack, readonly number[]> = { acc: [0, 1, 2], slide: [0, 1], gate: [0, 1, 2, 3], rat: [1, 2, 3, 4], prob: [0, 25, 50, 75, 100] };
-/** Ce qu'un clic allume sur un pas neutre : le dernier niveau dessine sur la piste, au depart celui-ci. */
-const lastOn: Record<StepTrack, number> = { acc: 2, slide: 1, gate: 2, rat: 2, prob: 50 };
+// v50 : LEVELS et lastOn (le dernier niveau dessine sur une piste) sont partages avec la page SQ de l'encart (seqEdit.ts)
 /** Le texte court d'une valeur, sous son dessin. */
 const valText = (t: StepTrack, v: number): string => {
   switch (t) {
@@ -317,29 +315,7 @@ function useChord(): { chord: number; notes: SeqStep[]; len: number } {
   return { chord, notes, len: Math.max(1, Math.min(STEPS_N, sq.edit ? sq.len : notes.length || STEPS_N)) };
 }
 
-/** La note des potards a cette place (le pas remis a zero de la piste NOTES). */
-function knobNote(chord: number, i: number): number {
-  const p = voyParams.get();
-  const m = stepIndex('mode', p.mode);
-  const pool = poolSteps(chord, p, (m === 3 ? 0 : m) as ArpMode);
-  return pool.length > 0 ? pool[i % pool.length] : 0;
-}
-
-/** Les notes de la suite reecrites d'un coup (decaler, RANDOM) : la suite EDIT, la suite AUTO copiee sinon. */
-function writeNotes(chord: number, f: (cur: SeqStep[], len: number) => SeqStep[]): void {
-  const shown = seq.shown(chord);
-  const len = Math.max(1, Math.min(SEQ_MAX, shown.length || 1));
-  const st = seq.get();
-  const buf = st.edit ? st.buf.slice() : Array.from({ length: SEQ_MAX }, (_, j) => (shown.length > 0 ? shown[j % shown.length] : 0));
-  const next = f(buf.slice(0, len), len);
-  for (let j = 0; j < len; j += 1) buf[j] = next[j] === null ? null : Math.max(SEQ_MIN, Math.min(SEQ_TOP, Math.round(next[j] as number)));
-  seq.restore({ edit: true, buf, len, has: true });
-}
-
-const rotate = <T,>(a: T[], d: number): T[] => a.map((_, j) => a[(((j - d) % a.length) + a.length) % a.length]);
-
-/** Le nom d'une note de la suite, avec son octave (F#3). */
-const noteName = (chord: number, d: number): string => `${degreeName(chord, d)}${Math.floor(degreeMidi(chord, d) / 12) - 1}`;
+// v50 : knobNote, writeNotes, rotate, noteName : seqEdit.ts (la page SQ de l'encart d'EDIT s'en sert aussi)
 
 /* ---------------- la mise en page (le repere du cadre STEP SEQUENCER) ---------------- */
 
@@ -715,15 +691,8 @@ const StepsBox: React.FC = () => {
     const row = [...arpSteps.get()[t]];
     let next: number[];
     if (k === 'rnd') {
-      // doux : la plupart des pas restent neutres, quelques-uns prennent une valeur voisine
-      const soft: Record<StepTrack, (r: number) => number> = {
-        acc: (r) => (r < 0.25 ? 2 : r < 0.33 ? 0 : 1),
-        slide: (r) => (r < 0.15 ? 1 : 0),
-        gate: (r) => (r < 0.12 ? 3 : r < 0.26 ? 2 : r < 0.36 ? 0 : 1),
-        rat: (r) => (r < 0.12 ? 2 : r < 0.16 ? 3 : 1),
-        prob: (r) => (r < 0.2 ? 75 : r < 0.28 ? 50 : 100),
-      };
-      next = row.map((v, j) => (j < len ? soft[t](Math.random()) : v));
+      // doux : la plupart des pas restent neutres, quelques-uns prennent une valeur voisine (seqEdit.ts)
+      next = row.map((v, j) => (j < len ? SOFT_RANDOM[t](Math.random()) : v));
     } else {
       const part = rotate(row.slice(0, len), k === 'right' ? 1 : -1);
       next = row.map((v, j) => (j < len ? part[j] : v));
@@ -843,7 +812,7 @@ const StepsBox: React.FC = () => {
   );
 };
 
-/** SEQ : le sequenceur en haut, RANDOM, ARP, les LFO et la matrice dessous (les memes qu'avant). */
+/** SEQ : le sequenceur en haut, RANDOM, ARP, les LFO dessous (v50 : la matrice est dans l'encart d'EDIT, page LFO). */
 export const SeqPage: React.FC = () => {
   useExtraAll();
   const y = 330;
@@ -861,7 +830,6 @@ export const SeqPage: React.FC = () => {
         x += frameW(f) + GAP;
         return <Frame key={f.title} f={f} x={fx} y={y} sep={i < SEQ_ROW.length - 1} />;
       })}
-      <Matrix y={y + FRAME_H + 8} />
     </div>
   );
 };

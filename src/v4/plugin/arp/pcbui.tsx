@@ -34,6 +34,8 @@ import { delayInert } from './delay';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
 import { skyPostInert } from './skyPost';
 import { VKNOB_SPEC, VKNOB_URL } from './vknob';
+import { modAim, modView } from './modRoutes';
+import { modDestCodeOf } from './modTable';
 
 /* ---------------- la source d'un reglage ---------------- */
 
@@ -189,6 +191,17 @@ const useValue = (id: string): number => useSyncExternalStore(SRC.subscribe(id),
 const useInert = (id: string): boolean => useSyncExternalStore(bothSubscribe, () => inert(id));
 const useArmed = (id: string): boolean => useSyncExternalStore(arpMidi.subscribe, () => arpMidi.get().learning && arpMidi.get().armed === id);
 const learning = (): boolean => arpMidi.get().learning;
+/**
+ * v50 : une assignation au viseur en cours (l'encart d'EDIT, modRoutes.ts) : les potards qui peuvent etre une cible
+ * s'allument (data-aim) ; un clic sur l'un d'eux en fait la cible de la ligne (il ne bouge pas).
+ */
+const useAimable = (id: string): boolean => useSyncExternalStore(modView.subscribe, () => modAim.on() && !VIRT.has(id) && modDestCodeOf(id) !== undefined);
+function tryAim(id: string): boolean {
+  if (!modAim.on() || VIRT.has(id) || modDestCodeOf(id) === undefined) return false;
+  modAim.pick(id);
+  hoodLcd.show('TARGET', fullName(id), 1800);
+  return true;
+}
 
 /** Le nom complet d'un reglage, pour l'afficheur (PHASER RATE, MATRIX 3 DEST...). */
 const FULL: Record<string, string> = {};
@@ -414,6 +427,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
   const on = useTouched(id);
   const armed = useArmed(id);
   const dim = useInert(id);
+  const aimable = useAimable(id);
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; v: number; pid: number } | null>(null);
 
@@ -424,6 +438,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
     e.preventDefault();
     el.current?.focus({ preventScroll: true });
     if (tryLearn(id)) return;
+    if (tryAim(id)) return;
     // Alt / Cmd / Ctrl + clic : la valeur de depart (comme sur la face)
     if (e.altKey || e.metaKey || e.ctrlKey) {
       setValue(id, SRC.def(id));
@@ -485,6 +500,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         aria-valuenow={Math.round(v * 100)}
         aria-valuetext={SRC.text(id, v)}
         data-armed={armed ? '1' : undefined}
+        data-aim={aimable ? '1' : undefined}
         style={small ? { width: box, height: box } : { width: box, height: box, marginLeft: -box / 2 }}
         onPointerDown={onDown}
         onPointerMove={onMove}

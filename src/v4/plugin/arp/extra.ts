@@ -15,6 +15,7 @@ import { hellShiftText, LFO_BEAT_NAMES } from './hell';
 import { hell2Text } from './hell2';
 import { delayText } from './delay';
 import { skyPostText } from './skyPost';
+import { modDestByCode } from './modTable';
 
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
@@ -22,7 +23,7 @@ import { skyPostText } from './skyPost';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto' | 'delay' | 'chorus' | 'old';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto' | 'delay' | 'chorus' | 'old' | 'lfo' | 'mod';
 
 export interface ExtraParam {
   id: string;
@@ -30,12 +31,17 @@ export interface ExtraParam {
   section: ExtraSection;
   def: number;
   steps?: readonly string[];
+  /**
+   * v50 (contrat v50 section 4) : un reglage a crans sans liste de libelles (xMx{n}Dst : 1024 crans), valeur = index /
+   * (nsteps - 1), exacte (jamais arrondie au millieme) ; ses libelles viennent de la table des cibles (modTable.ts).
+   */
+  nsteps?: number;
   help?: string;
 }
 
 export const EXTRA_STORAGE_KEY = 'mm.v4.plugin.arp.extra';
 
-export const EXTRA_PARAMS: readonly ExtraParam[] = (spec.params as readonly ExtraParam[]).map((p) => ({ id: p.id, label: p.label, section: p.section, def: p.def, steps: p.steps, help: p.help }));
+export const EXTRA_PARAMS: readonly ExtraParam[] = (spec.params as readonly ExtraParam[]).map((p) => ({ id: p.id, label: p.label, section: p.section, def: p.def, steps: p.steps, ...(p.nsteps ? { nsteps: p.nsteps } : {}), help: p.help }));
 export const EXTRA_IDS: readonly string[] = EXTRA_PARAMS.map((p) => p.id);
 
 /** Les blocs de la page SOUND+, dans l'ordre de l'ecran (ceux du module avant : FrontModule.tsx). */
@@ -54,11 +60,17 @@ export const extraParam = (id: string): ExtraParam | undefined => BY_ID.get(id);
 
 export type ExtraValues = Readonly<Record<string, number>>;
 
+/** Le nombre de crans d'un reglage (sa liste, ou nsteps : v50) ; 0 : continu. */
+export const extraStepCount = (id: string): number => {
+  const p = BY_ID.get(id);
+  return p?.steps?.length ?? p?.nsteps ?? 0;
+};
+
 /** L'index du cran d'un reglage a crans (0 sinon). */
 export function extraStepIndex(id: string, v: number): number {
-  const s = BY_ID.get(id)?.steps;
-  if (!s) return 0;
-  return Math.max(0, Math.min(s.length - 1, Math.round(v * (s.length - 1))));
+  const n = extraStepCount(id);
+  if (n < 2) return 0;
+  return Math.max(0, Math.min(n - 1, Math.round(v * (n - 1))));
 }
 
 /**
@@ -68,6 +80,8 @@ export function extraStepIndex(id: string, v: number): number {
 const EXACT: ReadonlySet<string> = new Set(['xDlFb']);
 function clean(p: ExtraParam, v: number): number {
   const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p.def;
+  // v50 : nsteps (xMx{n}Dst) : index / (n - 1), la division exacte que fait le C++ (jamais arrondie au millieme)
+  if (p.nsteps && p.nsteps > 1) return extraStepIndex(p.id, t) / (p.nsteps - 1);
   return p.steps ? extraStepIndex(p.id, t) / (p.steps.length - 1) : EXACT.has(p.id) ? t : Math.round(t * 1000) / 1000;
 }
 
@@ -135,7 +149,11 @@ export const eqAirDb = (v: number): number => (v - 0.5) * 20;
 export const matrixPct = (v: number): number => (v - 0.5) * 200;
 /** Les lignes de la matrice de modulation (xM1Src, xM1Dst, xM1Amt ... xM6). */
 export const MATRIX_ROWS = 6;
-const MATRIX_AMT = /^xM\dAmt$/;
+const MATRIX_AMT = /^xMx?\dAmt$/;
+/** v50 : la cible d'un emplacement (xMx{n}Dst) : son code, index du cran (0 : OFF). */
+const MX_DST = /^xMx\dDst$/;
+/** La loi FREE des LFO (xLfo1Hz, xLfo2Hz, xLfo4Rate, comme xDLfoRate) : 0.02 x 500^v Hz. */
+export const lfoFreeHz = (v: number): number => 0.02 * Math.pow(500, Math.min(1, Math.max(0, v)));
 
 const pct = (v: number): string => `${Math.round(v * 100)} %`;
 /** Une dose : OFF a zero. */
@@ -183,6 +201,10 @@ function text(id: string, v: number): string {
     if (t !== null) return t;
   }
   if (p.steps) return p.steps[extraStepIndex(id, v)];
+  if (MX_DST.test(id)) {
+    const code = extraStepIndex(id, v);
+    return code === 0 ? 'OFF' : (modDestByCode(code)?.label ?? '---');
+  }
   if (MATRIX_AMT.test(id)) return `${signed(matrixPct(v), 0)} %`;
   switch (id) {
     case 'xEqLow':
@@ -288,6 +310,12 @@ function text(id: string, v: number): string {
       return `${Math.round(Math.pow(30, v))} / ${Math.round(30 * Math.pow(30, v))} ms`;
     case 'xDLfoRate':
       return (values.xDLfoSync ?? 0) >= 0.5 ? LFO_BEAT_NAMES[Math.round(Math.min(1, Math.max(0, v)) * (LFO_BEAT_NAMES.length - 1))] : hz(0.02 * Math.pow(500, v));
+    // v50 : LFO 4 (comme le LFO de la DISTO, devenu LFO 3) ; la vitesse FREE de LFO 1 et LFO 2
+    case 'xLfo4Rate':
+      return (values.xLfo4Sync ?? 1) >= 0.5 ? LFO_BEAT_NAMES[Math.round(Math.min(1, Math.max(0, v)) * (LFO_BEAT_NAMES.length - 1))] : hz(lfoFreeHz(v));
+    case 'xLfo1Hz':
+    case 'xLfo2Hz':
+      return hz(lfoFreeHz(v));
     case 'xDBoxSize':
       return `${signed((v - 0.5) * 1.2, 1)} oct`;
     case 'xHellHp':

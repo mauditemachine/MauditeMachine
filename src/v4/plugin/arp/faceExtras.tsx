@@ -15,6 +15,9 @@
  *   valeur s'ecrit sur l'ecran de la machine. Les notes de la suite vont a la page SEQ : le verre ne prend plus de geste.
  * - v46 : l'encart a trois pages, une bascule SYNTH | LFO | FX MOD a sa gauche (encartPage) : SYNTH (ce qui precede,
  *   resserre), LFO (les quatre LFO facon MOD, le potard k1 de la face), FX MOD (PHASER, FLANGER, CHORUS, PUMP).
+ * - v50 (Mika : "C et SQ ok, go") : quatre pages, SYNTH | LFO | SQ | FX MOD, touches mates a LED (encart50.ts) : LFO = les
+ *   quatre LFO generiques et la MOD MATRIX (option C), SQ = le sequenceur en petit ; FX MOD y gagne HELL WARP / SPIN (HELL
+ *   v2) ou HELL LFO (l'ancien HELL). La section MOD quitte la face (voyager/params.ts, voyager/theme.ts).
  */
 
 import { useEffect } from 'react';
@@ -51,10 +54,15 @@ import { voyMsg } from '../../voyager/msg';
 import { voyKnob, voyParams, voyValueText, type VoyKnobId } from '../../voyager/params';
 import { VOY_SEQ } from '../../voyager/seqscreen';
 import { voySilkExtraKnob } from '../../voyager/silk';
-import { VOY_DS_PLACE, VOY_KNOB, voyKnobPlace } from '../../voyager/theme';
+import { VOY_DS_PLACE, VOY_HELL_PLACE, VOY_KNOB, voyKnobPlace } from '../../voyager/theme';
+import { RYTM_KNOB } from '../../voyager/rytmKnob';
+import { extHead } from '../head';
 import { arpExtra, extraParam, isExtra } from './extra';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT, attachVKnobs } from './vknobFace';
+import { aimParamOf50, key50, lfoPage50, sqPage50, sqSources, tabs50, tap50, TABS50, type Key50, type Page50 } from './encart50';
+import { aimSourceName, modAim, modView } from './modRoutes';
+import { modDestCodeOf } from './modTable';
 
 voySilkExtraKnob('panel', 'DETUNE', VOY_DS_PLACE.detune.x, VOY_DS_PLACE.detune.labelZ);
 voySilkExtraKnob('panel', 'SPREAD', VOY_DS_PLACE.spread.x, VOY_DS_PLACE.spread.labelZ);
@@ -289,26 +297,22 @@ for (const c of CTLS) {
   });
 }
 
-/* ---------------- l'encart d'EDIT, v46 : trois pages, SYNTH | LFO | FX MOD ---------------- */
+
+/* ---------------- l'encart d'EDIT : SYNTH | LFO | SQ | FX MOD (v46 ; v50 : quatre pages) ---------------- */
 
 /**
- * v46 (2026-11-20, Mika : "les LFOS tous les LFOS quand on clic sur Edit !", la maquette B retenue) : une bascule de
- * trois touches a gauche de l'encart (la page montree allumee, comme EDIT) :
- * - SYNTH : les sections synthe d'avant (resserrees pour laisser la place a la bascule) ;
- * - LFO : les quatre LFO a forme et cible (LFO 1 = MOD de la face, LFO 2, HELL, DISTO), presentes comme la section MOD
- *   (SPEED, SHAPE, TARGET, DEPTH plus grand), le potard de la face (vknob k1) a sa taille exacte, une rangee ; dessous :
- *   TARGET 2 et DEPTH 2 du LFO 1, les leviers SYNC et STEREO ;
- * - FX MOD : les modulations des effets (PHASER, FLANGER, CHORUS, PUMP), leurs vitesses et profondeurs.
- * La page est gardee entre deux ouvertures d'EDIT (pas entre deux fenetres). Chaque piece a sa zone de prise, active
- * seulement sur sa page ; les noms des parametres hote ne changent pas.
+ * v46 (2026-11-20, Mika : "les LFOS tous les LFOS quand on clic sur Edit !") : une bascule a gauche de l'encart (la page
+ * montree allumee). v50 (Mika, 2026-11-23 : "C et SQ ok, go") : quatre touches mates a LED (encart50.ts TABS50) :
+ * - SYNTH : les sections synthe d'avant ;
+ * - LFO : les quatre LFO generiques et la MOD MATRIX (encart50.ts) ;
+ * - SQ : le sequenceur de la page SEQ en petit (encart50.ts) ;
+ * - FX MOD : PHASER, FLANGER, CHORUS, PUMP, et HELL WARP / SPIN (HELL v2) ou HELL LFO (l'ancien HELL, un projet d'avant).
+ * La page est gardee entre deux ouvertures d'EDIT (pas entre deux fenetres) ; la premiere : LFO. Chaque piece a sa zone de
+ * prise, active seulement sur sa page ; les noms des parametres hote ne changent pas.
  */
-export type EncartPage = 'synth' | 'lfo' | 'fxmod';
-const ENC_PAGES: readonly { id: EncartPage; name: string }[] = [
-  { id: 'synth', name: 'SYNTH' },
-  { id: 'lfo', name: 'LFO' },
-  { id: 'fxmod', name: 'FX MOD' },
-];
-let encPage: EncartPage = 'synth';
+export type EncartPage = 'synth' | 'lfo' | 'sq' | 'fxmod';
+const ENC_PAGES: readonly { id: EncartPage; name: string }[] = TABS50;
+let encPage: EncartPage = 'lfo';
 const encL = new Set<() => void>();
 export const encartPage = {
   get: (): EncartPage => encPage,
@@ -342,34 +346,23 @@ type LfoCtl = { k: 'pot' | 'lever'; id: string; name: string; big?: boolean; ste
 type LfoSec = { title: string; ctls: LfoCtl[]; sub?: LfoCtl[] };
 const lpot = (sec: string, id: string, name: string, big = false): LfoCtl => ({ k: 'pot', id, name, big, say: `${sec} ${name}` });
 const llev = (sec: string, id: string, name: string): LfoCtl => ({ k: 'lever', id, name, steps: extraParam(id)?.steps ?? ['OFF', 'ON'], say: `${sec} ${name}` });
-/** La page LFO : les quatre LFO a forme et cible, presentes comme MOD (les noms de la face : SPEED, SHAPE, TARGET, DEPTH). */
-const LFO_SECS: LfoSec[] = [
-  { title: 'LFO 1 · MOD', ctls: [lpot('LFO 1', 'lfoRate', 'SPEED'), lpot('LFO 1', 'lfoShape', 'SHAPE'), lpot('LFO 1', 'lfoDest', 'TARGET'), lpot('LFO 1', 'lfoAmt', 'DEPTH', true)], sub: [lpot('LFO 1', 'xLfo1Dest2', 'TARGET 2'), lpot('LFO 1', 'xLfo1Depth2', 'DEPTH 2', true)] },
-  { title: 'LFO 2', ctls: [lpot('LFO 2', 'xLfo2Rate', 'SPEED'), lpot('LFO 2', 'xLfo2Shape', 'SHAPE'), lpot('LFO 2', 'xLfo2Dest', 'TARGET'), lpot('LFO 2', 'xLfo2Depth', 'DEPTH', true)] },
-  { title: 'HELL LFO', ctls: [lpot('HELL LFO', 'xHellLfoRate', 'SPEED'), lpot('HELL LFO', 'xHellLfoShape', 'SHAPE'), lpot('HELL LFO', 'xHellLfoTarget', 'TARGET'), lpot('HELL LFO', 'xHellLfoAmt', 'DEPTH', true)], sub: [llev('HELL LFO', 'xHellLfoSync', 'SYNC'), llev('HELL LFO', 'xHellLfoStereo', 'STEREO')] },
-  { title: 'DISTO LFO', ctls: [lpot('DISTO LFO', 'xDLfoRate', 'SPEED'), lpot('DISTO LFO', 'xDLfoShape', 'SHAPE'), lpot('DISTO LFO', 'xDLfoTarget', 'TARGET'), lpot('DISTO LFO', 'xDLfoAmt', 'DEPTH', true)], sub: [llev('DISTO LFO', 'xDLfoSync', 'SYNC')] },
-];
-/**
- * HELL v2 (v46, xHellV2 a ON : les instances neuves, les presets de la banque) n'a plus le LFO de l'ancien HELL : la page
- * LFO montre alors ses deux mouvements, WARP (la hauteur qui ondule : vitesse, forme, profondeur) et SPIN (la piece qui
- * tourne). Un projet d'avant (xHellV2 a OFF, l'ancien moteur) garde HELL LFO.
- */
-const LFO_SECS_V2: LfoSec[] = LFO_SECS.map((s) =>
-  s.title === 'HELL LFO'
-    ? { title: 'HELL WARP', ctls: [lpot('HELL WARP', 'xHellWarpRate', 'SPEED'), lpot('HELL WARP', 'xHellWarpShape', 'SHAPE'), lpot('HELL WARP', 'xHellWarp', 'DEPTH', true)], sub: [lpot('HELL SPIN', 'xHellSpin', 'SPIN'), lpot('HELL SPIN', 'xHellSpinRate', 'SPIN RATE')] }
-    : s,
-);
+/** Le LFO de l'ancien HELL (xHellV2 a OFF : un projet d'avant), ses cibles a lui. */
+const HELL_LFO: LfoSec = { title: 'HELL LFO', ctls: [lpot('HELL LFO', 'xHellLfoRate', 'SPEED'), lpot('HELL LFO', 'xHellLfoShape', 'SHAPE'), lpot('HELL LFO', 'xHellLfoTarget', 'TARGET'), lpot('HELL LFO', 'xHellLfoAmt', 'DEPTH', true)], sub: [llev('HELL LFO', 'xHellLfoSync', 'SYNC'), llev('HELL LFO', 'xHellLfoStereo', 'STEREO')] };
+/** HELL v2 (v46, xHellV2 a ON : les instances neuves, la banque) : WARP (la hauteur qui ondule) et SPIN (la piece qui tourne). */
+const HELL_WARP: LfoSec = { title: 'HELL WARP', ctls: [lpot('HELL WARP', 'xHellWarpRate', 'SPEED'), lpot('HELL WARP', 'xHellWarpShape', 'SHAPE'), lpot('HELL WARP', 'xHellWarp', 'DEPTH', true)], sub: [lpot('HELL SPIN', 'xHellSpin', 'SPIN'), lpot('HELL SPIN', 'xHellSpinRate', 'SPIN RATE')] };
 /** La page FX MOD : les modulations des effets, leurs vitesses et profondeurs (et ce qui les cale ou les ecarte). */
-const FXMOD_SECS: LfoSec[] = [
+const FX_BASE: LfoSec[] = [
   { title: 'PHASER', ctls: [lpot('PHASER', 'xPhRate', 'SPEED'), lpot('PHASER', 'xPhDepth', 'DEPTH', true)], sub: [llev('PHASER', 'xPhSync', 'SYNC'), lpot('PHASER', 'xPhSpread', 'SPREAD')] },
   { title: 'FLANGER', ctls: [lpot('FLANGER', 'xFlRate', 'SPEED'), lpot('FLANGER', 'xFlDepth', 'DEPTH', true)], sub: [llev('FLANGER', 'xFlSync', 'SYNC'), lpot('FLANGER', 'xFlSpread', 'SPREAD')] },
   { title: 'CHORUS', ctls: [lpot('CHORUS', 'xChRate', 'SPEED'), lpot('CHORUS', 'xChDepth', 'DEPTH', true)] },
   { title: 'PUMP', ctls: [lpot('PUMP', 'xPumpRate', 'SPEED'), lpot('PUMP', 'xPumpDepth', 'DEPTH', true), lpot('PUMP', 'xPumpShape', 'RELEASE')] },
 ];
-const LFO_CTLS: LfoCtl[] = [...new Map([...LFO_SECS, ...LFO_SECS_V2, ...FXMOD_SECS].flatMap((s) => [...s.ctls, ...(s.sub ?? [])]).map((c) => [c.id, c])).values()];
-/** Ce que l'encart montre : la page choisie ; LFO selon le moteur de HELL (lfo2 : HELL v2). */
-type EncView = EncartPage | 'lfo2';
-const encView = (): EncView => (encPage === 'lfo' && valOf('xHellV2') >= 0.5 ? 'lfo2' : encPage);
+const FXMOD_SECS: LfoSec[] = [...FX_BASE, HELL_LFO];
+const FXMOD_SECS_V2: LfoSec[] = [...FX_BASE, HELL_WARP];
+const LFO_CTLS: LfoCtl[] = [...new Map([...FXMOD_SECS, ...FXMOD_SECS_V2].flatMap((s) => [...s.ctls, ...(s.sub ?? [])]).map((c) => [c.id, c])).values()];
+/** Ce que l'encart montre : la page choisie ; FX MOD selon le moteur de HELL (fxmod2 : HELL v2). */
+type EncView = EncartPage | 'fxmod2';
+const encView = (): EncView => (encPage === 'fxmod' && valOf('xHellV2') >= 0.5 ? 'fxmod2' : encPage);
 for (const c of LFO_CTLS) {
   registerDialSpec(ED + c.id, {
     value: () => valOf(c.id),
@@ -390,16 +383,20 @@ for (const c of LFO_CTLS) {
 
 /**
  * Le clic d'une piece de l'encart (hellKnob.tsx faceDbl) : une touche de la bascule montre sa page, un levier bascule,
- * une touche a crans passe au cran suivant ; un potard ne fait rien (le clic est pris). false : pas une piece de l'encart.
+ * une touche a crans passe au cran suivant, une fenetre de la matrice deroule son menu, le viseur arme l'assignation ; un
+ * potard ne fait rien (le clic est pris). false : pas une piece de l'encart.
  */
 export function encartTap(dial: string): boolean {
   if (!dial.startsWith(ED)) return false;
   const tab = ENC_PAGES.find((p) => TAB_DIAL(p.id) === dial);
   if (tab) {
     encartPage.set(tab.id);
-    voyMsg.show(`EDIT ${tab.name}`, 1400);
+    // une assignation en cours le reste (on va chercher la cible sur une autre page) : l'ecran le redit
+    const r = modAim.route();
+    voyMsg.show(r ? `CLICK A KNOB > ${aimSourceName(r)}` : `EDIT ${tab.name}`, r ? 3_600_000 : 1400);
     return true;
   }
+  if (tap50(dial)) return true;
   const lc = LFO_CTLS.find((x) => ED + x.id === dial);
   if (lc) {
     if (lc.k === 'pot') return true;
@@ -419,31 +416,63 @@ export function encartTap(dial: string): boolean {
   return true;
 }
 
+/**
+ * v50 : un clic pendant une assignation au viseur (modRoutes.ts modAim) : le reglage du potard clique (la face, l'encart),
+ * sa cible. Les pieces qui ne sont pas des potards (touches, leviers, fenetres, viseurs) gardent leur geste. true : pris.
+ */
+export function aimTap(dial: string): boolean {
+  if (!modAim.on()) return false;
+  let id: string | null = null;
+  if (dial.startsWith('v:')) id = dial.slice(2);
+  else if (dial === 'z:hell') id = 'xHellMix';
+  else if (dial.startsWith(ED)) {
+    const rest = dial.slice(ED.length);
+    const ctl = CTLS.find((c) => c.id === rest) ?? LFO_CTLS.find((c) => c.id === rest);
+    if (ctl) id = ctl.k === 'knob' || ctl.k === 'pot' ? rest : null;
+    else id = aimParamOf50(dial);
+  }
+  if (id === null) return false;
+  return modAim.pick(id);
+}
+
 /** Le petit knob cannele : son rayon au pied (unites du potard), sa hauteur, l'echelle de ceux de la face. */
 export const FLUTED = { r: 0.24, h: 0.2, scale: 0.9 } as const;
 
 /**
- * Ou dessiner l'arc de modulation d'un knob ajoute (FaceModArcs.tsx) : DETUNE (stack), et les pieces de l'encart
- * (RING MOD, FOLD, COMB) tant qu'il est ouvert ; le calque, le centre et le rayon de l'arc.
+ * Ou dessiner l'arc de modulation d'un reglage hors des potards de la face (FaceModArcs.tsx), et ou poser l'anneau du
+ * viseur (Encart50Overlay.tsx) : DETUNE, SPREAD, HELL, et les potards de l'encart tant que leur page est montree ; un
+ * reglage peut avoir plusieurs places (FX MOD : deux mises en page selon HELL), la premiere vivante sert.
  */
-export const faceArcPlaces = new Map<string, { layer: Group; x: number; z: number; y: number; R: number; live: () => boolean }>();
-
+export interface ArcPlace {
+  layer: Group;
+  x: number;
+  z: number;
+  y: number;
+  R: number;
+  live: () => boolean;
+}
+export const faceArcPlaces = new Map<string, ArcPlace[]>();
+const addArcPlace = (id: string, p: ArcPlace): void => {
+  const l = faceArcPlaces.get(id);
+  if (l) l.push(p);
+  else faceArcPlaces.set(id, [p]);
+};
+/** La place vivante d'un reglage (son index dans la liste, pour le cache des points), ou null. */
+export function arcPlaceOf(id: string): { p: ArcPlace; i: number } | null {
+  const l = faceArcPlaces.get(id);
+  if (!l) return null;
+  for (let i = 0; i < l.length; i += 1) if (l[i].live()) return { p: l[i], i };
+  return null;
+}
 
 /** Une piece posee de l'encart (repere du plateau) : une piece synthe, un potard LFO (k1, son rayon), un levier LFO. */
 type EncPlace = { k: 'syn'; c: Ctl; x: number; z: number } | { k: 'pot'; c: LfoCtl; x: number; z: number; R: number } | { k: 'lever'; c: LfoCtl; x: number; z: number; s: number };
 
-/** La bascule SYNTH | LFO | FX MOD : ses touches (repere du plateau), le trait qui la separe de la page. */
-const encTabs = (): { x: number; z: number[]; sep: number } => {
-  const gw = VOY_SEQ.w - 2 * VOY_SEQ.bezel;
-  const gd = VOY_SEQ.d - 2 * VOY_SEQ.bezel;
-  const X0 = VOY_SEQ.x - gw / 2;
-  const Z0 = VOY_SEQ.z - gd / 2;
-  return { x: X0 + 0.36, z: [Z0 + 0.3, Z0 + 0.79, Z0 + 1.28], sep: X0 + 0.74 };
-};
-const TAB_KEY = { w: 0.44, d: 0.22 } as const;
+/** La bascule : ses touches (repere du plateau), le trait qui la separe de la page. */
+const encTabs = (): { x: number; z: number[]; sep: number } => tabs50();
 
-/** Le panneau noir de l'encart (une page) : sa toile, ses aides de dessin, la bascule serigraphiee. */
-function encPanel(page: EncartPage) {
+/** Le panneau noir de l'encart (une page) : sa toile, ses aides de dessin, le trait de la bascule. */
+function encPanel() {
   const gw = VOY_SEQ.w - 2 * VOY_SEQ.bezel;
   const gd = VOY_SEQ.d - 2 * VOY_SEQ.bezel;
   const W = 4096;
@@ -484,9 +513,8 @@ function encPanel(page: EncartPage) {
     g.fillStyle = 'rgba(255, 250, 240, 0.14)';
     g.fillRect(px(x) - 2, py(za), 4, (zb - za) * U);
   };
-  // la bascule : le nom sous chaque touche (celui de la page montree eclaire), le trait
+  // la bascule : ses touches portent leur nom (encart50.ts key50) ; le trait
   const t = encTabs();
-  ENC_PAGES.forEach((p, i) => text(p.name, t.x, t.z[i] + 0.2, 0.052, 700, p.id === page ? ink : dim, 0.12));
   vline(t.sep, Z0 + 0.12, Z0 + gd - 0.12);
   const finish = (): CanvasTexture => {
     const tex = new CanvasTexture(c);
@@ -502,7 +530,7 @@ function encPanel(page: EncartPage) {
  * ecarts, pas les knobs) si elles ne tiennent pas.
  */
 function encart(): { tex: CanvasTexture; place: EncPlace[]; scale: number; f: number } {
-  const P = encPanel('synth');
+  const P = encPanel();
   const { text, Z0, ink, dim } = P;
   const scale = 0.72;
   const r = 0.24 * scale;
@@ -546,15 +574,15 @@ function encart(): { tex: CanvasTexture; place: EncPlace[]; scale: number; f: nu
 }
 
 /**
- * Les pages LFO et FX MOD (la maquette B) : une rangee de sections facon MOD, le titre au-dessus du plus grand potard,
- * chaque nom sous sa piece ; dessous, les reglages de plus de chaque section (potards plus petits, leviers).
+ * La page FX MOD (deux mises en page : l'ancien HELL, HELL v2) : une rangee de sections facon MOD, le titre au-dessus du
+ * plus grand potard, chaque nom sous sa piece ; dessous, les reglages de plus de chaque section (potards plus petits, leviers).
  */
-function encartMod(page: 'lfo' | 'lfo2' | 'fxmod'): { tex: CanvasTexture; place: EncPlace[] } {
-  const P = encPanel(page === 'lfo2' ? 'lfo' : page);
+function encartMod(page: 'fxmod' | 'fxmod2'): { tex: CanvasTexture; place: EncPlace[] } {
+  const P = encPanel();
   const { text, Z0, ink, dim } = P;
-  const secs = page === 'lfo' ? LFO_SECS : page === 'lfo2' ? LFO_SECS_V2 : FXMOD_SECS;
+  const secs = page === 'fxmod' ? FXMOD_SECS : FXMOD_SECS_V2;
   const place: EncPlace[] = [];
-  // les potards de la face (R : celui des potards de MOD), un rien plus grand pour DEPTH, comme sur la face
+  // les potards de la face (R : celui des potards de l'ancienne section MOD), un rien plus grand pour DEPTH
   const o = { r: 0.265, rb: 0.32, cs: 0.63, cb: 0.73 };
   const cw = (c: LfoCtl): number => (c.big ? o.cb : o.cs);
   const span = P.right - P.left;
@@ -578,7 +606,7 @@ function encartMod(page: 'lfo' | 'lfo2' | 'fxmod'): { tex: CanvasTexture; place:
       text(c.name, mx, z + R + 0.095, 0.058, 600, ink, 0.16);
       cx += w;
     }
-    // dessous : TARGET 2 et DEPTH 2 du LFO 1 (plus petits), les leviers SYNC et STEREO, SPREAD
+    // dessous : les leviers SYNC et STEREO, SPREAD, SPIN
     const sub = s.sub ?? [];
     const sw = 0.78;
     let sx = x + fw / 2 - (sub.length * sw) / 2;
@@ -625,7 +653,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     // v43 (Mika : "remplace tous ceux que tu as faits noirs par celui-la") : les potards de la face sont ses PNG
     // (vknobFace.ts) ; les petits de la face (FM, RATIO, OSC 1..., DETUNE, SPREAD) : son petit knob (vknob.ts k3), meme
     // centre, meme rayon exterieur (celui du petit knob cannele d'avant). Ceux de la page SYNTH de l'encart d'EDIT ne
-    // changent pas ; ses pages LFO et FX MOD (v46) : le potard de la face (k1).
+    // changent pas ; ses pages LFO et FX MOD : le potard de la face (k1) ; la matrice et SQ : le petit (k3).
     const offFace = attachVKnobs(stage);
     let nSmall = 0;
     const small = new VKnobSet('k3', FLUTED_DIALS.size + 2);
@@ -649,20 +677,22 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       addSmall(pl.x, pl.z, pl.s, id);
       const r = Math.max(VOY_KNOB.touchR, FLUTED.r * pl.s);
       defs.push({ id: `vds-${id}`, kind: 'vknob', vknob: id, layer: rig.panel, shape: 'disc', x: pl.x, z: pl.z, hx: r, hz: r, y0: 0, y1: FLUTED.h * pl.s, enabled: true, machine: 'voy' });
-      if (id === 'stack') faceArcPlaces.set('stack', { layer: rig.panel, x: pl.x, z: pl.z, y: 0.004, R: FLUTED.r * pl.s * 1.13, live: () => true });
+      addArcPlace(id, { layer: rig.panel, x: pl.x, z: pl.z, y: 0.004, R: FLUTED.r * pl.s * 1.13, live: () => true });
     }
+    // v50 : HELL (hellKnob.tsx) a son arc et son anneau de viseur comme les autres potards de la face
+    addArcPlace('xHellMix', { layer: rig.panel, x: VOY_HELL_PLACE.x, z: VOY_HELL_PLACE.z, y: 0.004, R: RYTM_KNOB.R * VOY_HELL_PLACE.s * 1.13, live: () => true });
     // 3. SUB OCT : v43 (Mika : "tous les boutons, meme CHORUS ... SUB OCT") : plus de levier, sa touche-pilule revient
     //    (voyager/pads.ts), ses LED -1 / -2 restent
-    // 4. l'encart d'EDIT : trois pages (SYNTH | LFO | FX MOD, v46), chacune son panneau serigraphie et ses pieces 3D, enfants
-    //    de l'ecran qui monte ; chaque piece sa zone de prise, active seulement sur sa page ; la bascule, toujours
+    // 4. l'encart d'EDIT : quatre pages (SYNTH | LFO | SQ | FX MOD, v50), chacune son panneau serigraphie et ses pieces 3D,
+    //    enfants de l'ecran qui monte ; chaque piece sa zone de prise, active seulement sur sa page ; la bascule, toujours
     const sq = rig.seqScreen;
     const texs: Partial<Record<EncView, CanvasTexture>> = {};
     let panelMat: MeshStandardMaterial | null = null;
-    const edDefs: { d: HotspotDef; page: EncView | null }[] = [];
+    const edDefs: { d: HotspotDef; page: EncView | null; live?: () => boolean }[] = [];
     const pageGroups: Partial<Record<EncView, Group>> = {};
-    const tabKeys: Mesh[] = [];
-    let tabOn: MeshStandardMaterial | null = null;
-    let tabOff: MeshStandardMaterial | null = null;
+    const tabKeys: Key50[] = [];
+    const pages50: Partial<Record<EncView, Page50>> = {};
+    const shownNow = (p: EncView): boolean => editor.get() === 'voy' && encView() === p;
     if (sq && !PORTRAIT) {
       const y = VOY_SEQ.h + 0.004;
       const ledOn = new MeshBasicMaterial({ color: '#ff3b2f' });
@@ -699,8 +729,8 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           turns.push(() => m.rotation.set(0, potAngle(valOf(id)), 0));
           hx = hz = Math.max(0.2, FLUTED.r * e.scale * 1.15);
           y1 = y + FLUTED.h * e.scale;
-          if (id === 'xRing' || id === 'xFold' || id === 'xComb')
-            faceArcPlaces.set(id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: FLUTED.r * e.scale * 1.13, live: () => editor.get() === 'voy' && encartPage.get() === 'synth' });
+          // v50 : chaque potard continu de la page a son arc (et son anneau de viseur)
+          addArcPlace(id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: FLUTED.r * e.scale * 1.13, live: () => shownNow('synth') });
         } else if (p.c.k === 'lever') {
           const lv = leverOf(mats);
           lv.group.position.set(p.x, y, p.z);
@@ -736,10 +766,10 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         }
         edDefs.push({ d: { id: `ved-${id}`, kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: p.c.k === 'knob' ? 'disc' : 'box', x: p.x, z: p.z + (p.c.k === 'keys' ? -0.02 : 0), hx, hz, y0: 0, y1, enabled: false, machine: 'voy' }, page: 'synth' });
       }
-      // les pages LFO (deux : l'ancien HELL, HELL v2) et FX MOD : le potard de la face (k1, le PNG de Mika, comme MOD),
-      // les leviers ; les zones de la page HELL v2 : ved-h2-<id> (les memes reglages sur les deux pages LFO)
-      for (const page of ['lfo', 'lfo2', 'fxmod'] as const) {
-        const hid = (id: string): string => (page === 'lfo2' ? `ved-h2-${id}` : `ved-${id}`);
+      // la page FX MOD (deux : l'ancien HELL, HELL v2) : le potard de la face (k1, le PNG de Mika), les leviers ; les zones
+      // de la page HELL v2 : ved-f2-<id> (les memes reglages sur les deux mises en page)
+      for (const page of ['fxmod', 'fxmod2'] as const) {
+        const hid = (id: string): string => (page === 'fxmod2' ? `ved-f2-${id}` : `ved-${id}`);
         const m = encartMod(page);
         texs[page] = m.tex;
         const grp = pageGroup(page);
@@ -750,6 +780,7 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           turns.push(() => set.setAngle(i, potAngle(valOf(p.c.id))));
           const r = Math.max(0.2, p.R * 1.1);
           edDefs.push({ d: { id: hid(p.c.id), kind: 'encoder', param: (ED + p.c.id) as EncId, layer: sq.group, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: y + 0.1, enabled: false, machine: 'voy' }, page });
+          if (stepsOf(p.c.id) < 2) addArcPlace(p.c.id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: p.R * 1.13, live: () => shownNow(page) });
         });
         grp.add(...set.meshes);
         disposers.push(() => set.dispose());
@@ -765,20 +796,70 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           edDefs.push({ d: { id: hid(id), kind: 'encoder', param: (ED + id) as EncId, layer: sq.group, shape: 'box', x: p.x, z: p.z, hx: 0.3 * (p.s / 0.9), hz: 0.16, y0: 0, y1: y + 0.17, enabled: false, machine: 'voy' }, page });
         }
       }
-      // la bascule : trois touches, celle de la page montree allumee a la couleur d'accent (comme EDIT)
-      tabOff = new MeshStandardMaterial({ color: '#262524', roughness: 0.5, metalness: 0.05 });
-      tabOn = new MeshStandardMaterial({ color: '#ff3d86', emissive: '#ff0066', emissiveIntensity: 0.55, roughness: 0.45, metalness: 0 });
-      const tabGeo = new BoxGeometry(TAB_KEY.w, 0.07, TAB_KEY.d);
-      tabGeo.translate(0, 0.035, 0);
-      const tb = encTabs();
+      // v50 : les pages LFO (les quatre LFO, la MOD MATRIX) et SQ (encart50.ts) : leurs toiles, leurs pieces, leurs zones
+      for (const page of ['lfo', 'sq'] as const) {
+        const pg = page === 'lfo' ? lfoPage50() : sqPage50(y);
+        pages50[page] = pg;
+        texs[page] = pg.tex;
+        const grp = pageGroup(page);
+        for (const kind of ['k1', 'k3'] as const) {
+          const ks = pg.place.filter((p): p is Extract<typeof p, { k: 'k1' | 'k3' }> => p.k === kind);
+          if (ks.length === 0) continue;
+          const set = new VKnobSet(kind, ks.length);
+          ks.forEach((p, i) => {
+            let shown = true;
+            set.place(i, p.x, y + VKNOB_LIFT, p.z, p.R);
+            turns.push(() => {
+              // une place sans ligne (la derniere page de la matrice) : le potard s'efface
+              const want = p.show ? p.show() : true;
+              if (want !== shown) {
+                shown = want;
+                set.place(i, p.x, y + VKNOB_LIFT, p.z, want ? p.R : 0);
+              }
+              set.setAngle(i, potAngle(p.v()));
+            });
+            for (const a of p.arcs ?? []) addArcPlace(a.id, { layer: sq.group, x: p.x, z: p.z, y: y + 0.004, R: p.R * 1.13, live: () => shownNow(page) && a.live() });
+          });
+          grp.add(...set.meshes);
+          disposers.push(() => set.dispose());
+        }
+        for (const p of pg.place) {
+          if (p.k === 'lever') {
+            const lv = leverOf(mats);
+            lv.group.position.set(p.x, y, p.z);
+            lv.group.scale.setScalar(p.s);
+            grp.add(lv.group);
+            levers.push(lv);
+            turns.push(() => lv.set(p.right()));
+          } else if (p.k === 'key') {
+            const mk = key50(p.w, p.d, p.label, p.cap);
+            mk.mesh.position.set(p.x, y, p.z);
+            grp.add(mk.mesh);
+            turns.push(() => mk.set(p.on()));
+            disposers.push(() => mk.dispose());
+          }
+        }
+        for (const h of pg.hits)
+          edDefs.push({
+            d: { id: h.id, kind: 'encoder', param: h.dial as EncId, layer: sq.group, shape: h.shape, x: h.x, z: h.z, hx: h.hx, hz: h.hz, y0: 0, y1: y + 0.1, enabled: false, machine: 'voy' },
+            page,
+            live: h.live,
+          });
+        if (pg.head) {
+          grp.add(...pg.head.meshes);
+          disposers.push(() => pg.head?.dispose());
+        }
+      }
+      // la bascule : quatre touches mates a LED (celle de la page montree allumee a la couleur d'accent)
+      const mt = tabs50();
       ENC_PAGES.forEach((p, i) => {
-        const k = new Mesh(tabGeo, tabOff!);
-        k.position.set(tb.x, y, tb.z[i]);
-        k.castShadow = true;
-        sq.group.add(k);
-        added.push({ parent: sq.group, obj: k });
-        tabKeys.push(k);
-        edDefs.push({ d: { id: `ved-@${p.id}`, kind: 'encoder', param: TAB_DIAL(p.id) as EncId, layer: sq.group, shape: 'box', x: tb.x, z: tb.z[i] + 0.06, hx: TAB_KEY.w / 2 + 0.02, hz: 0.2, y0: 0, y1: y + 0.08, enabled: false, machine: 'voy' }, page: null });
+        const mk = key50(mt.w, mt.d, p.name);
+        mk.mesh.position.set(mt.x, y, mt.z[i]);
+        sq.group.add(mk.mesh);
+        added.push({ parent: sq.group, obj: mk.mesh });
+        tabKeys.push(mk);
+        disposers.push(() => mk.dispose());
+        edDefs.push({ d: { id: `ved-@${p.id}`, kind: 'encoder', param: TAB_DIAL(p.id) as EncId, layer: sq.group, shape: 'box', x: mt.x, z: mt.z[i], hx: mt.w / 2 + 0.02, hz: mt.d / 2 + 0.03, y0: 0, y1: y + 0.08, enabled: false, machine: 'voy' }, page: null });
       });
       panelMat = new MeshStandardMaterial({ map: texs[encView()] ?? null, roughness: 0.78, metalness: 0.05 });
       sq.cover(panelMat);
@@ -789,25 +870,32 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         keyMat.dispose();
         ledOn.dispose();
         ledOff.dispose();
-        tabGeo.dispose();
-        tabOn?.dispose();
-        tabOff?.dispose();
       });
     }
     stage.hit.add([...defs, ...edDefs.map((x) => x.d)]);
-    // les zones de l'encart ne prennent que tant qu'il est monte (EDIT), et seulement celles de la page montree
+    // les zones de l'encart ne prennent que tant qu'il est monte (EDIT), et seulement celles de la page montree (et
+    // vivantes : une ligne de matrice vide, un pas hors de la suite ne prennent rien)
     const syncEdit = (): void => {
       const on = editor.get() === 'voy';
       const pg = encView();
       let ch = false;
-      for (const { d, page } of edDefs) {
-        const want = on && (page === null || page === pg);
+      for (const { d, page, live } of edDefs) {
+        const want = on && (page === null || page === pg) && (live ? live() : true);
         if (d.enabled !== want) {
           d.enabled = want;
           ch = true;
         }
       }
       if (ch) stage.hit.invalidate();
+    };
+    /** La page montree des pages v50 : sa toile se redessine si besoin, sa tete se pose ; true si quelque chose a change. */
+    const refresh50 = (): boolean => {
+      if (editor.get() !== 'voy') return false;
+      const p = pages50[encView()];
+      if (!p) return false;
+      const a = p.redraw();
+      const b = p.head ? p.head.update() : false;
+      return a || b;
     };
     // la page montree : son panneau, ses pieces, sa touche allumee (la couleur d'accent du moment, SETTINGS)
     let shown: EncView | null = null;
@@ -816,21 +904,21 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       shown = pg;
       const tab = encartPage.get();
       for (const [p, grp] of Object.entries(pageGroups)) if (grp) grp.visible = p === pg;
+      refresh50();
       const tex = texs[pg];
       if (panelMat && tex && panelMat.map !== tex) panelMat.map = tex;
-      if (tabOn && typeof document !== 'undefined') {
-        const acc = getComputedStyle(document.documentElement).getPropertyValue('--mm-accent').trim();
-        if (/^#[0-9a-f]{6}$/i.test(acc)) {
-          tabOn.color.set(acc).lerp(new Color('#ffffff'), 0.22);
-          tabOn.emissive.set(acc);
-        }
-      }
-      tabKeys.forEach((k, i) => (k.material = ENC_PAGES[i].id === tab ? tabOn! : tabOff!));
+      tabKeys.forEach((k, i) => k.set(ENC_PAGES[i].id === tab));
       syncEdit();
       stage.invalidate();
     };
     showPage();
-    const offEd = editor.subscribe(syncEdit);
+    // EDIT baisse : l'assignation en cours s'arrete ; EDIT monte : la page montree se remet a jour
+    const onEdit = (): void => {
+      if (editor.get() !== 'voy') modAim.cancel();
+      syncEdit();
+      if (refresh50()) stage.invalidate();
+    };
+    const offEd = editor.subscribe(onEdit);
     const offPage = encartPage.subscribe(showPage);
     // ?probe (les essais sans son, Chromium) : ou tombe une zone de prise a l'ecran, et ce qui est pris en (x, y)
     if (typeof location !== 'undefined' && location.search.includes('probe'))
@@ -842,28 +930,61 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         pick: (x: number, y: number) => stage.hit.pick(x, y, false)?.id ?? null,
         ids: () => stage.hit.list().map((h) => h.id),
         params: () => ({ ...voyParams.get(), ...arpExtra.get() }),
+        text: (id: string) => textOf(id),
         msg: () => voyMsg.get(),
+        // v50 : les derniers messages de l'ecran (ce qui les a remplaces)
+        msgLog: (() => {
+          const log: { t: number; m: string | null }[] = [];
+          voyMsg.subscribe(() => {
+            log.push({ t: Math.round(performance.now()), m: voyMsg.get() });
+            if (log.length > 40) log.shift();
+          });
+          return () => log.slice();
+        })(),
         // v31 : la cadence du rendu (frames rendues, rAF, temps JS des rendus, DPR, taille du canevas)
         stats: () => ({ frames: stage.stats.frames, rafs: stage.stats.rafs, renderMs: stage.stats.renderMs, dpr: stage.stats.dpr, loop: stage.stats.loopActive }),
         stage: () => stage,
-        // v46 : la page de l'encart d'EDIT (synth, lfo, fxmod) sans passer par un clic (captures)
+        // v46 : la page de l'encart d'EDIT (synth, lfo, sq, fxmod) sans passer par un clic (captures)
         encart: (p: EncartPage) => encartPage.set(p),
+        // v50 : la matrice (les lignes de la page montree, sa page, l'assignation en cours), la toile redessinee
+        e50: {
+          rows: () => Array.from({ length: 8 }, (_, p) => modView.rowAt(p)?.key ?? null),
+          page: (p: number) => modView.setPage(p),
+          aim: () => modAim.key(),
+          codeOf: (id: string) => modDestCodeOf(id),
+          redraw: () => {
+            refresh50();
+            stage.invalidate();
+          },
+        },
       };
     const turn = (): void => {
       for (const t of turns) t();
-      // HELL V2 bascule (un preset, un projet) : la page LFO suit son moteur
+      refresh50();
+      // HELL V2 bascule (un preset, un projet) : FX MOD suit son moteur
       if (sq && shown !== null && shown !== encView()) showPage();
+      else syncEdit();
       stage.invalidate();
     };
     turn();
     const off1 = voyParams.subscribe(turn);
     const off2 = arpExtra.subscribe(turn);
+    // v50 : la matrice (sa page, l'assignation), SQ (ses pistes, sa suite, l'accord lu), la tete de SQ
+    const off3 = modView.subscribe(turn);
+    const offSq = sqSources.map((sub) => sub(turn));
+    const offHead = extHead.onWake(() => {
+      if (encView() === 'sq' && refresh50()) stage.invalidate();
+    });
     return () => {
       off1();
       off2();
+      off3();
+      offSq.forEach((f) => f());
+      offHead();
       offEd();
       offPage();
       offFace();
+      modAim.cancel();
       rig.panel.remove(...small.meshes);
       small.dispose();
       for (const d of [...defs, ...edDefs.map((x) => x.d)]) d.enabled = false;

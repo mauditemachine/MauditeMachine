@@ -315,47 +315,8 @@ const FxPage: React.FC = () => {
 
 /* ---------------- SEQ : la matrice ---------------- */
 
-const MATRIX_W = 960;
-
-export const Matrix: React.FC<{ y: number }> = ({ y }) => {
-  const v = useExtraAll();
-  const flash = useFlash('MOD MATRIX');
-  const col = (c: number) =>
-    Array.from({ length: 3 }, (_, r) => {
-      const i = c * 3 + r + 1;
-      const live = v[`xM${i}Src`] > 0 && v[`xM${i}Dst`] > 0 && Math.abs(v[`xM${i}Amt`] - 0.5) > 0.001;
-      return (
-        <div key={i} className="mm-p2-mx-row" style={{ top: 40 + r * 42 }}>
-          <span className="mm-p2-mx-n">{i}</span>
-          <i className="mm-p2-led" data-on={live ? '1' : undefined} aria-hidden="true" />
-          <PcbSelect id={`xM${i}Src`} name="" ref_="" w={104} bare up={r > 0} cols={2} />
-          <span className="mm-p2-mx-arrow" aria-hidden="true">
-            →
-          </span>
-          <PcbSelect id={`xM${i}Dst`} name="" ref_="" w={112} bare up={r > 0} cols={3} />
-          <PcbKnob id={`xM${i}Amt`} name="AMOUNT" ref_={REFS[`xM${i}Amt`]} lo="" hi="" small />
-        </div>
-      );
-    });
-  return (
-    <PcbFrame title="MOD MATRIX" x={ZONE.x + Math.round((ZONE.w - MATRIX_W) / 2)} y={y} w={MATRIX_W} h={170} className="mm-p2-mx" flash={flash}>
-      {[0, 1].map((c) => (
-        <div key={c} className="mm-p2-mx-col" style={{ left: 14 + c * 474 }}>
-          <span className="mm-p2-mx-head" style={{ left: 105 }}>
-            SOURCE
-          </span>
-          <span className="mm-p2-mx-head" style={{ left: 283 }}>
-            DESTINATION
-          </span>
-          <span className="mm-p2-mx-head" style={{ left: 412 }}>
-            AMOUNT
-          </span>
-          {col(c)}
-        </div>
-      ))}
-    </PcbFrame>
-  );
-};
+// v50 : la matrice de la page SEQ (xM1..6) quitte la page : ses routes sont les lignes liees de la MOD MATRIX de l'encart
+// d'EDIT (encart50.ts, modRoutes.ts), ses reglages restent des parametres hote actifs.
 
 /* ---------------- SEQ : le sequenceur par pas ---------------- */
 
@@ -409,21 +370,7 @@ export const SEQ_ROW: FrameSpec[] = [
  * potards. Une colonne : glisser de haut en bas choisit la note (le degre), la note ecrite dessous fait un silence ou le
  * rend. Les memes gestes que l'ecran d'avant (voyager/seqscreen.ts), la meme suite (voyager/seq.ts).
  */
-let notesView: number | null = null;
-const notesViewL = new Set<() => void>();
-export const notesViewStore = {
-  get: (): number | null => notesView,
-  set(v: number | null): void {
-    notesView = v;
-    notesViewL.forEach((fn) => fn());
-  },
-  subscribe(fn: () => void): () => void {
-    notesViewL.add(fn);
-    return () => {
-      notesViewL.delete(fn);
-    };
-  },
-};
+export { notesViewStore } from './seqEdit';
 
 /* ---------------- SOUND (v27) : l'EQ parametrique, ENGINE, MASTER, le rack enrichi ---------------- */
 

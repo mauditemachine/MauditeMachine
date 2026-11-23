@@ -1,0 +1,146 @@
+/* v50 : le menu deroule des fenetres de verre noir de l'encart d'EDIT (Encart50Overlay.tsx), facon menus des pages
+   d'OPEN (hood.css .mm-p2-menu) : un noir profond, un filet gris, la serigraphie claire, le choix du moment a l'accent.
+   Le pinceau : px du cadre de 1100 de large, mis a l'echelle de la fenetre (transform du conteneur). */
+
+.mm-plugin-arp .mm-e50-menu {
+  box-sizing: border-box;
+  padding: 6px 7px 7px;
+  border: 1px solid #34363a;
+  border-radius: 4px;
+  background: linear-gradient(#070707, #030303);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 250, 240, 0.04);
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  color: #ece8e0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mm-plugin-arp .mm-e50-title {
+  padding: 1px 4px 5px;
+  border-bottom: 1px solid #1d1e20;
+  margin-bottom: 4px;
+  color: rgba(236, 232, 224, 0.5);
+  font-size: 7.5px;
+  line-height: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-plugin-arp .mm-e50-menu ul {
+  display: grid;
+  gap: 1px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mm-plugin-arp .mm-e50-menu button {
+  display: block;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: rgba(236, 232, 224, 0.82);
+  font: inherit;
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-e50-menu button:hover {
+  background: rgba(236, 232, 224, 0.08);
+}
+
+.mm-plugin-arp .mm-e50-menu button[data-on='1'] {
+  color: var(--mm-accent);
+}
+
+/* DESTINATION : les familles a gauche, leurs cibles a droite (trois colonnes, la liste defile si elle est longue) */
+.mm-plugin-arp .mm-e50-dest {
+  display: flex;
+  gap: 8px;
+}
+
+.mm-plugin-arp .mm-e50-groups {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+  width: 92px;
+  padding-right: 7px;
+  border-right: 1px solid #1d1e20;
+}
+
+.mm-plugin-arp .mm-e50-groups button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.mm-plugin-arp .mm-e50-groups button i {
+  color: rgba(236, 232, 224, 0.32);
+  font-style: normal;
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+}
+
+.mm-plugin-arp .mm-e50-groups button[data-on='1'] {
+  background: rgba(236, 232, 224, 0.1);
+  color: #f3efe7;
+}
+
+.mm-plugin-arp .mm-e50-groups button[data-cur='1']::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--mm-accent);
+  box-shadow: 0 0 4px var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-e50-groups button[data-cur='1'] {
+  justify-content: flex-start;
+}
+
+.mm-plugin-arp .mm-e50-groups button[data-cur='1'] i {
+  margin-left: auto;
+}
+
+.mm-plugin-arp .mm-e50-groups .mm-e50-off {
+  margin-top: 6px;
+  border-top: 1px solid #1d1e20;
+  border-radius: 0 0 2px 2px;
+  color: rgba(236, 232, 224, 0.5);
+}
+
+.mm-plugin-arp .mm-e50-items {
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  max-height: 228px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #34363a transparent;
+}
+
+/* le viseur dans les pages d'OPEN (pcbui.tsx data-aim) : un anneau a l'accent autour de chaque potard qui peut etre une
+   cible, tant qu'une assignation attend son clic */
+.mm-plugin-arp .mm-p2-knob-hit[data-aim='1'] {
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--mm-accent), 0 0 7px 1px color-mix(in srgb, var(--mm-accent) 70%, transparent);
+  cursor: crosshair;
+}
