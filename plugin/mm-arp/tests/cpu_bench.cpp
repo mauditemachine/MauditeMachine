@@ -11,6 +11,7 @@
 //   MMARP_LATENCY=zero | exact : impose LATENCY (sans effet sur un build d'avant la v49)
 // v50 : les scenes "INIT + MOD 4 / 8" et "CAS DE MIKA + MOD 4 / 8" : la matrice de l'encart LFO engagee (4 puis 8
 // emplacements xMx, chemins par voix et generiques) ; un build d'avant la v50 les joue sans matrice (filtre : "MOD").
+// Le filtre "=NOM" ne garde que la scene de ce nom exact (ex. "=INIT").
 // (depuis la racine du depot)
 #include "PluginProcessor.h"
 
@@ -297,7 +298,8 @@ int main(int argc, char** argv) {
     for (const int engine : engines)
         for (const int blk : blockList)
             for (const auto& sc : scenes) {
-                if (!filter.empty() && sc.name.find(filter) == std::string::npos) continue;
+                // (v50 : "=NOM" ne garde que la scene de ce nom exact ; sinon une partie du nom)
+                if (!filter.empty() && (filter[0] == '=' ? sc.name != filter.substr(1) : sc.name.find(filter) == std::string::npos)) continue;
                 for (char qc : qs) {
                     const int q = qc - '0';
                     if (q < 0 || q > 2) continue;

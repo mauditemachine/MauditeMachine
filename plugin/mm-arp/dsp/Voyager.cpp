@@ -2416,11 +2416,16 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
   int mWs[MX_ROWS], mWd[MX_ROWS];
   double mWa[MX_ROWS];
   bool mxBlk0 = false, mxComb0 = false, mxL20 = false;
+  // v50 : les lignes qui bougent dans ce bloc (une ligne au repos, sa quantite et sa cible a 0 et posees, n'y change
+  // rien : les boucles par echantillon ne passent que sur celles-ci, dans l'ordre, au bit pres)
+  int mAct[MX_ROWS];
+  int nAct = 0;
   for (int r = 0; r < MX_ROWS; r += 1) {
     mWs[r] = static_cast<int>(p[mxP(r)]);
     mWd[r] = static_cast<int>(p[mxP(r) + 1]);
     mWa[r] = mWs[r] != 0 && mWd[r] != 0 ? p[mxP(r) + 2] : 0;
     const MxRow& R = xmx.rows[r];
+    if (mWs[r] != R.src || mWd[r] != R.dst || differs(mWa[r], 0) || differs(R.a, 0)) mAct[nAct++] = r;
     if (differs(mWa[r], 0) || differs(R.a, 0)) {
       mxBlk0 = true;
       if (mWd[r] == MD_COMB || R.dst == MD_COMB) mxComb0 = true;
@@ -2726,7 +2731,8 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     if (mxBlk) {
       const bool nn = i2 % OS == 0;
       bool l2Src = false;
-      for (int r = 0; r < MX_ROWS; r += 1) {
+      for (int ri = 0; ri < nAct; ri += 1) {
+        const int r = mAct[ri];
         MxRow& R = xmx.rows[r];
         const double tgt = R.src == mWs[r] && R.dst == mWd[r] ? mWa[r] : 0;
         R.a += (tgt - R.a) * K;
@@ -2760,8 +2766,8 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         gL4 = xl.l4 + (xl.l4T - xl.l4) * u;
       }
       double dd1 = 0, dd2 = 0;
-      for (int r = 0; r < MX_ROWS; r += 1) {
-        const MxRow& R = xmx.rows[r];
+      for (int ri = 0; ri < nAct; ri += 1) {
+        const MxRow& R = xmx.rows[mAct[ri]];
         if (!differs(R.a, 0) || R.src == MS_OFF || R.dst == MD_OFF) continue;
         const bool vs = mxVoiceSrc(R.src);
         srcM |= 1 << R.src;
