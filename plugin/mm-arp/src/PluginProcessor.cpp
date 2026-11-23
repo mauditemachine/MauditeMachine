@@ -14,6 +14,9 @@
 namespace {
 
 constexpr int kChunk = 128;
+// v50 : une cible 32 + k modulee par la matrice : le bloc par tranches de 32 echantillons (la valeur effective y est
+// recalculee a chaque tranche)
+constexpr int kModTick = 32;
 
 float dbToGain(float db) { return db <= -59.9f ? 0.f : juce::Decibels::decibelsToGain(db); }
 
@@ -197,6 +200,20 @@ MMArpProcessor::MMArpProcessor()
     mId_[19] = mmarp::Voyager::paramIndex("voiceMode");
     mId_[20] = mmarp::Voyager::paramIndex("xFeedback");
     mId_[21] = mmarp::Voyager::paramIndex("ampMode");
+    // v50 : LFO 1 / 2 en FREE, les 8 lignes de plus de la matrice
+    {
+        const char* lk[4] = {"l1Free", "l1Hz", "l2Free", "l2Hz"};
+        for (size_t i = 0; i < 4; ++i) vId_[i] = mmarp::Voyager::paramIndex(lk[i]);
+        for (int j = 0; j < mmx::kModSlots; ++j) {
+            const std::string n = "x" + std::to_string(j + 1);
+            vId_[static_cast<size_t>(4 + 3 * j)] = mmarp::Voyager::paramIndex(n + "Src");
+            vId_[static_cast<size_t>(5 + 3 * j)] = mmarp::Voyager::paramIndex(n + "Dst");
+            vId_[static_cast<size_t>(6 + 3 * j)] = mmarp::Voyager::paramIndex(n + "Amt");
+        }
+        for (auto& a : modShowK_) a.store(-1);
+        for (auto& a : modShowV_) a.store(std::numeric_limits<float>::quiet_NaN());
+        lfo4_.seed = seed_ ^ 0x4C464F34u;
+    }
     startTimerHz(15);
     mmarp::reserveArp(arpBuf_[0]);
     mmarp::reserveArp(arpBuf_[1]);
@@ -860,180 +877,219 @@ bool sameRvPost(const mmarp::ArpFxSettings& a, const mmarp::ArpFxSettings& b) {
 
 // Les potards ou le programme ont change : le moteur, la chaine et l'arpege en sont tires (thread audio, sans allocation)
 void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
-    const MMArpProgram& p = *current_;
     if (knobsChanged || fresh_) {
-        // Un message 'params' du site : tous les reglages du moteur, et le tempo
-        int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
-        // DISTO (2026-11-16, portee le 2026-11-17) : le potard DISTO (dist) pousse l'OVERDRIVE du moteur sur le style MM
-        // (le depart : le son d'avant) ; sur A a P, le moteur reste propre et Decap sature (processBlock)
-        if (mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]) != 0)
-            for (int i = 0; i < n; ++i)
-                if (kv_[static_cast<size_t>(i)].id == driveId_) kv_[static_cast<size_t>(i)].value = 0;
-        kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
-        // Le VST3 seul : la seconde destination du LFO 1, le LFO 2
-        kv_[static_cast<size_t>(n++)] = {xId_[0], static_cast<double>(mmx::exStep(mmx::ex_xLfo1Dest2, ex_[mmx::ex_xLfo1Dest2]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[1], ex_[mmx::ex_xLfo1Depth2]};
-        kv_[static_cast<size_t>(n++)] = {xId_[2], mmx::kExBeats_xLfo2Rate[mmx::exStep(mmx::ex_xLfo2Rate, ex_[mmx::ex_xLfo2Rate])]};
-        kv_[static_cast<size_t>(n++)] = {xId_[3], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Shape, ex_[mmx::ex_xLfo2Shape]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[4], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Dest, ex_[mmx::ex_xLfo2Dest]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[5], ex_[mmx::ex_xLfo2Depth]};
-        // OSC / FILTER + du module avant
-        {
-            const double hp = ex_[mmx::ex_xHpf];
-            static const double kUni[3] = {0, 5, 7};
-            kv_[static_cast<size_t>(n++)] = {xId_[6], ex_[mmx::ex_xRing]};
-            kv_[static_cast<size_t>(n++)] = {xId_[7], ex_[mmx::ex_xFold]};
-            kv_[static_cast<size_t>(n++)] = {xId_[8], ex_[mmx::ex_xNoiseColor]};
-            kv_[static_cast<size_t>(n++)] = {xId_[9], kUni[mmx::exStep(mmx::ex_xUnison, ex_[mmx::ex_xUnison])]};
-            kv_[static_cast<size_t>(n++)] = {xId_[10], hp > 0 ? 20.0 * std::pow(100.0, hp) : 0.0};
-            kv_[static_cast<size_t>(n++)] = {xId_[11], ex_[mmx::ex_xComb]};
-            kv_[static_cast<size_t>(n++)] = {xId_[12], 2 * ex_[mmx::ex_xCombFb] - 1};
-        }
-        // La matrice de modulation, les modes de voix, FEEDBACK, AMP MODE
-        {
-            for (int l = 0; l < 6; ++l) {
-                const int e = mmx::ex_xM1Src + l * 3;
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3)], static_cast<double>(mmx::exStep(e, ex_[static_cast<size_t>(e)]))};
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 1)], static_cast<double>(mmx::exStep(e + 1, ex_[static_cast<size_t>(e + 1)]))};
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 2)], 2 * ex_[static_cast<size_t>(e + 2)] - 1};
-            }
-            static const double kPb[7] = {1, 2, 3, 5, 7, 12, 24};
-            kv_[static_cast<size_t>(n++)] = {mId_[18], kPb[mmx::exStep(mmx::ex_xPbRange, ex_[mmx::ex_xPbRange])]};
-            kv_[static_cast<size_t>(n++)] = {mId_[19], static_cast<double>(mmx::exStep(mmx::ex_xVoiceMode, ex_[mmx::ex_xVoiceMode]))};
-            kv_[static_cast<size_t>(n++)] = {mId_[20], ex_[mmx::ex_xFeedback]};
-            kv_[static_cast<size_t>(n++)] = {mId_[21], static_cast<double>(mmx::exStep(mmx::ex_xAmpMode, ex_[mmx::ex_xAmpMode]))};
-        }
+        // v50 : les emplacements de la matrice (xMx) et leur chemin, avant les reglages du moteur (leurs lignes en sont)
+        modRoute();
+        const int n = engineKv(bpm, true);
         voy_->params(kv_.data(), n);
         mmarp::ArpFxSettings fx;
         double dly16 = 3;
-        mmarp::fxSettings(knobs_.data(), fx, dly16);
-        // Le master du VST3 (la reverb SIZE / TONE / PRE passe par makeReverb, hors du thread audio : timerCallback)
-        fx.warmth = ex_[mmx::ex_xWarmth];
-        fx.bass = ex_[mmx::ex_xBass];
-        fx.air = ex_[mmx::ex_xAir];
-        fx.width = ex_[mmx::ex_xWidth];
-        fx.revSize = ex_[mmx::ex_xRevSize];
-        fx.revTone = ex_[mmx::ex_xRevTone];
-        fx.revPre = ex_[mmx::ex_xRevPre];
-        // FX RACK du module avant
-        fx.phMix = ex_[mmx::ex_xPhMix];
-        fx.phRate = ex_[mmx::ex_xPhRate];
-        fx.phDepth = ex_[mmx::ex_xPhDepth];
-        fx.phFb = ex_[mmx::ex_xPhFb];
-        fx.flMix = ex_[mmx::ex_xFlMix];
-        fx.flRate = ex_[mmx::ex_xFlRate];
-        fx.flDepth = ex_[mmx::ex_xFlDepth];
-        fx.flFb = 2 * ex_[mmx::ex_xFlFb] - 1;
-        fx.pumpDepth = ex_[mmx::ex_xPumpDepth];
-        fx.pumpRate = mmx::exStep(mmx::ex_xPumpRate, ex_[mmx::ex_xPumpRate]);
-        fx.pumpShape = ex_[mmx::ex_xPumpShape];
-        fx.crushBits = ex_[mmx::ex_xCrushBits];
-        fx.crushRate = ex_[mmx::ex_xCrushRate];
-        fx.dlyMode = mmx::exStep(mmx::ex_xDlyMode, ex_[mmx::ex_xDlyMode]);
-        fx.shimmer = ex_[mmx::ex_xShimmer];
-        // la pedale DISTORTION est masquee (2026-11-17, v25) : sans effet ; un projet qui l'avait est converti a
-        // l'ouverture vers la DISTO (convertPedal), son automation ne fait plus rien
-        fx.dist = 0;
-        fx.distTone = 0.5;
-        fx.eqLow = ex_[mmx::ex_xEqLow];
-        fx.eqMid = ex_[mmx::ex_xEqMid];
-        fx.eqHigh = ex_[mmx::ex_xEqHigh];
-        fx.eqAir = ex_[mmx::ex_xEqAir];
-        // La reverbe facon BigSky (2026-11-16, dsp/Sky.h) : CLASSIC (0) est la convolution d'avant
-        fx.skyType = mmx::exStep(mmx::ex_xSkyType, ex_[mmx::ex_xSkyType]);
-        fx.sky.decay = ex_[mmx::ex_xSkyDecay];
-        fx.sky.pre = ex_[mmx::ex_xSkyPre];
-        fx.sky.tone = ex_[mmx::ex_xSkyTone];
-        fx.sky.mod = ex_[mmx::ex_xSkyMod];
-        fx.sky.lowEnd = ex_[mmx::ex_xSkyLow];
-        fx.sky.p = {{ex_[mmx::ex_xSkyP1], ex_[mmx::ex_xSkyP2], ex_[mmx::ex_xSkyP3], ex_[mmx::ex_xSkyP4], ex_[mmx::ex_xSkyP5]}};
-        const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
-        // v46 : la sortie de la reverbe (dsp/ArpFx.h, 5.) ; a leurs defauts : contournee au bit pres
-        fx.rvLoCut = ex_[mmx::ex_xSkyLoCut];
-        fx.rvLoSlope = st(mmx::ex_xSkyLoSlope);
-        fx.rvMidHz = ex_[mmx::ex_xSkyMidHz];
-        fx.rvMidDb = ex_[mmx::ex_xSkyMidDb];
-        fx.rvMidQ = ex_[mmx::ex_xSkyMidQ];
-        fx.rvHiCut = ex_[mmx::ex_xSkyHiCut];
-        fx.rvHiSlope = st(mmx::ex_xSkyHiSlope);
-        fx.rvWidth = ex_[mmx::ex_xSkyWidth];
-        fx.rvDuck = ex_[mmx::ex_xSkyDuck];
-        fx.rvFreeze = st(mmx::ex_xSkyFreeze) == 1;
-        // v27 : la page DELAY (dsp/Echo.h) ; DLY TIME, TAPE et DELAY MODE d'avant sont masques (convertDelay). Le banc
-        // (testLegacyDelay) peut encore rendre l'ancien DELAY tel quel, pour comparer au bit pres
-        if (testLegacyDelay) dlyFree_ = 0;
-        else {
-            mmarp::EchoSettings& e = fx.echo;
-            e.style = st(mmx::ex_xDlStyle);
-            e.mode = st(mmx::ex_xDlMode);
-            e.fb = ex_[mmx::ex_xDlFb];
-            e.width = ex_[mmx::ex_xDlWidth];
-            e.offset = ex_[mmx::ex_xDlOffset];
-            e.sat = ex_[mmx::ex_xDlSat];
-            e.wobble = ex_[mmx::ex_xDlWobble];
-            e.diff = ex_[mmx::ex_xDlDiff];
-            e.low = ex_[mmx::ex_xDlLow];
-            e.high = ex_[mmx::ex_xDlHigh];
-            e.groove = ex_[mmx::ex_xDlGroove];
-            e.feel = ex_[mmx::ex_xDlFeel];
-            e.prime = st(mmx::ex_xDlPrime) == 1;
-            e.lofi = st(mmx::ex_xDlLofi) == 1;
-            e.analog = ex_[mmx::ex_xDlAnalog];
-            e.duck = ex_[mmx::ex_xDlDuck];
-            e.duckRel = ex_[mmx::ex_xDlDuckRel];
-            e.rhythm = st(mmx::ex_xDlRhythm);
-            fx.tape = 0;
-            fx.dlyMode = 0;
-            if (st(mmx::ex_xDlSync) == 1) {
-                dlyFree_ = 0;
-                dly16 = mmarp::EchoLaws::divSixteenths(st(mmx::ex_xDlDiv)) * mmarp::EchoLaws::noteMul(st(mmx::ex_xDlNote));
-            } else
-                dlyFree_ = mmarp::EchoLaws::msOf(ex_[mmx::ex_xDlMs]) / 1000;
-        }
-        // v27 : le rack enrichi
-        {
-            static const int kStages[4] = {4, 6, 8, 12};
-            static const double kBeats[7] = {16, 8, 4, 2, 1, 0.5, 0.25};
-            const auto syncHz = [&](double v) { return bpm / 60.0 / kBeats[std::max(0, std::min(6, static_cast<int>(std::lround(v * 6))))]; };
-            fx.phStages = kStages[st(mmx::ex_xPhStages)];
-            fx.phCenter = ex_[mmx::ex_xPhCenter];
-            fx.phSpread = ex_[mmx::ex_xPhSpread];
-            fx.phSyncHz = st(mmx::ex_xPhSync) == 1 ? syncHz(ex_[mmx::ex_xPhRate]) : 0;
-            fx.flDelay = ex_[mmx::ex_xFlDelay];
-            fx.flSpread = ex_[mmx::ex_xFlSpread];
-            fx.flSyncHz = st(mmx::ex_xFlSync) == 1 ? syncHz(ex_[mmx::ex_xFlRate]) : 0;
-            fx.flThru = st(mmx::ex_xFlThru) == 1;
-            fx.chBoth = st(mmx::ex_xChBoth) == 1;
-            fx.chRate = ex_[mmx::ex_xChRate];
-            fx.chDepth = ex_[mmx::ex_xChDepth];
-            fx.chWidth = ex_[mmx::ex_xChWidth];
-            fx.chMix = ex_[mmx::ex_xChMix];
-            fx.crTone = ex_[mmx::ex_xCrTone];
-            fx.crMix = ex_[mmx::ex_xCrMix];
-            fx.puAttack = ex_[mmx::ex_xPuAttack];
-            fx.puCurve = ex_[mmx::ex_xPuCurve];
-            syncFx_ = fx.phSyncHz > 0 || fx.flSyncHz > 0;
-        }
-        // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus) ; v27 : FREE, en ms
-        fx.delaySeconds = dlyFree_ > 0 ? std::min(2.0, dlyFree_) : std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
-        auto eq = [](double a, double b) { return !(a < b || a > b); };
-        const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
-                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume) &&
-                          eq(fx.warmth, fxNow_.warmth) && eq(fx.bass, fxNow_.bass) && eq(fx.air, fxNow_.air) && eq(fx.width, fxNow_.width) &&
-                          eq(fx.phMix, fxNow_.phMix) && eq(fx.phRate, fxNow_.phRate) && eq(fx.phDepth, fxNow_.phDepth) && eq(fx.phFb, fxNow_.phFb) &&
-                          eq(fx.flMix, fxNow_.flMix) && eq(fx.flRate, fxNow_.flRate) && eq(fx.flDepth, fxNow_.flDepth) && eq(fx.flFb, fxNow_.flFb) &&
-                          eq(fx.pumpDepth, fxNow_.pumpDepth) && fx.pumpRate == fxNow_.pumpRate && eq(fx.pumpShape, fxNow_.pumpShape) &&
-                          eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer) &&
-                          eq(fx.dist, fxNow_.dist) && eq(fx.distTone, fxNow_.distTone) && eq(fx.eqLow, fxNow_.eqLow) && eq(fx.eqMid, fxNow_.eqMid) &&
-                          eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir) && fx.skyType == fxNow_.skyType && eq(fx.sky.decay, fxNow_.sky.decay) &&
-                          eq(fx.sky.pre, fxNow_.sky.pre) && eq(fx.sky.tone, fxNow_.sky.tone) && eq(fx.sky.mod, fxNow_.sky.mod) && eq(fx.sky.lowEnd, fxNow_.sky.lowEnd) &&
-                          eq(fx.sky.p[0], fxNow_.sky.p[0]) && eq(fx.sky.p[1], fxNow_.sky.p[1]) && eq(fx.sky.p[2], fxNow_.sky.p[2]) && eq(fx.sky.p[3], fxNow_.sky.p[3]) &&
-                          eq(fx.sky.p[4], fxNow_.sky.p[4]) && sameV27(fx, fxNow_) && sameRvPost(fx, fxNow_);
-        if (!same) fx_.set(fx, fresh_);
-        fxNow_ = fx;
-        dly16_ = dly16;
-        lastBpm_ = bpm;
+        buildFx(bpm, fx, dly16);
+        applyFx(fx, dly16, bpm);
     }
+    buildArp();
+    juce::ignoreUnused(progChanged);
+    fresh_ = false;
+}
+
+// Les reglages du moteur dans kv_ (un message 'params' du site : tous, et le tempo si withBpm) ; rend leur nombre
+int MMArpProcessor::engineKv(double bpm, bool withBpm) {
+    // Un message 'params' du site : tous les reglages du moteur, et le tempo
+    int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
+    // DISTO (2026-11-16, portee le 2026-11-17) : le potard DISTO (dist) pousse l'OVERDRIVE du moteur sur le style MM
+    // (le depart : le son d'avant) ; sur A a P, le moteur reste propre et Decap sature (processBlock)
+    if (mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]) != 0)
+        for (int i = 0; i < n; ++i)
+            if (kv_[static_cast<size_t>(i)].id == driveId_) kv_[static_cast<size_t>(i)].value = 0;
+    if (withBpm) kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
+    // Le VST3 seul : la seconde destination du LFO 1, le LFO 2
+    kv_[static_cast<size_t>(n++)] = {xId_[0], static_cast<double>(mmx::exStep(mmx::ex_xLfo1Dest2, ex_[mmx::ex_xLfo1Dest2]))};
+    kv_[static_cast<size_t>(n++)] = {xId_[1], ex_[mmx::ex_xLfo1Depth2]};
+    kv_[static_cast<size_t>(n++)] = {xId_[2], mmx::kExBeats_xLfo2Rate[mmx::exStep(mmx::ex_xLfo2Rate, ex_[mmx::ex_xLfo2Rate])]};
+    kv_[static_cast<size_t>(n++)] = {xId_[3], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Shape, ex_[mmx::ex_xLfo2Shape]))};
+    kv_[static_cast<size_t>(n++)] = {xId_[4], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Dest, ex_[mmx::ex_xLfo2Dest]))};
+    kv_[static_cast<size_t>(n++)] = {xId_[5], ex_[mmx::ex_xLfo2Depth]};
+    // OSC / FILTER + du module avant
+    {
+        const double hp = ex_[mmx::ex_xHpf];
+        static const double kUni[3] = {0, 5, 7};
+        kv_[static_cast<size_t>(n++)] = {xId_[6], ex_[mmx::ex_xRing]};
+        kv_[static_cast<size_t>(n++)] = {xId_[7], ex_[mmx::ex_xFold]};
+        kv_[static_cast<size_t>(n++)] = {xId_[8], ex_[mmx::ex_xNoiseColor]};
+        kv_[static_cast<size_t>(n++)] = {xId_[9], kUni[mmx::exStep(mmx::ex_xUnison, ex_[mmx::ex_xUnison])]};
+        kv_[static_cast<size_t>(n++)] = {xId_[10], hp > 0 ? 20.0 * std::pow(100.0, hp) : 0.0};
+        kv_[static_cast<size_t>(n++)] = {xId_[11], ex_[mmx::ex_xComb]};
+        kv_[static_cast<size_t>(n++)] = {xId_[12], 2 * ex_[mmx::ex_xCombFb] - 1};
+    }
+    // La matrice de modulation, les modes de voix, FEEDBACK, AMP MODE
+    {
+        for (int l = 0; l < 6; ++l) {
+            const int e = mmx::ex_xM1Src + l * 3;
+            kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3)], static_cast<double>(mmx::exStep(e, ex_[static_cast<size_t>(e)]))};
+            kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 1)], static_cast<double>(mmx::exStep(e + 1, ex_[static_cast<size_t>(e + 1)]))};
+            kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 2)], 2 * ex_[static_cast<size_t>(e + 2)] - 1};
+        }
+        static const double kPb[7] = {1, 2, 3, 5, 7, 12, 24};
+        kv_[static_cast<size_t>(n++)] = {mId_[18], kPb[mmx::exStep(mmx::ex_xPbRange, ex_[mmx::ex_xPbRange])]};
+        kv_[static_cast<size_t>(n++)] = {mId_[19], static_cast<double>(mmx::exStep(mmx::ex_xVoiceMode, ex_[mmx::ex_xVoiceMode]))};
+        kv_[static_cast<size_t>(n++)] = {mId_[20], ex_[mmx::ex_xFeedback]};
+        kv_[static_cast<size_t>(n++)] = {mId_[21], static_cast<double>(mmx::exStep(mmx::ex_xAmpMode, ex_[mmx::ex_xAmpMode]))};
+    }
+    // v50 : LFO 1 / LFO 2 en FREE, les 8 lignes de plus de la matrice (au repos : les valeurs neutres, le moteur d'avant)
+    {
+        kv_[static_cast<size_t>(n++)] = {vId_[0], mmx::exStep(mmx::ex_xLfo1Sync, ex_[mmx::ex_xLfo1Sync]) == 0 ? 1.0 : 0.0};
+        kv_[static_cast<size_t>(n++)] = {vId_[1], mmarp::Hell::lfoHzOf(ex_[mmx::ex_xLfo1Hz])};
+        kv_[static_cast<size_t>(n++)] = {vId_[2], mmx::exStep(mmx::ex_xLfo2Sync, ex_[mmx::ex_xLfo2Sync]) == 0 ? 1.0 : 0.0};
+        kv_[static_cast<size_t>(n++)] = {vId_[3], mmarp::Hell::lfoHzOf(ex_[mmx::ex_xLfo2Hz])};
+        for (int j = 0; j < mmx::kModSlots; ++j) {
+            const ModSlot& s = mslot_[static_cast<size_t>(j)];
+            const bool on = s.route != 0;
+            kv_[static_cast<size_t>(n++)] = {vId_[static_cast<size_t>(4 + 3 * j)], on ? static_cast<double>(s.src) : 0.0};
+            kv_[static_cast<size_t>(n++)] = {vId_[static_cast<size_t>(5 + 3 * j)], on ? static_cast<double>(s.dst) : 0.0};
+            kv_[static_cast<size_t>(n++)] = {vId_[static_cast<size_t>(6 + 3 * j)], on ? s.amt * s.scale : 0.0};
+        }
+    }
+    return n;
+}
+
+// La chaine (BASS MONO, CHORUS, DELAY, REVERB, le rack, le master) tiree des potards et des reglages
+void MMArpProcessor::buildFx(double bpm, mmarp::ArpFxSettings& fx, double& dly16) {
+    mmarp::fxSettings(knobs_.data(), fx, dly16);
+    // Le master du VST3 (la reverb SIZE / TONE / PRE passe par makeReverb, hors du thread audio : timerCallback)
+    fx.warmth = ex_[mmx::ex_xWarmth];
+    fx.bass = ex_[mmx::ex_xBass];
+    fx.air = ex_[mmx::ex_xAir];
+    fx.width = ex_[mmx::ex_xWidth];
+    fx.revSize = ex_[mmx::ex_xRevSize];
+    fx.revTone = ex_[mmx::ex_xRevTone];
+    fx.revPre = ex_[mmx::ex_xRevPre];
+    // FX RACK du module avant
+    fx.phMix = ex_[mmx::ex_xPhMix];
+    fx.phRate = ex_[mmx::ex_xPhRate];
+    fx.phDepth = ex_[mmx::ex_xPhDepth];
+    fx.phFb = ex_[mmx::ex_xPhFb];
+    fx.flMix = ex_[mmx::ex_xFlMix];
+    fx.flRate = ex_[mmx::ex_xFlRate];
+    fx.flDepth = ex_[mmx::ex_xFlDepth];
+    fx.flFb = 2 * ex_[mmx::ex_xFlFb] - 1;
+    fx.pumpDepth = ex_[mmx::ex_xPumpDepth];
+    fx.pumpRate = mmx::exStep(mmx::ex_xPumpRate, ex_[mmx::ex_xPumpRate]);
+    fx.pumpShape = ex_[mmx::ex_xPumpShape];
+    fx.crushBits = ex_[mmx::ex_xCrushBits];
+    fx.crushRate = ex_[mmx::ex_xCrushRate];
+    fx.dlyMode = mmx::exStep(mmx::ex_xDlyMode, ex_[mmx::ex_xDlyMode]);
+    fx.shimmer = ex_[mmx::ex_xShimmer];
+    // la pedale DISTORTION est masquee (2026-11-17, v25) : sans effet ; un projet qui l'avait est converti a
+    // l'ouverture vers la DISTO (convertPedal), son automation ne fait plus rien
+    fx.dist = 0;
+    fx.distTone = 0.5;
+    fx.eqLow = ex_[mmx::ex_xEqLow];
+    fx.eqMid = ex_[mmx::ex_xEqMid];
+    fx.eqHigh = ex_[mmx::ex_xEqHigh];
+    fx.eqAir = ex_[mmx::ex_xEqAir];
+    // La reverbe facon BigSky (2026-11-16, dsp/Sky.h) : CLASSIC (0) est la convolution d'avant
+    fx.skyType = mmx::exStep(mmx::ex_xSkyType, ex_[mmx::ex_xSkyType]);
+    fx.sky.decay = ex_[mmx::ex_xSkyDecay];
+    fx.sky.pre = ex_[mmx::ex_xSkyPre];
+    fx.sky.tone = ex_[mmx::ex_xSkyTone];
+    fx.sky.mod = ex_[mmx::ex_xSkyMod];
+    fx.sky.lowEnd = ex_[mmx::ex_xSkyLow];
+    fx.sky.p = {{ex_[mmx::ex_xSkyP1], ex_[mmx::ex_xSkyP2], ex_[mmx::ex_xSkyP3], ex_[mmx::ex_xSkyP4], ex_[mmx::ex_xSkyP5]}};
+    const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+    // v46 : la sortie de la reverbe (dsp/ArpFx.h, 5.) ; a leurs defauts : contournee au bit pres
+    fx.rvLoCut = ex_[mmx::ex_xSkyLoCut];
+    fx.rvLoSlope = st(mmx::ex_xSkyLoSlope);
+    fx.rvMidHz = ex_[mmx::ex_xSkyMidHz];
+    fx.rvMidDb = ex_[mmx::ex_xSkyMidDb];
+    fx.rvMidQ = ex_[mmx::ex_xSkyMidQ];
+    fx.rvHiCut = ex_[mmx::ex_xSkyHiCut];
+    fx.rvHiSlope = st(mmx::ex_xSkyHiSlope);
+    fx.rvWidth = ex_[mmx::ex_xSkyWidth];
+    fx.rvDuck = ex_[mmx::ex_xSkyDuck];
+    fx.rvFreeze = st(mmx::ex_xSkyFreeze) == 1;
+    // v27 : la page DELAY (dsp/Echo.h) ; DLY TIME, TAPE et DELAY MODE d'avant sont masques (convertDelay). Le banc
+    // (testLegacyDelay) peut encore rendre l'ancien DELAY tel quel, pour comparer au bit pres
+    if (testLegacyDelay) dlyFree_ = 0;
+    else {
+        mmarp::EchoSettings& e = fx.echo;
+        e.style = st(mmx::ex_xDlStyle);
+        e.mode = st(mmx::ex_xDlMode);
+        e.fb = ex_[mmx::ex_xDlFb];
+        e.width = ex_[mmx::ex_xDlWidth];
+        e.offset = ex_[mmx::ex_xDlOffset];
+        e.sat = ex_[mmx::ex_xDlSat];
+        e.wobble = ex_[mmx::ex_xDlWobble];
+        e.diff = ex_[mmx::ex_xDlDiff];
+        e.low = ex_[mmx::ex_xDlLow];
+        e.high = ex_[mmx::ex_xDlHigh];
+        e.groove = ex_[mmx::ex_xDlGroove];
+        e.feel = ex_[mmx::ex_xDlFeel];
+        e.prime = st(mmx::ex_xDlPrime) == 1;
+        e.lofi = st(mmx::ex_xDlLofi) == 1;
+        e.analog = ex_[mmx::ex_xDlAnalog];
+        e.duck = ex_[mmx::ex_xDlDuck];
+        e.duckRel = ex_[mmx::ex_xDlDuckRel];
+        e.rhythm = st(mmx::ex_xDlRhythm);
+        fx.tape = 0;
+        fx.dlyMode = 0;
+        if (st(mmx::ex_xDlSync) == 1) {
+            dlyFree_ = 0;
+            dly16 = mmarp::EchoLaws::divSixteenths(st(mmx::ex_xDlDiv)) * mmarp::EchoLaws::noteMul(st(mmx::ex_xDlNote));
+        } else
+            dlyFree_ = mmarp::EchoLaws::msOf(ex_[mmx::ex_xDlMs]) / 1000;
+    }
+    // v27 : le rack enrichi
+    {
+        static const int kStages[4] = {4, 6, 8, 12};
+        static const double kBeats[7] = {16, 8, 4, 2, 1, 0.5, 0.25};
+        const auto syncHz = [&](double v) { return bpm / 60.0 / kBeats[std::max(0, std::min(6, static_cast<int>(std::lround(v * 6))))]; };
+        fx.phStages = kStages[st(mmx::ex_xPhStages)];
+        fx.phCenter = ex_[mmx::ex_xPhCenter];
+        fx.phSpread = ex_[mmx::ex_xPhSpread];
+        fx.phSyncHz = st(mmx::ex_xPhSync) == 1 ? syncHz(ex_[mmx::ex_xPhRate]) : 0;
+        fx.flDelay = ex_[mmx::ex_xFlDelay];
+        fx.flSpread = ex_[mmx::ex_xFlSpread];
+        fx.flSyncHz = st(mmx::ex_xFlSync) == 1 ? syncHz(ex_[mmx::ex_xFlRate]) : 0;
+        fx.flThru = st(mmx::ex_xFlThru) == 1;
+        fx.chBoth = st(mmx::ex_xChBoth) == 1;
+        fx.chRate = ex_[mmx::ex_xChRate];
+        fx.chDepth = ex_[mmx::ex_xChDepth];
+        fx.chWidth = ex_[mmx::ex_xChWidth];
+        fx.chMix = ex_[mmx::ex_xChMix];
+        fx.crTone = ex_[mmx::ex_xCrTone];
+        fx.crMix = ex_[mmx::ex_xCrMix];
+        fx.puAttack = ex_[mmx::ex_xPuAttack];
+        fx.puCurve = ex_[mmx::ex_xPuCurve];
+        syncFx_ = fx.phSyncHz > 0 || fx.flSyncHz > 0;
+    }
+    // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus) ; v27 : FREE, en ms
+    fx.delaySeconds = dlyFree_ > 0 ? std::min(2.0, dlyFree_) : std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
+}
+
+// La chaine posee si elle a change (glisse : 20 ms, sauf a la premiere pose)
+void MMArpProcessor::applyFx(const mmarp::ArpFxSettings& fx, double dly16, double bpm) {
+    auto eq = [](double a, double b) { return !(a < b || a > b); };
+    const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
+                      eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume) &&
+                      eq(fx.warmth, fxNow_.warmth) && eq(fx.bass, fxNow_.bass) && eq(fx.air, fxNow_.air) && eq(fx.width, fxNow_.width) &&
+                      eq(fx.phMix, fxNow_.phMix) && eq(fx.phRate, fxNow_.phRate) && eq(fx.phDepth, fxNow_.phDepth) && eq(fx.phFb, fxNow_.phFb) &&
+                      eq(fx.flMix, fxNow_.flMix) && eq(fx.flRate, fxNow_.flRate) && eq(fx.flDepth, fxNow_.flDepth) && eq(fx.flFb, fxNow_.flFb) &&
+                      eq(fx.pumpDepth, fxNow_.pumpDepth) && fx.pumpRate == fxNow_.pumpRate && eq(fx.pumpShape, fxNow_.pumpShape) &&
+                      eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer) &&
+                      eq(fx.dist, fxNow_.dist) && eq(fx.distTone, fxNow_.distTone) && eq(fx.eqLow, fxNow_.eqLow) && eq(fx.eqMid, fxNow_.eqMid) &&
+                      eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir) && fx.skyType == fxNow_.skyType && eq(fx.sky.decay, fxNow_.sky.decay) &&
+                      eq(fx.sky.pre, fxNow_.sky.pre) && eq(fx.sky.tone, fxNow_.sky.tone) && eq(fx.sky.mod, fxNow_.sky.mod) && eq(fx.sky.lowEnd, fxNow_.sky.lowEnd) &&
+                      eq(fx.sky.p[0], fxNow_.sky.p[0]) && eq(fx.sky.p[1], fxNow_.sky.p[1]) && eq(fx.sky.p[2], fxNow_.sky.p[2]) && eq(fx.sky.p[3], fxNow_.sky.p[3]) &&
+                      eq(fx.sky.p[4], fxNow_.sky.p[4]) && sameV27(fx, fxNow_) && sameRvPost(fx, fxNow_);
+    if (!same) fx_.set(fx, fresh_);
+    fxNow_ = fx;
+    dly16_ = dly16;
+    lastBpm_ = bpm;
+}
+
+// L'arpege dans le tampon libre (les potards, la suite, la progression, les pistes), puis echange
+void MMArpProcessor::buildArp() {
+    const MMArpProgram& p = *current_;
     // L'arpege dans le tampon libre, puis echange (l'arpegiateur garde son pointeur jusque-la)
     const int next = 1 - arpCur_;
     mmarp::arpProgram(knobs_.data(), p.seq, p.prog.data(), p.nProg, arpBuf_[next]);
@@ -1041,8 +1097,407 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
     applySteps(p, arpBuf_[next], ex_[mmx::ex_xSwing]);
     arp_.setProgram(&arpBuf_[next]);
     arpCur_ = next;
-    juce::ignoreUnused(progChanged);
-    fresh_ = false;
+}
+
+/* ---------------- v50 : la matrice de modulation (les 8 emplacements xMx) ---------------- */
+
+namespace {
+// Les familles d'un reglage module (ce qu'il faut reposer quand sa valeur effective change). 0 : relu a chaque tranche
+// (la DISTO, HELL, LFO 3 / LFO 4).
+enum { FAM_ENGINE = 1, FAM_FX = 2, FAM_ARP = 4, FAM_EQ = 8 };
+
+// Un potard qui a son equivalent par voix dans la matrice du moteur (Voyager.cpp, MD_*) : la destination, et l'echelle
+// (unites de la matrice par unite normalisee du potard : les lois de dsp/Params.cpp et les courses de Voyager.h, 7.).
+// Les bornes sont les memes que celles du potard (sauf CUTOFF : celles du filtre).
+int voiceRoute(int k, double& scale) {
+    scale = 1;
+    if (k == mmarp::kn_cutoff) {
+        scale = 9.3 / 4;  // cutoffHz : 30 x 2^(9.3 v) ; CUTOFF : +/-4 octaves
+        return 10;
+    }
+    if (k == mmarp::kn_res) {
+        scale = 1 / 0.35;  // res : v ; RES : +/-0.35
+        return 11;
+    }
+    if (k == mmarp::kn_envAmt) {
+        scale = 6.0 / 3;  // envOctaves : 6 v ; ENV AMT : +/-3 octaves
+        return 12;
+    }
+    if (k == mmarp::kn_fm) {
+        scale = 1 / 0.6;  // fm : v ; FM : +/-0.6
+        return 4;
+    }
+    if (k == mmarp::kn_noise) return 6;  // noise : v ; NOISE : +/-1
+    const int e = k - mmarp::kKnobs;
+    if (e == mmx::ex_xRing) return 8;   // RING : +/-1 autour de xRing
+    if (e == mmx::ex_xFold) return 9;   // FOLD : +/-1 autour de xFold
+    if (e == mmx::ex_xComb) return 19;  // COMB : +/-1 autour de xComb
+    return 0;
+}
+} // namespace
+
+int MMArpProcessor::modFamily(int k) {
+    using namespace mmarp;
+    if (k < kKnobs) {
+        switch (k) {
+            case kn_gate:
+            case kn_accent: return FAM_ARP;
+            case kn_drift: return FAM_ENGINE | FAM_ARP;
+            // (volGain : le niveau du moteur suit VOLUME, DELAY et REVERB)
+            case kn_delay:
+            case kn_reverb:
+            case kn_volume: return FAM_ENGINE | FAM_FX;
+            case kn_monoLow: return FAM_FX;
+            default: return FAM_ENGINE;  // (DISTO DRIVE : le moteur en MM, la DISTO la relit a chaque tranche)
+        }
+    }
+    const int e = k - kKnobs;
+    if (e == mmx::ex_xSwing) return FAM_ARP;
+    if (e >= mmx::ex_xQ1On && e <= mmx::ex_xQOut) return FAM_EQ;
+    switch (e) {
+        case mmx::ex_xLfo1Depth2:
+        case mmx::ex_xLfo2Depth:
+        case mmx::ex_xRing:
+        case mmx::ex_xFold:
+        case mmx::ex_xNoiseColor:
+        case mmx::ex_xHpf:
+        case mmx::ex_xComb:
+        case mmx::ex_xCombFb:
+        case mmx::ex_xFeedback:
+        case mmx::ex_xLfo1Hz:
+        case mmx::ex_xLfo2Hz: return FAM_ENGINE;
+        default: break;
+    }
+    const char* sec = mmx::kExtraDefs[e].section;
+    if (std::strcmp(sec, "disto") == 0 || std::strcmp(sec, "hell") == 0 || std::strcmp(sec, "lfo") == 0) return 0;
+    return FAM_FX;
+}
+
+// Les emplacements et leur chemin (thread audio, a chaque changement de reglage : update)
+void MMArpProcessor::modRoute() {
+    bool tap = false;
+    lfo3On_ = lfo4On_ = false;
+    for (int j = 0; j < mmx::kModSlots; ++j) {
+        ModSlot& s = mslot_[static_cast<size_t>(j)];
+        const int e = mmx::ex_xMx1Src + 3 * j;
+        s.src = mmx::exStep(e, ex_[static_cast<size_t>(e)]);
+        s.code = mmx::modDstCode(ex_[static_cast<size_t>(e + 1)]);
+        s.amt = 2 * ex_[static_cast<size_t>(e + 2)] - 1;
+        const mmx::ModDestDef* d = mmx::modDest(s.code);
+        s.k = d ? d->k : -1;
+        s.route = 0;
+        s.dst = 0;
+        s.scale = 1;
+        if (s.src <= 0 || !d || !(s.amt < 0 || s.amt > 0)) continue;
+        if (s.code < mmx::kModSynthN) {
+            s.route = 1;
+            s.dst = s.code;
+        } else if (const int vd = voiceRoute(s.k, s.scale)) {
+            s.route = 2;
+            s.dst = vd;
+        } else {
+            s.route = 3;
+            s.dst = mmx::kModDstBase + s.k;
+            tap = true;
+        }
+        if (s.src == 12) lfo3On_ = true;
+        if (s.src == 13) lfo4On_ = true;
+    }
+    modTapOn_ = tap || nTgt_ > 0;
+}
+
+// LFO 3 et LFO 4 pour le morceau suivant du moteur (n echantillons, ppqEnd : la position a sa fin)
+void MMArpProcessor::modLfoChunk(int n, double ppqEnd, bool playing, double bpm) {
+    double v3 = 0, v4 = 0;
+    const auto stp = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+    if (lfo3On_) {
+        const double hz = stp(mmx::ex_xDLfoSync) == 1 ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xDLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xDLfoRate]);
+        v3 = lfo3_.run(n, hz, stp(mmx::ex_xDLfoShape), sr_);
+    }
+    if (lfo4On_) {
+        const double v = std::clamp(ex_[mmx::ex_xLfo4Rate], 0.0, 1.0);
+        const bool sync = stp(mmx::ex_xLfo4Sync) == 1;
+        const double beats = mmarp::Hell::kLfoBeats[static_cast<int>(std::lround(v * (mmarp::Hell::kLfoSync - 1)))];
+        const double hz = sync ? std::max(20.0, bpm) / 60.0 / beats : mmarp::Hell::lfoHzOf(v);
+        v4 = lfo4_.run(n, hz, stp(mmx::ex_xLfo4Shape), sr_, sync && playing, std::max(0.0, ppqEnd) / beats);
+    }
+    voy_->extLfo(v3, v4);
+}
+
+// La valeur de l'hote d'un reglage module a change (automation, la face) : elle devient la base de la valeur effective
+void MMArpProcessor::modHostSync() {
+    for (int t = 0; t < nTgt_; ++t) {
+        ModTgt& g = mtgt_[static_cast<size_t>(t)];
+        const bool knob = g.k < mmarp::kKnobs;
+        const size_t i = static_cast<size_t>(knob ? g.k : g.k - mmarp::kKnobs);
+        const float raw = knob ? knobRawLast_[i] : exLast_[i];
+        if (raw < g.raw || raw > g.raw) {
+            g.raw = raw;
+            const double nh = knob ? knobs_[i] : ex_[i];
+            g.sm = std::clamp(g.sm + nh - g.host, 0.0, 1.0);
+            g.host = nh;
+            g.eff = g.slow ? g.sm : std::clamp(g.host + g.off, 0.0, 1.0);
+        }
+        (knob ? knobs_[i] : ex_[i]) = g.eff;
+    }
+}
+
+// Apres chaque tranche du moteur : la contribution de chaque emplacement (modTaps), la valeur effective de chaque reglage
+// vise, posee a la place de celle de l'hote ; les familles qui ont bouge sont reposees (le moteur pour la tranche
+// suivante, la chaine et l'EQ pour celle-ci, l'arpege au bloc suivant). Un reglage qui n'est plus vise reprend la valeur
+// de l'hote (sa contribution est deja revenue a 0 : la quantite glisse dans le moteur).
+void MMArpProcessor::modTapsApply(double bpm, int len, bool& eqSet) {
+    mmarp::Voyager::ModTap tp[mmarp::Voyager::kModTaps];
+    voy_->modTaps(tp);
+    for (int t = 0; t < nTgt_; ++t) mtgt_[static_cast<size_t>(t)].off = std::numeric_limits<double>::quiet_NaN();
+    for (const auto& x : tp) {
+        if (x.dst < mmx::kModDstBase) continue;
+        const int k = x.dst - mmx::kModDstBase;
+        if (k >= mmx::kAll) continue;
+        int t = 0;
+        while (t < nTgt_ && mtgt_[static_cast<size_t>(t)].k != k) ++t;
+        if (t == nTgt_) {
+            if (nTgt_ == kModTgt) continue;
+            ModTgt& g = mtgt_[static_cast<size_t>(nTgt_++)];
+            const bool knob = k < mmarp::kKnobs;
+            const size_t i = static_cast<size_t>(knob ? k : k - mmarp::kKnobs);
+            g.k = k;
+            g.fam = modFamily(k);
+            g.slow = !knob && std::strcmp(mmx::kExtraDefs[i].section, "hell") == 0;
+            g.raw = knob ? knobRawLast_[i] : exLast_[i];
+            g.host = knob ? knobs_[i] : ex_[i];
+            g.eff = g.host;
+            g.sm = g.host;
+            g.off = std::numeric_limits<double>::quiet_NaN();
+        }
+        ModTgt& g = mtgt_[static_cast<size_t>(t)];
+        g.off = (std::isnan(g.off) ? 0.0 : g.off) + x.v;
+    }
+    int fam = 0;
+    // HELL (l'ancien : ses filtres se reposent d'un coup ; v2 : MIX pris par tranches de 64 et ses cercles le suivent) :
+    // la valeur effective glisse en plus, 10 ms ; les autres moteurs lissent deja leurs reglages
+    const double kSlow = 1 - std::exp(-len / (0.01 * sr_));
+    for (int t = 0; t < nTgt_;) {
+        ModTgt& g = mtgt_[static_cast<size_t>(t)];
+        const bool knob = g.k < mmarp::kKnobs;
+        const size_t i = static_cast<size_t>(knob ? g.k : g.k - mmarp::kKnobs);
+        double& w = knob ? knobs_[i] : ex_[i];
+        if (std::isnan(g.off)) {
+            // plus vise : la valeur de l'hote revient
+            if (w < g.host || w > g.host) fam |= g.fam;
+            w = g.host;
+            mtgt_[static_cast<size_t>(t)] = mtgt_[static_cast<size_t>(--nTgt_)];
+            continue;
+        }
+        double eff = std::clamp(g.host + g.off, 0.0, 1.0);
+        if (g.slow) eff = g.sm += (eff - g.sm) * kSlow;
+        if (eff < w || eff > w) {
+            w = eff;
+            fam |= g.fam;
+        }
+        g.eff = eff;
+        ++t;
+    }
+    if (fam & FAM_ENGINE) {
+        const int n = engineKv(bpm, false);
+        voy_->params(kv_.data(), n);
+    }
+    if (fam & FAM_FX) {
+        mmarp::ArpFxSettings fx;
+        double dly16 = 3;
+        buildFx(bpm, fx, dly16);
+        applyFx(fx, dly16, bpm);
+    }
+    if (fam & FAM_EQ) eqSet = true;
+    if (fam & FAM_ARP) arpDirty_ = true;
+    bool tap = false;
+    for (const auto& s : mslot_) tap = tap || s.route == 3;
+    modTapOn_ = tap || nTgt_ > 0;
+}
+
+// L'arc lumineux de la face (mm_tick.m) : chaque emplacement actif qui vise un reglage hote, sa valeur effective
+void MMArpProcessor::modShow() {
+    bool any = false;
+    mmarp::Voyager::ModTap tp[mmarp::Voyager::kModTaps];
+    bool have = false;
+    for (int j = 0; j < mmx::kModSlots; ++j) {
+        const ModSlot& s = mslot_[static_cast<size_t>(j)];
+        if (s.route != 2 && s.route != 3) {
+            if (modShowAny_) modShowK_[static_cast<size_t>(j)].store(-1, std::memory_order_relaxed);
+            continue;
+        }
+        double eff;
+        if (s.route == 3) {
+            eff = workValue(s.k);
+        } else {
+            // le chemin par voix : la valeur du potard + les contributions (de la voix la plus recente) ramenees au potard
+            if (!have) {
+                voy_->modTaps(tp);
+                have = true;
+            }
+            double off = 0;
+            for (int q = 0; q < mmx::kModSlots; ++q) {
+                const ModSlot& o = mslot_[static_cast<size_t>(q)];
+                if (o.route == 2 && o.k == s.k && tp[q].dst == o.dst) off += tp[q].v / o.scale;
+            }
+            eff = std::clamp(workValue(s.k) + off, 0.0, 1.0);
+        }
+        modShowK_[static_cast<size_t>(j)].store(s.k, std::memory_order_relaxed);
+        modShowV_[static_cast<size_t>(j)].store(static_cast<float>(eff), std::memory_order_relaxed);
+        any = true;
+    }
+    modShowAny_ = any;
+}
+
+// prepareToPlay : plus rien de module (les potards sont relus au premier bloc), les LFO repartent
+void MMArpProcessor::modReset() {
+    nTgt_ = 0;
+    arpDirty_ = false;
+    lfo3_.reset();
+    lfo4_.reset();
+    lfo4_.seed = seed_ ^ 0x4C464F34u;
+    bool tap = false;
+    for (const auto& s : mslot_) tap = tap || s.route == 3;
+    modTapOn_ = tap;
+}
+
+// L'etage DISTO facon Decapitator (dsp/Decap.h) : ses reglages relus a chaque appel (un bloc, ou une tranche en v50)
+void MMArpProcessor::runDisto(float* L, float* R, int n, double bpm) {
+    mmarp::DecapSettings ds;
+    const int st = mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]);
+    ds.mm = st == 0;
+    ds.style = st > 0 ? st - 1 : 0;
+    ds.drive = knobs_[static_cast<size_t>(mmarp::kn_dist)];
+    ds.punish = mmx::exStep(mmx::ex_xDPunish, ex_[mmx::ex_xDPunish]) == 1; // OLD DISTO PUNISH, au bit pres
+    // v46 : PUNISH v2 (DISTO PUNISH, en fin de liste) ; la face convertit l'ancien au premier appui
+    ds.punish2 = mmx::exStep(mmx::ex_xDPunish2, ex_[mmx::ex_xDPunish2]) == 1;
+    ds.low = ex_[mmx::ex_xDLow];
+    ds.thump = mmx::exStep(mmx::ex_xDThump, ex_[mmx::ex_xDThump]) == 1;
+    ds.tone = ex_[mmx::ex_xDTone];
+    ds.high = ex_[mmx::ex_xDHigh];
+    ds.steep = mmx::exStep(mmx::ex_xDSteep, ex_[mmx::ex_xDSteep]) == 1;
+    ds.mix = ex_[mmx::ex_xDMix];
+    ds.out = ex_[mmx::ex_xDOut];
+    ds.autoGain = mmx::exStep(mmx::ex_xDAuto, ex_[mmx::ex_xDAuto]) == 1;
+    // v25 : MORPH, DYNAMICS, FEEDBACK, le multibande, ENV, LFO, les filtres, BOX
+    const auto stp = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+    ds.morph = ex_[mmx::ex_xDMorph];
+    ds.morphTo = stp(mmx::ex_xDMorphTo);
+    ds.dyn = ex_[mmx::ex_xDDyn];
+    ds.fb = ex_[mmx::ex_xDFb];
+    ds.fbFreq = ex_[mmx::ex_xDFbFreq];
+    ds.bands = 1 + stp(mmx::ex_xDBands);
+    ds.xLo = ex_[mmx::ex_xDXLo];
+    ds.xHi = ex_[mmx::ex_xDXHi];
+    {
+        const int k[3][6] = {{mmx::ex_xDB1Style, mmx::ex_xDB1Drive, mmx::ex_xDB1Mix, mmx::ex_xDB1Level, mmx::ex_xDB1Solo, mmx::ex_xDB1Byp},
+                             {mmx::ex_xDB2Style, mmx::ex_xDB2Drive, mmx::ex_xDB2Mix, mmx::ex_xDB2Level, mmx::ex_xDB2Solo, mmx::ex_xDB2Byp},
+                             {mmx::ex_xDB3Style, mmx::ex_xDB3Drive, mmx::ex_xDB3Mix, mmx::ex_xDB3Level, mmx::ex_xDB3Solo, mmx::ex_xDB3Byp}};
+        for (int b = 0; b < 3; ++b) {
+            mmarp::DecapBand& bd = ds.band[static_cast<size_t>(b)];
+            bd.style = stp(k[b][0]) - 1; // MAIN : -1
+            bd.drive = ex_[static_cast<size_t>(k[b][1])];
+            bd.mix = ex_[static_cast<size_t>(k[b][2])];
+            bd.level = ex_[static_cast<size_t>(k[b][3])];
+            bd.solo = stp(k[b][4]) == 1;
+            bd.bypass = stp(k[b][5]) == 1;
+        }
+    }
+    ds.envAmt = ex_[mmx::ex_xDEnvAmt];
+    ds.envSpeed = ex_[mmx::ex_xDEnvSpd];
+    ds.lfoShape = stp(mmx::ex_xDLfoShape);
+    ds.lfoHz = stp(mmx::ex_xDLfoSync) == 1 ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xDLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xDLfoRate]);
+    ds.lfoAmt = ex_[mmx::ex_xDLfoAmt];
+    ds.lfoTarget = stp(mmx::ex_xDLfoTarget);
+    ds.preMode = stp(mmx::ex_xDPreMode);
+    ds.preFreq = ex_[mmx::ex_xDPreFreq];
+    ds.preReso = ex_[mmx::ex_xDPreReso];
+    ds.postMode = stp(mmx::ex_xDPostMode);
+    ds.postFreq = ex_[mmx::ex_xDPostFreq];
+    ds.postReso = ex_[mmx::ex_xDPostReso];
+    ds.box = stp(mmx::ex_xDBox);
+    ds.boxSize = ex_[mmx::ex_xDBoxSize];
+    ds.boxMix = ex_[mmx::ex_xDBoxMix];
+    ds.zeroLatency = zlAsked_; // v49 LATENCY ZERO : sans les 32 echantillons de retard
+    // la saturation au niveau de la prise : le gain de VOLUME du site (audio/synth.ts volGain)
+    ds.ref = mmarp::ArpFxLaws::volGain(knobs_[static_cast<size_t>(mmarp::kn_volume)], knobs_[static_cast<size_t>(mmarp::kn_delay)], knobs_[static_cast<size_t>(mmarp::kn_reverb)]);
+    decap_.set(ds);
+    decap_.process(L, R, n);
+    // ATTITUDE (mm_mod, id distoVu) : -20..+3 dB vers 0..1 ; NaN quand la DISTO est contournee
+    distoVu_.store(decap_.active() ? static_cast<float>(std::clamp((decap_.attitudeDb() + 20) / 23, 0.0, 1.0)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    // v50 : LFO 3 (le LFO de la DISTO, source de la matrice) reste en phase avec celui de la DISTO quand elle tourne
+    if (lfo3On_ && decap_.active()) {
+        double ph = 0, sm = 0, rnd = 0;
+        uint32_t g = 0;
+        decap_.lfoState(ph, sm, rnd, g);
+        lfo3_.sync(ph, sm, rnd, g);
+    }
+}
+
+// HELL (Hell.h) ou HELL v2 (Hell2.h), apres la chaine et le rack
+void MMArpProcessor::runHell(float* L, float* R, int n, double ppq, bool playing, double bpm) {
+    const bool hellV2 = mmx::exStep(mmx::ex_xHellV2, ex_[mmx::ex_xHellV2]) == 1;
+    if (hellV2Was_ >= 0 && hellV2 != (hellV2Was_ == 1)) {
+        // le moteur change : celui qu'on quitte se tait et repartira vide
+        if (hellV2) hell_.reset();
+        else hell2_.stop();
+    }
+    hellV2Was_ = hellV2 ? 1 : 0;
+    if (hellV2) {
+        double hv[mmarp::Hell2::kKeys];
+        for (int k = 0; k < mmarp::Hell2::kKeys; ++k) hv[k] = ex_[static_cast<size_t>(h2Ex_[static_cast<size_t>(k)])];
+        hell2_.set(mmarp::Hell2::settingsOf(hv, ex_[mmx::ex_xHellMix], bpm, hellNoteHz_), bpm);
+        hell2_.process(L, R, n, ppq, playing, hellNoteHz_);
+        hellLfo_.store(hell2_.active() ? static_cast<float>(hell2_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    } else {
+        const auto on = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]) == 1; };
+        mmarp::HellSettings hs;
+        hs.mix = ex_[mmx::ex_xHellMix];
+        hs.sync = mmx::exStep(mmx::ex_xHellSync, ex_[mmx::ex_xHellSync]);
+        hs.timeMs = mmarp::Hell::timeMsOf(ex_[mmx::ex_xHellTime]);
+        hs.feedback = ex_[mmx::ex_xHellFb];
+        hs.cross = on(mmx::ex_xHellCross);
+        hs.shiftHz = mmarp::Hell::shiftHzFor(ex_[mmx::ex_xHellShift], mmx::exStep(mmx::ex_xHellRange, ex_[mmx::ex_xHellRange]), bpm, hellNoteHz_);
+        hs.upDown = ex_[mmx::ex_xHellUpDown];
+        hs.spread = ex_[mmx::ex_xHellSpread];
+        hs.phase = ex_[mmx::ex_xHellPhase];
+        hs.antiRefl = on(mmx::ex_xHellAntiRefl);
+        hs.smear = ex_[mmx::ex_xHellSmear];
+        hs.hpHz = mmarp::Hell::hpHzOf(ex_[mmx::ex_xHellHp]);
+        hs.lpHz = mmarp::Hell::lpHzOf(ex_[mmx::ex_xHellLp]);
+        hs.lfoHz = on(mmx::ex_xHellLfoSync) ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xHellLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xHellLfoRate]);
+        hs.lfoDepthHz = mmarp::Hell::lfoDepthHzOf(ex_[mmx::ex_xHellLfoDepth]);
+        hs.lfoShape = mmx::exStep(mmx::ex_xHellLfoShape, ex_[mmx::ex_xHellLfoShape]);
+        hs.lfoAmt = 2 * ex_[mmx::ex_xHellLfoAmt] - 1;
+        hs.lfoStereo = on(mmx::ex_xHellLfoStereo);
+        hs.lfoTarget = mmx::exStep(mmx::ex_xHellLfoTarget, ex_[mmx::ex_xHellLfoTarget]);
+        hs.tone = ex_[mmx::ex_xHellTone];
+        hell_.set(hs, bpm);
+        hell_.process(L, R, n);
+        // le VU du LFO dans la face (mm_mod, id hellLfo) : NaN quand HELL est coupe
+        hellLfo_.store(hell_.active() ? static_cast<float>(hell_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    }
+}
+
+// L'EQ parametrique 6 bandes (ParamEq.h) ; set : ses reglages ont pu changer
+void MMArpProcessor::runEq(float* L, float* R, int n, bool set) {
+    const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+    mmarp::EqBandSettings eb[mmarp::ParamEq::kBands];
+    for (int b = 0; set && b < mmarp::ParamEq::kBands; ++b) {
+        const int o = b * (mmx::ex_xQ2On - mmx::ex_xQ1On);
+        eb[b].on = st(mmx::ex_xQ1On + o) == 1;
+        eb[b].type = st(mmx::ex_xQ1Type + o);
+        eb[b].hz = mmarp::ParamEq::freqOf(ex_[static_cast<size_t>(mmx::ex_xQ1Freq + o)]);
+        eb[b].db = mmarp::ParamEq::gainDbOf(ex_[static_cast<size_t>(mmx::ex_xQ1Gain + o)]);
+        eb[b].q = mmarp::ParamEq::qOf(ex_[static_cast<size_t>(mmx::ex_xQ1Q + o)]);
+        eb[b].slope = st(mmx::ex_xQ1Slope + o);
+    }
+    if (set) peq_.set(eb, mmarp::ParamEq::outDbOf(ex_[mmx::ex_xQOut]), eqFresh_);
+    eqFresh_ = false;
+    const int ana = specOn_.load(std::memory_order_relaxed) ? st(mmx::ex_xQAna) : 0;
+    if (ana == 1) spec_.push(L, R, n);
+    peq_.process(L, R, n);
+    if (ana == 2) spec_.push(L, R, n);
 }
 
 void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
@@ -1098,6 +1553,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     engFrames_ = 0;
     fresh_ = true;
     lastBpm_ = 0;
+    modReset();
     // tous les potards relus au premier bloc
     for (auto& k : knobRawLast_) k = -1.f;
     for (auto& k : exLast_) k = -1.f;
@@ -1257,6 +1713,8 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
             knobsChanged = true;
         }
     }
+    // v50 : les reglages modules par la matrice gardent leur valeur effective (l'hote a pu bouger leur valeur)
+    if (nTgt_ > 0) modHostSync();
     // QUALITY : x8 en HQ (x4 au-dela de 60 kHz), le taux du site en STD ; le moteur change sans allocation (setOs)
     {
         const bool pro = ex_[mmx::ex_xEngine] >= 0.5;
@@ -1283,6 +1741,12 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         revLock_.exit();
     }
     if (current_ && (progChanged || knobsChanged || fresh_)) update(bpm, knobsChanged, progChanged);
+    else if (current_ && arpDirty_) {
+        // v50 : GATE, ACCENT, DRIFT ou SWING modules par la matrice : l'arpege de ce bloc les prend
+        buildArp();
+        liveDirty_ = true;
+    }
+    arpDirty_ = false;
     // Le tempo change : le LFO libre et le DELAY le suivent
     if (current_ && std::fabs(bpm - lastBpm_) > 1e-9) {
         const mmarp::ParamKV b{bpmId_, bpm};
@@ -1384,152 +1848,83 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // l'hote, par morceaux de 128 au plus (plus de file de 128 echantillons : il ne reste que le retard des decimateurs,
     // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
     const juce::int64 cE = juce::Time::getHighResolutionTicks();
-    for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
-    const juce::int64 c1 = juce::Time::getHighResolutionTicks();
-    publishMod();
-    // DISTO facon Decapitator (2026-11-16, portee le 2026-11-17) : juste apres le moteur, avant la chaine du site ; DRIVE 0
-    // ou MM (le depart) : contournee au bit pres (MM : OUTPUT seul, 0 dB au depart). Engagee, 32 echantillons de retard,
-    // non declares a l'hote (comme WARMTH et le FLANGER). v25 : la page complete (dsp/Decap.h) ; la pedale DISTORTION est
-    // masquee et convertie (convertPedal).
-    {
-        mmarp::DecapSettings ds;
-        const int st = mmx::exStep(mmx::ex_xDStyle, ex_[mmx::ex_xDStyle]);
-        ds.mm = st == 0;
-        ds.style = st > 0 ? st - 1 : 0;
-        ds.drive = knobs_[static_cast<size_t>(mmarp::kn_dist)];
-        ds.punish = mmx::exStep(mmx::ex_xDPunish, ex_[mmx::ex_xDPunish]) == 1; // OLD DISTO PUNISH, au bit pres
-        // v46 : PUNISH v2 (DISTO PUNISH, en fin de liste) ; la face convertit l'ancien au premier appui
-        ds.punish2 = mmx::exStep(mmx::ex_xDPunish2, ex_[mmx::ex_xDPunish2]) == 1;
-        ds.low = ex_[mmx::ex_xDLow];
-        ds.thump = mmx::exStep(mmx::ex_xDThump, ex_[mmx::ex_xDThump]) == 1;
-        ds.tone = ex_[mmx::ex_xDTone];
-        ds.high = ex_[mmx::ex_xDHigh];
-        ds.steep = mmx::exStep(mmx::ex_xDSteep, ex_[mmx::ex_xDSteep]) == 1;
-        ds.mix = ex_[mmx::ex_xDMix];
-        ds.out = ex_[mmx::ex_xDOut];
-        ds.autoGain = mmx::exStep(mmx::ex_xDAuto, ex_[mmx::ex_xDAuto]) == 1;
-        // v25 : MORPH, DYNAMICS, FEEDBACK, le multibande, ENV, LFO, les filtres, BOX
-        const auto stp = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
-        ds.morph = ex_[mmx::ex_xDMorph];
-        ds.morphTo = stp(mmx::ex_xDMorphTo);
-        ds.dyn = ex_[mmx::ex_xDDyn];
-        ds.fb = ex_[mmx::ex_xDFb];
-        ds.fbFreq = ex_[mmx::ex_xDFbFreq];
-        ds.bands = 1 + stp(mmx::ex_xDBands);
-        ds.xLo = ex_[mmx::ex_xDXLo];
-        ds.xHi = ex_[mmx::ex_xDXHi];
-        {
-            const int k[3][6] = {{mmx::ex_xDB1Style, mmx::ex_xDB1Drive, mmx::ex_xDB1Mix, mmx::ex_xDB1Level, mmx::ex_xDB1Solo, mmx::ex_xDB1Byp},
-                                 {mmx::ex_xDB2Style, mmx::ex_xDB2Drive, mmx::ex_xDB2Mix, mmx::ex_xDB2Level, mmx::ex_xDB2Solo, mmx::ex_xDB2Byp},
-                                 {mmx::ex_xDB3Style, mmx::ex_xDB3Drive, mmx::ex_xDB3Mix, mmx::ex_xDB3Level, mmx::ex_xDB3Solo, mmx::ex_xDB3Byp}};
-            for (int b = 0; b < 3; ++b) {
-                mmarp::DecapBand& bd = ds.band[static_cast<size_t>(b)];
-                bd.style = stp(k[b][0]) - 1; // MAIN : -1
-                bd.drive = ex_[static_cast<size_t>(k[b][1])];
-                bd.mix = ex_[static_cast<size_t>(k[b][2])];
-                bd.level = ex_[static_cast<size_t>(k[b][3])];
-                bd.solo = stp(k[b][4]) == 1;
-                bd.bypass = stp(k[b][5]) == 1;
-            }
+    juce::int64 c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
+    mmarp::ArpFx::Clock fc{};
+    mmarp::ArpShown sh{};
+    if (!modTapOn_) {
+        // Le bloc entier, etage apres etage (v49, au bit pres : aucune cible 32 + k hors du moteur n'est modulee)
+        for (int i = 0; i < n; i += kChunk) {
+            const int len = std::min(kChunk, n - i);
+            // v50 : LFO 3 / LFO 4, sources de la matrice, seulement quand un emplacement les lit
+            if (lfo3On_ || lfo4On_) modLfoChunk(len, ppq + (i + len) * pps, playing, bpm);
+            voy_->process(dryL_.data() + i, dryR_.data() + i, len);
         }
-        ds.envAmt = ex_[mmx::ex_xDEnvAmt];
-        ds.envSpeed = ex_[mmx::ex_xDEnvSpd];
-        ds.lfoShape = stp(mmx::ex_xDLfoShape);
-        ds.lfoHz = stp(mmx::ex_xDLfoSync) == 1 ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xDLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xDLfoRate]);
-        ds.lfoAmt = ex_[mmx::ex_xDLfoAmt];
-        ds.lfoTarget = stp(mmx::ex_xDLfoTarget);
-        ds.preMode = stp(mmx::ex_xDPreMode);
-        ds.preFreq = ex_[mmx::ex_xDPreFreq];
-        ds.preReso = ex_[mmx::ex_xDPreReso];
-        ds.postMode = stp(mmx::ex_xDPostMode);
-        ds.postFreq = ex_[mmx::ex_xDPostFreq];
-        ds.postReso = ex_[mmx::ex_xDPostReso];
-        ds.box = stp(mmx::ex_xDBox);
-        ds.boxSize = ex_[mmx::ex_xDBoxSize];
-        ds.boxMix = ex_[mmx::ex_xDBoxMix];
-        ds.zeroLatency = zlAsked_; // v49 LATENCY ZERO : sans les 32 echantillons de retard
-        // la saturation au niveau de la prise : le gain de VOLUME du site (audio/synth.ts volGain)
-        ds.ref = mmarp::ArpFxLaws::volGain(knobs_[static_cast<size_t>(mmarp::kn_volume)], knobs_[static_cast<size_t>(mmarp::kn_delay)], knobs_[static_cast<size_t>(mmarp::kn_reverb)]);
-        decap_.set(ds);
-        decap_.process(dryL_.data(), dryR_.data(), n);
-        // ATTITUDE (mm_mod, id distoVu) : -20..+3 dB vers 0..1 ; NaN quand la DISTO est contournee
-        distoVu_.store(decap_.active() ? static_cast<float>(std::clamp((decap_.attitudeDb() + 20) / 23, 0.0, 1.0)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
-    }
-    // PUMP suit la position du morceau
-    const juce::int64 c2 = juce::Time::getHighResolutionTicks();
-    fx_.setTransport(ppq, pps, playing);
-    fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
-    const juce::int64 c3 = juce::Time::getHighResolutionTicks();
-    const mmarp::ArpFx::Clock fc = fx_.takeClock();
-    // La note montree par la face (et la note jouee, pour HELL en RANGE MIDI)
-    const mmarp::ArpShown sh = arp_.shownAt(frame_ + n);
-    if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
-    // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0). v46 : HELL v2 (xHellV2 a ON,
-    // les instances neuves) ; un projet d'avant (xHellV2 a OFF) garde l'ancien moteur, ce bloc tel quel, au bit pres.
-    const bool hellV2 = mmx::exStep(mmx::ex_xHellV2, ex_[mmx::ex_xHellV2]) == 1;
-    if (hellV2Was_ >= 0 && hellV2 != (hellV2Was_ == 1)) {
-        // le moteur change : celui qu'on quitte se tait et repartira vide
-        if (hellV2) hell_.reset();
-        else hell2_.stop();
-    }
-    hellV2Was_ = hellV2 ? 1 : 0;
-    if (hellV2) {
-        double hv[mmarp::Hell2::kKeys];
-        for (int k = 0; k < mmarp::Hell2::kKeys; ++k) hv[k] = ex_[static_cast<size_t>(h2Ex_[static_cast<size_t>(k)])];
-        hell2_.set(mmarp::Hell2::settingsOf(hv, ex_[mmx::ex_xHellMix], bpm, hellNoteHz_), bpm);
-        hell2_.process(outL, outR, n, ppq, playing, hellNoteHz_);
-        hellLfo_.store(hell2_.active() ? static_cast<float>(hell2_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+        c1 = juce::Time::getHighResolutionTicks();
+        publishMod();
+        // DISTO facon Decapitator (2026-11-16, portee le 2026-11-17) : juste apres le moteur, avant la chaine du site ; DRIVE 0
+        // ou MM (le depart) : contournee au bit pres (MM : OUTPUT seul, 0 dB au depart). Engagee, 32 echantillons de retard,
+        // non declares a l'hote (comme WARMTH et le FLANGER). v25 : la page complete (dsp/Decap.h) ; la pedale DISTORTION est
+        // masquee et convertie (convertPedal).
+        runDisto(dryL_.data(), dryR_.data(), n, bpm);
+        // PUMP suit la position du morceau
+        c2 = juce::Time::getHighResolutionTicks();
+        fx_.setTransport(ppq, pps, playing);
+        fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
+        c3 = juce::Time::getHighResolutionTicks();
+        fc = fx_.takeClock();
+        // La note montree par la face (et la note jouee, pour HELL en RANGE MIDI)
+        sh = arp_.shownAt(frame_ + n);
+        if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
+        // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0). v46 : HELL v2 (xHellV2 a
+        // ON, les instances neuves) ; un projet d'avant (xHellV2 a OFF) garde l'ancien moteur, au bit pres.
+        runHell(outL, outR, n, ppq, playing, bpm);
+        c4 = juce::Time::getHighResolutionTicks();
+        // v27 : l'EQ parametrique 6 bandes (contourne au neutre, au bit pres), l'analyseur de la page SOUND (PRE ou POST,
+        // seulement quand la page est visible)
+        runEq(outL, outR, n, knobsChanged || eqFresh_);
+        c5 = juce::Time::getHighResolutionTicks();
     } else {
-        const auto on = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]) == 1; };
-        mmarp::HellSettings hs;
-        hs.mix = ex_[mmx::ex_xHellMix];
-        hs.sync = mmx::exStep(mmx::ex_xHellSync, ex_[mmx::ex_xHellSync]);
-        hs.timeMs = mmarp::Hell::timeMsOf(ex_[mmx::ex_xHellTime]);
-        hs.feedback = ex_[mmx::ex_xHellFb];
-        hs.cross = on(mmx::ex_xHellCross);
-        hs.shiftHz = mmarp::Hell::shiftHzFor(ex_[mmx::ex_xHellShift], mmx::exStep(mmx::ex_xHellRange, ex_[mmx::ex_xHellRange]), bpm, hellNoteHz_);
-        hs.upDown = ex_[mmx::ex_xHellUpDown];
-        hs.spread = ex_[mmx::ex_xHellSpread];
-        hs.phase = ex_[mmx::ex_xHellPhase];
-        hs.antiRefl = on(mmx::ex_xHellAntiRefl);
-        hs.smear = ex_[mmx::ex_xHellSmear];
-        hs.hpHz = mmarp::Hell::hpHzOf(ex_[mmx::ex_xHellHp]);
-        hs.lpHz = mmarp::Hell::lpHzOf(ex_[mmx::ex_xHellLp]);
-        hs.lfoHz = on(mmx::ex_xHellLfoSync) ? mmarp::Hell::lfoSyncHz(ex_[mmx::ex_xHellLfoRate], bpm) : mmarp::Hell::lfoHzOf(ex_[mmx::ex_xHellLfoRate]);
-        hs.lfoDepthHz = mmarp::Hell::lfoDepthHzOf(ex_[mmx::ex_xHellLfoDepth]);
-        hs.lfoShape = mmx::exStep(mmx::ex_xHellLfoShape, ex_[mmx::ex_xHellLfoShape]);
-        hs.lfoAmt = 2 * ex_[mmx::ex_xHellLfoAmt] - 1;
-        hs.lfoStereo = on(mmx::ex_xHellLfoStereo);
-        hs.lfoTarget = mmx::exStep(mmx::ex_xHellLfoTarget, ex_[mmx::ex_xHellLfoTarget]);
-        hs.tone = ex_[mmx::ex_xHellTone];
-        hell_.set(hs, bpm);
-        hell_.process(outL, outR, n);
-        // le VU du LFO dans la face (mm_mod, id hellLfo) : NaN quand HELL est coupe
-        hellLfo_.store(hell_.active() ? static_cast<float>(hell_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
-    }
-    const juce::int64 c4 = juce::Time::getHighResolutionTicks();
-    // v27 : l'EQ parametrique 6 bandes (contourne au neutre, au bit pres), l'analyseur de la page SOUND (PRE ou POST,
-    // seulement quand la page est visible)
-    {
-        const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
-        mmarp::EqBandSettings eb[mmarp::ParamEq::kBands];
-        for (int b = 0; (knobsChanged || eqFresh_) && b < mmarp::ParamEq::kBands; ++b) {
-            const int o = b * (mmx::ex_xQ2On - mmx::ex_xQ1On);
-            eb[b].on = st(mmx::ex_xQ1On + o) == 1;
-            eb[b].type = st(mmx::ex_xQ1Type + o);
-            eb[b].hz = mmarp::ParamEq::freqOf(ex_[static_cast<size_t>(mmx::ex_xQ1Freq + o)]);
-            eb[b].db = mmarp::ParamEq::gainDbOf(ex_[static_cast<size_t>(mmx::ex_xQ1Gain + o)]);
-            eb[b].q = mmarp::ParamEq::qOf(ex_[static_cast<size_t>(mmx::ex_xQ1Q + o)]);
-            eb[b].slope = st(mmx::ex_xQ1Slope + o);
+        // v50 : une cible 32 + k hors du moteur est modulee par la matrice : le bloc par tranches de kModTick (32)
+        // echantillons. Pour chacune : le moteur, la contribution de chaque emplacement (modTaps), la valeur effective
+        // de chaque reglage vise (posee dans knobs_ / ex_ : la DISTO, HELL et l'EQ la relisent a chaque tranche, le moteur
+        // et la chaine la recoivent si leur famille a bouge), puis la DISTO, la chaine, HELL, l'EQ.
+        sh = arp_.shownAt(frame_ + n);
+        if (sh.len > 0 && sh.midi >= 0) hellNoteHz_ = 440.0 * std::pow(2.0, (sh.midi - 69) / 12.0);
+        juce::int64 tE = 0, tD = 0, tF = 0, tH = 0, tQ = 0;
+        bool eqSet = knobsChanged || eqFresh_;
+        for (int i = 0; i < n; i += kModTick) {
+            const int len = std::min(kModTick, n - i);
+            const double pq = ppq + i * pps;
+            const juce::int64 a0 = juce::Time::getHighResolutionTicks();
+            if (lfo3On_ || lfo4On_) modLfoChunk(len, ppq + (i + len) * pps, playing, bpm);
+            voy_->process(dryL_.data() + i, dryR_.data() + i, len);
+            modTapsApply(bpm, len, eqSet);
+            const juce::int64 a1 = juce::Time::getHighResolutionTicks();
+            runDisto(dryL_.data() + i, dryR_.data() + i, len, bpm);
+            const juce::int64 a2 = juce::Time::getHighResolutionTicks();
+            fx_.setTransport(pq, pps, playing);
+            fx_.process(dryL_.data() + i, dryR_.data() + i, outL + i, outR + i, len);
+            const juce::int64 a3 = juce::Time::getHighResolutionTicks();
+            runHell(outL + i, outR + i, len, pq, playing, bpm);
+            const juce::int64 a4 = juce::Time::getHighResolutionTicks();
+            runEq(outL + i, outR + i, len, eqSet);
+            eqSet = false;
+            const juce::int64 a5 = juce::Time::getHighResolutionTicks();
+            tE += a1 - a0;
+            tD += a2 - a1;
+            tF += a3 - a2;
+            tH += a4 - a3;
+            tQ += a5 - a4;
         }
-        if (knobsChanged || eqFresh_) peq_.set(eb, mmarp::ParamEq::outDbOf(ex_[mmx::ex_xQOut]), eqFresh_);
-        eqFresh_ = false;
-        const int ana = specOn_.load(std::memory_order_relaxed) ? st(mmx::ex_xQAna) : 0;
-        if (ana == 1) spec_.push(outL, outR, n);
-        peq_.process(outL, outR, n);
-        if (ana == 2) spec_.push(outL, outR, n);
+        publishMod();
+        fc = fx_.takeClock();
+        c1 = cE + tE;
+        c2 = c1 + tD;
+        c3 = c2 + tF;
+        c4 = c3 + tH;
+        c5 = c4 + tQ;
     }
-    const juce::int64 c5 = juce::Time::getHighResolutionTicks();
+    modShow();
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;
 

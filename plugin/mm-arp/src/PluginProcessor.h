@@ -14,6 +14,7 @@
 #include "Hell2.h"
 #include "ParamEq.h"
 #include "ExtraParams.h"
+#include "ModLfo.h"
 #include "Params.h"
 #include "Voyager.h"
 
@@ -119,6 +120,15 @@ public:
     float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
     // ATTITUDE, le VU de la page DISTO (2026-11-17, v25) : 0..1 pour -20..+3 dB dans la saturation ; NaN : DISTO coupee
     float distoVu() const { return distoVu_.load(std::memory_order_relaxed); }
+    // v50, la matrice de modulation (les 8 emplacements xMx) : pour chaque emplacement actif qui vise un reglage hote
+    // (cible 32 + k), l'indice k (mmx, -1 : rien) et la valeur effective normalisee du reglage (l'arc de la face,
+    // mm_tick.m). Ecrits par le thread audio a chaque bloc, lus par le timer de l'editeur.
+    int modShowK(int slot) const { return modShowK_[static_cast<size_t>(slot)].load(std::memory_order_relaxed); }
+    float modShowV(int slot) const { return modShowV_[static_cast<size_t>(slot)].load(std::memory_order_relaxed); }
+    // le banc seulement : la valeur de travail d'un reglage (la valeur effective quand un emplacement le module)
+    double workValue(int k) const { return k < mmarp::kKnobs ? knobs_[static_cast<size_t>(k)] : ex_[static_cast<size_t>(k - mmarp::kKnobs)]; }
+    // le banc seulement : le rendu par tranches de 32 echantillons est-il en service (une cible 32 + k hors du moteur) ?
+    bool modSliced() const { return modTapOn_; }
     // v46 : la position (en noires, ppq) et le tempo du transport au debut du dernier bloc, pour la tete de lecture de la
     // page DELAY (mm_transport) ; -1 quand rien ne joue (ni l'hote, ni l'horloge interne)
     double facePpq() const { return facePpq_.load(std::memory_order_relaxed); }
@@ -245,7 +255,7 @@ private:
     std::array<double, mmx::kExtra> ex_{};
     std::array<double, mmarp::kKnobs> knobs_{};
     std::array<float, mmarp::kKnobs> knobRawLast_{};
-    std::array<mmarp::ParamKV, 96> kv_{};
+    std::array<mmarp::ParamKV, 160> kv_{};
     mmarp::ArpProgram arpBuf_[2];
     int arpCur_ = 0;
     mmarp::ArpFxSettings fxNow_;
@@ -254,7 +264,56 @@ private:
     // QUALITY et la reverb du VST3 (ExtraParams.h)
     std::array<int, 13> xId_{};
     std::array<int, 22> mId_{};
+    // v50 : l1Free, l1Hz, l2Free, l2Hz, puis x1Src, x1Dst, x1Amt ... x8Amt (les cles du moteur)
+    std::array<int, 4 + 3 * mmx::kModSlots> vId_{};
     void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
+    // update() en morceaux (v50 : la matrice les rappelle pour les seules familles modulees) : les reglages du moteur
+    // (bpm compris ou non), la chaine (construite puis posee si elle change), l'arpege
+    int engineKv(double bpm, bool withBpm);
+    void buildFx(double bpm, mmarp::ArpFxSettings& fx, double& dly16);
+    void applyFx(const mmarp::ArpFxSettings& fx, double dly16, double bpm);
+    void buildArp();
+    // l'etage DISTO, HELL (ancien ou v2), l'EQ parametrique : un bloc (v49) ou une tranche (v50)
+    void runDisto(float* L, float* R, int n, double bpm);
+    void runHell(float* L, float* R, int n, double ppq, bool playing, double bpm);
+    void runEq(float* L, float* R, int n, bool set);
+
+    // v50, la matrice de modulation : les 8 emplacements (xMx{n}Src / Dst / Amt) et leur chemin. route : 0 au repos ;
+    // 1 destination synthe (1..19, une ligne du moteur) ; 2 un potard qui a son equivalent par voix (cutoff -> CUTOFF...,
+    // une ligne du moteur, quantite x scale) ; 3 un autre reglage hote (le moteur en calcule la contribution, modTaps, le
+    // processeur l'applique au reglage, par tranches de 32 echantillons)
+    struct ModSlot {
+        int src = 0, code = 0, k = -1, route = 0, dst = 0;
+        double amt = 0, scale = 1;
+    };
+    std::array<ModSlot, mmx::kModSlots> mslot_{};
+    void modRoute();
+    // les reglages modules par une contribution (route 3, ou une ligne qui glisse encore vers 0) : leur valeur hote
+    // gardee (host, et le flottant brut de l'hote pour voir qu'il change), la contribution, la valeur effective
+    // (ecrite dans knobs_ / ex_ a la place de celle de l'hote), la famille (FAM_*)
+    struct ModTgt {
+        int k = -1, fam = 0;
+        bool slow = false; // HELL : la valeur effective glisse en plus (10 ms), voir modTapsApply
+        double host = 0, off = 0, eff = 0, sm = 0;
+        float raw = 0;
+    };
+    static constexpr int kModTgt = 16;
+    std::array<ModTgt, kModTgt> mtgt_{};
+    int nTgt_ = 0;
+    bool modTapOn_ = false;           // le rendu par tranches (une route 3 ou une cible encore modulee)
+    bool lfo3On_ = false, lfo4On_ = false;
+    bool arpDirty_ = false;           // l'arpege a refaire au bloc suivant (GATE, ACCENT, DRIFT, SWING modules)
+    mmarp::DistoLfo lfo3_;
+    mmarp::Lfo4 lfo4_;
+    std::array<std::atomic<int>, mmx::kModSlots> modShowK_{};
+    std::array<std::atomic<float>, mmx::kModSlots> modShowV_{};
+    bool modShowAny_ = false;
+    void modLfoChunk(int n, double ppqEnd, bool playing, double bpm);
+    void modTapsApply(double bpm, int len, bool& eqSet);
+    void modHostSync();
+    void modShow();
+    void modReset();
+    static int modFamily(int k);
     int osAsked_ = 4;
     static int osFor(double sr, double quality, bool exportHq, bool pro);
     // v49 LATENCY (ZERO / EXACT) : le mode demande au dernier bloc ; la latence que le moteur a en ce moment (thread audio),

@@ -87,9 +87,11 @@ jobs:
       - name: Construire le banc
         run: |
           cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-host -j 4 --target mmarp_host_test
+          cmake --build build-host -j 4 --target mmarp_host_test mmarp_mod_test
       - name: Transport, programme, MIDI, etat du projet, reproductibilite
         run: ./build-host/mmarp_host_test_artefacts/Release/mmarp_host_test
+      - name: "Matrice de modulation v50 (xMx) : rien d'actif au bit pres, xMx = xM au bit pres, LFO 1 / 2 FREE, LFO 3 et 4, 13 sources, une cible par famille (valeur, effet, clic, allocations)"
+        run: ./build-host/mmarp_mod_test_artefacts/Release/mmarp_mod_test
 
   # 2026-11-18 (Mika : "juste pour la reduction c'est 15 minutes ?!") : le Mac compile EN MEME TEMPS que les tests (plus
   # de needs) et avec ccache (seuls les fichiers touches se recompilent) ; la publication attend tout (job publish).

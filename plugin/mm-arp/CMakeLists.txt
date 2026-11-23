@@ -104,6 +104,13 @@ if(MM_HOST_TEST)
   target_compile_definitions(mmarp_host_test PRIVATE MMARP_HEADLESS=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
   target_link_libraries(mmarp_host_test PRIVATE mmarp_dsp juce::juce_audio_processors juce::juce_audio_utils
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+  # v50 : la matrice de modulation de l'encart LFO (xMx), LFO 1 / 2 FREE, LFO 3 et LFO 4 (tests/mod_test.cpp)
+  juce_add_console_app(mmarp_mod_test PRODUCT_NAME "mmarp_mod_test")
+  target_sources(mmarp_mod_test PRIVATE src/PluginProcessor.cpp tests/mod_test.cpp)
+  target_include_directories(mmarp_mod_test PRIVATE src)
+  target_compile_definitions(mmarp_mod_test PRIVATE MMARP_HEADLESS=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+  target_link_libraries(mmarp_mod_test PRIVATE mmarp_dsp juce::juce_audio_processors juce::juce_audio_utils
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
   # v31 : le banc CPU (tests/cpu_bench.cpp), le meme processeur sans fenetre, chaque preset en HQ et en STD
   juce_add_console_app(mmarp_cpu_bench PRODUCT_NAME "mmarp_cpu_bench")
   target_sources(mmarp_cpu_bench PRIVATE src/PluginProcessor.cpp tests/cpu_bench.cpp)
