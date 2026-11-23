@@ -512,6 +512,8 @@ export class Stage {
   private contextLost = false;
   private docHidden = false;
   private offscreen = false;
+  /** v49 (le plugin MM-ARP) : la carte d'OPEN, opaque, couvre toute la fenetre : plus aucune image (setCovered) */
+  private covered = false;
   private paused = false;
   private ro: ResizeObserver;
   private io: IntersectionObserver | null = null;
@@ -1188,7 +1190,9 @@ export class Stage {
 
     // Plus rien ne touche au GL d'ici la fin du constructeur : un echec plus
     // haut ne laisse donc aucun ecouteur accroche
-    this.screen.listen();
+    // v49 (le plugin MM-ARP, Mika : "soulager au max le CPU") : l'ecran de la 808 n'y est jamais montre (le MM-ARP seul) ;
+    // sans ses abonnements il ne se redessine plus (5 images par seconde au repos avant : sa vague et ses minuteurs)
+    if (!PLUGIN_ARP) this.screen.listen();
     this.orbit.listen();
     this.syncMotion();
     this.unsubMotion = motion.subscribe(this.syncMotion);
@@ -3709,8 +3713,19 @@ export class Stage {
     if (motion.reduced()) this.finishIntro();
   };
 
+  /**
+   * v49 (le plugin MM-ARP) : la carte d'OPEN couvre toute la fenetre (HoodBoard.tsx, phase open) : la scene, cachee
+   * dessous, ne rend plus rien (avant : 15 images par seconde pour la touche OPEN qui respire sous la carte) ; decouverte,
+   * elle se redessine aussitot. Sans effet hors du plugin MM-ARP.
+   */
+  setCovered(on: boolean): void {
+    if (!PLUGIN_ARP || on === this.covered) return;
+    this.covered = on;
+    this.setPaused();
+  }
+
   private setPaused(): void {
-    const paused = this.docHidden || this.offscreen;
+    const paused = this.docHidden || this.offscreen || this.covered;
     if (paused === this.paused) return;
     this.paused = paused;
     this.opts.onVisibility?.(!paused);

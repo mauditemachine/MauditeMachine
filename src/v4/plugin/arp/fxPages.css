@@ -5,6 +5,12 @@
  */
 
 /* ---------------- DELAY ---------------- */
+/* v49 : la tete et sa lueur dans leur couche, deplacee par le compositeur (DelayPage2.tsx usePlayhead) */
+.mm-plugin-arp .mm-fx2-echo .mm-fx2-headlayer {
+  will-change: transform;
+  pointer-events: none;
+}
+
 .mm-plugin-arp .mm-fx2-echo .head[data-host='1'] {
   stroke: color-mix(in srgb, var(--mm-accent) 35%, #fff);
   stroke-width: 1.4;

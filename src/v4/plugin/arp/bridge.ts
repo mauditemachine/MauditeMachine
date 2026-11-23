@@ -29,6 +29,12 @@
  *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?, cancelled?},
  *                 mm_drag_status {ok, msg}, mm_midimap {items: {cc, ch, id}[], learn}
  *
+ * v49 (Mika : "soulager au max le CPU et eviter a tout prix la latence") : ce qui partait a chaque tick du C++ en cinq
+ * evenements (mm_knobs, mm_mod, mm_transport, mm_cpu, mm_spec) part en un seul, mm_tick {k?, m?, t?, c?, s?}, et seulement
+ * ce qui a change (PluginEditor.cpp) : un seul appel a la WebView par tick, aucun au repos (sauf un par seconde). La face
+ * dit au C++ si elle est a l'ecran (mm_vis {on}, document.visibilityState) : cachee, plus rien ne part. Les anciens
+ * evenements restent ecoutes.
+ *
  * Le capot (2026-11-09, plugin/arp/HoodPanel.tsx) : DRAG MIDI (mm_drag_midi part une fois, des que le pointeur enfonce sur
  * la poignee a bouge de 4 px : le C++ lance le glisser natif du fichier depuis l'evenement souris en cours), SAVE .MID, et
  * MIDI LEARN (plugin/arp/midimap.ts) : le mode LEARN du site (midi/midi.ts learnToggle) fait choisir un potard d'un clic
@@ -177,6 +183,21 @@ function onTransport(o: unknown): void {
   arpExternal.head(h);
   // Les boucles de rendu se reveillent (scene/renderer.ts : extHead.onWake)
   extHead.wake();
+}
+
+/**
+ * v49 : le tick du C++ (PluginEditor.cpp timerCallback), seulement ce qui a change : k les potards bouges par l'hote
+ * (comme mm_knobs.values), m les arcs (comme mm_mod), c le CPU (comme mm_cpu), s l'analyseur (les bandes de mm_spec),
+ * t la tete (comme mm_transport, en dernier : elle reveille la scene).
+ */
+function onTick(o: unknown): void {
+  if (!o || typeof o !== 'object') return;
+  const x = o as { k?: unknown; m?: unknown; t?: unknown; c?: unknown; s?: unknown };
+  if (x.k) onKnobs({ values: x.k });
+  if (x.m) arpMod.receive(x.m);
+  if (x.c) cpuStore.receive(x.c);
+  if (x.s) arpSpec.receive({ b: x.s });
+  if (x.t) onTransport(x.t);
 }
 
 /* ---------------- l'etat (les cles du site) ---------------- */
@@ -605,6 +626,8 @@ export const arpBridge = {
     be?.addEventListener('mm_spec', (o) => arpSpec.receive(o));
     // v31 : le compteur CPU de cette instance (PluginEditor.cpp, 10 fois par seconde)
     be?.addEventListener('mm_cpu', (o) => cpuStore.receive(o));
+    // v49 : tout ce qui change a chaque tick du C++, en un seul evenement
+    be?.addEventListener('mm_tick', onTick);
     arpSpec.onView((on) => send('mm_view', { spec: on }));
     midi.subscribe(onLearnPick);
     // Echap eteint MIDI LEARN d'abord (avant hooks/useKeys : le capot reste ouvert), sauf pendant le nom d'un preset
@@ -667,6 +690,11 @@ export const arpBridge = {
     sendProgram();
     sendState();
     send('mm_preset_list', {});
+    // v49 : la page a l'ecran ou non (fenetre recouverte, reduite, Live au second plan) : cachee, le C++ n'envoie plus rien
+    // (et l'analyseur s'arrete) ; revenue, il renvoie tout ce qui a change entre-temps
+    const vis = (): void => send('mm_vis', { on: document.visibilityState !== 'hidden' });
+    document.addEventListener('visibilitychange', vis);
+    if (document.visibilityState === 'hidden') vis();
   },
   /** Le transport du C++ est-il l'horloge interne (Ableton arrete) ? */
   internal: (): boolean => internal,

@@ -115,35 +115,69 @@ const vuPos = (d: number): number => {
   return ((Math.pow(10, Math.min(VU_HI + 1, Math.max(VU_LO - 6, d)) / 20) - a) / (b - a)) * 2 - 1;
 };
 
-/** Le VU a aiguille (celui de HELL) : ce qui entre dans la saturation, -20 a +3 dB, l'aiguille avec un rien d'inertie. */
+/** Le VU : sa geometrie (px du cadre), l'aiguille au point v (-1..1) du cadran, au rayon r. */
+const VU_W = 150;
+const VU_H = 112;
+const VU_PX = VU_W / 2;
+const VU_PY = VU_H - 22;
+const VU_R = 70;
+const vuArc = (v: number, r: number): [number, number] => {
+  const t = ((v * 42 - 90) * Math.PI) / 180;
+  return [VU_PX + Math.cos(t) * r, VU_PY + Math.sin(t) * r];
+};
+
+/**
+ * Le VU a aiguille (celui de HELL) : ce qui entre dans la saturation, -20 a +3 dB, l'aiguille avec un rien d'inertie.
+ * v49 (Mika : "soulager au max le CPU") : la meme aiguille, au meme pas d'image, mais deplacee seule (ses deux attributs,
+ * sans redessiner le cadran par React a chaque image) et seulement tant qu'elle bouge : posee, la boucle s'arrete (avant :
+ * 60 rendus par seconde, meme au repos) ; une nouvelle valeur la relance.
+ */
 export const AttitudeVu: React.FC = () => {
   const target = useVu();
-  const [x, setX] = useState(-1);
+  const needle = useRef<SVGLineElement>(null);
   const st = useRef({ x: -1, v: 0, goal: -1, raf: 0, t: 0 });
-  st.current.goal = target === null ? -1.05 : vuPos(target * (VU_HI - VU_LO) + VU_LO);
+  const goal = target === null ? -1.05 : vuPos(target * (VU_HI - VU_LO) + VU_LO);
+  st.current.goal = goal;
   useEffect(() => {
     const s = st.current;
+    if (s.raf) return;
+    if (Math.abs(s.goal - s.x) < 1e-4 && Math.abs(s.v) < 1e-3) return;
     const step = (now: number): void => {
       const dt = Math.min(0.05, s.t ? (now - s.t) / 1000 : 0.016);
       s.t = now;
       const w = 12;
       s.v += (w * w * (s.goal - s.x) - 2 * 0.75 * w * s.v) * dt;
       s.x = Math.max(-1.08, Math.min(1.08, s.x + s.v * dt));
-      setX(s.x);
+      const el = needle.current;
+      if (el) {
+        const [nx, ny] = vuArc(s.x, VU_R - 6);
+        el.setAttribute('x2', String(nx));
+        el.setAttribute('y2', String(ny));
+      }
+      // posee (a 1 / 10 000 du cadran, immobile) : plus d'image jusqu'a la prochaine valeur
+      if (Math.abs(s.goal - s.x) < 1e-4 && Math.abs(s.v) < 1e-3) {
+        s.raf = 0;
+        s.t = 0;
+        return;
+      }
       s.raf = window.requestAnimationFrame(step);
     };
     s.raf = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(s.raf);
+  }, [goal]);
+  useEffect(() => {
+    const s = st.current;
+    return () => {
+      window.cancelAnimationFrame(s.raf);
+      s.raf = 0;
+    };
   }, []);
-  const W = 150;
-  const H = 112;
-  const px = W / 2;
-  const py = H - 22;
-  const R = 70;
-  const arc = (v: number, r: number): [number, number] => {
-    const t = ((v * 42 - 90) * Math.PI) / 180;
-    return [px + Math.cos(t) * r, py + Math.sin(t) * r];
-  };
+  const W = VU_W;
+  const H = VU_H;
+  const px = VU_PX;
+  const py = VU_PY;
+  const R = VU_R;
+  const arc = vuArc;
+  const x = st.current.x;
   const marks = [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3];
   const labels: [number, string][] = [
     [-20, '20'],
@@ -178,7 +212,7 @@ export const AttitudeVu: React.FC = () => {
           <text x={px} y={py - 15} className="mm-hell-vu-brand">
             MAUDITE MACHINE
           </text>
-          <line x1={px} y1={py} x2={nx} y2={ny} className="mm-hell-vu-needle" />
+          <line ref={needle} x1={px} y1={py} x2={nx} y2={ny} className="mm-hell-vu-needle" />
           <circle cx={px} cy={py} r={7} className="mm-hell-vu-pivot" />
         </svg>
         <span className="mm-hell-vu-glass" aria-hidden="true" />

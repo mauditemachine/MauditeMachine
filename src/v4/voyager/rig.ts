@@ -567,7 +567,9 @@ export class VoyagerRig {
         res = 'paint';
       }
     } else {
-      res = 'poll';
+      // v49 (le plugin MM-ARP) : la tete est celle du C++, elle ne bouge qu'a un mm_transport, qui reveille la boucle
+      // (plugin/head.ts extHead.wake) : plus de relecture a 30 images par seconde entre deux pas (le site lit l'horloge)
+      res = PLUGIN_ARP ? false : 'poll';
       // L'heure de l'arpege : celle du contexte audio, ou (le plugin MM-ARP) la tete du C++ (voyager/arp.ts arpNow)
       const at = arpNow();
       const n = at !== null ? arp.noteAt(at) : null;
