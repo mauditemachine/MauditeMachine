@@ -15,7 +15,7 @@ import { VOY_FACE_KNOBS, type VoyKnobId } from '../../voyager/params';
 import { VOY_KNOB, voyKnobPlace } from '../../voyager/theme';
 import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { editor } from '../../state/editor';
-import { faceArcPlaces, FLUTED } from './faceExtras';
+import { arcPlaceOf, encartPage, FLUTED } from './faceExtras';
 import { FLUTED_DIALS } from '../../voyager/knobs';
 
 const FACE_IDS: ReadonlySet<string> = new Set(VOY_FACE_KNOBS.map((k) => k.id));
@@ -29,7 +29,7 @@ const N = 120;
 function arcPoints(stage: Stage, id: VoyKnobId): [number, number][] | null {
   const rig = stage.voy;
   if (!rig) return null;
-  const extra = faceArcPlaces.get(id);
+  const extra = arcPlaceOf(id)?.p;
   const pl = extra ? { x: extra.x, z: extra.z, s: 1, where: 'panel' as const } : voyKnobPlace(id);
   const layer = extra ? extra.layer : pl.where === 'panel' ? rig.panel : rig.lid;
   layer.updateWorldMatrix(true, false);
@@ -63,10 +63,13 @@ export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     return () => window.removeEventListener('resize', on);
   }, []);
   const edit = useEdit();
+  // v50 : la page montree de l'encart (ses potards ont leurs arcs tant qu'elle l'est)
+  const page = useSyncExternalStore(encartPage.subscribe, encartPage.get, encartPage.get);
   // les potards de la face ; DETUNE ; les pieces de l'encart tant qu'il est monte (EDIT)
-  const ids = [...mods.keys()].filter((id) => FACE_IDS.has(id) || (faceArcPlaces.get(id)?.live() ?? false));
+  // v50 : un reglage hors de la face (l'encart, HELL, DETUNE, SPREAD) : sa place vivante (faceExtras.tsx faceArcPlaces)
+  const ids = [...mods.keys()].filter((id) => FACE_IDS.has(id) || arcPlaceOf(id) !== null);
   if (!stage || hood !== 'closed' || ids.length === 0) return null;
-  const key = (id: string): string => `${id}|${size}|${edit === 'voy' ? 'e' : ''}`;
+  const key = (id: string): string => `${id}|${size}|${edit === 'voy' ? 'e' : ''}|${page}|${arcPlaceOf(id)?.i ?? -1}`;
   const k = window.innerWidth / 1100;
   const w = 3 * k;
   return (

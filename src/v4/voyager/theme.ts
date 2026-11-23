@@ -29,7 +29,7 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { MQ50, ORBIT, PCB, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
+import { ORBIT, PCB, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
@@ -192,10 +192,11 @@ const spread = (a: number, b: number, n: number): number[] => Array.from({ lengt
 const DESK_RC_X = spread(-5.93, DESK_OSC.fm, 6);
 const DESK_EG = [1.12, 1.84, 2.56, 3.28] as const;
 /**
- * v50 (MAQUETTE ?mq50, le plugin seul) : MOD quitte la face (l'encart d'EDIT), FILTER EG reste sur la rangee du haut,
- * AMP EG descend entre l'ancienne rangee du milieu et celle du bas : les deux enveloppes respirent, rien d'autre ne bouge.
+ * v50 (le plugin MM-ARP seul) : MOD quitte la face (l'encart d'EDIT), FILTER EG reste sur la rangee du haut, AMP EG
+ * descend entre l'ancienne rangee du milieu et celle du bas : les deux enveloppes respirent, rien d'autre ne bouge. Le
+ * site ne change pas.
  */
-const DESK_AMP_Z = MQ50 ? 1.16 : RB;
+const DESK_AMP_Z = PLUGIN_ARP ? 1.16 : RB;
 const DESK_FX = [4.02, 4.72] as const;
 const DESK_FILTER_X = -0.15;
 const DESK_OUT_X = 5.66;
@@ -490,7 +491,7 @@ const betweenRows = (r: number): number => {
   const sr = VOY_KNOB.skirt.r * SIZE_SCALE.s;
   return (DESK_ROWS[r] + sr + 0.13 + DESK_ROWS[r + 1] - sr) / 2;
 };
-/** v50 (maquette) : le meme milieu entre deux rangees de petits potards quelconques. */
+/** v50 (le plugin) : le meme milieu entre deux rangees de petits potards quelconques. */
 const betweenZ = (a: number, b: number): number => {
   const sr = VOY_KNOB.skirt.r * SIZE_SCALE.s;
   return (a + sr + 0.13 + b - sr) / 2;
@@ -507,8 +508,8 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
       { text: 'OSCILLATORS', x: (-6.25 + DESK_RULES_X[0]) / 2, z: DESK_TITLE_Z },
       { text: 'FILTER', x: DESK_FILTER_X, z: DESK_TITLE_Z },
       { text: 'FILTER EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: DESK_TITLE_Z },
-      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: MQ50 ? betweenZ(RA, DESK_AMP_Z) : betweenRows(0) },
-      ...(MQ50 ? [] : [{ text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) }]),
+      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: PLUGIN_ARP ? betweenZ(RA, DESK_AMP_Z) : betweenRows(0) },
+      ...(PLUGIN_ARP ? [] : [{ text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) }]),
       { text: 'EFFECTS', x: (DESK_FX[0] + DESK_FX[1]) / 2, z: DESK_TITLE_Z },
       { text: 'OUTPUT', x: DESK_OUT_X, z: DESK_TITLE_Z },
     ];

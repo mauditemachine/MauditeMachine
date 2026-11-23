@@ -76,20 +76,6 @@ export const PLUGIN_KIND: PluginKind | null = PLUGIN_FLAG === null ? null : PLUG
 /** Le plugin MM-ARP (raccourci de PLUGIN_KIND === 'arp'). */
 export const PLUGIN_ARP: boolean = PLUGIN_KIND === 'arp';
 /**
- * v50 (MAQUETTE, 2026-11-23, Mika : "tous les LFO dans la partie du bas EDIT ... assignables partout avec un target") :
- * ?mq50=A|B|C|SQ|aim, le plugin MM-ARP seul (plugin/arp/mq50.tsx) ; null partout ailleurs, et sans le drapeau la face
- * reste celle de la v49. Une maquette pour choisir, pas la livraison.
- */
-export const MQ50: string | null = (() => {
-  if (!PLUGIN_ARP || typeof window === 'undefined') return null;
-  try {
-    const q = new URLSearchParams(window.location.search).get('mq50');
-    return q && /^(A|B|C|SQ|aim)$/.test(q) ? q : null;
-  } catch {
-    return null;
-  }
-})();
-/**
  * v27 (Mika, v26 : l'orange "boring" devient un jaune vif ; v30, 2026-11-18 : "a la place du jaune cette couleur
  * FF0066") : LA couleur d'accent du plugin MM-ARP, un seul jeton : la
  * face 3D (theme.ts HEX.orange, PAD_GLOW) et OPEN (la variable CSS --mm-accent, posee par plugin/arp/accent.ts).

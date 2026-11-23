@@ -74,7 +74,7 @@
  * (lfoShapeStep, foldLegacyKnobs).
  */
 
-import { MQ50 } from '../theme/base';
+import { PLUGIN_ARP } from '../theme/base';
 
 export type VoyKnobId =
   | 'rate'
@@ -378,10 +378,10 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
-// v50 (MAQUETTE ?mq50, le plugin seul : theme/base.ts MQ50) : la section MOD quitte la face, ses quatre reglages vont
-// a l'encart d'EDIT (LFO 1) ; sans le drapeau, rien ne change
-const MQ50_OFF_FACE: ReadonlySet<string> = new Set(MQ50 ? ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'] : []);
-export const VOY_FACE_KNOBS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section !== 'tweak' && !MQ50_OFF_FACE.has(k.id));
+// v50 (le plugin MM-ARP seul, Mika : "C et SQ ok, go") : la section MOD quitte la face, ses reglages vont a l'encart d'EDIT
+// (LFO 1 et la MOD MATRIX : plugin/arp/encart50.ts) ; le site ne change pas
+const ARP_OFF_FACE: ReadonlySet<string> = new Set(PLUGIN_ARP ? ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'] : []);
+export const VOY_FACE_KNOBS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section !== 'tweak' && !ARP_OFF_FACE.has(k.id));
 export const VOY_TWEAKS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section === 'tweak');
 
 /** PHASE : sous ce seuil, FREE ; au-dessus, la phase de depart (0 a 1 cycle). */

@@ -19,7 +19,7 @@ import { PLUGIN_ACCENT } from './theme/base';
 import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PLUGIN_ARP, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
-export { MQ50, PLUGIN, PLUGIN_ARP, PLUGIN_KIND, type PluginKind, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
+export { PLUGIN, PLUGIN_ARP, PLUGIN_KIND, type PluginKind, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
 export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadSpec, PageKnobId, FaceKnobId, EncPlace, KeyLabelSpec, SilkText, SilkLogoId } from './theme/base';
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */

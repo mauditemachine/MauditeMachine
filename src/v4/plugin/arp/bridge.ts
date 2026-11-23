@@ -86,6 +86,8 @@ import { delayFromOld } from './delay';
 import { arpSpec } from './spec';
 import { cpuStore } from './cpu';
 import { arpSteps, stepLive } from './steps';
+import { modAim, modView } from './modRoutes';
+import { modMenu } from './modMenu';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -668,13 +670,17 @@ export const arpBridge = {
     // C++ rend le clavier a l'hote (le clavier MIDI d'ordinateur d'Ableton). Pas s'il est ailleurs (la fenetre du plugin
     // n'a pas le clavier : document.hasFocus faux) ni si un champ de texte l'a (le nom d'un preset sur le disque)
     let keysOn = false;
-    presetMode.subscribe(() => {
-      const on = presetMode.on('voy');
+    // v50 : aussi tant qu'une assignation au viseur attend son clic ou qu'un menu de l'encart est ouvert (Echap les ferme)
+    const keysSync = (): void => {
+      const on = presetMode.on('voy') || modAim.on() || modMenu.get() !== null;
       if (on === keysOn) return;
       keysOn = on;
       if (!on && (!document.hasFocus() || isTyping())) return;
       send('mm_keys', { on });
-    });
+    };
+    presetMode.subscribe(keysSync);
+    modView.subscribe(keysSync);
+    modMenu.subscribe(keysSync);
     // Les gestes : un pointeur enfonce tient le geste des potards qui changent, relache il le ferme
     const opts = { capture: true, passive: true } as const;
     window.addEventListener('pointerdown', (e) => {

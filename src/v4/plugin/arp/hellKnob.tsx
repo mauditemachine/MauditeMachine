@@ -29,7 +29,7 @@ import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
 import { hoodPage, type HoodFx, type HoodTab } from './hoodPage';
-import { encartTap } from './faceExtras';
+import { aimTap, encartTap } from './faceExtras';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT } from './vknobFace';
 
@@ -102,6 +102,8 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     };
     stage.hit.add([def]);
     faceDbl.set((dial) => {
+      // v50 : une assignation au viseur en cours (modRoutes.ts) : le potard clique devient la cible
+      if (aimTap(dial)) return true;
       if (encartTap(dial)) return true;
       const pg = pageOf(dial);
       if (!pg) return false;
