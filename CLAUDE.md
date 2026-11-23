@@ -92,7 +92,7 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v48, 2026-11-20) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v49, 2026-11-23 ; v48 le 2026-11-20) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
   accent reglable (SETTINGS), pads = 7 fondamentales de F#m (G#ø), liste
   des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
@@ -101,8 +101,11 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   facon Echo, cale sur le ppq de l'hote), HELL v2 (vortex, six cercles,
   xHellV2..xHellDescent), REVERB A (cascade 3D, EQ / WIDTH / DUCK /
   FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END).
-  Encart EDIT : SYNTH | LFO | FX MOD. 263 parametres hote. Banque d'usine
-  v45 seche. Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
+  Encart EDIT : SYNTH | LFO | FX MOD. 264 parametres hote (dernier :
+  xLatency, LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
+  change par un preset). Banque d'usine v45 seche. Moteurs CLASSIC / PRO,
+  QUALITY ECO/STD/HQ, 8 voix. v49 : face au repos (mm_tick unique, rien
+  face cachee), demi-bandes RII a phase minimale (dsp/Halfband.h).
 - Regle : une refonte n'est "faite" que si elle est la page PAR DEFAUT du
   build publie ; une maquette derriere un drapeau d'URL ne compte pas
   (Mika, 2026-11-20 : "t'as rien branle", il ne voyait rien changer).

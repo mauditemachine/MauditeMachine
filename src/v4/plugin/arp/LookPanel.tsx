@@ -246,6 +246,10 @@ const Panel: React.FC<{ style: React.CSSProperties; where: 'face' | 'hood'; anch
         <PcbStep id="xQuality" name="QUALITY" ref_="" w={70} />
         <PcbToggle id="xExportHq" name="EXPORT HQ" ref_="" w={66} />
       </div>
+      {/* v49 (Mika : "le moins de ms possible") : ZERO, aucune latence declaree a Ableton ; EXACT, le son d'avant au bit pres */}
+      <div className="mm-look-pieces">
+        <PcbToggle id="xLatency" name="LATENCY" ref_="" w={66} />
+      </div>
       <div className="mm-look-sub">MIDI IN</div>
       <div className="mm-look-pieces">
         <PcbStep id="xMidiIn" name="MIDI IN" ref_="" w={110} />

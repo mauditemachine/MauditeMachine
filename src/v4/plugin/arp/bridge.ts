@@ -393,6 +393,8 @@ function applyExtra(raw: unknown): void {
   // v46 : un preset d'avant HELL v2 qui se servait de HELL (MIX au-dessus de 0) garde l'ancien HELL, son son
   const oldHell = typeof x.xHellV2 !== 'number' && typeof x.xHellMix === 'number' && x.xHellMix > 0;
   for (const id of EXTRA_IDS) {
+    // v49 : LATENCY est un reglage de l'instance (comme QUALITY dans SETTINGS) : aucun preset ne le change
+    if (id === 'xLatency') continue;
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
     // un preset d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
@@ -727,6 +729,7 @@ export const arpBridge = {
     const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
     delete extra.xQuality;
     delete extra.xEngine; // v34 : un preset d'usine ne change pas le moteur de l'instance
+    delete extra.xLatency; // v49 : ni sa latence
     // v43 : la progression de factory.json en indices du site (sans chordBank) est convertie, comme un preset d'avant
     const bank = p.chordBank !== undefined ? { chordBank: p.chordBank } : {};
     const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, ...bank, extra, ...(p.steps ? { steps: p.steps } : {}) }));

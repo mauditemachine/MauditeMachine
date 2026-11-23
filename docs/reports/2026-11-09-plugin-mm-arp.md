@@ -942,3 +942,31 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   arp_test (nouveau controle skip / dur).
 - A verifier sur le Mac : les leviers de l'encart (essai automatique capricieux en rendu logiciel), le glisser vertical
   de NOTES (A3 -> A6 en 50 px, a adoucir si trop sensible), la langue des libelles (anglais comme le reste de la face).
+
+## 2026-11-23 : v49, optimisation CPU et latence (LATENCY ZERO, face au repos)
+
+- Mika : "Je voudrais que tu optimise a fond ! je veux soulager au max le CPU et eviter a tout prix la latence sur
+  ableton le moins de ms possible."
+- Nouveau parametre hote en fin de liste : xLatency (LATENCY EXACT / ZERO, indice 263, 264 reglages). Instances neuves
+  et banque d'usine : ZERO ; projet d'avant (sans ce reglage) : EXACT, son son au bit pres (500 empreintes identiques a
+  v48). Aucun preset (usine ou disque) ne change LATENCY : c'est un reglage de l'instance, touche dans SETTINGS sous
+  ENGINE (sa propre ligne : la ligne ENGINE debordait a quatre).
+- Latence : ZERO declare 0 echantillon a tout taux, temps reel et export (avant 16 / 19 / 21 selon QUALITY) ; la DISTO
+  (+32) et WARMTH (+39) n'ajoutent plus de retard cache. Pire cas avant : 90 echantillons (2 ms) dont 71 non compenses
+  par Ableton. Bug corrige : changer QUALITY ou ENGINE en jouant changeait la latence sans la declarer (EXACT la
+  redeclare). Methode : demi-bandes RII a phase minimale (dsp/Halfband.h, facon HIIR, en double) a la place des
+  decimateurs a phase lineaire ; DISTO multibande en phase, sec de MIX par le meme aller-retour. Ecart au son d'EXACT :
+  0,024 dB au pire par tiers d'octave, repliement au pire -95 dB (mieux qu'avant).
+- CPU moteur (ZERO) : effets lourds -22 %, DISTO -23 %, WARMTH -20 %, reverbe HALL par defaut -14 % (BigSky modulee par
+  phaseurs), banque PRO -7 %, cas 8 voix de Mika -5 % (le moteur 8 voix reste l'essentiel : pow / exp / tan non touches,
+  faute de garantie au bit pres), instance a l'arret -20 %. Le DELAY du site s'endort a envoi nul.
+- CPU face : un seul evenement mm_tick par tick du C++ (seulement ce qui change ; au repos un appel par seconde), plus
+  rien face cachee (mm_vis, isShowing ; minuteur a 4 Hz, analyseur coupe), scene 3D en pause sous la carte d'OPEN, ecran
+  de la 808 desabonne, VU de la DISTO / tete du DELAY / anneaux de HELL dans leurs couches (loop30.ts). Repos : face
+  fermee 142 -> 15 ms/s WebKit, pages OPEN SOUND / DISTO / REVERB / SEQ 600-1100 -> environ 9. Compteur CPU a 5 Hz.
+- Defaut QUALITY garde a STD (PRO ECO : -27 % de CPU mais aigus nettement plus sombres, a proposer a Mika).
+- Tests : CI DSP complete, voyager_compare 85/85 et --blocks, nouveau latency_test (workflow), host_test (6 controles
+  v49), face 34/34 en Chromium muet, captures avant / apres identiques. tsc 105.
+- Rapports detailles : docs/reports/2026-11-23-optimisation-dsp.md, docs/reports/2026-11-23-optimisation-face.md.
+- A verifier sur le Mac : compteur CPU d'Ableton sur DELAY et HELL (composition GPU), la face qui se coupe bien fenetre
+  recouverte, LATENCY affiche 0 dans Live (ancien projet : passer LATENCY a ZERO dans SETTINGS).
