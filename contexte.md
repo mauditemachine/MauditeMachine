@@ -1,0 +1,55 @@
+# CONTEXTE : mauditemachine.com
+
+Fichier maitre de l'etat en ligne et des chantiers recents, lu au demarrage par **Claude Code** (`CLAUDE.md`) et **Antigravity / Gemini** (`AGENTS.md`).
+Derniere mise a jour : **23 novembre 2026**.
+
+Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, dates, press kit), mettre ce fichier a jour dans la meme PR.
+
+---
+
+## 1. Etat general en production (`https://mauditemachine.com`)
+
+- **Branche `main`** : stable, deployee automatiquement sur GitHub Pages via `.github/workflows/pages.yml` (`build` + `deploy` + `indexnow`).
+- **Versions firmware des machines (`src/v4/firmware.json`)** :
+  - `MM-RYTM` (`mm808`) : **V.7.3** (367 fichiers) - synchronisation SOLO/MUTE, selection directe de piste, allegement CPU mobile pendant la lecture pour eviter les craquements audio.
+  - `MM-ARP` (`voy`) : **V.2.6** (26 fichiers) - bouton presets accessible et interface mobile epuree.
+  - `MM-BASS` (`bass`) : **V.3.0** (24 fichiers) - accessible sous `?bass=1`.
+  - `MM-DECKS` (`src/v4/dj/`) : controle du pitch / tempo actif y compris sur les morceaux personnalises (`FILES`) charges par l'utilisateur.
+- **Contact & Mobile (mi-novembre 2026)** :
+  - Fenetre de contact directe et epuree (`/contact/`).
+  - Version telephone allegée : RYTM et ARP epures, lecteur `TRACKS` avec pochettes Bandcamp, visionneuse Press Kit et contact fluides.
+
+---
+
+## 2. Positionnement international & Referencement SEO (18 nov 2026, PR #11 et #12)
+
+Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « Sud de la France », « Montreal » comme base) partout et de viser la 1re place SEO :
+
+- **Titres et descriptions (`src/data/seo-meta.json`, `index.html`)** :
+  - EN `/` : `Maudite Machine | Dark Disco & Indie Dance DJ · MM-STUDIO` (Maudite Machine en tete sans cannibaliser `/mm-studio/`).
+  - FR `/fr/` : `Maudite Machine | DJ dark disco et indie dance`.
+  - ES `/es/` : `Maudite Machine | DJ de dark disco e indie dance`.
+- **JSON-LD & Entites (`scripts/seo-shared.mjs`)** :
+  - 260 blocs Schema.org valides sur les 104 pages HTML prerendues.
+  - `MusicGroup` enrichi avec `image`, `member` (`Person` : Michael "Mika" Sanchez), `knowsLanguage` (`fr`, `en`, `es`) et `areaServed: "Worldwide"`.
+  - Suppression de `<meta name="geo.placename">` et de toutes les mentions locales residuelles dans `scripts/mm-studio-content.mjs`, `public/llms.txt` et `public/manifest.json`.
+- **Press Kit 2027 & Tech Rider (`docs/presskit-2027/content.mjs`)** :
+  - `Territory: International` et `Departure: International (Worldwide)`.
+  - Tous les binaires ont ete regeneres et publies : `public/Presskit_Maudite_Machine_2027_generic.pdf`, `public/Presskit_Maudite_Machine_2027.pdf`, `public/Presskit_Maudite_Machine_2026-27.pdf`, `public/Tech_Rider_Maudite_Machine_2026-27.pdf`, les 6 WebP de `/presskit/` et `bio.txt` dans `public/press/maudite-machine-press-kit.zip`.
+- **Pages de rythmes (`scripts/mm-studio-patterns.mjs`)** :
+  - Les 12 pages `acid-house`, `dark-disco`, `indie-dance` et `minimal` (EN/FR/ES) ont ete alignees sur les pas exacts de `src/v4/state/factory.ts` (0 avertissement au build).
+
+---
+
+## 3. Dates de shows a venir (`public/events.json`)
+
+- **19 decembre 2026** : **PRISM** - Quebec, QC (`venue: "PRISM"`, `city: "Québec"`, `country: "CA"`), visible dans l'encart `SHOWS`, sur `/shows/`, dans `llms.txt` et en `MusicEvent` Schema.org.
+- Si Mika donne l'heure exacte, le lien de billetterie (`ticketUrl`) ou le visuel, les ajouter sur cette entree dans `public/events.json`.
+
+---
+
+## 4. Page cachee `/plugins` (`mauditemachine.com/plugins`)
+
+- Inventaire personnel des **52 plugins et synthetiseurs** du studio Ableton Live 12 de Mika (`src/pages/PluginsPage.tsx`, `src/data/pluginsData.ts`, captures a plat dans `public/images/plugins/`).
+- Chargee en `React.lazy()` dans `src/App.tsx` (-54 Ko sur le chunk d'entree principal).
+- Prerendue en HTTP 200 mais strictement cachee des moteurs : `noindex, nofollow`, `Disallow: /plugins` dans `public/robots.txt`, absente de `sitemap.xml`.
