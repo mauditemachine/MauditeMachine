@@ -2652,6 +2652,359 @@
         "ZERO"
       ],
       "help": "v49 (Mika : \"le moins de ms possible\") : ZERO, aucune latence declaree a l'hote (les decimateurs du moteur, la DISTO et WARMTH par demi-bandes RII a phase minimale, plates a 1e-6 dB pres jusqu'a 20 kHz, repliement au plus celui d'EXACT ; et le chemin leger : la BigSky modulee par phaseurs, le DELAY du site endormi sans envoi) ; EXACT, les filtres a phase lineaire du site, au bit pres (16 a 21 echantillons declares selon QUALITY). Les instances neuves : ZERO ; un projet d'avant (sans ce reglage) : EXACT, son son au bit pres. Le changement attend le silence (12 ms, comme QUALITY)."
+    },
+    {
+      "id": "xLfo1Sync",
+      "label": "LFO 1 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC (le depart, l'ancien) : SPEED (lfoRate) en divisions du tempo, la phase calee sur le transport, au bit pres ; FREE : xLfo1Hz, une phase libre"
+    },
+    {
+      "id": "xLfo1Hz",
+      "label": "LFO 1 FREE RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : la vitesse du LFO 1 en FREE, 0.02 x 500^v Hz (0.02 a 10 Hz, la loi de xDLfoRate)"
+    },
+    {
+      "id": "xLfo2Sync",
+      "label": "LFO 2 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC (le depart, l'ancien) : SPEED (xLfo2Rate) en divisions du tempo, la phase calee sur le transport, au bit pres ; FREE : xLfo2Hz, une phase libre"
+    },
+    {
+      "id": "xLfo2Hz",
+      "label": "LFO 2 FREE RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : la vitesse du LFO 2 en FREE, 0.02 x 500^v Hz"
+    },
+    {
+      "id": "xLfo4Rate",
+      "label": "LFO 4 RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : FREE 0.02 x 500^v Hz ; SYNC : 8 BAR a 1/32 (la loi de xDLfoRate), la phase calee sur le transport quand il joue"
+    },
+    {
+      "id": "xLfo4Shape",
+      "label": "LFO 4 SHAPE",
+      "section": "lfo",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "RAMP",
+        "SQR",
+        "S&H",
+        "RND"
+      ],
+      "help": "v50 : les formes du LFO 2"
+    },
+    {
+      "id": "xLfo4Sync",
+      "label": "LFO 4 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC : RATE en divisions du tempo de l'hote ; FREE : en Hz"
+    },
+    {
+      "id": "xMx1Src",
+      "label": "MOD 1 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ],
+      "help": "v50 : la matrice de modulation, 8 emplacements (source, destination, quantite). Sources : celles de xM{n}Src puis LFO 3 (le LFO de la DISTO) et LFO 4 ; on n'ajoute qu'a la fin"
+    },
+    {
+      "id": "xMx1Dst",
+      "label": "MOD 1 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024,
+      "help": "v50 : 1024 crans (valeur = code / 1023) : 0 OFF, 1..19 les destinations synthe de xM{n}Dst (par voix), 32 + k le reglage hote d'indice k (potards puis reglages du VST3 seul) ; la table : src/v4/plugin/arp/modTable.ts et src/ModTable.inc (tests/extra-gen.mjs)"
+    },
+    {
+      "id": "xMx1Amt",
+      "label": "MOD 1 AMOUNT",
+      "section": "mod",
+      "def": 0.5,
+      "help": "v50 : -100 a +100 % (0.5 : rien) ; cible 32 + k : valeur effective = clamp(valeur + somme(source x (2 Amt - 1)), 0, 1)"
+    },
+    {
+      "id": "xMx2Src",
+      "label": "MOD 2 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx2Dst",
+      "label": "MOD 2 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx2Amt",
+      "label": "MOD 2 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx3Src",
+      "label": "MOD 3 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx3Dst",
+      "label": "MOD 3 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx3Amt",
+      "label": "MOD 3 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx4Src",
+      "label": "MOD 4 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx4Dst",
+      "label": "MOD 4 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx4Amt",
+      "label": "MOD 4 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx5Src",
+      "label": "MOD 5 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx5Dst",
+      "label": "MOD 5 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx5Amt",
+      "label": "MOD 5 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx6Src",
+      "label": "MOD 6 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx6Dst",
+      "label": "MOD 6 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx6Amt",
+      "label": "MOD 6 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx7Src",
+      "label": "MOD 7 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx7Dst",
+      "label": "MOD 7 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx7Amt",
+      "label": "MOD 7 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx8Src",
+      "label": "MOD 8 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx8Dst",
+      "label": "MOD 8 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx8Amt",
+      "label": "MOD 8 AMOUNT",
+      "section": "mod",
+      "def": 0.5
     }
   ]
 }

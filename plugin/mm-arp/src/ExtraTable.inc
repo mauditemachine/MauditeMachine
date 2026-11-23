@@ -1,5 +1,5 @@
 // GENERE par tests/extra-gen.mjs depuis extra-params.json : ne pas editer.
-enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_xHellCross, ex_xHellHp, ex_xHellLp, ex_xHellSmear, ex_xHellRange, ex_xHellPhase, ex_xHellAntiRefl, ex_xHellLfoShape, ex_xHellLfoSync, ex_xHellLfoAmt, ex_xHellLfoStereo, ex_xHellLfoTarget, ex_xDStyle, ex_xDPunish, ex_xDLow, ex_xDThump, ex_xDTone, ex_xDHigh, ex_xDSteep, ex_xDMix, ex_xDOut, ex_xDAuto, ex_xDMorph, ex_xDMorphTo, ex_xDDyn, ex_xDFb, ex_xDFbFreq, ex_xDBands, ex_xDXLo, ex_xDXHi, ex_xDB1Style, ex_xDB1Drive, ex_xDB1Mix, ex_xDB1Level, ex_xDB1Solo, ex_xDB1Byp, ex_xDB2Style, ex_xDB2Drive, ex_xDB2Mix, ex_xDB2Level, ex_xDB2Solo, ex_xDB2Byp, ex_xDB3Style, ex_xDB3Drive, ex_xDB3Mix, ex_xDB3Level, ex_xDB3Solo, ex_xDB3Byp, ex_xDEnvAmt, ex_xDEnvSpd, ex_xDLfoShape, ex_xDLfoRate, ex_xDLfoSync, ex_xDLfoAmt, ex_xDLfoTarget, ex_xDPreMode, ex_xDPreFreq, ex_xDPreReso, ex_xDPostMode, ex_xDPostFreq, ex_xDPostReso, ex_xDBox, ex_xDBoxSize, ex_xDBoxMix, ex_xDlStyle, ex_xDlSync, ex_xDlDiv, ex_xDlNote, ex_xDlMs, ex_xDlFb, ex_xDlMode, ex_xDlWidth, ex_xDlOffset, ex_xDlSat, ex_xDlWobble, ex_xDlDiff, ex_xDlLow, ex_xDlHigh, ex_xDlGroove, ex_xDlFeel, ex_xDlPrime, ex_xDlLofi, ex_xDlAnalog, ex_xDlDuck, ex_xDlDuckRel, ex_xDlRhythm, ex_xQ1On, ex_xQ1Type, ex_xQ1Freq, ex_xQ1Gain, ex_xQ1Q, ex_xQ1Slope, ex_xQ2On, ex_xQ2Type, ex_xQ2Freq, ex_xQ2Gain, ex_xQ2Q, ex_xQ2Slope, ex_xQ3On, ex_xQ3Type, ex_xQ3Freq, ex_xQ3Gain, ex_xQ3Q, ex_xQ3Slope, ex_xQ4On, ex_xQ4Type, ex_xQ4Freq, ex_xQ4Gain, ex_xQ4Q, ex_xQ4Slope, ex_xQ5On, ex_xQ5Type, ex_xQ5Freq, ex_xQ5Gain, ex_xQ5Q, ex_xQ5Slope, ex_xQ6On, ex_xQ6Type, ex_xQ6Freq, ex_xQ6Gain, ex_xQ6Q, ex_xQ6Slope, ex_xQOut, ex_xQAna, ex_xPhStages, ex_xPhCenter, ex_xPhSpread, ex_xPhSync, ex_xFlDelay, ex_xFlSpread, ex_xFlSync, ex_xFlThru, ex_xChBoth, ex_xChRate, ex_xChDepth, ex_xChWidth, ex_xChMix, ex_xCrTone, ex_xCrMix, ex_xPuAttack, ex_xPuCurve, ex_xExportHq, ex_xEngine, ex_xMidiIn, ex_xArpHold, ex_xArpRun, ex_xDPunish2, ex_xHellV2, ex_xHellWarp, ex_xHellWarpRate, ex_xHellWarpShape, ex_xHellSpin, ex_xHellSpinRate, ex_xHellDrunk, ex_xHellSweep, ex_xHellShatter, ex_xHellShatterSize, ex_xHellShatterSpray, ex_xHellChop, ex_xHellChopGrid, ex_xHellChopPitch, ex_xHellChopGate, ex_xHellRing, ex_xHellRingTune, ex_xHellComb, ex_xHellCombSeq, ex_xHellDescent, ex_xSkyLoCut, ex_xSkyLoSlope, ex_xSkyMidHz, ex_xSkyMidDb, ex_xSkyMidQ, ex_xSkyHiCut, ex_xSkyHiSlope, ex_xSkyWidth, ex_xSkyDuck, ex_xSkyFreeze, ex_xLatency, ex_COUNT };
+enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_xSkyType, ex_xSkyDecay, ex_xSkyPre, ex_xSkyTone, ex_xSkyMod, ex_xSkyLow, ex_xSkyP1, ex_xSkyP2, ex_xSkyP3, ex_xSkyP4, ex_xSkyP5, ex_xHellCross, ex_xHellHp, ex_xHellLp, ex_xHellSmear, ex_xHellRange, ex_xHellPhase, ex_xHellAntiRefl, ex_xHellLfoShape, ex_xHellLfoSync, ex_xHellLfoAmt, ex_xHellLfoStereo, ex_xHellLfoTarget, ex_xDStyle, ex_xDPunish, ex_xDLow, ex_xDThump, ex_xDTone, ex_xDHigh, ex_xDSteep, ex_xDMix, ex_xDOut, ex_xDAuto, ex_xDMorph, ex_xDMorphTo, ex_xDDyn, ex_xDFb, ex_xDFbFreq, ex_xDBands, ex_xDXLo, ex_xDXHi, ex_xDB1Style, ex_xDB1Drive, ex_xDB1Mix, ex_xDB1Level, ex_xDB1Solo, ex_xDB1Byp, ex_xDB2Style, ex_xDB2Drive, ex_xDB2Mix, ex_xDB2Level, ex_xDB2Solo, ex_xDB2Byp, ex_xDB3Style, ex_xDB3Drive, ex_xDB3Mix, ex_xDB3Level, ex_xDB3Solo, ex_xDB3Byp, ex_xDEnvAmt, ex_xDEnvSpd, ex_xDLfoShape, ex_xDLfoRate, ex_xDLfoSync, ex_xDLfoAmt, ex_xDLfoTarget, ex_xDPreMode, ex_xDPreFreq, ex_xDPreReso, ex_xDPostMode, ex_xDPostFreq, ex_xDPostReso, ex_xDBox, ex_xDBoxSize, ex_xDBoxMix, ex_xDlStyle, ex_xDlSync, ex_xDlDiv, ex_xDlNote, ex_xDlMs, ex_xDlFb, ex_xDlMode, ex_xDlWidth, ex_xDlOffset, ex_xDlSat, ex_xDlWobble, ex_xDlDiff, ex_xDlLow, ex_xDlHigh, ex_xDlGroove, ex_xDlFeel, ex_xDlPrime, ex_xDlLofi, ex_xDlAnalog, ex_xDlDuck, ex_xDlDuckRel, ex_xDlRhythm, ex_xQ1On, ex_xQ1Type, ex_xQ1Freq, ex_xQ1Gain, ex_xQ1Q, ex_xQ1Slope, ex_xQ2On, ex_xQ2Type, ex_xQ2Freq, ex_xQ2Gain, ex_xQ2Q, ex_xQ2Slope, ex_xQ3On, ex_xQ3Type, ex_xQ3Freq, ex_xQ3Gain, ex_xQ3Q, ex_xQ3Slope, ex_xQ4On, ex_xQ4Type, ex_xQ4Freq, ex_xQ4Gain, ex_xQ4Q, ex_xQ4Slope, ex_xQ5On, ex_xQ5Type, ex_xQ5Freq, ex_xQ5Gain, ex_xQ5Q, ex_xQ5Slope, ex_xQ6On, ex_xQ6Type, ex_xQ6Freq, ex_xQ6Gain, ex_xQ6Q, ex_xQ6Slope, ex_xQOut, ex_xQAna, ex_xPhStages, ex_xPhCenter, ex_xPhSpread, ex_xPhSync, ex_xFlDelay, ex_xFlSpread, ex_xFlSync, ex_xFlThru, ex_xChBoth, ex_xChRate, ex_xChDepth, ex_xChWidth, ex_xChMix, ex_xCrTone, ex_xCrMix, ex_xPuAttack, ex_xPuCurve, ex_xExportHq, ex_xEngine, ex_xMidiIn, ex_xArpHold, ex_xArpRun, ex_xDPunish2, ex_xHellV2, ex_xHellWarp, ex_xHellWarpRate, ex_xHellWarpShape, ex_xHellSpin, ex_xHellSpinRate, ex_xHellDrunk, ex_xHellSweep, ex_xHellShatter, ex_xHellShatterSize, ex_xHellShatterSpray, ex_xHellChop, ex_xHellChopGrid, ex_xHellChopPitch, ex_xHellChopGate, ex_xHellRing, ex_xHellRingTune, ex_xHellComb, ex_xHellCombSeq, ex_xHellDescent, ex_xSkyLoCut, ex_xSkyLoSlope, ex_xSkyMidHz, ex_xSkyMidDb, ex_xSkyMidQ, ex_xSkyHiCut, ex_xSkyHiSlope, ex_xSkyWidth, ex_xSkyDuck, ex_xSkyFreeze, ex_xLatency, ex_xLfo1Sync, ex_xLfo1Hz, ex_xLfo2Sync, ex_xLfo2Hz, ex_xLfo4Rate, ex_xLfo4Shape, ex_xLfo4Sync, ex_xMx1Src, ex_xMx1Dst, ex_xMx1Amt, ex_xMx2Src, ex_xMx2Dst, ex_xMx2Amt, ex_xMx3Src, ex_xMx3Dst, ex_xMx3Amt, ex_xMx4Src, ex_xMx4Dst, ex_xMx4Amt, ex_xMx5Src, ex_xMx5Dst, ex_xMx5Amt, ex_xMx6Src, ex_xMx6Dst, ex_xMx6Amt, ex_xMx7Src, ex_xMx7Dst, ex_xMx7Amt, ex_xMx8Src, ex_xMx8Dst, ex_xMx8Amt, ex_COUNT };
 static const char* const kExSteps_xQuality[] = { "ECO", "STD", "HQ" };
 static const char* const kExSteps_xLfo1Dest2[] = { "OFF", "RES", "AMP", "PAN", "OSC 2 PITCH", "OSC MIX", "NOISE", "SUB", "DRIVE", "STACK", "ENV AMT" };
 static const char* const kExSteps_xLfo2Rate[] = { "1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4", "1/2", "1 BAR", "2 BAR", "4 BAR", "8 BAR" };
@@ -106,6 +106,18 @@ static const char* const kExSteps_xSkyLoSlope[] = { "12 DB", "24 DB" };
 static const char* const kExSteps_xSkyHiSlope[] = { "12 DB", "24 DB" };
 static const char* const kExSteps_xSkyFreeze[] = { "OFF", "ON" };
 static const char* const kExSteps_xLatency[] = { "EXACT", "ZERO" };
+static const char* const kExSteps_xLfo1Sync[] = { "FREE", "SYNC" };
+static const char* const kExSteps_xLfo2Sync[] = { "FREE", "SYNC" };
+static const char* const kExSteps_xLfo4Shape[] = { "SINE", "TRI", "SAW", "RAMP", "SQR", "S&H", "RND" };
+static const char* const kExSteps_xLfo4Sync[] = { "FREE", "SYNC" };
+static const char* const kExSteps_xMx1Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx2Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx3Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx4Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx5Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx6Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx7Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
+static const char* const kExSteps_xMx8Src[] = { "OFF", "VELOCITY", "MOD WHEEL", "AFTERTOUCH", "PITCH BEND", "KEY", "LFO 1", "LFO 2", "FILTER ENV", "AMP ENV", "S&H", "RANDOM", "LFO 3", "LFO 4" };
 static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xQuality", "QUALITY", "engine", 0.5, 3, kExSteps_xQuality },
   { "xLfo1Dest2", "TARGET 2", "lfo1", 0, 11, kExSteps_xLfo1Dest2 },
@@ -371,4 +383,35 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xSkyDuck", "REVERB DUCK", "sky", 0, 0, nullptr },
   { "xSkyFreeze", "REVERB FREEZE", "sky", 0, 2, kExSteps_xSkyFreeze },
   { "xLatency", "LATENCY", "engine", 1, 2, kExSteps_xLatency },
+  { "xLfo1Sync", "LFO 1 SYNC", "lfo", 1, 2, kExSteps_xLfo1Sync },
+  { "xLfo1Hz", "LFO 1 FREE RATE", "lfo", 0.4, 0, nullptr },
+  { "xLfo2Sync", "LFO 2 SYNC", "lfo", 1, 2, kExSteps_xLfo2Sync },
+  { "xLfo2Hz", "LFO 2 FREE RATE", "lfo", 0.4, 0, nullptr },
+  { "xLfo4Rate", "LFO 4 RATE", "lfo", 0.4, 0, nullptr },
+  { "xLfo4Shape", "LFO 4 SHAPE", "lfo", 0, 7, kExSteps_xLfo4Shape },
+  { "xLfo4Sync", "LFO 4 SYNC", "lfo", 1, 2, kExSteps_xLfo4Sync },
+  { "xMx1Src", "MOD 1 SOURCE", "mod", 0, 14, kExSteps_xMx1Src },
+  { "xMx1Dst", "MOD 1 DEST", "mod", 0, 1024, nullptr },
+  { "xMx1Amt", "MOD 1 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx2Src", "MOD 2 SOURCE", "mod", 0, 14, kExSteps_xMx2Src },
+  { "xMx2Dst", "MOD 2 DEST", "mod", 0, 1024, nullptr },
+  { "xMx2Amt", "MOD 2 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx3Src", "MOD 3 SOURCE", "mod", 0, 14, kExSteps_xMx3Src },
+  { "xMx3Dst", "MOD 3 DEST", "mod", 0, 1024, nullptr },
+  { "xMx3Amt", "MOD 3 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx4Src", "MOD 4 SOURCE", "mod", 0, 14, kExSteps_xMx4Src },
+  { "xMx4Dst", "MOD 4 DEST", "mod", 0, 1024, nullptr },
+  { "xMx4Amt", "MOD 4 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx5Src", "MOD 5 SOURCE", "mod", 0, 14, kExSteps_xMx5Src },
+  { "xMx5Dst", "MOD 5 DEST", "mod", 0, 1024, nullptr },
+  { "xMx5Amt", "MOD 5 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx6Src", "MOD 6 SOURCE", "mod", 0, 14, kExSteps_xMx6Src },
+  { "xMx6Dst", "MOD 6 DEST", "mod", 0, 1024, nullptr },
+  { "xMx6Amt", "MOD 6 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx7Src", "MOD 7 SOURCE", "mod", 0, 14, kExSteps_xMx7Src },
+  { "xMx7Dst", "MOD 7 DEST", "mod", 0, 1024, nullptr },
+  { "xMx7Amt", "MOD 7 AMOUNT", "mod", 0.5, 0, nullptr },
+  { "xMx8Src", "MOD 8 SOURCE", "mod", 0, 14, kExSteps_xMx8Src },
+  { "xMx8Dst", "MOD 8 DEST", "mod", 0, 1024, nullptr },
+  { "xMx8Amt", "MOD 8 AMOUNT", "mod", 0.5, 0, nullptr },
 };

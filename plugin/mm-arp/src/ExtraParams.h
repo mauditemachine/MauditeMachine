@@ -17,11 +17,21 @@ struct ExtraDef {
     const char* label;
     const char* section;
     double def;
-    int nSteps;
-    const char* const* steps;
+    int nSteps;               // 0 : continu
+    const char* const* steps; // les noms des crans ; nullptr pour un reglage a crans sans noms (v50 : "nsteps")
+};
+
+// v50 : une cible de la matrice de modulation (ModTable.inc, genere avec ExtraTable.inc par tests/extra-gen.mjs)
+struct ModDestDef {
+    short code;        // le cran de xMx{n}Dst (1..19 : destination synthe ; 32 + k : le reglage hote k)
+    short k;           // l'indice du reglage hote (allIndex), -1 pour 1..19
+    const char* id;    // l'id du reglage ('cutoff', 'xSkyWidth') ; 'm:pitch'... pour 1..19
+    const char* label; // le nom (menus de la face, texte de l'hote)
+    const char* group; // OSC, FILTER, ENV, ARP, LFO, SOUND, DISTO, DELAY, HELL, REVERB, MASTER
 };
 
 #include "ExtraTable.inc"
+#include "ModTable.inc"
 
 constexpr int kExtra = ex_COUNT;
 constexpr int kAll = mmarp::kKnobs + kExtra;
@@ -48,10 +58,32 @@ inline const char* allId(int i) { return i < mmarp::kKnobs ? mmarp::kKnobDefs[i]
 // Les lois (extra-params.json, help)
 inline double revSeconds(double v) { return 2.4 * std::pow(4.0, 2 * v - 1); }
 
+// v50 : la matrice de modulation. Le cran (code) de xMx{n}Dst ; sa cible (nullptr : OFF ou "---")
+inline int modDstCode(double v) {
+    const long c = std::lround(v * (kModDstN - 1));
+    return c < 0 ? 0 : c > kModDstN - 1 ? kModDstN - 1 : static_cast<int>(c);
+}
+inline const ModDestDef* modDest(int code) {
+    if (code <= 0 || code >= kModDstN) return nullptr;
+    const int i = kModDstIndex[code];
+    return i >= 0 ? &kModDests[i] : nullptr;
+}
+// L'emplacement (0..7) et le role (0 Src, 1 Dst, 2 Amt) d'un reglage xMx{n}*, -1 sinon
+inline int modSlotOf(int e) { return e >= ex_xMx1Src && e <= ex_xMx8Amt ? (e - ex_xMx1Src) / 3 : -1; }
+inline int modRoleOf(int e) { return e >= ex_xMx1Src && e <= ex_xMx8Amt ? (e - ex_xMx1Src) % 3 : -1; }
+
 // Le texte d'un reglage, comme dans la face
 inline void exText(int e, double v, char* out, int max) {
     const ExtraDef& d = kExtraDefs[e];
-    if (d.nSteps > 0) std::snprintf(out, static_cast<size_t>(max), "%s", d.steps[exStep(e, v)]);
+    if (modRoleOf(e) == 1) {
+        // v50 : la cible d'un emplacement de la matrice, son nom (le texte que l'hote montre)
+        const int code = modDstCode(v);
+        const ModDestDef* m = modDest(code);
+        std::snprintf(out, static_cast<size_t>(max), "%s", m ? m->label : code == 0 ? "OFF" : "---");
+    } else if (d.nSteps > 0 && d.steps) std::snprintf(out, static_cast<size_t>(max), "%s", d.steps[exStep(e, v)]);
+    else if (d.nSteps > 0) std::snprintf(out, static_cast<size_t>(max), "%d", exStep(e, v));
+    else if (modRoleOf(e) == 2) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
+    else if (e == ex_xLfo1Hz || e == ex_xLfo2Hz || e == ex_xLfo4Rate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.02 * std::pow(500.0, v));
     else if (e == ex_xRevSize) std::snprintf(out, static_cast<size_t>(max), "%.1f s", revSeconds(v));
     else if (e == ex_xRevPre) std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(v * 100)));
     else if (e == ex_xBass || e == ex_xAir) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", (v - 0.5) * 12);
