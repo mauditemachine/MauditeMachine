@@ -30,6 +30,8 @@ import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
 import { FaceExtras } from './faceExtras';
 import { FaceModArcs } from './FaceModArcs';
+import { MqAimRings } from './mq50';
+import { MQ50 } from '../../theme';
 import { FaceLook, FaceLookButton } from './LookPanel';
 import { FaceCpuMeter } from './CpuMeter';
 import './hypno';
@@ -151,6 +153,7 @@ const ArpFace: React.FC = () => {
         <HellKnob stage={stage} />
         <FaceExtras stage={stage} />
         <FaceModArcs stage={stage} />
+        {MQ50 && <MqAimRings stage={stage} />}
         <FaceLook stage={stage} />
         <FaceLookButton stage={stage} />
         <FaceCpuMeter stage={stage} />
