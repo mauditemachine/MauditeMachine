@@ -42,6 +42,17 @@ private:
     unsigned specTick_ = 0;
     int cpuTick_ = 0; // v31 : le compteur CPU, 10 fois par seconde
     bool ready_ = false;
+    // v49 (Mika : "soulager au max le CPU") : un seul evenement mm_tick par tick, seulement ce qui a change, rien quand la
+    // face n'est pas a l'ecran (mm_vis de la page, isShowing de la fenetre)
+    bool faceVisible_ = true; // la page dit qu'elle est visible (document.visibilityState, mm_vis)
+    bool shown_ = true;       // l'editeur envoie (la page visible et la fenetre montree)
+    bool specWanted_ = false; // la page SOUND regardee (mm_view) : l'analyseur ne tourne que fenetre montree
+    juce::String modKey_;     // les arcs : le dernier envoi (ids et valeurs arrondies)
+    juce::String cpuKey_;     // le compteur CPU : le dernier envoi (arrondi au dixieme, comme l'affichage)
+    int cpuQuiet_ = 0;        // ticks du compteur sans envoi (un envoi au moins par seconde : la face le montre vivant)
+    std::array<int, mmarp::SpecAnalyzer::kBins> specSent_{};
+    bool specHas_ = false;
+    void setShown(bool on);
     bool sizing_ = true;  // pendant le constructeur : ne pas memoriser les tailles transitoires (880 force par les limites)
     // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)
     std::array<float, mmx::kAll> sent_{};

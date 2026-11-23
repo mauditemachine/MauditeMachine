@@ -20,6 +20,13 @@
   overflow: visible;
 }
 
+/* v49 : un anneau qui tourne est sa propre couche, tournee par le compositeur (HellPage2.tsx useSpin) : rien ne se
+   redessine, ni les lignes ni leurs lueurs */
+.mm-plugin-arp .mm-h2-spin {
+  will-change: transform;
+  transform-origin: 50% 50%;
+}
+
 .mm-plugin-arp .mm-h2-vortex .track {
   fill: none;
   stroke: rgba(246, 241, 231, 0.07);

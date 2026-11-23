@@ -3849,6 +3849,12 @@
   stroke: rgba(244, 241, 234, 0.28);
 }
 
+/* v49 : l'analyseur dans sa couche (HoodBoard.tsx EqAnalyzer) : ses 15 images par seconde ne redessinent que lui */
+.mm-plugin-arp .mm-eq-screen .mm-eq-ana {
+  will-change: transform;
+  pointer-events: none;
+}
+
 .mm-plugin-arp .mm-eq-screen .ana {
   fill: rgba(244, 241, 234, 0.07);
   stroke: rgba(244, 241, 234, 0.18);

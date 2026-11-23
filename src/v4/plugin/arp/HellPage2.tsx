@@ -16,6 +16,7 @@ import { arpExtra } from './extra';
 import { HELL_DELAY, HELL_SYNC_LEVER } from './hell';
 import { CHOP_BEATS, CIRCLES, GRAIN_BEATS, HELL2_PRESETS, RATE_BEATS, circleDepth, type Circle, type Hell2Preset } from './hell2';
 import { PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, useRaise } from './pcbui';
+import { loop30 } from './loop30';
 import './hell2.css';
 
 // DELAY (le temps libre, ou la note quand SYNC est leve) et le levier SYNC, vus par la page (pcbui.tsx SRC.virtual)
@@ -100,70 +101,97 @@ function ringPath(c: Circle, r: number, d: number, seed: number): { d: string; d
   return { d: `M${pts.join(' L')}${c.id === 'echo' ? '' : ' Z'}` };
 }
 
-/** La rotation des anneaux au tempo (une transformation par anneau, sans redessiner la page ; 30 images/s). */
-function useSpin(refs: React.MutableRefObject<(SVGGElement | null)[]>, beats: number[], bpm: number): void {
+/**
+ * La rotation des anneaux au tempo (une transformation par anneau, sans redessiner la page ; 30 images/s). v49 (Mika :
+ * "soulager au max le CPU") : chaque anneau qui tourne est sa propre couche (Vortex), tournee par le compositeur ; avant,
+ * les six anneaux et leurs lueurs (drop-shadow, une par point de SHATTER) se redessinaient 30 fois par seconde.
+ */
+function useSpin(refs: React.MutableRefObject<(SVGSVGElement | null)[]>, beats: number[], bpm: number): void {
   const key = beats.join(',');
-  useEffect(() => {
-    let raf = 0;
-    let last = 0;
-    const step = (now: number): void => {
-      raf = window.requestAnimationFrame(step);
-      if (now - last < 33) return;
-      last = now;
-      const b = (now / 60000) * bpm;
-      refs.current.forEach((g, i) => {
-        if (!g) return;
-        const dir = i % 2 ? -1 : 1;
-        g.setAttribute('transform', `rotate(${((dir * (b / beats[i]) * 360) % 360).toFixed(2)})`);
-      });
-    };
-    raf = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(raf);
-  }, [refs, key, bpm]); // (beats : par sa cle)
+  useEffect(
+    // v49 : 30 images par seconde comme avant, sans demander une image a chaque rafraichissement de l'ecran (loop30.ts)
+    () =>
+      loop30((now) => {
+        const b = (now / 60000) * bpm;
+        refs.current.forEach((el, i) => {
+          if (!el) return;
+          const dir = i % 2 ? -1 : 1;
+          el.style.transform = `rotate(${((dir * (b / beats[i]) * 360) % 360).toFixed(2)}deg)`;
+        });
+      }),
+    [refs, key, bpm] // (beats : par sa cle)
+  );
 }
 
+/**
+ * Le vortex : le puits et les pistes des anneaux dessous, chaque anneau qui tourne dans sa couche (mm-h2-spin, la meme
+ * opacite que son anneau), les numeros dessus. Le meme dessin qu'avant (le meme cadre, les memes classes).
+ */
 const Vortex: React.FC<{ size: number }> = ({ size }) => {
   useExtraAll();
   const bpm = bpmNow();
   const c0 = size / 2;
   const R0 = size / 2 - 14;
   const gap = 16;
-  const refs = useRef<(SVGGElement | null)[]>([]);
+  const refs = useRef<(SVGSVGElement | null)[]>([]);
   const beats = CIRCLES.map(beatsOf);
   useSpin(refs, beats, bpm);
   const m = V('xHellMix');
+  const vb = `${-c0} ${-c0} ${size} ${size}`;
+  const rings = CIRCLES.map((c, i) => {
+    const r = R0 - i * gap;
+    const d = depthOf(c);
+    return { c, i, r, d, on: d > 0.02 ? '1' : undefined, op: 0.16 + 0.84 * Math.min(1, d * 1.3) };
+  });
   return (
-    <svg className="mm-h2-vortex" width={size} height={size} viewBox={`${-c0} ${-c0} ${size} ${size}`} aria-hidden="true">
-      <defs>
-        <radialGradient id="mm-h2-pit">
-          <stop offset="0" stopColor="#000" stopOpacity="0.95" />
-          <stop offset="0.55" style={{ stopColor: 'var(--mm-accent)' }} stopOpacity={0.05 + 0.3 * m} />
-          <stop offset="1" style={{ stopColor: 'var(--mm-accent)' }} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle r={R0 + 10} fill="url(#mm-h2-pit)" />
-      {CIRCLES.map((c, i) => {
-        const r = R0 - i * gap;
-        const d = depthOf(c);
+    <>
+      <svg className="mm-h2-vortex" width={size} height={size} viewBox={vb} aria-hidden="true">
+        <defs>
+          <radialGradient id="mm-h2-pit">
+            <stop offset="0" stopColor="#000" stopOpacity="0.95" />
+            <stop offset="0.55" style={{ stopColor: 'var(--mm-accent)' }} stopOpacity={0.05 + 0.3 * m} />
+            <stop offset="1" style={{ stopColor: 'var(--mm-accent)' }} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle r={R0 + 10} fill="url(#mm-h2-pit)" />
+        {rings.map(({ c, r, on, op }) => (
+          <g key={c.id} className="ring" data-on={on} style={{ opacity: op }}>
+            <circle r={r} className="track" />
+          </g>
+        ))}
+      </svg>
+      {rings.map(({ c, i, r, d, on, op }) => {
         const p = ringPath(c, r, d, i);
         const dash = c.id === 'chop' ? `${(2 * Math.PI * r) / 32 - 3} 3` : c.id === 'spin' ? `${(2 * Math.PI * r) / 8 - 10} 10` : undefined;
         return (
-          <g key={c.id} className="ring" data-on={d > 0.02 ? '1' : undefined} style={{ opacity: 0.16 + 0.84 * Math.min(1, d * 1.3) }}>
-            <circle r={r} className="track" />
-            <g
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-            >
+          <svg
+            key={c.id}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            className="mm-h2-vortex mm-h2-spin"
+            width={size}
+            height={size}
+            viewBox={vb}
+            aria-hidden="true"
+            style={{ opacity: op }}
+          >
+            <g className="ring" data-on={on}>
               {p.dots ? p.dots.map((q, k) => <circle key={k} cx={q.x} cy={q.y} r={q.r} className="dot" />) : <path d={p.d} className="line" strokeDasharray={dash} style={{ strokeWidth: 1.2 + 2.2 * d }} />}
             </g>
+          </svg>
+        );
+      })}
+      <svg className="mm-h2-vortex" width={size} height={size} viewBox={vb} aria-hidden="true">
+        {rings.map(({ c, r, on, op }) => (
+          <g key={c.id} className="ring" data-on={on} style={{ opacity: op }}>
             <text x={0} y={-r + 3} textAnchor="middle" className="num">
               {c.n}
             </text>
           </g>
-        );
-      })}
-    </svg>
+        ))}
+      </svg>
+    </>
   );
 };
 

@@ -490,6 +490,28 @@ function bandDb(b: EqB, f: number): number {
 const useSpec = () => useSyncExternalStore(arpSpec.subscribe, arpSpec.get, arpSpec.get);
 
 /**
+ * v49 (Mika : "soulager au max le CPU") : l'analyseur seul, dans sa couche sous la courbe : ses 15 images par seconde ne
+ * refont plus tout l'ecran de l'EQ (la courbe de 240 points, les six points) ni ne redessinent ce qui est dessus.
+ */
+const EqAnalyzer: React.FC<{ w: number; h: number }> = ({ w, h }) => {
+  const spec = useSpec();
+  if (spec.length !== SPEC_BINS) return null;
+  const fx = (f: number): number => 14 + (Math.log10(f / 20) / 3) * (w - 28);
+  const anaPts: string[] = [];
+  spec.forEach((db, j) => {
+    const f = 20 * Math.pow(1000, (j + 0.5) / SPEC_BINS);
+    // -78 dBFS au pied de l'ecran, -6 dBFS en haut
+    const y = h - 14 - (Math.max(0, Math.min(72, db + 78)) / 72) * (h - 30);
+    anaPts.push(`${fx(f).toFixed(1)},${y.toFixed(1)}`);
+  });
+  return (
+    <svg className="mm-eq-ana" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <polygon className="ana" points={`${fx(20 * Math.pow(1000, 0.5 / SPEC_BINS)).toFixed(1)},${h - 14} ${anaPts.join(' ')} ${fx(20 * Math.pow(1000, (SPEC_BINS - 0.5) / SPEC_BINS)).toFixed(1)},${h - 14}`} />
+    </svg>
+  );
+};
+
+/**
  * L'ecran de l'EQ : la courbe (la somme des bandes allumees), l'analyseur du C++ (PRE ou POST, page ouverte seulement),
  * les six points : un clic choisit la bande, glisser regle FREQ (de gauche a droite) et GAIN (de haut en bas), Maj + glisser
  * (ou la molette) son Q, Alt : quatre fois plus fin (v46 ; Maj etait le reglage fin avant la v44).
@@ -497,7 +519,6 @@ const useSpec = () => useSyncExternalStore(arpSpec.subscribe, arpSpec.get, arpSp
 export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   useExtraAll();
   const sel = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
-  const spec = useSpec();
   const hood = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   const ana = Math.round(X('xQAna') * 2);
   // l'analyseur : seulement tant que cet ecran est la et le capot ouvert
@@ -517,14 +538,6 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
     for (const b of bands) if (b.on) db += bandDb(b, f);
     pts.push(`${fx(f).toFixed(1)},${fy(Math.max(-18, Math.min(18, db))).toFixed(1)}`);
   }
-  const anaPts: string[] = [];
-  if (ana > 0 && spec.length === SPEC_BINS)
-    spec.forEach((db, j) => {
-      const f = 20 * Math.pow(1000, (j + 0.5) / SPEC_BINS);
-      // -78 dBFS au pied de l'ecran, -6 dBFS en haut
-      const y = h - 14 - (Math.max(0, Math.min(72, db + 78)) / 72) * (h - 30);
-      anaPts.push(`${fx(f).toFixed(1)},${y.toFixed(1)}`);
-    });
   const nodeY = (b: EqB): number => fy(b.type === 'HP' || b.type === 'LP' || b.type === 'NOTCH' ? 0 : b.g);
   // v44 (Mika : "avec la touche Shift je veux pouvoir changer le Q de chaque point") : Maj + glisser vertical (ou la
   // molette sur un point) regle le Q du point saisi ; sa valeur s'affiche a cote du point pendant le geste
@@ -670,7 +683,8 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
           </button>
         </div>
       )}
-      <svg ref={svg} width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      {/* v49 : en trois couches, dans l'ordre du dessin d'avant : la grille, l'analyseur (EqAnalyzer), la courbe et les points */}
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
         {[50, 100, 200, 500, 1000, 2000, 5000, 10000].map((f) => (
           <g key={f}>
             <path className="grid" d={`M${fx(f).toFixed(1)} 6V${h - 14}`} />
@@ -687,7 +701,9 @@ export const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
             </text>
           </g>
         ))}
-        {anaPts.length > 0 && <polygon className="ana" points={`${fx(20 * Math.pow(1000, 0.5 / SPEC_BINS)).toFixed(1)},${h - 14} ${anaPts.join(' ')} ${fx(20 * Math.pow(1000, (SPEC_BINS - 0.5) / SPEC_BINS)).toFixed(1)},${h - 14}`} />}
+      </svg>
+      {ana > 0 && <EqAnalyzer w={w} h={h} />}
+      <svg ref={svg} width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <polyline className="eq-fill" points={`14,${fy(0)} ${pts.join(' ')} ${w - 14},${fy(0)}`} />
         <polyline className="main" points={pts.join(' ')} />
         {qOverlay}
@@ -957,6 +973,18 @@ const HoodBody: React.FC<{ stage: Stage | null; leaving: boolean }> = ({ stage, 
       stage.invalidate();
     };
   }, [stage]);
+  // v49 (Mika : "soulager au max le CPU") : la carte posee, opaque, couvre toute la fenetre : la scene dessous ne rend plus
+  // rien (renderer.ts setCovered ; avant, 15 images par seconde pour la touche OPEN qui respire sous la carte). Le depart de
+  // la carte (closing) la rend aussitot, l'arrivee (CARD_MS) la laisse finir sous la carte qui apparait.
+  const covered = hood === 'open' && !leaving;
+  useEffect(() => {
+    if (!stage || !covered) return undefined;
+    const t = window.setTimeout(() => stage.setCovered(true), CARD_MS);
+    return () => {
+      window.clearTimeout(t);
+      stage.setCovered(false);
+    };
+  }, [stage, covered]);
   // Le capot s'ouvre : la table des CC a jour (la liste des presets : DiskPresets, a son montage)
   useEffect(() => {
     arpBridge.midimapGet();
