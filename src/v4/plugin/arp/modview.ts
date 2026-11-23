@@ -46,6 +46,11 @@ function publish(): void {
   listeners.forEach((fn) => fn());
 }
 
+/** v49 : sous ce seuil (1 / 10 000 de la course du potard, invisible) une piste est posee. */
+const SETTLE = 1e-4;
+const settled = (t: Track): boolean =>
+  Math.abs(t.target - t.v) < SETTLE && t.v - t.lo < SETTLE && t.hi - t.v < SETTLE && t.trail.every((x) => Math.abs(x - t.v) < SETTLE);
+
 function frame(): void {
   raf = 0;
   if (tracks.size === 0) return;
@@ -63,14 +68,23 @@ function frame(): void {
   last = now;
   const a = 1 - Math.exp(-dt / SMOOTH_S);
   const r = 1 - Math.exp(-dt / RANGE_S);
+  let moving = false;
   for (const t of tracks.values()) {
     t.v += (t.target - t.v) * a;
     t.lo = Math.min(t.v, t.lo + (t.v - t.lo) * r);
     t.hi = Math.max(t.v, t.hi + (t.v - t.hi) * r);
     t.trail.unshift(t.v);
     if (t.trail.length > TRAIL) t.trail.length = TRAIL;
+    if (!moving && !settled(t)) moving = true;
   }
   publish();
+  // v49 : tout est pose (la valeur sur sa cible, la plage et la traine resserrees) : la boucle s'arrete ; le prochain
+  // mm_mod qui change quelque chose la relance (le C++ n'envoie plus que ce qui change)
+  if (!moving) {
+    raf = 0;
+    last = 0;
+    return;
+  }
   // la suivante au plafond : directement sous un minuteur
   raf = -1;
   window.setTimeout(() => {
@@ -85,14 +99,21 @@ export const arpMod = {
     const ids = Array.isArray(ev.ids) ? ev.ids : [];
     const vs = Array.isArray(ev.v) ? ev.v : [];
     const seen = new Set<string>();
+    // v49 : la boucle ne repart que si quelque chose a change (une piste de plus, une cible qui bouge)
+    let moved = false;
     ids.forEach((id, i) => {
       const v = vs[i];
       if (typeof id !== 'string' || typeof v !== 'number' || !Number.isFinite(v)) return;
       const x = Math.min(1, Math.max(0, v));
       seen.add(id);
       const t = tracks.get(id);
-      if (t) t.target = x;
-      else tracks.set(id, { target: x, v: x, lo: x, hi: x, trail: [x] });
+      if (t) {
+        if (t.target !== x) moved = true;
+        t.target = x;
+      } else {
+        tracks.set(id, { target: x, v: x, lo: x, hi: x, trail: [x] });
+        moved = true;
+      }
     });
     let gone = false;
     for (const id of [...tracks.keys()])
@@ -101,7 +122,7 @@ export const arpMod = {
         gone = true;
       }
     if (gone || tracks.size === 0) publish();
-    if (tracks.size > 0 && !raf) {
+    if (tracks.size > 0 && !raf && (moved || gone)) {
       last = 0;
       raf = window.requestAnimationFrame(frame);
     }

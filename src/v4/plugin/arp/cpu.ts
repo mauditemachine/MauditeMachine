@@ -45,7 +45,13 @@ export const cpuStore = {
     const r = o as Record<string, unknown>;
     const s = Array.isArray(r.s) ? r.s.map((v) => num(v)) : [];
     if (s.length <= CPU_TOTAL) return;
-    cur = { s, pk: num(r.pk), os: num(r.os, 1), voices: num(r.voices), pro: r.pro === true, sr: num(r.sr), block: num(r.block), at: performance.now() };
+    const next = { s, pk: num(r.pk), os: num(r.os, 1), voices: num(r.voices), pro: r.pro === true, sr: num(r.sr), block: num(r.block), at: performance.now() };
+    // v49 : les memes chiffres (le battement d'une seconde du C++) : le compteur reste vivant (at), sans rien redessiner
+    if (cur && next.pk === cur.pk && next.os === cur.os && next.voices === cur.voices && next.pro === cur.pro && next.sr === cur.sr && next.block === cur.block && next.s.length === cur.s.length && next.s.every((v, i) => v === cur?.s[i])) {
+      cur.at = next.at;
+      return;
+    }
+    cur = next;
     listeners.forEach((fn) => fn());
   },
 };

@@ -93,8 +93,17 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  })
                  // MIDI LEARN
                  .withEventListener("mm_learn", [this](juce::var o) { proc_.learn(o.getProperty("id", "").toString()); })
-                 // v27 : la page SOUND visible ou non (l'analyseur ne calcule que pendant qu'on le regarde)
-                 .withEventListener("mm_view", [this](juce::var o) { proc_.setSpecOn(static_cast<bool>(o.getProperty("spec", false))); })
+                 // v27 : la page SOUND visible ou non (l'analyseur ne calcule que pendant qu'on le regarde) ; v49 : et fenetre
+                 // montree seulement (setShown)
+                 .withEventListener("mm_view", [this](juce::var o) {
+                     specWanted_ = static_cast<bool>(o.getProperty("spec", false));
+                     proc_.setSpecOn(specWanted_ && shown_);
+                 })
+                 // v49 : la page cachee (fenetre recouverte, reduite, Live au second plan) ou de nouveau visible
+                 .withEventListener("mm_vis", [this](juce::var o) {
+                     faceVisible_ = static_cast<bool>(o.getProperty("on", true));
+                     setShown(faceVisible_ && isShowing());
+                 })
                  .withEventListener("mm_unmap", [this](juce::var o) {
                      proc_.unmap(static_cast<int>(o.getProperty("ch", 0)) - 1, static_cast<int>(o.getProperty("cc", -1)));
                  })
@@ -107,6 +116,10 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
+                     modKey_ = "?";
+                     cpuKey_.clear();
+                     specHas_ = false;
+                     faceVisible_ = true;
                      ready_ = true;
                      // Tous les potards vers la face (s'ils sont connus : sinon c'est la face qui donne les siens)
                      sent_.fill(-1.f);
@@ -160,7 +173,33 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     startTimerHz(30);
 }
 
-MMArpEditor::~MMArpEditor() { stopTimer(); }
+MMArpEditor::~MMArpEditor() {
+    stopTimer();
+    // v49 : la fenetre fermee sur la page SOUND, l'analyseur ne recoit plus rien du thread audio
+    proc_.setSpecOn(false);
+}
+
+/*
+ * v49 (Mika : "soulager au max le CPU et eviter a tout prix la latence") : la face a l'ecran ou non. Cachee (la page le dit
+ * par mm_vis : fenetre recouverte, reduite, Live au second plan ; ou la fenetre de l'editeur n'est plus montree), plus
+ * rien ne part vers la WebView et l'analyseur s'arrete ; le minuteur ralentit a 4 Hz, le temps de voir revenir la
+ * fenetre. Revenue : tout repart d'un coup (les potards changes entre-temps, la tete, le CPU, les arcs).
+ */
+void MMArpEditor::setShown(bool on) {
+    if (on == shown_) return;
+    shown_ = on;
+    proc_.setSpecOn(specWanted_ && on);
+    if (on) {
+        quietTicks_ = 1000;
+        modKey_ = "?"; // jamais egal : l'etat des arcs repart, meme vide
+        cpuKey_.clear();
+        specHas_ = false;
+        modSent_ = true; // un etat des arcs part au retour (vide si plus rien n'est module)
+        startTimerHz(30);
+    } else {
+        startTimerHz(4);
+    }
+}
 
 void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
@@ -226,27 +265,24 @@ void MMArpEditor::saveMidi() {
 }
 
 void MMArpEditor::timerCallback() {
-    // v31 : le compteur CPU de la face, 10 fois par seconde : la charge de cette instance par etage (% du temps reel,
-    // lissee) et son pic tenu 1 s. La fenetre fermee, l'editeur n'existe plus : rien ne tourne ni ne s'envoie.
-    if (ready_ && ++cpuTick_ >= 3) {
-        cpuTick_ = 0;
-        juce::Array<juce::var> s;
-        for (int i = 0; i < MMArpProcessor::kCpuN; ++i) s.add(std::round(static_cast<double>(proc_.cpu(i)) * 100.0) / 100.0);
-        auto* o = new juce::DynamicObject();
-        o->setProperty("s", s);
-        o->setProperty("pk", std::round(static_cast<double>(proc_.cpuPeak()) * 100.0) / 100.0);
-        o->setProperty("os", proc_.cpuOs());
-        o->setProperty("voices", proc_.cpuVoices());
-        o->setProperty("pro", proc_.cpuPro());
-        o->setProperty("sr", proc_.getSampleRate());
-        o->setProperty("block", proc_.getBlockSize());
-        browser_->emitEventIfBrowserIsVisible("mm_cpu", juce::var(o));
-    }
-    // MIDI LEARN : la liste des CC a chaque changement
-    if (ready_ && proc_.takeMapChanged()) browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap());
-    // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face
-    if (ready_) {
-        auto* changed = new juce::DynamicObject();
+    if (!ready_) return;
+    // MIDI LEARN : la liste des CC a chaque changement (rare : meme face cachee, pour ne pas perdre le changement)
+    if (proc_.takeMapChanged()) browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap());
+    // v49 : rien vers la face tant qu'elle n'est pas a l'ecran
+    setShown(faceVisible_ && isShowing());
+    if (!shown_) return;
+
+    /*
+     * v49 : un seul evenement mm_tick par tick (un seul appel a la WebView, au plus 30 par seconde), et seulement ce qui a
+     * change : k (les potards bouges par l'hote), m (les arcs), t (la tete), c (le CPU), s (l'analyseur). Au repos, un seul
+     * appel par seconde (la tete et le CPU ensemble : la face les sait vivants).
+     */
+    juce::DynamicObject::Ptr tick = new juce::DynamicObject();
+    bool any = false;
+
+    // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face (valeurs exactes)
+    {
+        juce::DynamicObject::Ptr changed = new juce::DynamicObject();
         int count = 0;
         for (int i = 0; i < mmx::kAll; ++i) {
             auto* prm = proc_.knobParam(i);
@@ -258,80 +294,133 @@ void MMArpEditor::timerCallback() {
             ++count;
         }
         if (count > 0) {
-            auto* o = new juce::DynamicObject();
-            o->setProperty("values", juce::var(changed));
-            browser_->emitEventIfBrowserIsVisible("mm_knobs", juce::var(o));
-        } else {
-            delete changed;
+            tick->setProperty("k", juce::var(changed.get()));
+            any = true;
         }
     }
-    // L'arc lumineux (2026-11-16) : les reglages modules et leur valeur modulee, 30 fois par seconde, d'un seul
-    // evenement ; un dernier evenement vide quand plus rien n'est module, puis plus rien
-    if (ready_) {
+
+    // L'arc lumineux (2026-11-16) : les reglages modules et leur valeur modulee, a 1 / 10 000 pres (0,03 degre de la
+    // course : invisible), seulement s'ils ont bouge ; un dernier etat vide quand plus rien n'est module, puis plus rien
+    {
         juce::Array<juce::var> ids, vals;
+        juce::String key;
+        const auto add = [&](const char* id, double v) {
+            const long q = std::lround(v * 10000.0);
+            ids.add(juce::String(id));
+            vals.add(static_cast<double>(q) / 10000.0);
+            key << id << ':' << juce::String(static_cast<juce::int64>(q)) << ';';
+        };
         for (int i = 0; i < MMArpProcessor::kModN; ++i) {
             const float v = proc_.modValue(i);
             if (v != v) continue;
-            ids.add(juce::String(MMArpProcessor::kModIds[i]));
-            vals.add(static_cast<double>(v));
+            add(MMArpProcessor::kModIds[i], static_cast<double>(v));
         }
         // le VU du LFO de HELL (2026-11-17) : sa sortie, de 0 a 1
         const float hl = proc_.hellLfo();
-        if (hl == hl) {
-            ids.add(juce::String("hellLfo"));
-            vals.add(0.5 + 0.5 * static_cast<double>(hl));
-        }
+        if (hl == hl) add("hellLfo", 0.5 + 0.5 * static_cast<double>(hl));
         // ATTITUDE, le VU de la page DISTO (v25) : de 0 a 1
         const float dv = proc_.distoVu();
-        if (dv == dv) {
-            ids.add(juce::String("distoVu"));
-            vals.add(static_cast<double>(dv));
-        }
-        if (!ids.isEmpty() || modSent_) {
+        if (dv == dv) add("distoVu", static_cast<double>(dv));
+        if ((!ids.isEmpty() || modSent_) && key != modKey_) {
             auto* o = new juce::DynamicObject();
             o->setProperty("ids", ids);
             o->setProperty("v", vals);
-            browser_->emitEventIfBrowserIsVisible("mm_mod", juce::var(o));
+            tick->setProperty("m", juce::var(o));
+            any = true;
             modSent_ = !ids.isEmpty();
         }
+        modKey_ = key;
     }
-    // v27 : l'analyseur de la page SOUND, 15 fois par seconde, seulement page ouverte (96 bandes en dB entiers)
-    if (ready_ && proc_.specOn() && (++specTick_ & 1) == 0) {
+
+    // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
+    bool beat = false;
+    {
+        const auto fb = proc_.feedback();
+        ++quietTicks_;
+        const double ppq = proc_.facePpq();
+        const bool rolling = ppq >= 0;
+        if (!(fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && rolling == lastRolling_ && quietTicks_ < 30)) {
+            beat = quietTicks_ >= 30;
+            lastRolling_ = rolling;
+            lastSeq_ = fb.seq;
+            lastPlaying_ = fb.playing;
+            lastInternal_ = fb.internal;
+            quietTicks_ = 0;
+            auto* o = new juce::DynamicObject();
+            o->setProperty("playing", fb.playing);
+            o->setProperty("internal", fb.internal);
+            o->setProperty("seq", fb.seq);
+            o->setProperty("slot", fb.playing ? fb.slot : -1);
+            o->setProperty("pos", fb.pos);
+            o->setProperty("len", fb.len);
+            o->setProperty("chord", fb.playing ? fb.chord : -1);
+            o->setProperty("midi", fb.playing ? fb.midi : -1);
+            // v46 (la tete de la page SEQ) : CHANCE a saute ce pas (midi -1 sans etre un silence), la duree du pas (ms)
+            o->setProperty("skip", fb.playing && fb.skip);
+            o->setProperty("dur", fb.dur);
+            // v46 : la position du transport (noires) et le tempo : la tete de lecture de la page DELAY s'y cale
+            if (rolling) o->setProperty("ppq", ppq);
+            o->setProperty("bpm", proc_.faceBpm());
+            tick->setProperty("t", juce::var(o));
+            any = true;
+        }
+    }
+
+    // v31 : le compteur CPU de la face : la charge de cette instance par etage (% du temps reel, lissee sur 250 ms) et son
+    // pic tenu 1 s ; v49 : 5 fois par seconde (10 avant : chaque chiffre qui change redessine l'en-tete), au dixieme (ce
+    // que la face affiche), seulement s'il change, et au moins une fois par seconde (avec le battement de la tete). La
+    // fenetre fermee, l'editeur n'existe plus : rien ne tourne ni ne s'envoie.
+    ++cpuQuiet_;
+    if (++cpuTick_ >= 6 || (beat && cpuQuiet_ >= 15)) {
+        cpuTick_ = 0;
+        const auto r1 = [](float v) { return std::lround(static_cast<double>(v) * 10.0); };
+        juce::Array<juce::var> sv;
+        juce::String key;
+        for (int i = 0; i < MMArpProcessor::kCpuN; ++i) {
+            const long q = r1(proc_.cpu(i));
+            sv.add(static_cast<double>(q) / 10.0);
+            key << juce::String(static_cast<juce::int64>(q)) << ',';
+        }
+        const long pk = r1(proc_.cpuPeak());
+        key << juce::String(static_cast<juce::int64>(pk)) << ',' << proc_.cpuOs() << ',' << proc_.cpuVoices() << ',' << (proc_.cpuPro() ? 1 : 0) << ','
+            << juce::String(proc_.getSampleRate()) << ',' << proc_.getBlockSize();
+        if (key != cpuKey_ || cpuQuiet_ >= 30 || beat) {
+            cpuKey_ = key;
+            cpuQuiet_ = 0;
+            auto* o = new juce::DynamicObject();
+            o->setProperty("s", sv);
+            o->setProperty("pk", static_cast<double>(pk) / 10.0);
+            o->setProperty("os", proc_.cpuOs());
+            o->setProperty("voices", proc_.cpuVoices());
+            o->setProperty("pro", proc_.cpuPro());
+            o->setProperty("sr", proc_.getSampleRate());
+            o->setProperty("block", proc_.getBlockSize());
+            tick->setProperty("c", juce::var(o));
+            any = true;
+        }
+    }
+
+    // v27 : l'analyseur de la page SOUND, 15 fois par seconde, seulement page ouverte (96 bandes en dB entiers) ; v49 :
+    // seulement si une bande a bouge (le silence, une fois retombe a -100, ne repart plus)
+    if (proc_.specOn() && (++specTick_ & 1) == 0) {
         float db[mmarp::SpecAnalyzer::kBins];
         proc_.specFrame(db);
-        juce::Array<juce::var> b;
-        for (float v : db) b.add(static_cast<int>(std::lround(v)));
-        auto* o = new juce::DynamicObject();
-        o->setProperty("b", b);
-        browser_->emitEventIfBrowserIsVisible("mm_spec", juce::var(o));
+        bool same = specHas_;
+        for (int i = 0; i < mmarp::SpecAnalyzer::kBins; ++i) {
+            const int b = static_cast<int>(std::lround(db[i]));
+            if (b != specSent_[static_cast<size_t>(i)]) same = false;
+            specSent_[static_cast<size_t>(i)] = b;
+        }
+        if (!same) {
+            specHas_ = true;
+            juce::Array<juce::var> b;
+            for (int v : specSent_) b.add(v);
+            tick->setProperty("s", b);
+            any = true;
+        }
     }
-    // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
-    const auto fb = proc_.feedback();
-    ++quietTicks_;
-    const double ppq = proc_.facePpq();
-    const bool rolling = ppq >= 0;
-    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && rolling == lastRolling_ && quietTicks_ < 30) return;
-    lastRolling_ = rolling;
-    lastSeq_ = fb.seq;
-    lastPlaying_ = fb.playing;
-    lastInternal_ = fb.internal;
-    quietTicks_ = 0;
-    auto* o = new juce::DynamicObject();
-    o->setProperty("playing", fb.playing);
-    o->setProperty("internal", fb.internal);
-    o->setProperty("seq", fb.seq);
-    o->setProperty("slot", fb.playing ? fb.slot : -1);
-    o->setProperty("pos", fb.pos);
-    o->setProperty("len", fb.len);
-    o->setProperty("chord", fb.playing ? fb.chord : -1);
-    o->setProperty("midi", fb.playing ? fb.midi : -1);
-    // v46 (la tete de la page SEQ) : CHANCE a saute ce pas (midi -1 sans etre un silence), la duree du pas (ms)
-    o->setProperty("skip", fb.playing && fb.skip);
-    o->setProperty("dur", fb.dur);
-    // v46 : la position du transport (noires) et le tempo : la tete de lecture de la page DELAY s'y cale
-    if (rolling) o->setProperty("ppq", ppq);
-    o->setProperty("bpm", proc_.faceBpm());
-    browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
+
+    if (any) browser_->emitEventIfBrowserIsVisible("mm_tick", juce::var(tick.get()));
 }
 
 /* ---------------- les presets sur le disque (~/Music/Maudite Machine/MM-ARP Presets, fichiers .mmarp) ---------------- */

@@ -20,6 +20,7 @@ import { voyParams } from '../../voyager/params';
 import { DELAY_PRESETS, DL_LONG, DL_MODES, DL_RHYTHMS, DL_RHYTHM_LEVELS, DL_STYLES, delayCurrent, delayInit, delayLaws, delayLoad, delayStep, delayTimeText, dlIdx } from './delay';
 import { arpExtra } from './extra';
 import { MiniLcd } from './fx2Lcd';
+import { loop30 } from './loop30';
 import { hostBeats, hostClockStart, hostTempo } from './hostClock';
 import { PcbFrame, PcbKey, PcbKnob, PcbStep, PcbToggle, say, SRC, useRaise } from './pcbui';
 import './fx2.css';
@@ -130,29 +131,35 @@ function sideText(s: number, bpm: number): { big: string; small: string } {
 /**
  * La tete de lecture (une ligne deplacee sans redessiner la page) : calee sur la position du transport quand il roule
  * (hostClock.ts : la mesure d'Ableton, le debut de la vue sur un debut de mesure) ; sinon l'horloge de la page, au tempo.
- * data-host dit laquelle (la ligne est plus franche quand elle suit l'hote).
+ * data-host dit laquelle (la ligne est plus franche quand elle suit l'hote). v49 (Mika : "soulager au max le CPU") : la
+ * ligne et sa lueur sont dans leur propre couche (HEAD_PAD de part et d'autre), deplacee par le compositeur : plus rien de
+ * l'ecran des echos ne se redessine 30 fois par seconde.
  */
-function usePlayhead(ref: React.RefObject<SVGLineElement | null>, x0: number, x1: number, beats: number, bpm: number): void {
+const HEAD_PAD = 16;
+function usePlayhead(layer: React.RefObject<SVGSVGElement | null>, line: React.RefObject<SVGLineElement | null>, x0: number, x1: number, beats: number, bpm: number): void {
   useEffect(() => {
-    let raf = 0;
-    let last = 0;
-    const step = (now: number): void => {
-      raf = window.requestAnimationFrame(step);
-      if (now - last < 33) return;
-      last = now;
-      const el = ref.current;
-      if (!el) return;
+    // v49 : 30 images par seconde comme avant, sans demander une image a chaque rafraichissement de l'ecran (loop30.ts) ;
+    // rien ne s'ecrit si rien ne change
+    let lastX = '';
+    let lastHost = false;
+    return loop30((now) => {
+      const el = layer.current;
+      const ln = line.current;
+      if (!el || !ln) return;
       const host = hostBeats(now);
       const f = host !== null ? (((host % beats) + beats) % beats) / beats : (now % ((beats * 60000) / bpm)) / ((beats * 60000) / bpm);
       const x = (x0 + f * (x1 - x0)).toFixed(1);
-      el.setAttribute('x1', x);
-      el.setAttribute('x2', x);
-      if (host !== null) el.setAttribute('data-host', '1');
-      else el.removeAttribute('data-host');
-    };
-    raf = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(raf);
-  }, [ref, x0, x1, beats, bpm]);
+      if (x !== lastX) {
+        lastX = x;
+        el.style.transform = `translateX(${(Number(x) - x0).toFixed(1)}px)`;
+      }
+      if (host !== null !== lastHost) {
+        lastHost = host !== null;
+        if (lastHost) ln.setAttribute('data-host', '1');
+        else ln.removeAttribute('data-host');
+      }
+    });
+  }, [layer, line, x0, x1, beats, bpm]);
 }
 
 const nextRhythm = (d: number): void => {
@@ -180,7 +187,8 @@ const EchoMirror: React.FC<{ w: number; h: number }> = ({ w, h }) => {
   const half = (bot - top) / 2 - 4;
   const xs = (s: number): number => x0 + (s / (beats * beat)) * (x1 - x0);
   const head = useRef<SVGLineElement>(null);
-  usePlayhead(head, x0, x1, beats, bpm);
+  const headLayer = useRef<SVGSVGElement>(null);
+  usePlayhead(headLayer, head, x0, x1, beats, bpm);
   const L = sideText(mode === 2 ? tl : tl, bpm);
   const R = sideText(mode === 2 ? tr : tr, bpm);
   const both = mode === 0;
@@ -300,13 +308,24 @@ const EchoMirror: React.FC<{ w: number; h: number }> = ({ w, h }) => {
               </g>
             );
           })}
-        <line ref={head} className="head" x1={x0} x2={x0} y1={top - 4} y2={bot + 2} />
         <text x={x0} y={16} className="t-k">
           {mode === 4 ? `RHYTHM · ${DL_RHYTHMS[dlIdx('xDlRhythm', X('xDlRhythm'))]} · CLICK FOR THE NEXT` : 'ECHOES'}
         </text>
         <text x={x1} y={16} textAnchor="end" className="t-hot">
           {mix > 0 ? `${Number.isFinite(n) ? n : ''} REPEATS · ${beats >= 4 ? `${beats / 4} BAR${beats > 4 ? 'S' : ''}` : `${beats} BEATS`}` : 'MIX 0 · NO ECHO'}
         </text>
+      </svg>
+      {/* v49 : la tete dans sa couche (usePlayhead), par-dessus l'ecran comme avant (rien ne la recouvrait) */}
+      <svg
+        ref={headLayer}
+        className="mm-fx2-headlayer"
+        width={HEAD_PAD * 2}
+        height={h}
+        viewBox={`${x0 - HEAD_PAD} 0 ${HEAD_PAD * 2} ${h}`}
+        style={{ left: x0 - HEAD_PAD, right: 'auto', width: HEAD_PAD * 2 }}
+        aria-hidden="true"
+      >
+        <line ref={head} className="head" x1={x0} x2={x0} y1={top - 4} y2={bot + 2} />
       </svg>
     </div>
   );
