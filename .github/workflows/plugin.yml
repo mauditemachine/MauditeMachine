@@ -132,6 +132,16 @@ jobs:
       - name: Moteur (le meme test que sur Linux, compile par MSVC)
         shell: bash
         run: ./build/Release/mm_engine_test.exe
+      # Le plugin ne doit dependre d'aucune DLL hors de Windows (runtime C++ lie en statique, WebView2 aussi)
+      - name: Dependances de la DLL
+        shell: pwsh
+        run: |
+          $dll = 'build/MM_RYTM_artefacts/Release/VST3/MM-RYTM.vst3/Contents/x86_64-win/MM-RYTM.vst3'
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem -Path "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          $deps = & $dumpbin.FullName /DEPENDENTS $dll
+          $deps
+          if ($deps -match 'MSVCP|VCRUNTIME|WebView2Loader') { throw 'Le plugin depend encore du runtime MSVC ou de WebView2Loader.dll' }
       - name: Empaqueter
         shell: bash
         run: |

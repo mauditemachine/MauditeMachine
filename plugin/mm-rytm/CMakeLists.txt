@@ -6,6 +6,9 @@ project(MM_RYTM VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
+# Windows : le runtime C++ de MSVC lie dans le plugin (/MT), sinon un PC sans le "Visual C++ Redistributable" ne le
+# charge pas (MSVCP140.dll, VCRUNTIME140.dll). Pour toutes les cibles, JUCE et le DSP compris.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 
