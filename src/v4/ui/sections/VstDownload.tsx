@@ -10,6 +10,8 @@
  * - Case "nouvelles" (facultative, decochee : consentement explicite) : un second envoi, a Mika seulement, par le
  *   modele du formulaire de CONTACT.
  * - Le don (donateUrl) : jamais obligatoire, montre sous le formulaire et apres l'envoi.
+ * - Un seul zip par plugin, un dossier par systeme (2026-11-24, Mika : Windows "dans le meme package, c'est aux gens
+ *   de faire ce choix") : chaque carte dit lesquels (platforms de vst.json).
  * - La configuration vient de public/data/vst.json (lu a la premiere ouverture de GOODIES) : tant que
  *   emailjsTemplateId est vide, le bloc reste cache (sauf ?vst=1, pour l'apercu).
  */
@@ -23,6 +25,7 @@ interface VstPlugin {
   name: string;
   kind: string;
   text: string;
+  platforms?: string[];
 }
 
 interface VstConfig {
@@ -140,19 +143,21 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, ta
   const busy = status === 'sending';
   return (
     <div className="v4-vst">
-      <h3 className="v4-sec-sub">Plugins, VST3 for macOS</h3>
+      <h3 className="v4-sec-sub">Plugins, VST3</h3>
       <ul className="v4-vst-list">
         {cfg.plugins.map((p) => (
           <li key={p.id} className="v4-vst-item">
             <span className="v4-vst-name">{p.name}</span>
             <span className="v4-vst-kind">{p.kind}</span>
             <span className="v4-vst-text">{p.text}</span>
+            <span className="v4-vst-os">{(p.platforms ?? ['macOS']).join(' · ')}</span>
           </li>
         ))}
       </ul>
       <p className="v4-vst-note">
-        Free. Leave your email and the download links land in your inbox. macOS 11 or later, Apple Silicon and Intel,
-        any VST3 host (Ableton Live, Bitwig, Reaper, Cubase). No Windows version yet.
+        Free. Leave your email and the download links land in your inbox. One zip per plugin, with a folder for each
+        system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host:
+        Ableton Live, Bitwig, Reaper, Cubase, FL Studio.
       </p>
       <form className="v4-form v4-vst-form" onSubmit={send} noValidate={false}>
         <label className="v4-field">

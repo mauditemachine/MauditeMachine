@@ -58,10 +58,11 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 
 ## 5. Plugins VST3 gratuits contre un courriel (24 nov 2026, `docs/vst-download.md`)
 
-- **GOODIES** (`src/v4/ui/sections/VstDownload.tsx`) : MM-RYTM et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
+- **GOODIES** (`src/v4/ui/sections/VstDownload.tsx`) : MM-RYTM (VST3 macOS et Windows beta) et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
 - **`/download/?p=rytm|arp`** (`public/download/index.html`, noindex, hors sitemap) : la page des liens du courriel, zip automatique, installation, don.
 - **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : `donateUrl` = `https://ko-fi.com/mauditemachine` (Ko-fi : Stripe branche, PayPal non, CA$, minimum 3) ; `emailjsTemplateId` encore vide, le bloc reste cache en ligne** (apercu `/goodies/?vst=1`). Des qu'ils sont remplis, `/goodies/` mentionne aussi les plugins pour Google (prerendu).
 - **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
 - MM-ARP (plugin) vit encore sur la branche `claude/nifty-bohr-7ixmpf` ; sa release `mm-arp-latest` existe, c'est elle que `Plugin public` reprend.
+- **Un zip par plugin, un dossier par systeme** (`MM-RYTM-VST3.zip`, `MM-ARP-VST3.zip`, 24 nov, Mika : "dans le meme package, c'est aux gens de faire ce choix") : `macOS/` et `Windows/`. **MM-RYTM Windows (beta)** : job `windows` de `plugin.yml` (MSVC, WebView2), jamais essaye sur un PC avant publication. MM-ARP Windows : a faire quand sa branche sera fusionnee (meme recette : `plugin/mm-rytm/README.md`).
 - **Publie le 24 nov 2026** (accord de Mika) : `mm-rytm-public` = build `1116cb3` (17 Mo), `mm-arp-public` = build `79f57a9` de `claude/nifty-bohr-7ixmpf` (10 Mo), binaires universels, README public. Reste a Mika : le modele EmailJS (`docs/vst-download.md`).
 

@@ -891,12 +891,12 @@ function contentFor(route) {
         ['cover', 'Release covers'],
       ];
       return [
-        h1(VST_LIVE ? 'Maudite Machine goodies: free VST3 plugins, wallpapers and release covers' : 'Maudite Machine goodies: free wallpapers and release covers'),
+        h1(VST_LIVE ? 'Maudite Machine goodies: free VST3 plugins (Mac and Windows), wallpapers and release covers' : 'Maudite Machine goodies: free wallpapers and release covers'),
         p('Free downloads, full resolution.'),
         VST_LIVE
-          ? h2('Free VST3 plugins for macOS') +
-            ul(asArray(VST.plugins).map((v) => `${esc(v.name)}, ${esc(v.kind.toLowerCase())}: ${esc(v.text)}`)) +
-            p('Free, sent by email. macOS 11 or later, Apple Silicon and Intel, any VST3 host (Ableton Live, Bitwig, Reaper, Cubase).')
+          ? h2('Free VST3 plugins for macOS and Windows') +
+            ul(asArray(VST.plugins).map((v) => `${esc(v.name)}, ${esc(v.kind.toLowerCase())} (${esc(asArray(v.platforms).join(', ') || 'macOS')}): ${esc(v.text)}`)) +
+            p('Free, sent by email. One zip per plugin with a folder for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host (Ableton Live, Bitwig, Reaper, Cubase, FL Studio).')
           : '',
         ...groups.map(([cat, title]) => {
           const items = GOODIES.filter((g) => g.category === cat);

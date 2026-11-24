@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- 2026-11-24 (Mika : les plugins RYTM et ARP au telechargement, contre un courriel, don volontaire) : la page
          des liens du courriel "VST download" (docs/vst-download.md). /download/?p=rytm ou ?p=arp lance le zip de la
-         release publique (mm-rytm-public, mm-arp-public), montre l'installation et le don. Pas dans le sitemap,
+         release publique (mm-rytm-public, mm-arp-public), montre l'installation et le don.
+         2026-11-24 : un seul zip par plugin, un dossier par systeme (macOS/, Windows/ quand il existe) ; l'installation
+         du systeme du visiteur vient en premier. Pas dans le sitemap,
          noindex : on y arrive par le courriel, pas par Google. Les noms, les zips et le don : public/data/vst.json. -->
     <title>Download | Maudite Machine</title>
     <meta name="robots" content="noindex, nofollow" />
@@ -108,6 +110,15 @@
       .plugin[hidden] { display: none; }
 
       .plugin-name { font-size: 22px; font-weight: 700; letter-spacing: 0.02em; }
+
+      .plugin-os {
+        display: block;
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--dim);
+      }
+
+      .install[hidden] { display: none; }
 
       .plugin-kind {
         display: block;
@@ -214,33 +225,53 @@
           <div>
             <span class="plugin-kind">Drum machine</span>
             <span class="plugin-name">MM-RYTM</span>
+            <span class="plugin-os" data-os="rytm">macOS · Windows (beta)</span>
           </div>
-          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3-macOS.zip" data-dl="rytm">Download</a>
+          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3.zip" data-dl="rytm">Download</a>
         </div>
         <div class="plugin" data-id="arp">
           <div>
             <span class="plugin-kind">Synth and arpeggiator</span>
             <span class="plugin-name">MM-ARP</span>
+            <span class="plugin-os" data-os="arp">macOS</span>
           </div>
-          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-VST3-macOS.zip" data-dl="arp">Download</a>
+          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-VST3.zip" data-dl="arp">Download</a>
         </div>
       </div>
       <p class="small" id="other" hidden></p>
 
-      <h2>Install on macOS</h2>
-      <ol>
-        <li>Unzip the file. Move <code class="vst">MM-RYTM.vst3</code> to <code>~/Library/Audio/Plug-Ins/VST3/</code> (in the Finder: Go &gt; Go to Folder, paste the path; create the <code>VST3</code> folder if it is missing).</li>
-        <li>
-          The plugin is not notarized by Apple yet, so macOS blocks it the first time. Open Terminal (Applications &gt; Utilities), paste this line and press Return:
-          <div class="cmd">
-            <pre id="cmd"></pre>
-            <button class="copy" type="button" id="copy">Copy</button>
-          </div>
-        </li>
-        <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Settings &gt; Plug-Ins, turn on "Use VST3 Plug-in System Folders", then Option-click Rescan.</li>
-        <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
-      </ol>
-      <p class="small">macOS 11 or later, Apple Silicon and Intel. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio. Logic Pro needs Audio Units, not available yet. No Windows version yet.</p>
+      <p class="small">One zip per plugin, one folder per system inside: pick <code>macOS</code> or <code>Windows</code>. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio. Logic Pro needs Audio Units, not available yet.</p>
+
+      <div id="installs">
+        <section class="install" id="install-mac">
+          <h2>Install on macOS</h2>
+          <ol>
+            <li>Unzip the file and open the <code>macOS</code> folder. Move <code class="vst">MM-RYTM.vst3</code> to <code>~/Library/Audio/Plug-Ins/VST3/</code> (in the Finder: Go &gt; Go to Folder, paste the path; create the <code>VST3</code> folder if it is missing).</li>
+            <li>
+              The plugin is not notarized by Apple yet, so macOS blocks it the first time. Open Terminal (Applications &gt; Utilities), paste this line and press Return:
+              <div class="cmd">
+                <pre id="cmd"></pre>
+                <button class="copy" type="button" id="copy">Copy</button>
+              </div>
+            </li>
+            <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Settings &gt; Plug-Ins, turn on "Use VST3 Plug-in System Folders", then Option-click Rescan.</li>
+            <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
+          </ol>
+          <p class="small">macOS 11 or later, Apple Silicon and Intel.</p>
+        </section>
+
+        <section class="install" id="install-win">
+          <h2>Install on Windows (beta)</h2>
+          <ol>
+            <li>Unzip the file and open the <code>Windows</code> folder. Copy the whole <code class="vst">MM-RYTM.vst3</code> folder to <code>C:\Program Files\Common Files\VST3\</code> (Windows asks for administrator permission).</li>
+            <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Options &gt; Preferences &gt; Plug-ins, turn on "Use VST3 Plug-in System Folders", then Rescan.</li>
+            <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
+            <li>The plugin window uses Microsoft Edge WebView2, already part of Windows 11 and up-to-date Windows 10. If the window shows a message instead of the machine, install the <a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener noreferrer">WebView2 Runtime</a>.</li>
+          </ol>
+          <p class="small">Windows 10 or 11, 64-bit. The Windows version is new: if something goes wrong, <a href="/contact/">tell me</a>.</p>
+        </section>
+      </div>
+      <p class="small" id="win-soon" hidden></p>
       <p class="small">Free to use in your music, commercial releases included. Please share the link to <a href="/goodies/">mauditemachine.com/goodies</a> rather than the zip itself.</p>
 
       <section class="donate" id="donate" hidden>
@@ -273,6 +304,13 @@
           var o = document.getElementById('other');
           o.innerHTML = 'Also free: <a href="?p=' + otherId + '">' + NAMES[otherId] + '</a>.';
           o.hidden = false;
+        }
+
+        // Windows : son installation en premier ; Mac (et le reste) : celle du Mac en premier
+        var onWindows = /Windows/i.test(navigator.userAgent || '');
+        if (onWindows) {
+          var box = document.getElementById('installs');
+          box.insertBefore(document.getElementById('install-win'), box.firstChild);
         }
 
         // L'installation, au nom du plugin choisi
@@ -327,10 +365,26 @@
               document.getElementById('donate-link').href = c.donateUrl;
               document.getElementById('donate').hidden = false;
             }
+            var withWin = [];
             (c.plugins || []).forEach(function (pl) {
               var a = document.querySelector('[data-dl="' + pl.id + '"]');
               if (a && pl.zip) a.href = pl.zip;
+              var os = document.querySelector('[data-os="' + pl.id + '"]');
+              var list = pl.platforms || ['macOS'];
+              if (os) os.textContent = list.join(' · ');
+              if (list.some(function (x) { return /^Windows/.test(x); })) withWin.push(pl);
             });
+            // Pas de version Windows pour le plugin choisi (ou pour aucun) : la section part, une ligne la remplace
+            var shown = p ? withWin.filter(function (pl) { return pl.id === p; }) : withWin;
+            var soon = document.getElementById('win-soon');
+            if (!shown.length) {
+              document.getElementById('install-win').hidden = true;
+              soon.textContent = 'Windows version coming soon.';
+              soon.hidden = false;
+            } else if (!p && withWin.length < (c.plugins || []).length) {
+              soon.textContent = 'Windows (beta) for now: ' + withWin.map(function (pl) { return pl.name; }).join(', ') + '. The others are coming.';
+              soon.hidden = false;
+            }
           })
           .catch(function () {});
       })();
