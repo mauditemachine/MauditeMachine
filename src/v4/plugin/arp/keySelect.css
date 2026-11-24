@@ -1,0 +1,129 @@
+/* v52 (choix 2A de Mika, maquette mq52/2A.png) : le selecteur de tonalite sous les 8 pads (KeySelect.tsx). Les mesures
+   sont celles de la maquette a 1496 px de large ; le conteneur est mis a l'echelle des pads (scale). Le menu un rien
+   plus serre que la maquette (marges 5 px, ecarts 3 px) : sous la pastille, il tient dans la fenetre de 957 px de haut. */
+
+.mm-keysel {
+  z-index: 30;
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  pointer-events: auto;
+}
+
+.mm-keysel-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 22px;
+  margin: 0;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 11px;
+  background: #0b0a0a;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 0 1px #000;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #f3eee6;
+  font: inherit;
+}
+
+.mm-keysel-pill:hover,
+.mm-keysel[data-open] .mm-keysel-pill {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 45%, transparent),
+    0 0 0 1px #000;
+}
+
+.mm-keysel-pill:focus-visible {
+  outline: 2px solid var(--mm-accent);
+  outline-offset: 2px;
+}
+
+.mm-keysel-lab {
+  font: 700 9px/1 'SF Pro Display', system-ui, sans-serif;
+  letter-spacing: 0.25em;
+  color: rgba(240, 234, 224, 0.62);
+}
+
+.mm-keysel-key {
+  font: 800 11px/1 'SF Pro Display', system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  color: var(--mm-accent);
+}
+
+.mm-keysel-mode {
+  font: 700 9px/1 'SF Pro Display', system-ui, sans-serif;
+  letter-spacing: 0.25em;
+  color: #f3eee6;
+}
+
+.mm-keysel-arr {
+  font-size: 8px;
+  line-height: 1;
+  color: rgba(240, 234, 224, 0.6);
+}
+
+.mm-keysel-menu {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 3px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: rgba(8, 8, 8, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
+.mm-keysel-menu[data-up] {
+  top: auto;
+  bottom: calc(100% + 3px);
+}
+
+.mm-keysel-row {
+  display: flex;
+  gap: 3px;
+}
+
+.mm-keysel-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 16px;
+  margin: 0;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  font: 700 8.5px/1 'SF Pro Display', system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  background: #1a1918;
+  color: rgba(240, 234, 224, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.mm-keysel-chip:hover {
+  color: #f3eee6;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 45%, transparent);
+}
+
+.mm-keysel-chip[data-on] {
+  background: var(--mm-accent);
+  color: #071214;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--mm-accent) 60%, transparent);
+}
+
+.mm-keysel-chip:focus-visible {
+  outline: 2px solid var(--mm-accent);
+  outline-offset: 1px;
+}
+
+.mm-keysel-wide {
+  min-width: 70px;
+}

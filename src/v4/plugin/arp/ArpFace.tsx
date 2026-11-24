@@ -35,6 +35,9 @@ import { FaceLook, FaceLookButton } from './LookPanel';
 import { FaceCpuMeter } from './CpuMeter';
 import './hypno';
 import { LearnMarks } from './HoodPanel';
+// v52 : la tonalite (xKey, xScale) suivie des le chargement, et son selecteur sous les pads
+import './key';
+import { KeySelect } from './KeySelect';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -156,6 +159,7 @@ const ArpFace: React.FC = () => {
         <FaceLook stage={stage} />
         <FaceLookButton stage={stage} />
         <FaceCpuMeter stage={stage} />
+        <KeySelect stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (

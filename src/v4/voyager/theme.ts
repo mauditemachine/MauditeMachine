@@ -642,6 +642,8 @@ export interface VoyGroup {
   x0: number;
   x1: number;
   z: number;
+  /** v52 (le plugin) : le nom n'est pas ecrit, le trait lui garde sa place (le selecteur de tonalite s'y pose) */
+  silent?: boolean;
 }
 export const VOY_GROUP_TYPE = { cap: PORTRAIT ? 0.095 : 0.075, weight: 700, dz: PORTRAIT ? 0.27 : 0.2, side: 0.06, tick: 0.08, pad: 0.1 } as const;
 
@@ -661,8 +663,15 @@ function knobGroup(text: string, ids: readonly VoyKnobId[], with_: readonly VoyK
 }
 
 const CHORDS_TEXT = 'CHORDS  F# MINOR';
+/**
+ * v52 (le plugin, choix 2A de Mika) : la ligne CHORDS devient le selecteur de tonalite (plugin/arp/KeySelect.tsx), une
+ * pastille posee dans le trait : la serigraphie n'ecrit plus le nom (silent) et le trait lui garde la place de la plus
+ * large (CHORDS F# PHRYGIAN et sa fleche), un peu d'air autour comme sur la maquette.
+ */
+const CHORDS_GAP = 'CHORDS  A#  PHRYGIAN  VVV';
 const padGroup = (): VoyGroup => ({
-  text: CHORDS_TEXT,
+  text: PLUGIN_ARP ? CHORDS_GAP : CHORDS_TEXT,
+  ...(PLUGIN_ARP ? { silent: true } : {}),
   where: 'deck',
   x0: VOY_PAD.xs[0] - VOY_PAD.size / 2 - VOY_GROUP_TYPE.side,
   x1: VOY_PAD.xs[VOY_PAD.perRow - 1] + VOY_PAD.size / 2 + VOY_GROUP_TYPE.side,

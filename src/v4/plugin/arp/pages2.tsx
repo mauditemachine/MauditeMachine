@@ -20,7 +20,7 @@
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { arp, arpExternal } from '../../voyager/arp';
-import { CHORDS } from '../../voyager/chords';
+import { CHORDS, arpKey } from '../../voyager/chords';
 import { voyParams } from '../../voyager/params';
 import { seq, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
 import { extHead } from '../head';
@@ -309,6 +309,8 @@ function useChord(): { chord: number; notes: SeqStep[]; len: number } {
   const ar = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
   const view = useSyncExternalStore(notesViewStore.subscribe, notesViewStore.get, notesViewStore.get);
   useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
+  // v52 : la tonalite (CHORDS sous les pads) : les noms des accords et des notes suivent
+  useSyncExternalStore(arpKey.subscribe, arpKey.get, arpKey.get);
   const playing = ar.running && arpExternal.headState.chord >= 0 ? arpExternal.headState.chord : -1;
   const chord = view ?? (playing >= 0 ? playing : (ar.prog[0] ?? 0));
   const notes = seq.shown(chord);
@@ -335,12 +337,13 @@ const AREA = { top: 6, h: T.area - 6 };
 const SeqTop: React.FC<{ chord: number; len: number }> = ({ chord, len }) => {
   const sq = useSyncExternalStore(seq.subscribe, seq.get, seq.get);
   const ar = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
+  useSyncExternalStore(arpKey.subscribe, arpKey.get, arpKey.get);
   return (
     <div className="mm-sq-top" style={{ top: 20 }}>
       <span className="mm-sq-lab">CHORD</span>
       {CHORDS.map((c, i) => (
         <PcbKey
-          key={c.label}
+          key={i}
           name={c.label}
           cap={<span>{c.label}</span>}
           w={34}

@@ -87,19 +87,69 @@ double oscSemis(double range, double semi) { return kOscRangeSemi[stepIdx(kn_ran
 
 /* ---------------- chords.ts ---------------- */
 
-constexpr int FS3 = 54;
-constexpr int SCALE[7] = {0, 2, 3, 5, 7, 8, 10};
+// v52 (2026-11-24, choix 2A de Mika : "pourquoi on a pas toutes les notes ?") : la tonalite au choix (xKey, xScale).
+// Une tonalite : sa tonique (48 + key, entre do 3 et si 3 ; F# : 54, le FS3 d'avant), la gamme du mode, les huit accords
+// des pads (chords.ts keyChords : les sept degres dans l'ordre, le degre diminue en demi-diminue a quatre sons, puis la
+// tonique a quatre sons). Les 48 tonalites sont calculees a la compilation (kKeyTable) : rien au temps reel.
 struct ChordC {
-  int root;
+  int root;  // en demi-tons au-dessus de la tonique (un degre de la gamme)
   int nTones;
   int tones[4];
 };
-// CHORDS du plugin (v43, chords.ts ARP_CHORDS, celle de la face) : les sept degres de F# mineur puis i7 :
-// F#m, G#ø (G#m7b5), A, Bm, C#m, D, E, F#m7. (Avant la v43 : ceux du site, F#m D E C#m Bm A F#m7 Dmaj7 ; kSiteToArp.)
-constexpr ChordC CHORDS[8] = {
-    {0, 3, {0, 3, 7, 0}}, {2, 4, {0, 3, 6, 10}}, {3, 3, {0, 4, 7, 0}}, {5, 3, {0, 3, 7, 0}},
-    {7, 3, {0, 3, 7, 0}}, {8, 3, {0, 4, 7, 0}}, {10, 3, {0, 4, 7, 0}}, {0, 4, {0, 3, 7, 10}},
+struct KeyC {
+  int tonic;
+  int scale[7];
+  ChordC chords[8];
 };
+// MINOR (le mineur naturel), MAJOR, DORIAN, PHRYGIAN : chords.ts MODE_SCALES
+constexpr int kModeScales[kScaleCount][7] = {
+    {0, 2, 3, 5, 7, 8, 10},
+    {0, 2, 4, 5, 7, 9, 11},
+    {0, 2, 3, 5, 7, 9, 10},
+    {0, 1, 3, 5, 7, 8, 10},
+};
+constexpr KeyC makeKey(int key, int mode) {
+  KeyC k{};
+  k.tonic = 48 + key;
+  for (int j = 0; j < 7; ++j) k.scale[j] = kModeScales[mode][j];
+  for (int i = 0; i < 8; ++i) {
+    const int d = i % 7;
+    int up[7] = {0, 0, 0, 0, 0, 0, 0};
+    for (int s = 0; s < 7; ++s) up[s] = (k.scale[(d + s) % 7] - k.scale[d] + 12) % 12;
+    // la triade ; le degre diminue (quinte de 6) et la tonique du pad 8 : a quatre sons, la septieme de la gamme
+    const bool four = i == 7 || up[4] == 6;
+    ChordC& c = k.chords[i];
+    c.root = k.scale[d];
+    c.nTones = four ? 4 : 3;
+    c.tones[0] = 0;
+    c.tones[1] = up[2];
+    c.tones[2] = up[4];
+    c.tones[3] = four ? up[6] : 0;
+  }
+  return k;
+}
+struct KeyTable {
+  KeyC k[kKeyCount * kScaleCount];
+};
+constexpr KeyTable makeKeyTable() {
+  KeyTable t{};
+  for (int m = 0; m < kScaleCount; ++m)
+    for (int key = 0; key < kKeyCount; ++key) t.k[m * kKeyCount + key] = makeKey(key, m);
+  return t;
+}
+constexpr KeyTable kKeyTable = makeKeyTable();
+// F# MINOR : les accords de la v43 (F#m, G#ø, A, Bm, C#m, D, E, F#m7), la tonique FS3 = 54
+static_assert(kKeyTable.k[kKeyDef].tonic == 54 && kKeyTable.k[kKeyDef].chords[1].nTones == 4 && kKeyTable.k[kKeyDef].chords[1].tones[3] == 10 &&
+                  kKeyTable.k[kKeyDef].chords[2].root == 3 && kKeyTable.k[kKeyDef].chords[2].tones[1] == 4 && kKeyTable.k[kKeyDef].chords[7].tones[3] == 10,
+              "F# MINOR doit rester la banque de la v43");
+
+// La tonalite (key 0..11, mode 0..3, bornes ; hors bornes : la plus proche)
+const KeyC& keyOf(int key, int mode) {
+  const int k = key < 0 ? 0 : key >= kKeyCount ? kKeyCount - 1 : key;
+  const int m = mode < 0 ? 0 : mode >= kScaleCount ? kScaleCount - 1 : mode;
+  return kKeyTable.k[m * kKeyCount + k];
+}
+
 constexpr int kChordCount = 8;
 constexpr int SEQ_TOP = 24;
 
@@ -107,26 +157,26 @@ int mod7(int k) { return ((k % 7) + 7) % 7; }
 // floor(k / 7) en entiers
 int floorDiv7(int k) { return k >= 0 ? k / 7 : -((-k + 6) / 7); }
 
-int rootDegree(int i) {
-  const int r = i >= 0 && i < kChordCount ? CHORDS[i].root : 0;
+int rootDegree(const KeyC& K, int i) {
+  const int r = i >= 0 && i < kChordCount ? K.chords[i].root : 0;
   for (int j = 0; j < 7; ++j)
-    if (SCALE[j] == r) return j;
+    if (K.scale[j] == r) return j;
   return 0;
 }
 
-int interval(int i, int c) {
-  const int r = rootDegree(i);
-  return (SCALE[mod7(r + c)] - SCALE[r] + 12) % 12;
+int interval(const KeyC& K, int i, int c) {
+  const int r = rootDegree(K, i);
+  return (K.scale[mod7(r + c)] - K.scale[r] + 12) % 12;
 }
 
-int inWindow(int i, int c, int o) {
-  const int r = rootDegree(i);
+int inWindow(const KeyC& K, int i, int c, int o) {
+  const int r = rootDegree(K, i);
   return mod7(r + c) - r + 7 * o;
 }
 
 // chordClasses : base (au plus 4) et ext (au plus 2)
-void chordClasses(int i, int type, int* base, int& nb, int* ext, int& ne) {
-  const int n = i >= 0 && i < kChordCount ? CHORDS[i].nTones : 3;
+void chordClasses(const KeyC& K, int i, int type, int* base, int& nb, int* ext, int& ne) {
+  const int n = i >= 0 && i < kChordCount ? K.chords[i].nTones : 3;
   nb = 0;
   ne = 0;
   if (type <= 0) {
@@ -143,10 +193,10 @@ void chordClasses(int i, int type, int* base, int& nb, int* ext, int& ne) {
   if (type >= 3) {
     bool major = false;
     if (i >= 0 && i < kChordCount)
-      for (int j = 0; j < CHORDS[i].nTones; ++j)
-        if (CHORDS[i].tones[j] == 4) major = true;
-    const bool nine = interval(i, 1) != 1;
-    const int eleven = major && interval(i, 3) == 5 ? (interval(i, 5) != 8 ? 5 : -1) : 3;
+      for (int j = 0; j < K.chords[i].nTones; ++j)
+        if (K.chords[i].tones[j] == 4) major = true;
+    const bool nine = interval(K, i, 1) != 1;
+    const int eleven = major && interval(K, i, 3) == 5 ? (interval(K, i, 5) != 8 ? 5 : -1) : 3;
     if (nine) ext[ne++] = 1;
     if (type >= 4 || !nine) {
       if (eleven >= 0) ext[ne++] = eleven;
@@ -156,9 +206,9 @@ void chordClasses(int i, int type, int* base, int& nb, int* ext, int& ne) {
 
 // voicedDegrees : au plus 3 x 4 + 2 notes (RANGE : 1 a 3 octaves)
 constexpr int kMaxSeq = 32;
-int voicedDegrees(int i, int oct, int type, int* out) {
+int voicedDegrees(const KeyC& K, int i, int oct, int type, int* out) {
   int base[4], ext[2], nb = 0, ne = 0;
-  chordClasses(i, type, base, nb, ext, ne);
+  chordClasses(K, i, type, base, nb, ext, ne);
   int n = 0;
   if (type <= 0) {
     for (int o = 0; o < oct; ++o)
@@ -166,7 +216,7 @@ int voicedDegrees(int i, int oct, int type, int* out) {
     return n;
   }
   int low[4];
-  for (int j = 0; j < nb; ++j) low[j] = inWindow(i, base[j], 0);
+  for (int j = 0; j < nb; ++j) low[j] = inWindow(K, i, base[j], 0);
   // tri montant (insertion : 4 valeurs au plus)
   for (int a = 1; a < nb; ++a)
     for (int b = a; b > 0 && low[b - 1] > low[b]; --b) {
@@ -178,7 +228,7 @@ int voicedDegrees(int i, int oct, int type, int* out) {
     for (int j = 0; j < nb; ++j) out[n++] = low[j] + 7 * o;
   int top = n > 0 ? out[n - 1] : 0;
   for (int j = 0; j < ne; ++j) {
-    int d = inWindow(i, ext[j], 0);
+    int d = inWindow(K, i, ext[j], 0);
     while (d <= top) d += 7;
     out[n++] = d;
     top = d;
@@ -187,10 +237,10 @@ int voicedDegrees(int i, int oct, int type, int* out) {
 }
 
 // arpDegrees : au plus 2 x 14 - 2 notes (UP/DN)
-int arpDegrees(int i, int oct, int mode, int type, int* out) {
+int arpDegrees(const KeyC& K, int i, int oct, int mode, int type, int* out) {
   if (i < 0 || i >= kChordCount) return 0;
   int up[kMaxSeq];
-  const int n = voicedDegrees(i, oct, type, up);
+  const int n = voicedDegrees(K, i, oct, type, up);
   int m = 0;
   if (mode == 1) {
     for (int j = n - 1; j >= 0; --j) out[m++] = up[j];
@@ -200,6 +250,31 @@ int arpDegrees(int i, int oct, int mode, int type, int* out) {
   if (mode == 2 && n > 2)
     for (int j = n - 2; j >= 1; --j) out[m++] = up[j];
   return m;
+}
+
+// chords.ts degreeMidi dans la tonalite K
+int degreeMidiK(const KeyC& K, int chord, int d) {
+  const int k = rootDegree(K, chord) + d;
+  return K.tonic + 12 * floorDiv7(k) + K.scale[mod7(k)];
+}
+
+// seq.ts poolSteps dans la tonalite K
+int poolStepsK(const KeyC& K, const double* knobs, int chord, int mode, int* out, int max) {
+  int full[kMaxSeq];
+  int raw[kMaxSeq];
+  const int oct = step(knobs, kn_range) + 1;
+  const int nr = arpDegrees(K, chord, oct, mode, step(knobs, kn_chord), raw);
+  // Les extensions au sommet de trois octaves (A, Bm) passent SEQ_TOP : elles se taisent
+  int nf = 0;
+  for (int j = 0; j < nr; ++j)
+    if (raw[j] <= SEQ_TOP) full[nf++] = raw[j];
+  const int k = step(knobs, kn_notes);
+  int n = 0;
+  if (k > 0 && nf > 0)
+    for (int j = 0; j < k && n < max; ++j) out[n++] = full[j % nf];
+  else
+    for (int j = 0; j < nf && n < max; ++j) out[n++] = full[j];
+  return n;
 }
 
 int clampMidi(int m) { return m < 0 ? 0 : m > 127 ? 127 : m; }
@@ -399,27 +474,21 @@ void knobReadout(int i, double v, char* out, int max) {
   readout(i, v != v ? 0.0 : v, o);
 }
 
-int degreeMidi(int chord, int d) {
-  const int k = rootDegree(chord) + d;
-  return FS3 + 12 * floorDiv7(k) + SCALE[mod7(k)];
+int degreeMidi(int chord, int d, int key, int scale) { return degreeMidiK(keyOf(key, scale), chord, d); }
+
+int poolSteps(const double* knobs, int chord, int mode, int* out, int max, int key, int scale) {
+  return poolStepsK(keyOf(key, scale), knobs, chord, mode, out, max);
 }
 
-int poolSteps(const double* knobs, int chord, int mode, int* out, int max) {
-  int full[kMaxSeq];
-  int raw[kMaxSeq];
-  const int oct = step(knobs, kn_range) + 1;
-  const int nr = arpDegrees(chord, oct, mode, step(knobs, kn_chord), raw);
-  // Les extensions au sommet de trois octaves (A, Bm) passent SEQ_TOP : elles se taisent
-  int nf = 0;
-  for (int j = 0; j < nr; ++j)
-    if (raw[j] <= SEQ_TOP) full[nf++] = raw[j];
-  const int k = step(knobs, kn_notes);
-  int n = 0;
-  if (k > 0 && nf > 0)
-    for (int j = 0; j < k && n < max; ++j) out[n++] = full[j % nf];
-  else
-    for (int j = 0; j < nf && n < max; ++j) out[n++] = full[j];
-  return n;
+int keyTonic(int key) { return keyOf(key, kScaleDef).tonic; }
+
+int keyChord(int key, int scale, int chord, int* root, int* tones) {
+  if (chord < 0 || chord >= kChordCount) return 0;
+  const KeyC& K = keyOf(key, scale);
+  const ChordC& c = K.chords[chord];
+  if (root) *root = K.tonic + c.root;
+  for (int j = 0; tones && j < c.nTones; ++j) tones[j] = c.tones[j];
+  return c.nTones;
 }
 
 int engineParams(const double* k, ParamKV* out, int max) {
@@ -498,7 +567,8 @@ void reserveArp(ArpProgram& out) {
   }
 }
 
-void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int nProg, ArpProgram& out) {
+void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int nProg, ArpProgram& out, int key, int scale) {
+  const KeyC& K = keyOf(key, scale);
   out.spn = kStepsPerNote[step(knobs, kn_rate)];
   out.gate = gateFrac(val(knobs, kn_gate));
   out.accent = val(knobs, kn_accent);
@@ -524,14 +594,14 @@ void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int 
     if (seq.edit) {
       // EDIT : la suite de Mika, ses silences
       ch.rand = false;
-      for (int s = 0; s < len; ++s) ch.midi.push_back(seq.buf[s] == kSeqRest ? kRest : clampMidi(degreeMidi(c, seq.buf[s]) + shift));
+      for (int s = 0; s < len; ++s) ch.midi.push_back(seq.buf[s] == kSeqRest ? kRest : clampMidi(degreeMidiK(K, c, seq.buf[s]) + shift));
       continue;
     }
     int d[kMaxSeq];
     // AUTO : la suite des potards ; RAND : le reservoir (poolSteps(c, p, 0))
     ch.rand = mode == 3;
-    const int n = poolSteps(knobs, c, ch.rand ? 0 : mode, d, kMaxSeq);
-    for (int s = 0; s < n; ++s) ch.midi.push_back(clampMidi(degreeMidi(c, d[s]) + shift));
+    const int n = poolStepsK(K, knobs, c, ch.rand ? 0 : mode, d, kMaxSeq);
+    for (int s = 0; s < n; ++s) ch.midi.push_back(clampMidi(degreeMidiK(K, c, d[s]) + shift));
   }
   for (size_t j = used; j < out.chords.size(); ++j) {
     out.chords[j].c = -1;

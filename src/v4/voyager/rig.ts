@@ -38,7 +38,7 @@ import { VoySeqScreen } from './seqscreen';
 import { arp, arpNow } from './arp';
 import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
-import { CHORDS } from './chords';
+import { CHORDS, arpKey } from './chords';
 import { VoyKnobs } from './knobs';
 import { PRESET_LIST, VoyScreen, type VoyScreenState } from './screen';
 import { voyEcho } from './echo';
@@ -330,6 +330,17 @@ export class VoyagerRig {
     this.unsubs.push(voyInfos.subscribe(this.syncLcd));
     this.unsubs.push(voyPatch.subscribe(this.syncLcd));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
+    // v52 (le plugin) : la tonalite change (xKey, xScale ; plugin/arp/KeySelect.tsx) : les noms des pads, les deux ecrans
+    if (PLUGIN_ARP)
+      this.unsubs.push(
+        arpKey.subscribe(() => {
+          this.deckSilk.draw();
+          this.lcd.invalidate();
+          this.seqScreen?.invalidate();
+          this.syncLcd();
+          this.opts.repaint();
+        })
+      );
     // 2026-10-22 (audit SB-01) : les polices pas encore la, la serigraphie et les deux ecrans se redessinent a leur
     // arrivee (avant, l'ecran restait dans la police de repli jusqu'au premier potard ou accord touche)
     if (!fontsReady()) {

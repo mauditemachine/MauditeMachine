@@ -750,7 +750,8 @@ function full(p) {
   Object.assign(ex, delayFrom(knobs, ex.xDlyMode));
   for (const e of V27) if (e.section !== 'delay' && ex[e.id] !== e.def) throw new Error(`${p.name} : ${e.id} doit rester neutre (${e.def})`);
   const extra = {};
-  for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);
+  // v52 : la tonalite (xKey, xScale, instance) n'est dans aucun preset : celle du morceau reste
+  for (const e of EXTRA) if (!e.instance) extra[e.id] = cleanExtra(e.id, ex[e.id]);
   // Les regles du son analogique (analog.ts) : aucun effet, le filtre modere, pas trop aigu
   const faults = analogFaults(knobs, extra, EXTRA_STEPS);
   if (faults.length) throw new Error(`${p.name} : ${faults.join(' ; ')}`);

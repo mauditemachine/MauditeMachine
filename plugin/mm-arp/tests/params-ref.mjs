@@ -7,6 +7,9 @@
 //   node plugin/mm-arp/tests/params-ref.mjs <dossier-de-sortie> [nombre de cas, 3000 par defaut]
 // L'arpege suit plugin/arp/bridge.ts compile() : seq.steps (la logique recopiee pour des potards bruts ; sur un cas sur
 // cinq, aux potards arrondis comme le site, le vrai seq.steps du module, et la recopie lui est comparee ici meme).
+// v52 (la tonalite au choix) : les N cas restent en F# MINOR (le depart, au bit pres d'avant) ; la banque F# MINOR est
+// comparee ici a celle de la v43, champ par champ ; puis les 48 tonalites (lignes W : racine, intervalles et notes de
+// chaque pad, degres -7 a 24) et 480 cas de plus, dix par tonalite (ligne Y : xKey, xScale du cas).
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -126,9 +129,37 @@ for (const k of K) L.push(['D', k.id, k.label, k.section, String(k.def), k.legac
 // v43 : les accords du plugin, sa marque et la conversion des indices du site (chords.ts ; le C++ : dsp/Params.h)
 if (C.CHORDS !== C.ARP_CHORDS) throw new Error('chords.ts : CHORDS devrait etre ARP_CHORDS (PLUGIN_ARP)');
 L.push('B ' + C.ARP_CHORD_BANK + ' ' + C.SITE_TO_ARP.join(' '));
-L.push('N ' + N);
+// v52 : au depart (F# MINOR), la banque de la v43 au champ pres
+const V43 = [
+  { label: 'F#m', aria: 'F sharp minor', root: 0, tones: [0, 3, 7], roman: 'i', camelot: '11A' },
+  { label: 'G#ø', aria: 'G sharp half diminished seven', root: 2, tones: [0, 3, 6, 10], roman: 'iiø', camelot: '' },
+  { label: 'A', aria: 'A major', root: 3, tones: [0, 4, 7], roman: 'III', camelot: '11B' },
+  { label: 'Bm', aria: 'B minor', root: 5, tones: [0, 3, 7], roman: 'iv', camelot: '10A' },
+  { label: 'C#m', aria: 'C sharp minor', root: 7, tones: [0, 3, 7], roman: 'v', camelot: '12A' },
+  { label: 'D', aria: 'D major', root: 8, tones: [0, 4, 7], roman: 'VI', camelot: '10B' },
+  { label: 'E', aria: 'E major', root: 10, tones: [0, 4, 7], roman: 'VII', camelot: '12B' },
+  { label: 'F#m7', aria: 'F sharp minor seven', root: 0, tones: [0, 3, 7, 10], roman: 'i7', camelot: '11A' },
+];
+if (JSON.stringify(C.ARP_CHORDS) !== JSON.stringify(V43) || C.keyLine() !== 'F# MINOR  11A') throw new Error('chords.ts : F# MINOR doit rendre la banque de la v43');
+// v52 : les 48 tonalites, chaque pad : sa racine midi, ses intervalles, ses notes des degres -7 a 24
+for (let m = 0; m < C.MODE_NAMES.length; m += 1)
+  for (let k = 0; k < 12; k += 1) {
+    C.arpKey.set(k, m);
+    C.CHORDS.forEach((ch, c) => {
+      const deg = [];
+      for (let d = -7; d <= 24; d += 1) deg.push(C.degreeMidi(c, d));
+      L.push(['W', k, m, c, C.degreeMidi(c, 0), ch.tones.length, ...ch.tones, ...deg].join(' '));
+    });
+  }
+C.arpKey.set(C.KEY_DEF, C.MODE_DEF);
+const M = 480;
+L.push('N ' + (N + M));
 let checked = 0;
-for (let i = 0; i < N; i += 1) {
+for (let i = 0; i < N + M; i += 1) {
+  // v52 : apres les N cas en F# MINOR, dix cas par tonalite
+  const key = i < N ? C.KEY_DEF : (i - N) % 12;
+  const mode = i < N ? C.MODE_DEF : Math.floor((i - N) / 12) % C.MODE_NAMES.length;
+  C.arpKey.set(key, mode);
   let v = knobsOf(i);
   const clean = cleanOf(v);
   const real = i % 5 === 4;
@@ -161,6 +192,7 @@ for (let i = 0; i < N; i += 1) {
     else chords.push({ c, rand: 1, midi: Q.poolSteps(c, v, 0).map((d) => C.degreeMidi(c, d) + shift) });
   }
 
+  if (i >= N) L.push('Y ' + key + ' ' + mode);
   L.push('K ' + K.map((k) => String(v[k.id])).join(' '));
   L.push('Q ' + K.map((k) => String(clean[k.id])).join(' '));
   L.push('S ' + (st.edit ? 1 : 0) + ' ' + st.len + ' ' + st.buf.map((d) => (d === null ? 'R' : String(d))).join(' '));
@@ -173,8 +205,9 @@ for (let i = 0; i < N; i += 1) {
   for (const ch of chords) L.push('C ' + ch.c + ' ' + ch.rand + ' ' + ch.midi.length + (ch.midi.length ? ' ' + ch.midi.map((m) => (m === null ? 'R' : String(m))).join(' ') : ''));
   for (const k of K) L.push('X\t' + P.voyValueText(k.id, v[k.id]) + '\t' + P.voyReadout(k.id, v[k.id]));
 }
+C.arpKey.set(C.KEY_DEF, C.MODE_DEF);
 writeFileSync(outPath, L.join('\n') + '\n');
-process.stdout.write('params-ref : ' + N + ' cas, ' + K.length + ' potards, seq.steps du module compare a la recopie sur ' + checked + ' accords\n');
+process.stdout.write('params-ref : ' + N + ' cas en F# MINOR et ' + M + ' dans les 48 tonalites, ' + K.length + ' potards, seq.steps du module compare a la recopie sur ' + checked + ' accords\n');
 `;
 writeFileSync(join(src, 'run.mjs'), runner);
 const res = execFileSync(process.execPath, ['--experimental-strip-types', '--no-warnings', join(src, 'run.mjs'), join(out, 'params-cases.txt'), String(count)], { encoding: 'utf8' });

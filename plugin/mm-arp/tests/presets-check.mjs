@@ -77,6 +77,11 @@ for (const p of bank.presets ?? []) {
   const ex = p.extra ?? {};
   for (const e of EXTRA) {
     const v = ex[e.id];
+    // v52 : un reglage de l'instance (xKey, xScale) n'est dans aucun preset
+    if (e.instance) {
+      if (v !== undefined) err(who, `v52 : ${e.id} est un reglage de l'instance, jamais dans un preset`);
+      continue;
+    }
     if (!okNum(v)) err(who, `reglage ${e.id} absent ou hors de 0..1 (${v})`);
     else if (exClean(e, v) !== v) err(who, `reglage ${e.id} = ${v} pas sur son cran`);
   }

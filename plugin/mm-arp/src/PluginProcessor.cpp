@@ -322,7 +322,12 @@ juce::MidiFile MMArpProcessor::arpMidi(int cycles, int& bars) const {
         k[static_cast<size_t>(i)] = knobParams_[static_cast<size_t>(i)] ? mmarp::knobClean(i, static_cast<double>(knobParams_[static_cast<size_t>(i)]->getValue())) : mmarp::kKnobDefs[i].def;
     mmarp::ArpProgram ap;
     mmarp::reserveArp(ap);
-    mmarp::arpProgram(k.data(), p->seq, p->prog.data(), p->nProg, ap);
+    // v52 : la tonalite de l'instance (xKey, xScale), comme la lecture
+    const auto exVal = [&](int e) {
+        auto* prm = knobParams_[static_cast<size_t>(mmarp::kKnobs + e)];
+        return prm ? static_cast<double>(prm->getValue()) : mmx::kExtraDefs[e].def;
+    };
+    mmarp::arpProgram(k.data(), p->seq, p->prog.data(), p->nProg, ap, mmx::exStep(mmx::ex_xKey, exVal(mmx::ex_xKey)), mmx::exStep(mmx::ex_xScale, exVal(mmx::ex_xScale)));
     ap.swing = p->swing;
     applySteps(*p, ap, knobParams_[static_cast<size_t>(mmarp::kKnobs + mmx::ex_xSwing)] ? static_cast<double>(knobParams_[static_cast<size_t>(mmarp::kKnobs + mmx::ex_xSwing)]->getValue()) : 0.0);
     // La progression entiere (une mesure par accord), repetee cycles fois, depuis la mesure 1 : les memes notes que la
@@ -1092,7 +1097,8 @@ void MMArpProcessor::buildArp() {
     const MMArpProgram& p = *current_;
     // L'arpege dans le tampon libre, puis echange (l'arpegiateur garde son pointeur jusque-la)
     const int next = 1 - arpCur_;
-    mmarp::arpProgram(knobs_.data(), p.seq, p.prog.data(), p.nProg, arpBuf_[next]);
+    // v52 : dans la tonalite de l'instance (xKey, xScale : un reglage de l'hote, change ici comme un potard)
+    mmarp::arpProgram(knobs_.data(), p.seq, p.prog.data(), p.nProg, arpBuf_[next], mmx::exStep(mmx::ex_xKey, ex_[mmx::ex_xKey]), mmx::exStep(mmx::ex_xScale, ex_[mmx::ex_xScale]));
     arpBuf_[next].swing = p.swing;
     applySteps(p, arpBuf_[next], ex_[mmx::ex_xSwing]);
     arp_.setProgram(&arpBuf_[next]);

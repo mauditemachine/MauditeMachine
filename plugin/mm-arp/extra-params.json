@@ -3005,6 +3005,42 @@
       "label": "MOD 8 AMOUNT",
       "section": "mod",
       "def": 0.5
+    },
+    {
+      "id": "xKey",
+      "label": "KEY",
+      "section": "key",
+      "def": 0.5454545454545454,
+      "steps": [
+        "C",
+        "C#",
+        "D",
+        "D#",
+        "E",
+        "F",
+        "F#",
+        "G",
+        "G#",
+        "A",
+        "A#",
+        "B"
+      ],
+      "instance": true,
+      "help": "v52 (Mika : \"pourquoi on a pas toutes les notes ?\", choix 2A) : la tonique des 8 pads (le selecteur CHORDS sous les pads), 12 crans de C a B, depart F# (6 / 11). La tonique se pose entre C3 et B3 (48 + cran ; F# : 54, la note d'avant). Un reglage de l'instance (le morceau), comme LATENCY : aucun preset (usine, disque, RANDOM) ne le change ; un projet d'avant s'ouvre en F# MINOR, au bit pres. Jamais une cible de modulation."
+    },
+    {
+      "id": "xScale",
+      "label": "SCALE",
+      "section": "key",
+      "def": 0,
+      "steps": [
+        "MINOR",
+        "MAJOR",
+        "DORIAN",
+        "PHRYGIAN"
+      ],
+      "instance": true,
+      "help": "v52 : le mode des 8 pads : les sept degres de sa gamme dans l'ordre (triades ; le degre diminue en demi-diminue a quatre sons, comme G#ø), puis la tonique a quatre sons (m7 ; maj7 en MAJOR). Les notes du sequenceur sont des degres de cette gamme. Depart MINOR ; un reglage de l'instance, comme xKey."
     }
   ]
 }

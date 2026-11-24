@@ -20,7 +20,7 @@
 
 import { JUNO } from '../audio/chorus';
 import { ACCENT_DEPTHS, arpPreview } from './preview';
-import { CHORDS, chordNotes, voicedDegrees, degreeMidi } from './chords';
+import { chordNotes, chordRootPc, keyTonic, voicedDegrees, degreeMidi } from './chords';
 import {
   CHORD_TYPES,
   DLY_TIMES,
@@ -856,7 +856,7 @@ function contourDiagram(id: VoyKnobId, values: Readonly<VoyValues>, chord: numbe
   const x = (i: number): number => X0 + 6 + ((X1 - X0 - 12) * (i + 0.5)) / n;
   const y = (m: number): number => Y1 - 6 - ((m - lo) / Math.max(1, hi - lo)) * (Y1 - Y0 - 12);
   // Les octaves : un filet a chaque racine
-  for (let m = lo; m <= hi; m += 1) if (((m - (54 + (CHORDS[chord]?.root ?? 0))) % 12 + 12) % 12 === 0) p.p(seg(X0, y(m), X1, y(m)), 'grid');
+  for (let m = lo; m <= hi; m += 1) if (((m % 12) + 12) % 12 === chordRootPc(chord)) p.p(seg(X0, y(m), X1, y(m)), 'grid');
   const pts = pv.notes.map((nn, i) => (nn.midi === null ? null : ([x(i), y(nn.midi)] as Pt))).filter((q): q is Pt => q !== null);
   if (pts.length > 1 && !pv.random) p.p(poly(pts), id === 'mode' ? 'hot' : 'ghost');
   let dots = '';
@@ -1082,9 +1082,10 @@ function chordDiagram(v: number, chord: number): VoyDiagram {
 
 function padDiagram(chord: number, values: Readonly<VoyValues>): VoyDiagram {
   const p = new Pic();
-  // Un clavier de deux octaves depuis fa diese 3, les notes de l'accord (selon CHORD) en plein
+  // Un clavier de deux octaves depuis fa diese 3 (v52, le plugin : depuis la tonique choisie), les notes de l'accord
+  // (selon CHORD) en plein
   const ms = voicedDegrees(chord, 1, chordType(values.chord)).map((d) => degreeMidi(chord, d));
-  const start = 54;
+  const start = keyTonic();
   const whites: number[] = [];
   for (let m = start; m < start + 25; m += 1) if (![1, 3, 6, 8, 10].includes(m % 12)) whites.push(m);
   // Deux rangees, sans recouvrement (le noir de l'ecran ne sait pas peindre une touche noire) : les touches noires au-dessus, entre les blanches

@@ -139,7 +139,8 @@ function knobTexts(where: VoySilkKind): Text[] {
 
 /** Les noms des groupes d'un plan, poses dans leur crochet. */
 function groupTexts(where: VoySilkKind): Text[] {
-  return VOY_GROUPS.filter((g) => g.where === where).map((g) => ({
+  // v52 : un groupe silent (CHORDS dans le plugin) garde son trait interrompu, sans nom (le selecteur s'y pose)
+  return VOY_GROUPS.filter((g) => g.where === where && !g.silent).map((g) => ({
     text: g.text,
     x: (g.x0 + g.x1) / 2,
     z: g.z,

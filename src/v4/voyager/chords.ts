@@ -11,8 +11,13 @@
  * degres de fa diese mineur naturel dans l'ordre (i a VII : le ii manquait),
  * puis i7 ; le site garde les siens (SITE_CHORDS). CHORDS est l'une ou
  * l'autre, choisie a l'evaluation (PLUGIN_ARP, comme le reste de la face).
- * La tonalite reste F# mineur : le plugin n'a pas de selecteur (CHORDS F#
- * MINOR est une serigraphie, et le C++ pose les memes degres, dsp/Params.cpp).
+ *
+ * v52 (2026-11-24, Mika : "pourquoi on a pas toutes les notes ?", choix 2A) :
+ * la tonalite au choix dans le plugin (xKey : les 12 notes, xScale : MINOR,
+ * MAJOR, DORIAN, PHRYGIAN ; plugin/arp/KeySelect.tsx). Les 8 pads suivent :
+ * les 7 degres de la gamme dans l'ordre puis l'accord de tonique a 4 sons
+ * (arpKey plus bas). Le site garde F# mineur (arpKey.set ne fait rien hors du
+ * plugin) ; le C++ pose les memes notes (dsp/Params.cpp keyOf).
  */
 
 import { PLUGIN_ARP } from '../theme/base';
@@ -27,7 +32,7 @@ export interface Chord {
   aria: string;
   /** intervalles depuis la racine */
   tones: readonly number[];
-  /** racine, en demi-tons au-dessus de fa diese */
+  /** racine, en demi-tons au-dessus de la tonique (fa diese ; v52, le plugin : celle de la tonalite choisie) */
   root: number;
   /** son degre en fa diese mineur (i, VI, iiø...) : l'ecran le montre sous le nom */
   roman: string;
@@ -54,17 +59,81 @@ export const SITE_CHORDS: readonly Chord[] = [
  * B D F# que le iv), il garde la note de l'accord de depart et glisse vers iv, v ou i sans heurt, la couleur sombre et
  * suspendue de la dark disco et de l'italo. Ses quatre notes sont dans la gamme (CHORD 7TH les donnait deja a G#dim).
  * Dmaj7 quitte les pads : CHORD 7TH le rend sur D (la septieme de la gamme), comme Amaj7 sur A.
+ *
+ * v52 : la banque suit la tonalite choisie (arpKey.set) ; au depart, F# MINOR : F#m G#ø A Bm C#m D E F#m7, exactement les
+ * accords de la v43 (tests/params-ref.mjs le verifie champ par champ).
  */
-export const ARP_CHORDS: readonly Chord[] = [
-  { label: 'F#m', aria: 'F sharp minor', root: 0, tones: [0, 3, 7], roman: 'i', camelot: '11A' },
-  { label: 'G#ø', aria: 'G sharp half diminished seven', root: 2, tones: [0, 3, 6, 10], roman: 'iiø', camelot: '' },
-  { label: 'A', aria: 'A major', root: 3, tones: [0, 4, 7], roman: 'III', camelot: '11B' },
-  { label: 'Bm', aria: 'B minor', root: 5, tones: [0, 3, 7], roman: 'iv', camelot: '10A' },
-  { label: 'C#m', aria: 'C sharp minor', root: 7, tones: [0, 3, 7], roman: 'v', camelot: '12A' },
-  { label: 'D', aria: 'D major', root: 8, tones: [0, 4, 7], roman: 'VI', camelot: '10B' },
-  { label: 'E', aria: 'E major', root: 10, tones: [0, 4, 7], roman: 'VII', camelot: '12B' },
-  { label: 'F#m7', aria: 'F sharp minor seven', root: 0, tones: [0, 3, 7, 10], roman: 'i7', camelot: '11A' },
+
+/* ---------------- v52 : la tonalite du plugin ---------------- */
+
+/** Les 12 toniques (xKey, crans 0..11), en dieses : jamais de bemol. */
+export const KEY_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+/** Les modes (xScale, crans 0..3). */
+export const MODE_NAMES = ['MINOR', 'MAJOR', 'DORIAN', 'PHRYGIAN'] as const;
+/** Leurs gammes, en demi-tons au-dessus de la tonique (MINOR : le mineur naturel, eolien). */
+export const MODE_SCALES: readonly (readonly number[])[] = [
+  [0, 2, 3, 5, 7, 8, 10],
+  [0, 2, 4, 5, 7, 9, 11],
+  [0, 2, 3, 5, 7, 9, 10],
+  [0, 1, 3, 5, 7, 8, 10],
 ];
+/** Le depart : F# MINOR (xKey 6, xScale 0), la tonalite d'avant. */
+export const KEY_DEF = 6;
+export const MODE_DEF = 0;
+/**
+ * La regle de hauteur : la tonique entre do 3 (48) et si 3 (59), soit au plus six demi-tons sous fa diese 3 et cinq
+ * au-dessus (F# : 54, FS3 d'avant, au bit pres) ; les degres et les accords se posent au-dessus d'elle comme avant.
+ */
+export const tonicMidi = (key: number): number => 48 + key;
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const;
+const spoken = (pc: number): string => KEY_NAMES[pc].replace('#', ' sharp');
+/** Le numero Camelot d'une tonalite majeure (do : 8, sol : 9...) ; une mineure prend celui de son relatif majeur. */
+const camelotNum = (pcMajor: number): number => ((((7 * pcMajor) % 12) + 7) % 12) + 1;
+
+/**
+ * Les 8 accords d'une tonalite : les triades des sept degres de la gamme (le degre diminue en demi-diminue a quatre sons,
+ * comme G#ø), puis la tonique a quatre sons (m7, maj7 en MAJOR). Noms en dieses, ø pour demi-diminue.
+ */
+export function keyChords(key: number, mode: number): Chord[] {
+  const sc = MODE_SCALES[mode] ?? MODE_SCALES[0];
+  const up = (d: number, k: number): number => (sc[(d + k) % 7] - sc[d] + 12) % 12;
+  const out: Chord[] = [];
+  for (let i = 0; i < 8; i += 1) {
+    const d = i % 7;
+    const third = up(d, 2);
+    const fifth = up(d, 4);
+    const pc = (key + sc[d]) % 12;
+    const dim = fifth === 6;
+    const major = third === 4;
+    const seventh = i === 7 || dim;
+    const tones = seventh ? [0, third, fifth, up(d, 6)] : [0, third, fifth];
+    const num = major ? ROMAN[d] : ROMAN[d].toLowerCase();
+    const name = KEY_NAMES[pc];
+    let label: string;
+    let aria: string;
+    let roman: string;
+    if (dim) {
+      label = `${name}ø`;
+      aria = `${spoken(pc)} half diminished seven`;
+      roman = `${num}ø`;
+    } else if (i === 7) {
+      label = major ? `${name}maj7` : `${name}m7`;
+      aria = `${spoken(pc)} ${major ? 'major' : 'minor'} seven`;
+      roman = major ? `${num}maj7` : `${num}7`;
+    } else {
+      label = major ? name : `${name}m`;
+      aria = `${spoken(pc)} ${major ? 'major' : 'minor'}`;
+      roman = num;
+    }
+    const camelot = dim ? '' : major ? `${camelotNum(pc)}B` : `${camelotNum((pc + 3) % 12)}A`;
+    out.push({ label, aria, root: sc[d], tones, roman, camelot });
+  }
+  return out;
+}
+
+const ARP_BANK: Chord[] = keyChords(KEY_DEF, MODE_DEF);
+export const ARP_CHORDS: readonly Chord[] = ARP_BANK;
 
 /** Les accords des pads : ceux du plugin MM-ARP, ou ceux du site. */
 export const CHORDS: readonly Chord[] = PLUGIN_ARP ? ARP_CHORDS : SITE_CHORDS;
@@ -114,11 +183,76 @@ export const PROGRESSIONS: readonly (readonly number[])[] = [
   [6, 4, 7, 2],
 ].map(fromSiteProg);
 
-/** Notes de l'accord dans une octave : racine ramenee entre fa diese 3 et mi 4, tri montant. */
+/**
+ * La suite en degres (2026-10-04, la suite modifiable, voyager/seq.ts) :
+ * une note est un degre de fa diese mineur naturel au-dessus de la racine
+ * de l'accord (0 la racine, 2 la tierce, 4 la quinte, 6 la septieme, 7
+ * l'octave). Les huit accords sont tous dans la gamme : leurs notes sont
+ * les degres pairs, et la meme suite suit la progression sans sortir de la
+ * tonalite. v52 (le plugin) : la gamme et la tonique de la tonalite choisie
+ * (TONIC, SCALE : F# mineur au depart, et toujours sur le site).
+ */
+let TONIC = FS3;
+let SCALE: readonly number[] = MODE_SCALES[MODE_DEF];
+let keyNow: { key: number; mode: number } = { key: KEY_DEF, mode: MODE_DEF };
+const keyListeners = new Set<() => void>();
+
+/**
+ * v52 : la tonalite du plugin (xKey, xScale ; plugin/arp/KeySelect.tsx la suit). set rebat la banque (ARP_CHORDS, les
+ * memes objets que CHORDS dans le plugin), la tonique et la gamme, puis previent (la serigraphie, l'ecran, la page SEQ).
+ * Hors du plugin, set ne fait rien : le site reste en F# mineur.
+ */
+export const arpKey = {
+  get: (): { key: number; mode: number } => keyNow,
+  set(key: number, mode: number): boolean {
+    if (!PLUGIN_ARP) return false;
+    const k = Math.max(0, Math.min(11, Math.round(key)));
+    const m = Math.max(0, Math.min(MODE_SCALES.length - 1, Math.round(mode)));
+    if (k === keyNow.key && m === keyNow.mode) return false;
+    keyNow = { key: k, mode: m };
+    TONIC = tonicMidi(k);
+    SCALE = MODE_SCALES[m];
+    keyChords(k, m).forEach((c, i) => (ARP_BANK[i] = c));
+    keyListeners.forEach((fn) => fn());
+    return true;
+  },
+  subscribe(fn: () => void): () => void {
+    keyListeners.add(fn);
+    return () => {
+      keyListeners.delete(fn);
+    };
+  },
+};
+
+/** La tonalite en clair : "F# MINOR" (sans Camelot). */
+export const keyName = (): string => `${KEY_NAMES[keyNow.key]} ${MODE_NAMES[keyNow.mode]}`;
+/**
+ * Sa cle Camelot (le cercle des DJ : celui des tonalites majeures et mineures) ; '' pour DORIAN et PHRYGIAN, qui n'y
+ * sont pas.
+ */
+export function keyCamelot(): string {
+  const { key, mode } = keyNow;
+  if (mode === 0) return `${camelotNum((key + 3) % 12)}A`;
+  if (mode === 1) return `${camelotNum(key)}B`;
+  return '';
+}
+/** La ligne de l'ecran : "F# MINOR  11A" (le site, et le plugin au depart). */
+export const keyLine = (): string => {
+  const cam = keyCamelot();
+  return cam ? `${keyName()}  ${cam}` : keyName();
+};
+
+/** La tonique en note MIDI (54 : fa diese 3, au depart et sur le site). */
+export const keyTonic = (): number => TONIC;
+
+/** La classe de hauteur (0 do .. 11 si) de la racine de l'accord i. */
+export const chordRootPc = (i: number): number => (((TONIC + (CHORDS[i]?.root ?? 0)) % 12) + 12) % 12;
+
+/** Notes de l'accord dans une octave : racine ramenee entre fa diese 3 et mi 4 (v52 : au-dessus de la tonique), tri montant. */
 export function chordNotes(i: number): number[] {
   const c = CHORDS[i];
   if (!c) return [];
-  const root = FS3 + c.root;
+  const root = TONIC + c.root;
   return c.tones.map((t) => root + t).sort((a, b) => a - b);
 }
 
@@ -139,17 +273,6 @@ export function arpSequence(i: number, oct: number, mode: ArpMode): number[] {
   return up;
 }
 
-/**
- * La suite en degres (2026-10-04, la suite modifiable, voyager/seq.ts) :
- * une note est un degre de fa diese mineur naturel au-dessus de la racine
- * de l'accord (0 la racine, 2 la tierce, 4 la quinte, 6 la septieme, 7
- * l'octave). Les huit accords sont tous dans la gamme : leurs notes sont
- * les degres pairs, et la meme suite suit la progression sans sortir de la
- * tonalite.
- */
-const SCALE = [0, 2, 3, 5, 7, 8, 10] as const;
-const SCALE_NAMES = ['F#', 'G#', 'A', 'B', 'C#', 'D', 'E'] as const;
-
 /** Le degre de la gamme sur lequel tombe la racine de l'accord i (F#m : 0, D : 5). */
 function rootDegree(i: number): number {
   const r = CHORDS[i]?.root ?? 0;
@@ -159,13 +282,13 @@ function rootDegree(i: number): number {
 /** La note MIDI du degre d au-dessus de la racine de l'accord i (celle de chordNotes pour ses degres pairs). */
 export function degreeMidi(i: number, d: number): number {
   const k = rootDegree(i) + d;
-  return FS3 + 12 * Math.floor(k / 7) + SCALE[((k % 7) + 7) % 7];
+  return TONIC + 12 * Math.floor(k / 7) + SCALE[((k % 7) + 7) % 7];
 }
 
-/** Le nom de cette note (sans octave) : F#, G#, A, B, C#, D, E. */
+/** Le nom de cette note (sans octave) : F#, G#, A, B, C#, D, E (v52 : ceux de la gamme choisie, en dieses). */
 export function degreeName(i: number, d: number): string {
   const k = rootDegree(i) + d;
-  return SCALE_NAMES[((k % 7) + 7) % 7];
+  return KEY_NAMES[(TONIC + SCALE[((k % 7) + 7) % 7]) % 12];
 }
 
 /**

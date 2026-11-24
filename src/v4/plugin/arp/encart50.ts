@@ -39,6 +39,7 @@ import { RATES, voyParams, type VoyKnobId } from '../../voyager/params';
 import { paintLed } from '../../voyager/ledLens';
 import { seq, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
 import { VOY_SEQ } from '../../voyager/seqscreen';
+import { keyName } from '../../voyager/chords';
 import { arpExtra, isExtra } from './extra';
 import { modMenu } from './modMenu';
 import {
@@ -795,7 +796,8 @@ function drawSq(c: HTMLCanvasElement): void {
 
 const sqKey = (): string => {
   const { chord, notes, len } = chordShown();
-  return JSON.stringify([arpSteps.get(), notes, len, chord, seq.get().edit, sqRow, textOf('rate'), accent50()]);
+  // v52 : la tonalite (les noms des notes en dependent)
+  return JSON.stringify([arpSteps.get(), notes, len, chord, seq.get().edit, sqRow, textOf('rate'), accent50(), keyName()]);
 };
 
 /** La tete de la page SQ : le voile de la colonne qui joue (et le cadre de sa NOTE), la LED allumee. */
