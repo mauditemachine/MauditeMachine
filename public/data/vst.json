@@ -1,7 +1,7 @@
 {
   "_doc": "Plugins VST3 gratuits (docs/vst-download.md). emailjsTemplateId : le modele EmailJS 'VST download' (vide = le bloc PLUGINS reste cache dans GOODIES, sauf avec ?vst=1). donateUrl : le lien de don volontaire (vide = pas de bouton). Changer ce fichier ne touche pas src/v4 : pas de firmware:stamp.",
   "emailjsTemplateId": "",
-  "donateUrl": "",
+  "donateUrl": "https://ko-fi.com/mauditemachine",
   "plugins": [
     {
       "id": "rytm",
