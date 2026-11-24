@@ -63,4 +63,5 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 - **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : vides, le bloc est cache en ligne** (apercu `/goodies/?vst=1`). Des qu'ils sont remplis, `/goodies/` mentionne aussi les plugins pour Google (prerendu).
 - **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
 - MM-ARP (plugin) vit encore sur la branche `claude/nifty-bohr-7ixmpf` ; sa release `mm-arp-latest` existe, c'est elle que `Plugin public` reprend.
+- **Publie le 24 nov 2026** (accord de Mika) : `mm-rytm-public` = build `1116cb3` (17 Mo), `mm-arp-public` = build `79f57a9` de `claude/nifty-bohr-7ixmpf` (10 Mo), binaires universels, README public. Reste a Mika : le modele EmailJS et le lien Ko-fi (`docs/vst-download.md`).
 
