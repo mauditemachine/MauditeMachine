@@ -48,6 +48,8 @@ private:
     bool shown_ = true;       // l'editeur envoie (la page visible et la fenetre montree)
     bool specWanted_ = false; // la page SOUND regardee (mm_view) : l'analyseur ne tourne que fenetre montree
     juce::String modKey_;     // les arcs : le dernier envoi (ids et valeurs arrondies)
+    juce::String egKey_;      // v52, l'ecran des enveloppes : le dernier envoi (valeurs arrondies ; vide : rien ne sonnait)
+    bool egSent_ = false;     // v52 : le dernier envoi montrait une voix (un dernier etat vide part quand elle se tait)
     juce::String cpuKey_;     // le compteur CPU : le dernier envoi (arrondi au dixieme, comme l'affichage)
     int cpuQuiet_ = 0;        // ticks du compteur sans envoi (un envoi au moins par seconde : la face le montre vivant)
     std::array<int, mmarp::SpecAnalyzer::kBins> specSent_{};

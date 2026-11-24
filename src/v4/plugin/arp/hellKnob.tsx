@@ -30,6 +30,7 @@ import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
 import { hoodPage, type HoodFx, type HoodTab } from './hoodPage';
 import { aimTap, encartTap } from './faceExtras';
+import { egTap } from './EgColumn';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT } from './vknobFace';
 
@@ -104,6 +105,8 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     faceDbl.set((dial) => {
       // v50 : une assignation au viseur en cours (modRoutes.ts) : le potard clique devient la cible
       if (aimTap(dial)) return true;
+      // v52 : un segment de POLARITY ou de VOICE (la colonne des enveloppes, EgColumn.tsx) : ce cran
+      if (egTap(dial)) return true;
       if (encartTap(dial)) return true;
       const pg = pageOf(dial);
       if (!pg) return false;

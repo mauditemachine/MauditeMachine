@@ -195,6 +195,8 @@ void MMArpEditor::setShown(bool on) {
         cpuKey_.clear();
         specHas_ = false;
         modSent_ = true; // un etat des arcs part au retour (vide si plus rien n'est module)
+        egKey_ = "?";    // v52 : l'etat des enveloppes aussi (vide si rien ne sonne)
+        egSent_ = true;
         startTimerHz(30);
     } else {
         startTimerHz(4);
@@ -340,6 +342,27 @@ void MMArpEditor::timerCallback() {
             modSent_ = !ids.isEmpty();
         }
         modKey_ = key;
+    }
+
+    // v52 : l'ecran des enveloppes (la colonne FILTER EG / AMP EG de la face) : les deux enveloppes de la voix la plus
+    // recente (niveaux, etapes, temps depuis le depart de la note et fin du gate), a 1 / 10 000 pres, seulement si quelque
+    // chose a bouge ; un dernier etat vide quand plus rien ne sonne, puis plus rien (au repos : aucun envoi)
+    {
+        juce::Array<juce::var> ev;
+        juce::String key;
+        if (proc_.egValue(0) == proc_.egValue(0)) {
+            for (int i = 0; i < MMArpProcessor::kEgN; ++i) {
+                const long q = std::lround(static_cast<double>(proc_.egValue(i)) * 10000.0);
+                ev.add(static_cast<double>(q) / 10000.0);
+                key << juce::String(static_cast<juce::int64>(q)) << ',';
+            }
+        }
+        if ((!ev.isEmpty() || egSent_) && key != egKey_) {
+            tick->setProperty("e", ev);
+            any = true;
+            egSent_ = !ev.isEmpty();
+        }
+        egKey_ = key;
     }
 
     // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)

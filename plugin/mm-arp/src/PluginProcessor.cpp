@@ -189,6 +189,7 @@ MMArpProcessor::MMArpProcessor()
         modKnob_[static_cast<size_t>(i)] = mmarp::knobIndex(kModIds[i]);
         modVal_[static_cast<size_t>(i)].store(std::numeric_limits<float>::quiet_NaN());
     }
+    for (auto& e : egVal_) e.store(std::numeric_limits<float>::quiet_NaN());
     // La matrice (6 lignes : source, destination, quantite), puis pbRange, voiceMode, xFeedback, ampMode
     for (int l = 0; l < 6; ++l) {
         const std::string n = std::to_string(l + 1);
@@ -845,6 +846,15 @@ void MMArpProcessor::publishMod() {
         }
         modVal_[static_cast<size_t>(i)].store(on ? static_cast<float>(clamp01(v)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
     }
+}
+
+// v52 : l'ecran des enveloppes de la face : les deux enveloppes de la voix la plus recente (thread audio, sans allocation ;
+// une lecture du moteur, le son ne change pas)
+void MMArpProcessor::publishEg() {
+    const mmarp::EgView e = voy_->egView();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float v[kEgN] = {e.on ? static_cast<float>(e.fV) : nan, static_cast<float>(e.aV), static_cast<float>(e.fStage), static_cast<float>(e.aStage), static_cast<float>(e.tOn), static_cast<float>(e.tOff)};
+    for (int i = 0; i < kEgN; ++i) egVal_[static_cast<size_t>(i)].store(v[i], std::memory_order_relaxed);
 }
 
 // Les pistes du sequenceur par pas et le swing propre de l'arpege, poses apres arpProgram()
@@ -1931,6 +1941,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         c5 = c4 + tQ;
     }
     modShow();
+    publishEg();
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;
 

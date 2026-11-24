@@ -31,7 +31,9 @@
  *
  * v49 (Mika : "soulager au max le CPU et eviter a tout prix la latence") : ce qui partait a chaque tick du C++ en cinq
  * evenements (mm_knobs, mm_mod, mm_transport, mm_cpu, mm_spec) part en un seul, mm_tick {k?, m?, t?, c?, s?}, et seulement
- * ce qui a change (PluginEditor.cpp) : un seul appel a la WebView par tick, aucun au repos (sauf un par seconde). La face
+ * ce qui a change (PluginEditor.cpp) : un seul appel a la WebView par tick, aucun au repos (sauf un par seconde). v52 : e?,
+ * les deux enveloppes de la voix la plus recente (egScreen.ts : [fV, aV, fStage, aStage, tOn, tOff], [] quand elle se tait,
+ * rien au repos). La face
  * dit au C++ si elle est a l'ecran (mm_vis {on}, document.visibilityState) : cachee, plus rien ne part. Les anciens
  * evenements restent ecoutes.
  *
@@ -64,6 +66,7 @@
  */
 
 import { arpMod } from './modview';
+import { arpEg } from './egScreen';
 import { pattern } from '../../audio/pattern';
 import { learnPick, learnToggle, midi } from '../../midi/midi';
 import { FLAGS } from '../../state/flags';
@@ -196,9 +199,11 @@ function onTransport(o: unknown): void {
  */
 function onTick(o: unknown): void {
   if (!o || typeof o !== 'object') return;
-  const x = o as { k?: unknown; m?: unknown; t?: unknown; c?: unknown; s?: unknown };
+  const x = o as { k?: unknown; m?: unknown; t?: unknown; c?: unknown; s?: unknown; e?: unknown };
   if (x.k) onKnobs({ values: x.k });
   if (x.m) arpMod.receive(x.m);
+  // v52 : l'ecran des enveloppes (EgColumn.tsx) : la voix la plus recente, [] quand plus rien ne sonne
+  if (x.e !== undefined) arpEg.receive(x.e);
   if (x.c) cpuStore.receive(x.c);
   if (x.s) arpSpec.receive({ b: x.s });
   if (x.t) onTransport(x.t);

@@ -29,6 +29,7 @@ import { DiskNameDialog } from './DiskPresets';
 import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
 import { FaceExtras } from './faceExtras';
+import { EgColumn } from './EgColumn';
 import { FaceModArcs } from './FaceModArcs';
 import { Encart50Overlay } from './Encart50Overlay';
 import { FaceLook, FaceLookButton } from './LookPanel';
@@ -154,6 +155,7 @@ const ArpFace: React.FC = () => {
         <HoodBoard stage={stage} />
         <HellKnob stage={stage} />
         <FaceExtras stage={stage} />
+        <EgColumn stage={stage} />
         <FaceModArcs stage={stage} />
         <Encart50Overlay stage={stage} />
         <FaceLook stage={stage} />

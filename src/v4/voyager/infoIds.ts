@@ -93,6 +93,11 @@ export function voyInfoIdOf(hotspot: string): VoyInfoId | null {
     const id = hotspot.slice(3);
     return id in VOY_INFO_SECTION ? (id as VoyInfoId) : null;
   }
+  // v52 (le plugin MM-ARP seul) : la rangee sous AMP EG (plugin/arp/EgColumn.tsx), veg-<id> et veg-<id>-<cran>
+  if (hotspot.startsWith('veg-')) {
+    const id = hotspot.slice(4).replace(/-\d+$/, '');
+    return id in VOY_INFO_SECTION ? (id as VoyInfoId) : null;
+  }
   if (hotspot.startsWith('vpad-')) return 'pad';
   if (hotspot.startsWith('vbtn-')) {
     const id = hotspot.slice(5);
