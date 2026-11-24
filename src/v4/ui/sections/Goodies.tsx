@@ -5,11 +5,14 @@
  * Chaque element est un telechargement direct (attribut download, nom de
  * fichier propre), avec son poids. Les apercus ne se chargent qu'a la
  * premiere ouverture de la section.
+ *
+ * 2026-11-24 : en tete, les plugins VST3 gratuits contre un courriel (VstDownload.tsx, docs/vst-download.md).
  */
 
 import React, { useState } from 'react';
 import { GOODIE_GROUPS, fmtBytes, goodieFilename } from '../../data';
 import { DownloadMark, SectionFrame, tabOf, type SectionProps } from './common';
+import { VstDownload } from './VstDownload';
 
 export const Goodies: React.FC<SectionProps> = ({ active, focusable }) => {
   const [seen, setSeen] = useState(active);
@@ -18,6 +21,7 @@ export const Goodies: React.FC<SectionProps> = ({ active, focusable }) => {
   return (
     <SectionFrame id="goodies" active={active}>
       <p className="v4-sec-text">Free downloads, full resolution.</p>
+      <VstDownload seen={seen} tab={tab} />
       {GOODIE_GROUPS.map((g) => (
         <React.Fragment key={g.category}>
           <h3 className="v4-sec-sub">{g.title}</h3>

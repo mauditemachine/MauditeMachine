@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- 2026-11-24 (Mika : les plugins RYTM et ARP au telechargement, contre un courriel, don volontaire) : la page
+         des liens du courriel "VST download" (docs/vst-download.md). /download/?p=rytm ou ?p=arp lance le zip de la
+         release publique (mm-rytm-public, mm-arp-public), montre l'installation et le don. Pas dans le sitemap,
+         noindex : on y arrive par le courriel, pas par Google. Les noms, les zips et le don : public/data/vst.json. -->
+    <title>Download | Maudite Machine</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Le meme Google tag que le site (G-HP92HGMNJT) : l'evenement vst_download compte les zips lances -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-HP92HGMNJT');
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
+    <style>
+      @font-face {
+        font-family: 'Larsseit';
+        src: url('/fonts/larsseit/larsseit-light.woff2') format('woff2');
+        font-weight: 300 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Larsseit';
+        src: url('/fonts/larsseit/larsseit-bold.woff2') format('woff2');
+        font-weight: 700 900;
+        font-display: swap;
+      }
+
+      :root {
+        --bg: #0c0b09;
+        --card: #191714;
+        --ink: #f6f1e7;
+        --dim: rgba(246, 241, 231, 0.62);
+        --line: rgba(246, 241, 231, 0.14);
+        --orange: #ff6a13;
+        --yellow: #f2c230;
+        --mono: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 7vh 16px 12vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Larsseit', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+        font-weight: 400;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main { max-width: 720px; margin: 0 auto; }
+
+      a { color: inherit; }
+
+      .label {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+
+      .label a { text-decoration: none; }
+
+      h1 {
+        margin: 14px 0 0;
+        font-size: clamp(38px, 9vw, 72px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 0.98;
+      }
+
+      h2 {
+        margin: 44px 0 12px;
+        font-size: 13px;
+        font-family: var(--mono);
+        font-weight: 400;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+
+      .intro { margin: 18px 0 0; font-size: 17px; color: var(--dim); max-width: 54ch; }
+
+      .plugins { display: grid; gap: 12px; margin-top: 28px; }
+
+      .plugin {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+      }
+
+      .plugin[hidden] { display: none; }
+
+      .plugin-name { font-size: 22px; font-weight: 700; letter-spacing: 0.02em; }
+
+      .plugin-kind {
+        display: block;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--orange);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 0 20px;
+        border-radius: 10px;
+        border: 1px solid var(--orange);
+        background: var(--orange);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .btn-ghost { background: transparent; color: var(--ink); }
+
+      .btn:hover, .btn:focus-visible { border-color: var(--yellow); }
+
+      ol { margin: 0; padding-left: 22px; }
+
+      li { margin: 0 0 12px; }
+
+      code {
+        font-family: var(--mono);
+        font-size: 13px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--card);
+      }
+
+      .cmd {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+        margin: 10px 0 0;
+      }
+
+      .cmd pre {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0;
+        padding: 12px;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre;
+      }
+
+      .copy {
+        flex: 0 0 auto;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .copy:hover, .copy:focus-visible { border-color: var(--orange); }
+
+      .small { font-size: 14px; color: var(--dim); }
+
+      .donate {
+        margin-top: 44px;
+        padding: 22px;
+        border: 1px solid var(--orange);
+        border-radius: 12px;
+      }
+
+      .donate p { margin: 0 0 16px; font-size: 17px; }
+
+      .donate[hidden] { display: none; }
+
+      footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="label"><a href="/">Maudite Machine</a> · Free VST3 plugins</p>
+      <h1 id="title">Your plugins</h1>
+      <p class="intro" id="intro">Thanks for grabbing them. Pick a plugin to download the zip (VST3 for macOS).</p>
+
+      <div class="plugins">
+        <div class="plugin" data-id="rytm">
+          <div>
+            <span class="plugin-kind">Drum machine</span>
+            <span class="plugin-name">MM-RYTM</span>
+          </div>
+          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3-macOS.zip" data-dl="rytm">Download</a>
+        </div>
+        <div class="plugin" data-id="arp">
+          <div>
+            <span class="plugin-kind">Synth and arpeggiator</span>
+            <span class="plugin-name">MM-ARP</span>
+          </div>
+          <a class="btn" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-VST3-macOS.zip" data-dl="arp">Download</a>
+        </div>
+      </div>
+      <p class="small" id="other" hidden></p>
+
+      <h2>Install on macOS</h2>
+      <ol>
+        <li>Unzip the file. Move <code class="vst">MM-RYTM.vst3</code> to <code>~/Library/Audio/Plug-Ins/VST3/</code> (in the Finder: Go &gt; Go to Folder, paste the path; create the <code>VST3</code> folder if it is missing).</li>
+        <li>
+          The plugin is not notarized by Apple yet, so macOS blocks it the first time. Open Terminal (Applications &gt; Utilities), paste this line and press Return:
+          <div class="cmd">
+            <pre id="cmd"></pre>
+            <button class="copy" type="button" id="copy">Copy</button>
+          </div>
+        </li>
+        <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Settings &gt; Plug-Ins, turn on "Use VST3 Plug-in System Folders", then Option-click Rescan.</li>
+        <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
+      </ol>
+      <p class="small">macOS 11 or later, Apple Silicon and Intel. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio. Logic Pro needs Audio Units, not available yet. No Windows version yet.</p>
+      <p class="small">Free to use in your music, commercial releases included. Please share the link to <a href="/goodies/">mauditemachine.com/goodies</a> rather than the zip itself.</p>
+
+      <section class="donate" id="donate" hidden>
+        <p>The plugins are free and stay free. If they end up in your tracks, you can buy me a coffee. Never required.</p>
+        <a class="btn btn-ghost" id="donate-link" href="/" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+      </section>
+
+      <footer class="small">
+        Questions or bugs: <a href="/contact/">mauditemachine.com/contact</a> · <a href="/">Back to the machines</a>
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        var NAMES = { rytm: 'MM-RYTM', arp: 'MM-ARP' };
+        var p = '';
+        try {
+          p = (new URLSearchParams(location.search).get('p') || '').toLowerCase();
+        } catch (e) {}
+        if (!NAMES[p]) p = '';
+
+        var cards = document.querySelectorAll('.plugin');
+        var name = p ? NAMES[p] : 'MM-RYTM';
+        if (p) {
+          for (var i = 0; i < cards.length; i++) cards[i].hidden = cards[i].getAttribute('data-id') !== p;
+          document.getElementById('title').textContent = name;
+          document.getElementById('intro').textContent =
+            'Your download starts in a moment. If nothing happens, use the button.';
+          var otherId = p === 'rytm' ? 'arp' : 'rytm';
+          var o = document.getElementById('other');
+          o.innerHTML = 'Also free: <a href="?p=' + otherId + '">' + NAMES[otherId] + '</a>.';
+          o.hidden = false;
+        }
+
+        // L'installation, au nom du plugin choisi
+        var vstEls = document.querySelectorAll('.vst');
+        for (var j = 0; j < vstEls.length; j++) vstEls[j].textContent = name + '.vst3';
+        var path = '~/Library/Audio/Plug-Ins/VST3/' + name + '.vst3';
+        var cmd = 'xattr -cr ' + path + ' && codesign --force --deep --sign - ' + path;
+        document.getElementById('cmd').textContent = cmd;
+        document.getElementById('copy').addEventListener('click', function () {
+          var b = this;
+          var done = function () {
+            b.textContent = 'Copied';
+            setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(cmd).then(done, function () {});
+        });
+
+        // Le telechargement : une mesure GA4 (vst_download) si gtag est la, puis le zip
+        function track(id) {
+          try {
+            if (typeof window.gtag === 'function') window.gtag('event', 'vst_download', { plugin: id });
+          } catch (e) {}
+        }
+        var links = document.querySelectorAll('[data-dl]');
+        for (var k = 0; k < links.length; k++) {
+          links[k].addEventListener('click', function () { track(this.getAttribute('data-dl')); });
+        }
+
+        // Un seul depart automatique par plugin et par onglet (un rechargement ne relance pas le zip)
+        if (p) {
+          var key = 'mm.vst.auto.' + p;
+          var already = false;
+          try { already = sessionStorage.getItem(key) === '1'; } catch (e) {}
+          if (!already) {
+            try { sessionStorage.setItem(key, '1'); } catch (e) {}
+            setTimeout(function () {
+              var a = document.querySelector('[data-dl="' + p + '"]');
+              if (a) {
+                track(p);
+                location.href = a.href;
+              }
+            }, 900);
+          }
+        }
+
+        // Le don et les liens a jour : public/data/vst.json
+        fetch('/data/vst.json', { cache: 'no-cache' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (c) {
+            if (!c) return;
+            if (c.donateUrl) {
+              document.getElementById('donate-link').href = c.donateUrl;
+              document.getElementById('donate').hidden = false;
+            }
+            (c.plugins || []).forEach(function (pl) {
+              var a = document.querySelector('[data-dl="' + pl.id + '"]');
+              if (a && pl.zip) a.href = pl.zip;
+            });
+          })
+          .catch(function () {});
+      })();
+    </script>
+  </body>
+</html>

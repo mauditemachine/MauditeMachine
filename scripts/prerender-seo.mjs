@@ -296,6 +296,9 @@ const FOLLOWING = readJson('public/following.json', {});
 const STORE = asArray(readJson('public/store.json', []));
 const GOODIES = loadGoodies();
 const COVERS = GOODIES.filter((g) => g.category === 'cover');
+/** Les plugins VST3 gratuits (public/data/vst.json, docs/vst-download.md) : dans /goodies/ des que le courriel marche. */
+const VST = readJson('public/data/vst.json', {});
+const VST_LIVE = Boolean(VST.emailjsTemplateId) && asArray(VST.plugins).length > 0;
 const SOCIALS = loadSocials();
 /** Les profils officiels (src/v4/data/socials.ts), sinon les liens du press kit. */
 const PROFILES = SOCIALS.length ? SOCIALS.map((s) => [s.label, s.href]) : C.links.filter(([n]) => n !== 'mauditemachine.com');
@@ -888,8 +891,13 @@ function contentFor(route) {
         ['cover', 'Release covers'],
       ];
       return [
-        h1('Maudite Machine goodies: free wallpapers and release covers'),
+        h1(VST_LIVE ? 'Maudite Machine goodies: free VST3 plugins, wallpapers and release covers' : 'Maudite Machine goodies: free wallpapers and release covers'),
         p('Free downloads, full resolution.'),
+        VST_LIVE
+          ? h2('Free VST3 plugins for macOS') +
+            ul(asArray(VST.plugins).map((v) => `${esc(v.name)}, ${esc(v.kind.toLowerCase())}: ${esc(v.text)}`)) +
+            p('Free, sent by email. macOS 11 or later, Apple Silicon and Intel, any VST3 host (Ableton Live, Bitwig, Reaper, Cubase).')
+          : '',
         ...groups.map(([cat, title]) => {
           const items = GOODIES.filter((g) => g.category === cat);
           return items.length ? h2(title) + ul(items.map((g) => a(g.title, `${SITE}${g.downloadSrc}`))) : '';
