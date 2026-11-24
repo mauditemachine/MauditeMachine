@@ -1,5 +1,23 @@
 /* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande sous la carte ouverte :
    DRAG MIDI, DISK, MIDI, CLOSE. Noir, orange var(--mm-accent), SF Pro Display ; les titres en Robot Radicals. */
+
+/* Les LED du plugin (2026-11-24, Mika : "quand on ne selectionne pas la diode est rouge eteinte.. peut-etre faire quelque
+   chose de transparent et quand on selectionne ca prend la couleur fondamentale choisie") : eteinte, une lentille de verre
+   clair et neutre (aucune teinte) : la bague noire, le verre sombre, son reflet blanc en haut a gauche, la lumiere qui le
+   traverse en bas a droite ; on la voit sans qu'elle attire l'oeil. Allumee : la couleur d'accent (var(--mm-accent),
+   ecrite dans chaque regle allumee, jamais dans ces jetons : une variable qui la contient se fige la ou elle est posee).
+   Les memes dans les toiles et la 3D (voyager/ledLens.ts). */
+.mm-plugin-arp {
+  --mm-led-glass:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0 9%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 64% 72%, rgba(226, 230, 236, 0.22) 0 14%, rgba(226, 230, 236, 0) 46%),
+    radial-gradient(circle at 50% 45%, rgba(58, 60, 64, 0.9) 0%, rgba(26, 27, 29, 0.94) 60%, rgba(12, 12, 13, 0.97) 100%);
+  --mm-led-ring:
+    0 0 0 1.2px #070505,
+    0 0 0 1.8px rgba(255, 255, 255, 0.06),
+    0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
 .mm-plugin-arp .mm-arp-hood {
   left: 0;
   right: 0;
@@ -120,7 +138,7 @@
   height: 6px;
   margin-right: 7px;
   border-radius: 50%;
-  background: #3a2414;
+  background: var(--mm-led-glass);
   vertical-align: 1px;
 }
 

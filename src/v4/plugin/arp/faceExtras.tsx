@@ -37,6 +37,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   Path,
+  PlaneGeometry,
   Shape,
   SRGBColorSpace,
   Vector2,
@@ -50,6 +51,7 @@ import { registerDialSpec } from '../../scene/screen/menus/registry';
 import { editor } from '../../state/editor';
 import { FONT_DISPLAY, PORTRAIT, type EncId } from '../../theme';
 import { FLUTED_DIALS } from '../../voyager/knobs';
+import { paintLed } from '../../voyager/ledLens';
 import { voyMsg } from '../../voyager/msg';
 import { voyKnob, voyParams, voyValueText, type VoyKnobId } from '../../voyager/params';
 import { VOY_SEQ } from '../../voyager/seqscreen';
@@ -58,9 +60,10 @@ import { VOY_DS_PLACE, VOY_HELL_PLACE, VOY_KNOB, voyKnobPlace } from '../../voya
 import { RYTM_KNOB } from '../../voyager/rytmKnob';
 import { extHead } from '../head';
 import { arpExtra, extraParam, isExtra } from './extra';
+import { look } from './look';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT, attachVKnobs } from './vknobFace';
-import { aimParamOf50, key50, lfoPage50, sqPage50, sqSources, tabs50, tap50, TABS50, type Key50, type Page50 } from './encart50';
+import { accent50, aimParamOf50, key50, LED_HALO_50, lfoPage50, sqPage50, sqSources, tabs50, tap50, TABS50, type Key50, type Page50 } from './encart50';
 import { aimSourceName, modAim, modView } from './modRoutes';
 import { modDestCodeOf } from './modTable';
 
@@ -630,12 +633,31 @@ function encartMod(page: 'fxmod' | 'fxmod2'): { tex: CanvasTexture; place: EncPl
   return { tex: P.finish(), place };
 }
 
+/* ---------------- les LED des touches a crans de la page SYNTH (2026-11-24) ---------------- */
+
+/** Le rayon de la lentille (unites de la scene : celui des disques d'avant). */
+const SYN_LED_R = 0.026;
+
+/** Une LED de la page SYNTH sur sa toile carree (le halo compris) : eteinte (lit null) ou allumee a la couleur lit. */
+function synLedTexture(lit: string | null): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const R = (c.width / 2 / LED_HALO_50.r1) * 0.98;
+  paintLed(c.getContext('2d')!, c.width / 2, c.height / 2, R, lit, { ring: 1.16, halo: LED_HALO_50 });
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
 /* ---------------- dans la scene ---------------- */
 
 export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     const rig = stage?.voy;
     if (!stage || !rig) return undefined;
+    // la LED allumee de la page SYNTH reprend la couleur d'accent (SETTINGS) ; true si elle a change (pose plus bas)
+    let ledRecolor = (): boolean => false;
     const kEnv = knobEnv();
     const cEnv = chromeEnv();
     const knobMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.36, metalness: 0.12, envMap: kEnv, envMapIntensity: 0.9, side: DoubleSide });
@@ -695,13 +717,28 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const shownNow = (p: EncView): boolean => editor.get() === 'voy' && encView() === p;
     if (sq && !PORTRAIT) {
       const y = VOY_SEQ.h + 0.004;
-      const ledOn = new MeshBasicMaterial({ color: '#ff3b2f' });
-      const ledOff = new MeshBasicMaterial({ color: '#3a0e0a' });
+      // 2026-11-24 (Mika : "quand on ne selectionne pas la diode est rouge eteinte.. peut-etre faire quelque chose de
+      // transparent et quand on selectionne ca prend la couleur fondamentale choisie") : les LED des touches a crans de la
+      // page SYNTH, plus de disques rouges : la lentille des LED du plugin (voyager/ledLens.ts), eteinte en verre clair et
+      // neutre, allumee a la couleur d'accent (SETTINGS, en direct : ledRecolor) avec le halo des touches de la bascule
       const keyMat = new MeshStandardMaterial({ color: '#262524', roughness: 0.5, metalness: 0.05 });
       const keyGeo = new BoxGeometry(0.42, 0.07, 0.24);
       keyGeo.translate(0, 0.035, 0);
-      const ledGeo = new CircleGeometry(0.026, 20);
+      const ledGeo = new PlaneGeometry(SYN_LED_R * 2 * LED_HALO_50.r1, SYN_LED_R * 2 * LED_HALO_50.r1);
       ledGeo.rotateX(-Math.PI / 2);
+      const ledMat = (lit: string | null): MeshBasicMaterial => new MeshBasicMaterial({ map: synLedTexture(lit), transparent: true, depthWrite: false, toneMapped: false });
+      const ledOff = ledMat(null);
+      let ledAccent = accent50();
+      const ledOn = ledMat(ledAccent);
+      ledRecolor = (): boolean => {
+        const a = accent50();
+        if (a === ledAccent) return false;
+        ledAccent = a;
+        ledOn.map?.dispose();
+        ledOn.map = synLedTexture(a);
+        ledOn.needsUpdate = true;
+        return true;
+      };
       const pageGroup = (p: EncView): Group => {
         const grp = new Group();
         grp.name = `encart-${p}`;
@@ -868,6 +905,8 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         keyGeo.dispose();
         ledGeo.dispose();
         keyMat.dispose();
+        ledOn.map?.dispose();
+        ledOff.map?.dispose();
         ledOn.dispose();
         ledOff.dispose();
       });
@@ -975,12 +1014,26 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const offHead = extHead.onWake(() => {
       if (encView() === 'sq' && refresh50()) stage.invalidate();
     });
+    // 2026-11-24 : la couleur d'accent change (SETTINGS, ACCENT COLOR) : toutes les LED allumees de l'encart la reprennent
+    // en direct (celles de la page SYNTH, la touche de la page montree, les touches des pages (GATE...), la tete et la
+    // toile de SQ : turn)
+    let seenAccent = accent50();
+    const offLook = look.subscribe(() => {
+      const a = accent50();
+      if (a === seenAccent) return;
+      seenAccent = a;
+      ledRecolor();
+      const tab = encartPage.get();
+      tabKeys.forEach((k, i) => k.set(ENC_PAGES[i].id === tab));
+      turn();
+    });
     return () => {
       off1();
       off2();
       off3();
       offSq.forEach((f) => f());
       offHead();
+      offLook();
       offEd();
       offPage();
       offFace();

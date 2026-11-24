@@ -45,7 +45,8 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: radial-gradient(circle at 36% 32%, rgba(255, 210, 200, 0.3) 0 12%, #4a1712 30%, #2a0b08 100%);
+  /* 2026-11-24 : eteinte, le verre clair et neutre des LED du plugin (face.css --mm-led-glass), plus de rouge */
+  background: var(--mm-led-glass);
   box-shadow: 0 0 0 1px #070505;
 }
 .mm-plugin-arp .mm-nv-key[data-on='1'] {
@@ -276,7 +277,10 @@
   width: 34px;
   height: 6px;
   border-radius: 1.5px;
-  background: #2a0f0c;
+  /* 2026-11-24 : eteinte, un verre clair et neutre (son reflet en haut), plus de rouge ; allumee, l'accent */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0 1px, rgba(255, 255, 255, 0.04) 1px 45%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #232427, #151618 55%, #0e0e10);
   box-shadow:
     0 0 0 1px #050404,
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -293,7 +297,7 @@
 }
 /* CHANCE a saute le pas : la LED en creux, a l'accent */
 .mm-plugin-arp .mm-sx-col[data-head='skip'] .mm-sx-led {
-  background: #140807;
+  background: #0e0e10;
   box-shadow:
     0 0 0 1px #050404,
     inset 0 0 0 1.5px var(--mm-accent),
@@ -304,7 +308,7 @@
 }
 /* le pas fini, avant le suivant : la LED retombe */
 .mm-plugin-arp .mm-sx-col[data-head='dim'] .mm-sx-led {
-  background: color-mix(in srgb, var(--mm-accent) 30%, #2a0f0c);
+  background: color-mix(in srgb, var(--mm-accent) 30%, #151618);
 }
 .mm-plugin-arp .mm-sx-dots {
   display: flex;
@@ -388,7 +392,8 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: radial-gradient(circle at 36% 32%, rgba(255, 210, 200, 0.3) 0 12%, #4a1712 30%, #2a0b08 100%);
+  /* 2026-11-24 : eteinte, le verre clair et neutre des LED du plugin (face.css --mm-led-glass), plus de rouge */
+  background: var(--mm-led-glass);
   box-shadow: 0 0 0 1px #070505;
 }
 .mm-plugin-arp .mm-sx-tled[data-on='1'] {
