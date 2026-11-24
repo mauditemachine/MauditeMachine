@@ -20,6 +20,12 @@ target_link_libraries(mm_compare PRIVATE mm_dsp)
 add_executable(mm_engine_test tests/engine_test.cpp)
 target_link_libraries(mm_engine_test PRIVATE mm_dsp)
 add_test(NAME engine COMMAND mm_engine_test)
+# Les tests posent un mm::Engine (1,6 Mo) sur la pile : MSVC n'en donne que 1 Mo par defaut (Linux et macOS 8 Mo).
+# Le plugin, lui, le garde dans le processeur, sur le tas.
+if(MSVC)
+  target_link_options(mm_engine_test PRIVATE /STACK:16777216)
+  target_link_options(mm_compare PRIVATE /STACK:16777216)
+endif()
 
 if(NOT MM_BUILD_PLUGIN)
   return()
