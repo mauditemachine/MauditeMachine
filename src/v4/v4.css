@@ -3269,6 +3269,118 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
+/* ---------- GOODIES, PLUGINS (2026-11-24) : les VST3 gratuits contre un courriel (VstDownload.tsx) ---------- */
+
+.v4-vst {
+  margin: 0 0 8px;
+}
+
+.v4-vst-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.v4-vst-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--graphite-hi);
+  min-width: 0;
+}
+
+.v4-vst-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bone);
+}
+
+.v4-vst-kind {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.v4-vst-text {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--bone-70);
+}
+
+.v4-vst-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--bone-60);
+}
+
+.v4-vst-form {
+  margin-bottom: 12px;
+}
+
+.v4-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--bone-70);
+  cursor: pointer;
+}
+
+.v4-root .v4-check input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--orange);
+}
+
+.v4-root .v4-vst-donate {
+  color: var(--bone);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.v4-root .v4-vst-donate:hover,
+.v4-root .v4-vst-donate:focus-visible {
+  color: var(--yellow);
+}
+
+.v4-root .v4-vst-donate--strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--orange);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.v4-vst-thanks {
+  margin: 0 0 14px;
+}
+
+@media (max-width: 480px) {
+  .v4-vst-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Un bouton qui a l'air d'un lien de section (STUDIO : Ask about a lesson) */
 .v4-root .v4-link-btn {
   text-align: left;

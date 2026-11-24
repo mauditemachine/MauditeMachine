@@ -1,7 +1,7 @@
 # CONTEXTE : mauditemachine.com
 
 Fichier maitre de l'etat en ligne et des chantiers recents, lu au demarrage par **Claude Code** (`CLAUDE.md`) et **Antigravity / Gemini** (`AGENTS.md`).
-Derniere mise a jour : **23 novembre 2026**.
+Derniere mise a jour : **24 novembre 2026**.
 
 Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, dates, press kit), mettre ce fichier a jour dans la meme PR.
 
@@ -53,3 +53,14 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 - Inventaire personnel des **52 plugins et synthetiseurs** du studio Ableton Live 12 de Mika (`src/pages/PluginsPage.tsx`, `src/data/pluginsData.ts`, captures a plat dans `public/images/plugins/`).
 - Chargee en `React.lazy()` dans `src/App.tsx` (-54 Ko sur le chunk d'entree principal).
 - Prerendue en HTTP 200 mais strictement cachee des moteurs : `noindex, nofollow`, `Disallow: /plugins` dans `public/robots.txt`, absente de `sitemap.xml`.
+
+---
+
+## 5. Plugins VST3 gratuits contre un courriel (24 nov 2026, `docs/vst-download.md`)
+
+- **GOODIES** (`src/v4/ui/sections/VstDownload.tsx`) : MM-RYTM et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
+- **`/download/?p=rytm|arp`** (`public/download/index.html`, noindex, hors sitemap) : la page des liens du courriel, zip automatique, installation, don.
+- **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : vides, le bloc est cache en ligne** (apercu `/goodies/?vst=1`). Des qu'ils sont remplis, `/goodies/` mentionne aussi les plugins pour Google (prerendu).
+- **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
+- MM-ARP (plugin) vit encore sur la branche `claude/nifty-bohr-7ixmpf` ; sa release `mm-arp-latest` existe, c'est elle que `Plugin public` reprend.
+

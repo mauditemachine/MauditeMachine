@@ -1,0 +1,66 @@
+name: Plugin public (MM-RYTM, MM-ARP)
+# 2026-11-24 (Mika : "mettre a disposition les plugins RYTM et ARP au telechargement", contre un courriel, don
+# volontaire ; docs/vst-download.md). Les releases mm-rytm-latest et mm-arp-latest suivent chaque build vert, de
+# n'importe quelle branche (chantiers en cours compris) : le public ne les telecharge jamais directement. Ce workflow,
+# lance a la main (Actions > Plugin public > Run workflow), copie le build -latest valide par Mika dans une release
+# fixe, mm-<plugin>-public, avec un README d'installation public a la place du guide perso (INSTALL.md, update.sh).
+# L'adresse du zip ne change jamais : celle de /download/?p=rytm et ?p=arp (public/download/index.html).
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 'Le plugin a publier'
+        required: true
+        type: choice
+        options:
+          - rytm
+          - arp
+permissions:
+  contents: read
+concurrency:
+  group: plugin-public-${{ inputs.plugin }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    name: Publier ${{ inputs.plugin }}
+    # macOS : ditto et codesign gardent le bundle tel que le CI l'a signe
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reemballer le dernier build vert pour le public
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PLUGIN: ${{ inputs.plugin }}
+        run: |
+          set -euo pipefail
+          case "$PLUGIN" in
+            rytm) N=MM-RYTM ;;
+            arp) N=MM-ARP ;;
+            *) echo "plugin inconnu : $PLUGIN"; exit 1 ;;
+          esac
+          SRC="mm-$PLUGIN-latest"
+          DST="mm-$PLUGIN-public"
+          OUT="$N-VST3-macOS.zip"
+          rm -rf in work pkg && mkdir -p in work pkg/$N
+          gh release download "$SRC" -p "$N-macOS.zip" -D in
+          ditto -x -k "in/$N-macOS.zip" work
+          B="work/$N/$N.vst3"
+          codesign --verify --deep --strict "$B"
+          ditto "$B" "pkg/$N/$N.vst3"
+          sed "s/@NAME@/$N/g" plugin/public/README.txt > "pkg/$N/README.txt"
+          BUILD="$(cat "work/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
+          printf '%s\n' "$BUILD" > "pkg/$N/BUILD.txt"
+          ditto -c -k --keepParent "pkg/$N" "$OUT"
+          unzip -l "$OUT" | tail -1
+          SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"
+          if ! gh release view "$DST" >/dev/null 2>&1; then
+            gh release create "$DST" --target "$SHA" --latest=false --title "$N (public)" --notes "$N, VST3 for macOS."
+          fi
+          gh release upload "$DST" "$OUT" --clobber
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$DST" -f sha="$SHA" -F force=true >/dev/null
+          NOTES="$N, free VST3 for macOS (Apple Silicon and Intel) by Maudite Machine. Get it with the install guide at https://mauditemachine.com/goodies/ . Build: $BUILD"
+          gh release edit "$DST" --notes "$NOTES"
+          echo "Publie : https://github.com/$GH_REPO/releases/download/$DST/$OUT ($BUILD)"
