@@ -182,6 +182,8 @@ export const FONT_LOADS = [
   '600 40px "SF Pro Display"',
   '700 40px "SF Pro Display"',
   '400 40px "Robot Radicals"',
+  // v52 (plugin MM-ARP seul, Mika choix 4A) : l'afficheur a points des grands noms et chiffres de l'ecran (voyager/screen.ts)
+  ...(PLUGIN_ARP ? (['800 40px "MM Dots"', '900 40px "MM Dots"'] as const) : []),
 ] as const;
 export const FONT_TIMEOUT_MS = 3000;
 

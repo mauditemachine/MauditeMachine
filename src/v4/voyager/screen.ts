@@ -185,7 +185,11 @@ const FS = DESK
   ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.2, parRow: 9, rung: 6.2 }
   : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parRow: 0, rung: 6.2 };
 
-const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
+/** v52 (plugin MM-ARP seul, Mika choix 4A) : les grands noms et chiffres de l'ecran en afficheur a points (Doto, plugin/mm-arp/web) */
+const DOTS = `"MM Dots", ${FONT_DISPLAY}`;
+const font = (weight: number, size: number, dots = false): string => `${weight} ${size}px ${dots && PLUGIN_ARP ? DOTS : FONT_DISPLAY}`;
+/** la graisse d'un texte en points (Doto n'est embarquee qu'en 800 et 900) ; le site garde la sienne */
+const dw = (site: number, dots: number): number => (PLUGIN_ARP ? dots : site);
 
 /**
  * Les degres des huit accords en fa diese mineur, et leur cle Camelot (le cercle des DJ) : ceux de la banque du moment
@@ -412,9 +416,9 @@ export class VoyScreen {
 
   /* ---------- outils de dessin ---------- */
 
-  private txt(s: string, x: number, y: number, size: number, color = INK, weight = 500, align: CanvasTextAlign = 'left'): number {
+  private txt(s: string, x: number, y: number, size: number, color = INK, weight = 500, align: CanvasTextAlign = 'left', dots = false): number {
     const c = this.ctx;
-    c.font = font(weight, size);
+    c.font = font(weight, size, dots);
     c.fillStyle = color;
     c.textAlign = align;
     c.textBaseline = 'alphabetic';
@@ -422,15 +426,15 @@ export class VoyScreen {
     return c.measureText(s).width;
   }
 
-  private width(s: string, size: number, weight: number): number {
-    this.ctx.font = font(weight, size);
+  private width(s: string, size: number, weight: number, dots = false): number {
+    this.ctx.font = font(weight, size, dots);
     return this.ctx.measureText(s).width;
   }
 
   /** La plus grande taille (jusqu'a size) ou le texte tient dans maxW. */
-  private fit(s: string, weight: number, size: number, maxW: number, min = 5): number {
+  private fit(s: string, weight: number, size: number, maxW: number, min = 5, dots = false): number {
     let z = size;
-    while (z > min && this.width(s, z, weight) > maxW) z -= 0.5;
+    while (z > min && this.width(s, z, weight, dots) > maxW) z -= 0.5;
     return z;
   }
 
@@ -493,7 +497,7 @@ export class VoyScreen {
   private tempo(bpm: number): number {
     const right = INFO_I.x - INFO_I.r - 6;
     const bw = this.txt('BPM', right, HY, FS.tiny, HALF, 700, 'right');
-    const nw = this.txt(String(Math.round(bpm)), right - bw - 3, HY, FS.head + 1, INK, 400, 'right');
+    const nw = this.txt(String(Math.round(bpm)), right - bw - 3, HY, FS.head + 1, INK, dw(400, 800), 'right', true);
     return right - bw - 3 - nw;
   }
 
@@ -561,7 +565,7 @@ export class VoyScreen {
     this.transport(s.running);
     let x = 24;
     if (edit) x += this.pill('EDIT', x, HY, FS.small, true) + 5;
-    else x += this.txt(VOY_COPY.lcdIdle, x, HY, FS.head, INK, 700) + 6;
+    else x += this.txt(VOY_COPY.lcdIdle, x, HY, FS.head, INK, dw(700, 900), 'left', true) + 6;
     const left = this.tempo(s.bpm) - 8;
     const sub = edit ? (s.seqEdit ? 'YOUR NOTES' : 'FROM THE KNOBS') : s.preset;
     if (sub) this.txt(this.clip(sub, FS.small, 600, left - x), x, HY, FS.small, HALF, 600);
@@ -571,9 +575,9 @@ export class VoyScreen {
     const name = CHORDS[chord].label;
     const cam = chordCamelot(chord);
     const has = s.prog.length > 0;
-    const cs = this.fit(name, 300, FS.chord, CHORD_X1 - 10);
+    const cs = this.fit(name, dw(300, 800), FS.chord, CHORD_X1 - 10, 5, true);
     const cy = MAIN0 + cs * 0.82;
-    this.txt(name, 9, cy, cs, has ? INK : HALF, 300);
+    this.txt(name, 9, cy, cs, has ? INK : HALF, dw(300, 800), 'left', true);
     const ry = cy + (DESK ? 11 : 10);
     const rw = this.txt(chordRoman(chord), 10, ry, FS.small, INK, 700);
     // Sans cle Camelot (G#ø du plugin, v43 : un accord diminue n'en a pas), pas de pastille
@@ -813,10 +817,10 @@ export class VoyScreen {
     const us = this.fit(unit, 600, FS.small, colW, 5);
     // Le nom, la valeur, l'unite, la barre : la valeur prend la hauteur qui reste (jamais par-dessus l'unite)
     const room = (bot - top - ls - 3 - us - 3 - 7) / 0.92;
-    const vs = this.fit(value, 300, Math.min(room, stepped ? (DESK ? 26 : 24) : DESK ? 36 : 32), colW, 9);
+    const vs = this.fit(value, dw(300, 800), Math.min(room, stepped ? (DESK ? 26 : 24) : DESK ? 36 : 32), colW, 9, true);
     this.txt(label, 10, top + ls, ls, INK, 700);
     const vy = top + ls + 3 + vs * 0.92;
-    this.txt(value, 8.5, vy, vs, INK, 300);
+    this.txt(value, 8.5, vy, vs, INK, dw(300, 800), 'left', true);
     this.txt(unit, 10, vy + us + 3, us, HALF, 600);
     // La barre de la valeur : la course entiere, le point de la valeur (le centre marque pour FINE)
     const by = Math.min(bot - 1, vy + us + 9);
