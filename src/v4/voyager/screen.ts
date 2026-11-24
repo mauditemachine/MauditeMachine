@@ -47,7 +47,7 @@ import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, GAIN, HEX, PLUGIN_ARP, PORTRAIT } from '../theme';
 import type { PresetView } from '../state/presetMode';
-import { CHORDS } from './chords';
+import { CHORDS, chordRootPc, keyLine } from './chords';
 import { hzText, midiName, voyDiagram, type VoyDiagram } from './diagrams';
 import { VOY_INFO_SECTION } from './infoIds';
 import {
@@ -642,7 +642,8 @@ export class VoyScreen {
             ? 'RUN/STOP TO PLAY'
             : `RUN/STOP TO PLAY  ${settings}`
           : DESK
-            ? `F# MINOR  11A  ${s.prog.length} CHORD${s.prog.length > 1 ? 'S' : ''}`
+            ? // v52 (le plugin) : la tonalite choisie (F# MINOR  11A au depart, et toujours sur le site)
+              `${keyLine()}  ${s.prog.length} CHORD${s.prog.length > 1 ? 'S' : ''}`
             : settings;
     const msg = s.message ?? hint;
     // PRESETS : une pastille cernee, lisible (revue du 2026-10-08 : TOUCH: PRESETS en FAINT a 18 % se lisait a peine, et
@@ -686,7 +687,7 @@ export class VoyScreen {
     const ink = has ? 1 : 0.55;
     c.globalAlpha = ink;
     // Les filets des notes jouees, la racine plus marquee et nommee
-    const root = ((54 + (CHORDS[pv.chord]?.root ?? 0)) % 12 + 12) % 12;
+    const root = chordRootPc(pv.chord);
     const seen = new Set<number>();
     for (const nt of pv.notes) {
       if (nt.midi === null || seen.has(nt.midi)) continue;

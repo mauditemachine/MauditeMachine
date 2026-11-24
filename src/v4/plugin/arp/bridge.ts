@@ -57,6 +57,8 @@
  * progression de l'etat du projet, le preset du disque, les presets de l'ecran et les sons mis de cote : state/presets.ts).
  * Sans elle, une progression est en indices du site (un projet, un preset d'avant, la banque d'usine) : convertie au
  * chargement (chords.ts arpProgOf ; le C++ : dsp/Params.cpp kSiteToArp, la meme table), le meme accord a chaque pas.
+ * v52 : un indice est un degre de la tonalite choisie (xKey, xScale : key.ts, KeySelect.tsx), des reglages de
+ * l'instance que les presets ne portent pas (applyExtra, factoryLoad).
  * mm_keys {on} : la liste des presets du grand ecran s'ouvre (haut, bas et Entree sont a elle : hooks/useKeys.ts) ou se
  * ferme (le C++ rend le clavier a l'hote, PluginEditor.cpp).
  */
@@ -77,7 +79,7 @@ import { seq, type SeqStep } from '../../voyager/seq';
 import { extHead } from '../head';
 import { STATE_PREFIX } from '../restore';
 import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
-import { arpExtra, EXTRA_IDS, isExtra } from './extra';
+import { arpExtra, EXTRA_IDS, INSTANCE_IDS, isExtra } from './extra';
 import { arpMidi, type MidiMapItem } from './midimap';
 import { look } from './look';
 import { hellMigrate } from './hell';
@@ -395,8 +397,9 @@ function applyExtra(raw: unknown): void {
   // v46 : un preset d'avant HELL v2 qui se servait de HELL (MIX au-dessus de 0) garde l'ancien HELL, son son
   const oldHell = typeof x.xHellV2 !== 'number' && typeof x.xHellMix === 'number' && x.xHellMix > 0;
   for (const id of EXTRA_IDS) {
-    // v49 : LATENCY est un reglage de l'instance (comme QUALITY dans SETTINGS) : aucun preset ne le change
-    if (id === 'xLatency') continue;
+    // v49 : LATENCY est un reglage de l'instance (comme QUALITY dans SETTINGS) : aucun preset ne le change ; v52 : la
+    // tonalite non plus (xKey, xScale : celle du morceau ; un preset garde ses degres, il sonne dans la tonalite choisie)
+    if (id === 'xLatency' || INSTANCE_IDS.has(id)) continue;
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
     // un preset d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
@@ -736,6 +739,7 @@ export const arpBridge = {
     delete extra.xQuality;
     delete extra.xEngine; // v34 : un preset d'usine ne change pas le moteur de l'instance
     delete extra.xLatency; // v49 : ni sa latence
+    for (const id of INSTANCE_IDS) delete extra[id]; // v52 : ni sa tonalite
     // v43 : la progression de factory.json en indices du site (sans chordBank) est convertie, comme un preset d'avant
     const bank = p.chordBank !== undefined ? { chordBank: p.chordBank } : {};
     const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, ...bank, extra, ...(p.steps ? { steps: p.steps } : {}) }));

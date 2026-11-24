@@ -23,7 +23,7 @@ import { modDestByCode } from './modTable';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto' | 'delay' | 'chorus' | 'old' | 'lfo' | 'mod';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto' | 'delay' | 'chorus' | 'old' | 'lfo' | 'mod' | 'key';
 
 export interface ExtraParam {
   id: string;
@@ -37,12 +37,19 @@ export interface ExtraParam {
    */
   nsteps?: number;
   help?: string;
+  /**
+   * v52 : un reglage de l'instance (le morceau : xKey, xScale) : aucun preset ne le porte ni ne le change (usine, disque,
+   * RANDOM), comme LATENCY.
+   */
+  instance?: boolean;
 }
 
 export const EXTRA_STORAGE_KEY = 'mm.v4.plugin.arp.extra';
 
-export const EXTRA_PARAMS: readonly ExtraParam[] = (spec.params as readonly ExtraParam[]).map((p) => ({ id: p.id, label: p.label, section: p.section, def: p.def, steps: p.steps, ...(p.nsteps ? { nsteps: p.nsteps } : {}), help: p.help }));
+export const EXTRA_PARAMS: readonly ExtraParam[] = (spec.params as readonly ExtraParam[]).map((p) => ({ id: p.id, label: p.label, section: p.section, def: p.def, steps: p.steps, ...(p.nsteps ? { nsteps: p.nsteps } : {}), help: p.help, ...(p.instance ? { instance: true } : {}) }));
 export const EXTRA_IDS: readonly string[] = EXTRA_PARAMS.map((p) => p.id);
+/** v52 : les reglages de l'instance (xKey, xScale) : jamais appliques depuis un preset. */
+export const INSTANCE_IDS: ReadonlySet<string> = new Set(EXTRA_PARAMS.filter((p) => p.instance).map((p) => p.id));
 
 /** Les blocs de la page SOUND+, dans l'ordre de l'ecran (ceux du module avant : FrontModule.tsx). */
 export const EXTRA_SECTIONS: readonly { id: ExtraSection; title: string }[] = [
