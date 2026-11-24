@@ -4,7 +4,9 @@ name: Plugin public (MM-RYTM, MM-ARP)
 # n'importe quelle branche (chantiers en cours compris) : le public ne les telecharge jamais directement. Ce workflow,
 # lance a la main (Actions > Plugin public > Run workflow), copie le build -latest valide par Mika dans une release
 # fixe, mm-<plugin>-public, avec un README d'installation public a la place du guide perso (INSTALL.md, update.sh).
-# L'adresse du zip ne change jamais : celle de /download/?p=rytm et ?p=arp (public/download/index.html).
+# 2026-11-24 (Mika : Windows "dans le meme package, c'est aux gens de faire ce choix") : un seul zip par plugin,
+# MM-<PLUGIN>-VST3.zip, avec un dossier macOS/ et, s'il existe (et si l'option windows est cochee), un dossier Windows/.
+# L'adresse du zip ne change plus : celle de /download/?p=rytm et ?p=arp (public/download/index.html, public/data/vst.json).
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +17,11 @@ on:
         options:
           - rytm
           - arp
+      windows:
+        description: 'Inclure la version Windows si le dernier build en a une'
+        required: false
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
@@ -23,17 +30,18 @@ concurrency:
 jobs:
   publish:
     name: Publier ${{ inputs.plugin }}
-    # macOS : ditto et codesign gardent le bundle tel que le CI l'a signe
+    # macOS : ditto et codesign gardent le bundle Mac tel que le CI l'a signe
     runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Reemballer le dernier build vert pour le public
+      - name: Reunir Mac et Windows dans un paquet public
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PLUGIN: ${{ inputs.plugin }}
+          WITH_WINDOWS: ${{ inputs.windows }}
         run: |
           set -euo pipefail
           case "$PLUGIN" in
@@ -43,24 +51,48 @@ jobs:
           esac
           SRC="mm-$PLUGIN-latest"
           DST="mm-$PLUGIN-public"
-          OUT="$N-VST3-macOS.zip"
-          rm -rf in work pkg && mkdir -p in work pkg/$N
+          OUT="$N-VST3.zip"
+          rm -rf in work pkg && mkdir -p in work/mac work/win "pkg/$N"
+
+          # Mac (obligatoire)
           gh release download "$SRC" -p "$N-macOS.zip" -D in
-          ditto -x -k "in/$N-macOS.zip" work
-          B="work/$N/$N.vst3"
-          codesign --verify --deep --strict "$B"
-          ditto "$B" "pkg/$N/$N.vst3"
-          sed "s/@NAME@/$N/g" plugin/public/README.txt > "pkg/$N/README.txt"
-          BUILD="$(cat "work/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
+          ditto -x -k "in/$N-macOS.zip" work/mac
+          codesign --verify --deep --strict "work/mac/$N/$N.vst3"
+          mkdir -p "pkg/$N/macOS"
+          ditto "work/mac/$N/$N.vst3" "pkg/$N/macOS/$N.vst3"
+          BUILD="macOS : $(cat "work/mac/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
+
+          # Windows (si le dernier build en a un)
+          WIN=0
+          if [ "$WITH_WINDOWS" = "true" ] && gh release download "$SRC" -p "$N-Windows.zip" -D in 2>/dev/null; then
+            ditto -x -k "in/$N-Windows.zip" work/win
+            test -d "work/win/$N/$N.vst3/Contents/x86_64-win"
+            mkdir -p "pkg/$N/Windows"
+            cp -R "work/win/$N/$N.vst3" "pkg/$N/Windows/$N.vst3"
+            BUILD="$BUILD
+          Windows : $(cat "work/win/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
+            WIN=1
+          fi
+
+          if [ "$WIN" = 1 ]; then
+            perl -0pe 's/\[\[NOWIN\]\].*?\[\[\/NOWIN\]\]//gs; s/\[\[\/?WIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
+            OS="macOS and Windows (beta)"
+          else
+            perl -0pe 's/\[\[WIN\]\].*?\[\[\/WIN\]\]//gs; s/\[\[\/?NOWIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
+            OS="macOS"
+          fi
           printf '%s\n' "$BUILD" > "pkg/$N/BUILD.txt"
           ditto -c -k --keepParent "pkg/$N" "$OUT"
-          unzip -l "$OUT" | tail -1
+          unzip -l "$OUT" | grep -vE '/Contents/(Resources|_CodeSignature)/' | head -30
+
           SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"
           if ! gh release view "$DST" >/dev/null 2>&1; then
-            gh release create "$DST" --target "$SHA" --latest=false --title "$N (public)" --notes "$N, VST3 for macOS."
+            gh release create "$DST" --target "$SHA" --latest=false --title "$N (public)" --notes "$N, free VST3."
           fi
           gh release upload "$DST" "$OUT" --clobber
+          # L'ancien zip Mac seul (avant le paquet unique) ne doit plus trainer
+          gh release delete-asset "$DST" "$N-VST3-macOS.zip" -y 2>/dev/null || true
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$DST" -f sha="$SHA" -F force=true >/dev/null
-          NOTES="$N, free VST3 for macOS (Apple Silicon and Intel) by Maudite Machine. Get it with the install guide at https://mauditemachine.com/goodies/ . Build: $BUILD"
+          NOTES="$N, free VST3 by Maudite Machine, for $OS. One zip, one folder per system. Get it with the install guide at https://mauditemachine.com/goodies/ . Builds: $BUILD"
           gh release edit "$DST" --notes "$NOTES"
-          echo "Publie : https://github.com/$GH_REPO/releases/download/$DST/$OUT ($BUILD)"
+          echo "Publie : https://github.com/$GH_REPO/releases/download/$DST/$OUT ($OS)"

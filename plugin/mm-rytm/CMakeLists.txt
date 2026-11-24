@@ -6,6 +6,9 @@ project(MM_RYTM VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
+# Windows : le runtime C++ de MSVC lie dans le plugin (/MT), sinon un PC sans le "Visual C++ Redistributable" ne le
+# charge pas (MSVCP140.dll, VCRUNTIME140.dll). Pour toutes les cibles, JUCE et le DSP compris.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 
@@ -20,6 +23,12 @@ target_link_libraries(mm_compare PRIVATE mm_dsp)
 add_executable(mm_engine_test tests/engine_test.cpp)
 target_link_libraries(mm_engine_test PRIVATE mm_dsp)
 add_test(NAME engine COMMAND mm_engine_test)
+# Les tests posent un mm::Engine (1,6 Mo) sur la pile : MSVC n'en donne que 1 Mo par defaut (Linux et macOS 8 Mo).
+# Le plugin, lui, le garde dans le processeur, sur le tas.
+if(MSVC)
+  target_link_options(mm_engine_test PRIVATE /STACK:16777216)
+  target_link_options(mm_compare PRIVATE /STACK:16777216)
+endif()
 
 if(NOT MM_BUILD_PLUGIN)
   return()
@@ -48,6 +57,8 @@ juce_add_plugin(MM_RYTM
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS TRUE
   VST3_CATEGORIES Instrument Drum
+  # Windows (2026-11-24) : la face passe par WebView2, lie en statique (pas de WebView2Loader.dll a cote du .vst3)
+  NEEDS_WEBVIEW2 TRUE
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Les samples de Mika (public/samples/rytm), embarques dans le binaire
@@ -74,7 +85,8 @@ target_compile_definitions(MM_RYTM PUBLIC
   JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
-  JUCE_DISPLAY_SPLASH_SCREEN=0)
+  JUCE_DISPLAY_SPLASH_SCREEN=0
+  JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 
 target_link_libraries(MM_RYTM
   PRIVATE mm_dsp mm_samples mm_web

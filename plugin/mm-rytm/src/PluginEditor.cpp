@@ -60,7 +60,22 @@ juce::String urlDecode(const juce::String& s) { return juce::URL::removeEscapeCh
 
 juce::WebBrowserComponent::Options MMRytmEditor::options() {
     auto o = juce::WebBrowserComponent::Options{}
+#if JUCE_WINDOWS
+                 // Windows (2026-11-24, Mika : "lance le chantier windows", le meme paquet que le Mac) : le backend par
+                 // defaut de JUCE y est encore Internet Explorer, sans WebGL 2 ; la face demande WebView2 (Edge, livre
+                 // avec Windows 10 et 11). Son dossier de donnees ne peut pas etre celui de l'hote (Program Files, en
+                 // lecture seule) : il va dans AppData.
+                 .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
+                 .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2{}
+                                             .withUserDataFolder(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                                                                     .getChildFile("Maudite Machine")
+                                                                     .getChildFile("MM-RYTM")
+                                                                     .getChildFile("WebView2"))
+                                             .withStatusBarDisabled()
+                                             .withBackgroundColour(juce::Colour(0xff0b0b0c)))
+#else
                  .withBackend(juce::WebBrowserComponent::Options::Backend::defaultBackend)
+#endif
                  .withNativeIntegrationEnabled()
                  .withKeepPageLoadedWhenBrowserIsHidden()
                  .withResourceProvider([this](const juce::String& url) { return resource(url); })
@@ -103,16 +118,29 @@ std::optional<juce::WebBrowserComponent::Resource> MMRytmEditor::resource(const 
 }
 
 MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
-    browser_ = std::make_unique<Browser>(options());
-    addAndMakeVisible(*browser_);
+    const auto opts = options();
+    // Sans moteur web (Windows sans le runtime WebView2) : pas de face, un message ; le plugin joue quand meme
+    if (juce::WebBrowserComponent::areOptionsSupported(opts)) {
+        browser_ = std::make_unique<Browser>(opts);
+        addAndMakeVisible(*browser_);
+        browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    }
     setSize(kW, kH);
-    browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
 
 MMRytmEditor::~MMRytmEditor() { stopTimer(); }
 
-void MMRytmEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colour(0xff0b0b0c)); }
+void MMRytmEditor::paint(juce::Graphics& g) {
+    g.fillAll(juce::Colour(0xff0b0b0c));
+    if (browser_) return;
+    g.setColour(juce::Colour(0xfff6f1e7));
+    g.setFont(18.0f);
+    g.drawFittedText("MM-RYTM needs the Microsoft Edge WebView2 Runtime to show its face.\n"
+                     "Install it from microsoft.com/edge/webview2, then reopen the plugin.\n"
+                     "The plugin keeps playing in the meantime.",
+                     getLocalBounds().reduced(40), juce::Justification::centred, 4);
+}
 
 void MMRytmEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
@@ -120,6 +148,7 @@ void MMRytmEditor::resized() {
 
 void MMRytmEditor::timerCallback() {
     // La tete de lecture vers la face : a chaque pas joue, a chaque depart ou arret (et une fois par seconde, au cas ou)
+    if (!browser_) return;
     const auto fb = proc_.feedback();
     ++quietTicks_;
     if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && quietTicks_ < 30) return;
