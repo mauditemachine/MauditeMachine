@@ -2,6 +2,8 @@ name: Plugin MM-RYTM
 # 2026-11-08 (Mika : "extrais le code de Rytm pour en faire un plugin VST3", usage perso) : le portage C++ du MM-RYTM
 # (plugin/mm-rytm). 1) le DSP compare au vrai shotsdsp.ts du site, sur Linux ; 2) le VST3 macOS universel, signe
 # ad hoc, en artefact a telecharger (2026-11-08, Mika : "je veux juste vst 3"). Rien ne touche au site ni a GitHub Pages.
+# 3) (2026-11-24, Mika : "lance le chantier windows", dans le meme paquet que le Mac) le VST3 Windows x64, face en
+# WebView2, en artefact et dans la meme release (MM-RYTM-Windows.zip) ; plugin-public.yml reunit les deux.
 on:
   push:
     paths:
@@ -91,3 +93,68 @@ jobs:
           gh release upload mm-rytm-latest MM-RYTM-macOS.zip plugin/mm-rytm/update.sh --clobber
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-rytm-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
           gh release edit mm-rytm-latest --notes "MM-RYTM, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rytm-latest/update.sh | bash"
+
+  windows:
+    name: Plugin Windows (VST3)
+    needs: dsp
+    runs-on: windows-latest
+    # La release mm-rytm-latest : le zip Windows a cote de celui du Mac
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Construire la face
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund
+          npm run plugin:web
+      # WebView2 lie en statique (NEEDS_WEBVIEW2) : JUCE cherche le paquet NuGet Microsoft.Web.WebView2 (version de sa doc)
+      - name: Paquet WebView2 (NuGet)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'nuget'
+          $pkg = Join-Path $dir 'Microsoft.Web.WebView2.1.0.1901.177'
+          New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+          Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.1901.177' -OutFile "$dir/wv2.zip"
+          Expand-Archive -Path "$dir/wv2.zip" -DestinationPath $pkg -Force
+          Get-ChildItem "$pkg/build/native/x64" | Select-Object Name
+          "WV2_DIR=$($dir -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Configurer (x64)
+        shell: bash
+        run: cmake -S plugin/mm-rytm -B build -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$WV2_DIR"
+      - name: Construire
+        shell: bash
+        run: cmake --build build --config Release -j 4 --target MM_RYTM_VST3 mm_engine_test
+      - name: Moteur (le meme test que sur Linux, compile par MSVC)
+        shell: bash
+        run: ./build/Release/mm_engine_test.exe
+      - name: Empaqueter
+        shell: bash
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-RYTM
+          B=build/MM_RYTM_artefacts/Release/VST3/MM-RYTM.vst3
+          ls -R "$B" | head -20
+          cp -R "$B" pkg/MM-RYTM/MM-RYTM.vst3
+          printf 'commit %s, branche %s, %s, Windows x64\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-RYTM/BUILD.txt
+          (cd pkg && 7z a -tzip ../MM-RYTM-Windows.zip MM-RYTM > /dev/null)
+          7z l MM-RYTM-Windows.zip | tail -3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-RYTM-Windows
+          path: MM-RYTM-Windows.zip
+          retention-days: 30
+      - name: Publier le dernier build Windows (release mm-rytm-latest)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view mm-rytm-latest >/dev/null 2>&1; then
+            gh release create mm-rytm-latest --prerelease --target "$GITHUB_SHA" --title "MM-RYTM (dernier build)" --notes "Le VST3 du dernier build."
+          fi
+          gh release upload mm-rytm-latest MM-RYTM-Windows.zip --clobber
+

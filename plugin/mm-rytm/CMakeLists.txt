@@ -48,6 +48,8 @@ juce_add_plugin(MM_RYTM
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS TRUE
   VST3_CATEGORIES Instrument Drum
+  # Windows (2026-11-24) : la face passe par WebView2, lie en statique (pas de WebView2Loader.dll a cote du .vst3)
+  NEEDS_WEBVIEW2 TRUE
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Les samples de Mika (public/samples/rytm), embarques dans le binaire
@@ -74,7 +76,8 @@ target_compile_definitions(MM_RYTM PUBLIC
   JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
-  JUCE_DISPLAY_SPLASH_SCREEN=0)
+  JUCE_DISPLAY_SPLASH_SCREEN=0
+  JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 
 target_link_libraries(MM_RYTM
   PRIVATE mm_dsp mm_samples mm_web
