@@ -1029,3 +1029,44 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   hauteur des touches.
 - Rien ne change pour le son, les parametres hote (295), la page SQ de l'encart ni le site.
 - Tests : tsc 105, face en Chromium muet (smoke 8 lignes, func.js et func2.js TOUT OK), captures des six pistes.
+
+## 2026-11-24 : v52, tonalite au choix (2A), colonne des enveloppes (3C), ecrans a points (4A), LED en verre, banque techno
+
+- Mika (images 87 a 91) : la barre des pages dure a attraper ("la fleche est juste sur le mot") ; "les presets ne sont
+  pas assez bons ... super super bons ... s'associer facilement a de la musique techno" ; "pourquoi on a pas toutes les
+  notes ?" ; trop d'espace sous FILTER EG / AMP EG ; la police des ecrans "intense et trop basique" ; les LED "rouge
+  eteinte ... transparent, et quand on selectionne la couleur fondamentale choisie". Maquettes A / B / C envoyees pour
+  les points 2, 3, 4 ; choix : 2A, 3C, 4A.
+- Barre des pages : le vortex de HELL (hell2.css) debordait sur la barre et prenait la souris (SOUND, DISTO, DELAY : seul
+  le mot restait cliquable). Vortex en pointer-events none, .mm-nv au-dessus des pages (z-index 30) ; 10 boutons x 6
+  pages verifies par elementFromPoint.
+- LED (face.css, hood.css, pages2.css, disto2.css, voyager/ledLens.ts nouveau, silk.ts led(), encart50.ts,
+  faceExtras.tsx) : eteintes en verre clair neutre (bague, verre sombre, reflet), allumees a la couleur d'accent, en
+  direct quand l'accent change ; plus aucune LED rouge (CHORUS I / II, SUB OCT, RANDOM, pistes et pas du SEQ, encart).
+  Restent rouges (alertes, pas des LED) : OLD EQ ON / EXTRA ON, CPU en surcharge, zone rouge du VU, statut d'erreur.
+- 4A, afficheur a points : Doto (SIL OFL 1.1) embarquee au plugin seul (plugin/mm-arp/web/fonts, index.html 'MM Dots',
+  vite.config.ts), sans le point U+002E (celui de Doto se lit "+", 1/8. pointee) qui retombe sur SF Pro. dots.css :
+  REVERB (machine, valeur), DELAY (temps L / R, ecran : titre, tempo, valeur), fenetre des presets HELL, ecran du bas du
+  capot. Ecran LCD de la face (voyager/screen.ts, plugin seul) : accord, MM-ARP, tempo, valeur touchee ; FONT_LOADS
+  attend 'MM Dots' dans le plugin. Petites etiquettes inchangees.
+- 2A, tonalite au choix : xKey (12 crans C..B, depart F#) et xScale (MINOR, MAJOR, DORIAN, PHRYGIAN) en fin de liste,
+  297 reglages ; reglages d'instance ("instance": true) : aucun preset (usine, disque) ni RANDOM ne les change, un
+  ancien projet s'ouvre en F# MINOR. Tonique = 48 + xKey (C3..B3, F# retombe sur 54). Pads 1 a 7 = degres du mode,
+  pad 8 = tonique a 4 sons (m7, maj7 en MAJOR), degre diminue en demi-diminue (ø), notation en dieses. Moteur :
+  Params.cpp kKeyTable (48 tonalites), degreeMidi / poolSteps / arpProgram ; PluginProcessor (lecture, DRAG MIDI).
+  Face : KeySelect.tsx (pastille "CHORDS F# MINOR" + menu), key.ts, pads, legendes, LCD (ligne du bas "A MINOR 8A"),
+  pages SEQ et SQ. F# MINOR identique au bit pres (params_test : 3000 cas F# MINOR = base, + 48 tonalites).
+- 3C, colonne des enveloppes : egScreen.ts / EgColumn.tsx : un verre entre FILTER EG et AMP EG qui dessine les deux
+  enveloppes (FILTER a l'accent, AMP en pointille) avec la loi du moteur, un point qui suit la voix la plus recente
+  (mm_tick.e : Voyager egView, PluginProcessor publishEg, six atomiques, rien au repos, 30 rAF/s en jeu, 0 au repos) ;
+  dessous POLARITY (POS / NEG), KEY TRACK, ACCENT (petits potards k3), VOICE (POLY / MONO / LEGATO) : MIDI LEARN,
+  INFOS, viseur (KEY TRACK code 80, ACCENT 81). Aucun parametre ajoute. Remise a la valeur de depart : Alt / Cmd /
+  Ctrl + clic comme tous les potards de la face.
+- Banque d'usine refaite pour la techno (presets/build.mjs, rapport docs/reports/2026-11-24-mm-arp-banque-techno.md) :
+  40 presets, 124 a 132 BPM, BASS 12 / ACID 8 / SEQ 12 / CHORD 8 (library.ts) ; regles seches gardees (aucun effet,
+  passe-bas modere) ; BASS et ACID en VOICE MODE MONO (analog.ts, presets-check, RANDOM). Mesures v45 -> v52 : sub
+  < 100 Hz 19 -> 34 %, 200-400 Hz 22 -> 16 %, largeur < 120 Hz max 16 -> 4.8 %, > 6 kHz max 0.34 -> 0.07 %, -23 LUFS.
+  Ecoutes MP3 (avec et sans kick) envoyees a Mika.
+- Tests : tsc 105 ; extra-gen (297, 205 cibles), build.mjs --check, presets-check, presets-render x4 / x8 / PRO,
+  random-analog ; CI DSP (voyager_compare 85/85), host_test, mod_test, modview_test ; face en Chromium muet : smoke,
+  func, func2, funckey (24), egtest (43).

@@ -92,9 +92,10 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v51, 2026-11-23 ; v49 et v50 le meme jour) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v52, 2026-11-24 ; v49 a v51 le 2026-11-23) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
-  accent reglable (SETTINGS), pads = 7 fondamentales de F#m (G#ø), liste
+  accent reglable (SETTINGS), pads = 7 degres de la tonalite choisie +
+  tonique a 4 sons (v52 : CHORDS F# MINOR par defaut, KeySelect.tsx), liste
   des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
   dans la touche), SOUND A (EQ en haut, Maj = Q, Alt = fin), DISTO A
   (un seul EQ, CLEAN LOW, PUNISH v2 en levier, xDPunish2), DELAY A (echos
@@ -106,10 +107,16 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   viseur (xMx1..8, cibles 32 + k = reglage hote k, table generee
   modTable.ts / ModTable.inc par extra-gen.mjs) ; anciennes routes jamais
   converties, montrees en "lignes liees" ; section MOD retiree de la face
-  du plugin (le site la garde). 295 parametres hote (dernier : xMx8Amt ;
+  du plugin (le site la garde). 297 parametres hote (dernier : xScale ;
   xLatency : LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
-  change par un preset). Banque d'usine v45 seche, emplacements xMx a
-  OFF (RANDOM aussi). Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
+  change par un preset ; xKey / xScale : la tonalite, reglages
+  d'instance, jamais changes par un preset ni RANDOM). Banque d'usine v52
+  techno seche (BASS / ACID / SEQ / CHORD, BASS et ACID en MONO),
+  emplacements xMx a OFF (RANDOM aussi). v52 : LED eteintes en verre,
+  allumees a l'accent ; grands noms et chiffres des ecrans en points
+  (Doto 'MM Dots', plugin/mm-arp/web/fonts, dots.css, screen.ts) ;
+  colonne FILTER EG / AMP EG : ecran des enveloppes + POLARITY, KEY
+  TRACK, ACCENT, VOICE (EgColumn.tsx). Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
   v49 : face au repos (mm_tick unique, rien face cachee), demi-bandes RII
   a phase minimale (dsp/Halfband.h). src/v4/voyager/params.ts est lu par
   Node (presets/build.mjs, fx-ref.mjs) : n'y importer ni theme/base ni un
