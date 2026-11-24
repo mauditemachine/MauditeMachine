@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
         a.idle = true;
         more.push_back(a);
         for (const auto& sc : scenes)
-            if (sc.name == "CATHEDRAL DRONE" || sc.name == "MUNICH BASS") {
+            if (sc.name == "PULSE DRONE" || sc.name == "MUNICH BASS") {  // v52 : la banque techno (CATHEDRAL DRONE avant)
                 Scene b = sc;
                 b.name += " (ARRET)";
                 b.idle = true;

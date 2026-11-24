@@ -41,9 +41,14 @@
 //   --wav : ecrit un WAV float 32 bits par preset (NE PAS les lire pendant les tests : c'est pour Mika)
 //   --calibrate : ecrit { "NOM": volume } , le VOLUME qui met chaque preset sur sa cible de sonie (presets/volumes.json,
 //                 lu par presets/build.mjs)
+// v52 (2026-11-24) : les modes de voix (VOICE MODE, MONO sur les basses de la banque), la matrice d'avant, FEEDBACK et AMP
+// MODE passent au moteur comme dans update() du plugin ; mesures en plus : SUB100 (< 100 Hz, %), 200-400 (la boue, %),
+// LG<120 (cote / milieu sous 120 Hz, %), S/KICK (la part du sub dans le premier quart de chaque temps, %).
 // Code de sortie : 0 si tout passe (crete sous -1 dBFS et au-dessus de -20, sonie K a +/-0.7 LU de sa cible, sonie RMS
 // a +/-4 dB de la mediane des presets hors PAD ; les PAD peuvent etre plus douces, jamais plus fortes ; aucun
-// NaN ; aucune paire trop proche).
+// NaN ; aucune paire trop proche ; v52 : le timbre de la famille, centroide BASS 150 a 500 Hz, ACID et DARK 150 a 700, SEQ
+// / ARP / PAD 350 a 1000, CHORD 200 a 1000, au-dessus de 6 kHz sous 0.5 %, bas-medium 30 % au moins, BASS / ACID mono sous
+// 120 Hz : LG<120 sous 5 % des qu'il y a du grave, SUB100 5 % au moins).
 #include "Params.h"
 #include "../src/ExtraParams.h"
 
@@ -288,7 +293,7 @@ Render render(const Preset& p, int osWanted) {
   Voyager v(o);
   v.setPro(gPro);
   // update() du plugin : les reglages du moteur, le tempo, le VST3 seul
-  std::vector<ParamKV> kv(kEngineParams + 16);
+  std::vector<ParamKV> kv(kEngineParams + 48);
   int n = engineParams(p.knobs, kv.data(), kEngineParams);
   auto id = [](const char* k) { return Voyager::paramIndex(k); };
   kv[static_cast<size_t>(n++)] = {id("bpm"), p.bpm};
@@ -309,6 +314,22 @@ Render render(const Preset& p, int osWanted) {
     kv[static_cast<size_t>(n++)] = {id("xHpf"), hp > 0 ? 20.0 * std::pow(100.0, hp) : 0.0};
     kv[static_cast<size_t>(n++)] = {id("xComb"), p.extra[mmx::ex_xComb]};
     kv[static_cast<size_t>(n++)] = {id("xCombFb"), 2 * p.extra[mmx::ex_xCombFb] - 1};
+  }
+  // v52 (2026-11-24) : la matrice d'avant, les modes de voix, FEEDBACK, AMP MODE, comme update() du plugin (mId_) ; la
+  // banque d'usine pose VOICE MODE MONO sur ses lignes a une note (BASS, ACID), RANDOM sur ses basses
+  {
+    for (int l = 0; l < 6; ++l) {
+      const std::string m = "m" + std::to_string(l + 1);
+      const int e = mmx::ex_xM1Src + l * 3;
+      kv[static_cast<size_t>(n++)] = {id((m + "Src").c_str()), static_cast<double>(mmx::exStep(e, p.extra[e]))};
+      kv[static_cast<size_t>(n++)] = {id((m + "Dst").c_str()), static_cast<double>(mmx::exStep(e + 1, p.extra[e + 1]))};
+      kv[static_cast<size_t>(n++)] = {id((m + "Amt").c_str()), 2 * p.extra[e + 2] - 1};
+    }
+    static const double kPb[7] = {1, 2, 3, 5, 7, 12, 24};
+    kv[static_cast<size_t>(n++)] = {id("pbRange"), kPb[mmx::exStep(mmx::ex_xPbRange, p.extra[mmx::ex_xPbRange])]};
+    kv[static_cast<size_t>(n++)] = {id("voiceMode"), static_cast<double>(mmx::exStep(mmx::ex_xVoiceMode, p.extra[mmx::ex_xVoiceMode]))};
+    kv[static_cast<size_t>(n++)] = {id("xFeedback"), p.extra[mmx::ex_xFeedback]};
+    kv[static_cast<size_t>(n++)] = {id("ampMode"), static_cast<double>(mmx::exStep(mmx::ex_xAmpMode, p.extra[mmx::ex_xAmpMode]))};
   }
   v.params(kv.data(), n);
 
@@ -425,6 +446,11 @@ struct Stats {
   // v43 (2026-11-20, Mika : "pas trop aigu", "que ca sonne vraiment bon synth analog") : la part d'energie au-dessus de
   // 6 kHz (%), celle du bas-medium 120-500 Hz (%), le DC (la moyenne de chaque canal, dBFS, la pire des deux)
   double hf6 = 0, lowMid = 0, dcDb = -200;
+  // v52 (2026-11-24, Mika : "doit s'associer facilement a de la musique techno") : la part sous 100 Hz (le sub, %), celle
+  // de 200 a 400 Hz (la boue, %), la largeur du grave (cote / milieu sous 120 Hz, % : mono pour une basse), et SUR KICK :
+  // la part de l'energie sous 100 Hz qui tombe dans le premier quart de chaque temps, la ou frappe un kick 4/4 (25 % : une
+  // basse tenue ; moins : elle laisse la place au kick)
+  double sub100 = 0, mud = 0, lowWidth = 0, kickSub = 0;
   bool nan = false;
   double band[kBands] = {};
   std::vector<int> motif;  // (position en triples croches) x 12 + classe de hauteur, sur les 8 mesures
@@ -477,12 +503,14 @@ Stats measure(const Render& r, double bpm) {
     fft(buf);
     for (size_t k = 0; k <= F / 2; ++k) spec[k] += std::norm(buf[k]);
   }
-  double tot = 0, cw = 0, low = 0, hi6 = 0, lm = 0;
+  double tot = 0, cw = 0, low = 0, hi6 = 0, lm = 0, sub = 0, mud = 0;
   for (size_t k = 1; k <= F / 2; ++k) {
     const double hz = static_cast<double>(k) * SR / static_cast<double>(F);
     tot += spec[k];
     cw += spec[k] * hz;
     if (hz < 150) low += spec[k];
+    if (hz < 100) sub += spec[k];
+    if (hz >= 200 && hz < 400) mud += spec[k];
     if (hz >= 6000) hi6 += spec[k];
     if (hz >= 120 && hz < 500) lm += spec[k];
     const int b = static_cast<int>(std::floor(std::log2(hz / 22.0)));
@@ -492,6 +520,30 @@ Stats measure(const Render& r, double bpm) {
   s.bass = tot > 0 ? 100 * low / tot : 0;
   s.hf6 = tot > 0 ? 100 * hi6 / tot : 0;
   s.lowMid = tot > 0 ? 100 * lm / tot : 0;
+  s.sub100 = tot > 0 ? 100 * sub / tot : 0;
+  s.mud = tot > 0 ? 100 * mud / tot : 0;
+  // v52 : la largeur du grave et SUR KICK, a l'heure vraie (passe-bas de Butterworth en deux biquads, mesures 2 a 8)
+  {
+    auto lowpass = [](double fc) {
+      const double w = 2 * M_PI * fc / SR, c = std::cos(w), al = std::sin(w) / (2 * M_SQRT1_2);
+      const double a0 = 1 + al;
+      return Bq{(1 - c) / 2 / a0, (1 - c) / a0, (1 - c) / 2 / a0, -2 * c / a0, (1 - al) / a0};
+    };
+    Bq wl[2] = {lowpass(120), lowpass(120)}, wr[2] = {lowpass(120), lowpass(120)}, ks[2] = {lowpass(100), lowpass(100)};
+    const double beatFrames = r.barFrames / 4.0;
+    double lMid = 0, lSide = 0, kIn = 0, kAll = 0;
+    for (size_t i = 0; i < N; ++i) {
+      const double l = wl[1].run(wl[0].run(r.L[i])), rr = wr[1].run(wr[0].run(r.R[i]));
+      const double sb = ks[1].run(ks[0].run(0.5 * (r.L[i] + r.R[i])));
+      if (i < a) continue;
+      lMid += 0.25 * (l + rr) * (l + rr);
+      lSide += 0.25 * (l - rr) * (l - rr);
+      kAll += sb * sb;
+      if (std::fmod(static_cast<double>(i), beatFrames) < 0.25 * beatFrames) kIn += sb * sb;
+    }
+    s.lowWidth = 100 * std::sqrt(lSide / std::max(lMid, 1e-20));
+    s.kickSub = kAll > 0 ? 100 * kIn / kAll : 0;
+  }
   {
     double mL = 0, mR = 0;
     for (size_t i = 0; i < N; ++i) mL += r.L[i], mR += r.R[i];
@@ -829,6 +881,19 @@ int main(int argc, char** argv) {
     if (dev > 4) why += " TROP FORT";
     if (dev < -4 && !tex) why += " TROP DOUX";
     if (s.nan) why += " NaN";
+    // v52 : le timbre de la famille (les cibles de presets/build.mjs) ; BASS et ACID mono dans le grave
+    {
+      const std::string& c = ps[i].cat;
+      double cLo = 350, cHi = 1000;
+      if (c == "BASS") cLo = 150, cHi = 500;
+      else if (c == "DARK" || c == "ACID") cLo = 150, cHi = 700;
+      else if (c == "CHORD") cLo = 200, cHi = 1000;
+      if (s.centroid < cLo || s.centroid > cHi) why += " CENTROIDE";
+      if (s.hf6 >= 0.5) why += " AIGU";
+      if (s.lowMid < 30) why += " BAS-MEDIUM";
+      // (sous 5 % d'energie sous 100 Hz, le rapport cote / milieu du grave ne mesure que la fuite du medium : pas jugee)
+      if ((c == "BASS" || c == "ACID") && s.sub100 >= 5 && s.lowWidth > 5) why += " GRAVE-LARGE";
+    }
     if (!why.empty()) ++bad;
     // le VOLUME qui mettrait ce preset sur sa cible (le gain suit VOLUME au carre)
     const double vol = ps[i].knobs[kn_volume];
@@ -841,22 +906,24 @@ int main(int argc, char** argv) {
   }
   std::printf("\nSonie visee : -23 LUFS (PAD : -24) ; sonie RMS de reference (mediane hors PAD) : %.1f dBFS\n", med);
   // v43 : le timbre (part au-dessus de 6 kHz, bas-medium 120-500 Hz, DC)
-  std::printf("\nTimbre (v43) : centroide, part au-dessus de 6 kHz, bas-medium 120-500 Hz, basses < 150 Hz, DC\n");
-  std::printf("%-3s %-24s %7s %7s %7s %7s %8s\n", "#", "NOM", "CENTR", "HF>6K", "BMED", "BAS", "DC");
+  std::printf("\nTimbre (v43, v52) : centroide, part au-dessus de 6 kHz, bas-medium 120-500 Hz, basses < 150 Hz, DC ; sub < 100 Hz, 200-400 Hz,\n");
+  std::printf("largeur sous 120 Hz, SUR KICK (la part du sub dans le premier quart de chaque temps), notes par mesure\n");
+  std::printf("%-3s %-24s %7s %7s %7s %7s %8s %7s %7s %7s %7s %6s\n", "#", "NOM", "CENTR", "HF>6K", "BMED", "BAS", "DC", "SUB100", "200-400", "LG<120", "S/KICK", "NOTES");
   for (size_t i = 0; i < ps.size(); ++i) {
     if (!done[i]) continue;
     const Stats& s = st[i];
-    std::printf("%-3zu %-24s %7.0f %6.2f%% %6.1f%% %6.1f%% %8.1f\n", i + 1, ps[i].name.c_str(), s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb);
+    std::printf("%-3zu %-24s %7.0f %6.2f%% %6.1f%% %6.1f%% %8.1f %6.1f%% %6.1f%% %6.1f%% %6.1f%% %6.2f\n", i + 1, ps[i].name.c_str(), s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb, s.sub100,
+                s.mud, s.lowWidth, s.kickSub, s.notesPerBar);
   }
   if (!csv.empty()) {
     std::ofstream c(csv);
-    c << "n,name,cat,bpm,peak_dbfs,rms_dbfs,lufs,centroid_hz,hf6_pct,lowmid_pct,bass_pct,dc_dbfs,width_pct,crest_db,notes_bar\n";
+    c << "n,name,cat,bpm,peak_dbfs,rms_dbfs,lufs,centroid_hz,hf6_pct,lowmid_pct,bass_pct,dc_dbfs,width_pct,crest_db,notes_bar,sub100_pct,mud_pct,lowwidth_pct,kicksub_pct\n";
     for (size_t i = 0; i < ps.size(); ++i) {
       if (!done[i]) continue;
       const Stats& s = st[i];
       char line[512];
-      std::snprintf(line, sizeof line, "%zu,%s,%s,%.0f,%.2f,%.2f,%.2f,%.1f,%.3f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f\n", i + 1, ps[i].name.c_str(), ps[i].cat.c_str(), ps[i].bpm, s.peakDb,
-                    s.rmsDb, s.lufs, s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb, s.width, s.crest, s.notesPerBar);
+      std::snprintf(line, sizeof line, "%zu,%s,%s,%.0f,%.2f,%.2f,%.2f,%.1f,%.3f,%.2f,%.2f,%.1f,%.1f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", i + 1, ps[i].name.c_str(), ps[i].cat.c_str(), ps[i].bpm,
+                    s.peakDb, s.rmsDb, s.lufs, s.centroid, s.hf6, s.lowMid, s.bass, s.dcDb, s.width, s.crest, s.notesPerBar, s.sub100, s.mud, s.lowWidth, s.kickSub);
       c << line;
     }
   }

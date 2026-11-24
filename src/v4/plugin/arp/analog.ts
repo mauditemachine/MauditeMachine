@@ -16,6 +16,11 @@
  *   coupure par le LFO de 0.25 au plus (3 x 0.25 = 3/4 d'octave de chaque cote).
  * - Pas trop aigu : OCTAVE 0 au plus, RANGE des oscillateurs 4' au plus, FM 0.2 au plus, NOISE 0.12 au plus, le
  *   vibrato (MOD vers PITCH) a 0.08 au plus ; SYNC seulement avec OSC 2 en 8' ou plus bas et le filtre a mi-course.
+ * - v52 (2026-11-24) : VOICE MODE POLY ou MONO, jamais LEGATO. MONO (une seule voix, les enveloppes reprises a leur
+ *   niveau, un SLIDE qui glisse dans la meme voix) pour les basses et les lignes acides : aucune queue de note sous la
+ *   suivante dans le grave. LEGATO lie deux notes seulement si la premiere depasse la suivante, ce que l'arpege ne fait
+ *   jamais (GATE et TIE s'arretent a la note suivante) : la liaison tiendrait a l'arrondi d'un echantillon. RANDOM pose
+ *   MONO sur ses basses, POLY ailleurs (analogVoice). Ce n'est pas un effet : le son reste la voix.
  *
  * Aucune dependance (ni DOM, ni store) : Node le lit tel quel (build.mjs, presets-check.mjs).
  */
@@ -64,6 +69,12 @@ export const ANALOG = {
   fmMax: 0.2,
   noiseMax: 0.12,
 } as const;
+
+/** VOICE MODE (xVoiceMode, extra-params.json : POLY, MONO, LEGATO) : les crans permis, POLY (0) et MONO (0.5). */
+export const ANALOG_VOICE = { POLY: 0, MONO: 0.5 } as const;
+
+/** v52 : le mode de voix d'une famille de RANDOM (MONO pour les basses, POLY ailleurs). */
+export const analogVoice = (fam: AnalogFamily): number => (fam === 'BASS' ? ANALOG_VOICE.MONO : ANALOG_VOICE.POLY);
 
 /** L'ouverture la plus haute du filtre, en Hz (cutoffHz x 2^envOctaves, sans le suivi de clavier ni l'accent). */
 export const analogOpenHz = (cutoff: number, envAmt: number): number => 30 * Math.pow(2, 9.3 * cutoff + 6 * envAmt);
@@ -114,6 +125,9 @@ export function analogFaults(knobs: AnalogValues, extra?: AnalogValues, steps?: 
       if ((n === 'CUTOFF' || n === 'RES') && extra[depth] > ANALOG.lfoCutMax) out.push(`${dest} ${n} ${extra[depth]} > ${ANALOG.lfoCutMax}`);
       if (n === 'PITCH' && extra[depth] > ANALOG.lfoPitchMax) out.push(`${dest} PITCH ${extra[depth]} > ${ANALOG.lfoPitchMax}`);
     }
+    // v52 : POLY ou MONO (LEGATO dependrait de l'arrondi d'un echantillon)
+    if (typeof extra.xVoiceMode === 'number' && extra.xVoiceMode !== ANALOG_VOICE.POLY && extra.xVoiceMode !== ANALOG_VOICE.MONO)
+      out.push(`VOICE MODE ${extra.xVoiceMode} : POLY ou MONO (jamais LEGATO)`);
   }
   return out;
 }

@@ -28,7 +28,7 @@ import { voyMsg } from '../../voyager/msg';
 import { randomVoyOf, voyRandomHook, type VoyRandom, type VoyStyle } from '../../voyager/random';
 import type { VoyKnobId } from '../../voyager/params';
 import { arpExtra } from './extra';
-import { analogRandom, analogTame, ANALOG_FX_OFF_EXTRA, type AnalogFamily } from './analog';
+import { analogRandom, analogTame, analogVoice, ANALOG_FX_OFF_EXTRA, type AnalogFamily } from './analog';
 import { arpSteps, STEPS_N } from './steps';
 
 export type HypnoStyle = 'HYPNOTIC' | 'PULSE' | 'ROLLING';
@@ -235,9 +235,14 @@ export function randomPatch(fam: RandomFamily, site: Partial<Record<VoyKnobId, n
   return analogTame({ ...site, ...arpPart, ...analogRandom(fam, rnd) }) as Partial<Record<VoyKnobId, number>>;
 }
 
-/** Les effets du VST3 seul a l'arret (v43 : RANDOM donne toujours un son sec). */
-function fxOff(): void {
+/**
+ * Les effets du VST3 seul a l'arret (v43 : RANDOM donne toujours un son sec) ; v52 (2026-11-24) : VOICE MODE de la
+ * famille, comme la banque d'usine (MONO pour les basses, POLY ailleurs : analog.ts analogVoice), sinon une nappe tiree
+ * apres une basse MONO jouerait en MONO.
+ */
+function fxOff(fam: RandomFamily): void {
   for (const [k, v] of Object.entries(ANALOG_FX_OFF_EXTRA)) arpExtra.set(k, v);
+  arpExtra.set('xVoiceMode', analogVoice(fam));
 }
 
 /** RANDOM de la face, dans le plugin : une famille, son son analogique, la suite et les pistes hypnotiques du style choisi. */
@@ -252,7 +257,7 @@ voyRandomHook.fn = (_r: VoyRandom): VoyRandom => {
   const a = hypnoArp(style, rnd);
   arpSteps.load(h.steps);
   const patch = randomPatch(fam, r.patch, { rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
-  fxOff();
+  fxOff(fam);
   return {
     ...r,
     patch,

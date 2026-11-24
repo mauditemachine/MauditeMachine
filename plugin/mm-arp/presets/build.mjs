@@ -3,33 +3,44 @@
  * MM-ARP, la banque d'usine du VST3 (2026-11-10, Mika : "les presets pourraient etre meilleurs, c'est un peu toujours
  * pareil ! Je veux plus de presets a la Donna Summer, genre disco, ou alors des trucs hypnotiques"). Le VST3 seul : les
  * presets du site (src/v4/state/factory.ts) ne changent pas. Refaite le 2026-11-11 (40 presets, le sequenceur par pas),
- * revue le 2026-11-18 (v28 : quatre familles BASS 16, ARP 12, PAD 6, DARK 6, des noms qui disent ce que c'est).
+ * revue le 2026-11-18 (v28 : BASS 16, ARP 12, PAD 6, DARK 6), refaite le 2026-11-20 (v43, Mika : "Tous les presets
+ * doivent sonner absolument parfait ! sans filtre pas trop aigu ... que ca sonne vraiment bon synth analog ! evite les fx
+ * sur tous les presets ! ou des filtres, si tu en utilises alors pas trop intense !" : un synthe analogique a sec).
  *
- * Refaite le 2026-11-20 (v43, Mika : "Tous les presets doivent sonner absolument parfait ! sans filtre pas trop aigu et
- * que ca sonne putain ! que ca sonne vraiment bon synth analog ! evite les fx sur tous les presets ! ou des filtres, si
- * tu en utilises alors pas trop intense !" ; avant : des sons "fats et cristallins", des basslines, rien de trop aigu) :
- * un synthe analogique a sec. Le son de chaque preset, c'est la voix : deux oscillateurs desaccordes, le SUB, LOAD (le
- * melangeur qui pousse le filtre), un passe-bas a mi-course, des enveloppes qui claquent, la derive analogique. Les
- * memes familles et la meme repartition (BASS 16, ARP 12, PAD 6, DARK 6), 34 noms gardes, 6 renommes (leur son tenait
- * a un effet) : PLUCK ARP (RIMSHOT ARP), BRASS ARP (TOM ARP), DISCO KEYS ARP (DISCO BELL ARP), HOLLOW ARP (NOISE ARP),
- * DRIFT DRONE (TAPE DRONE), CRYPT ARP (BIT CRYPT).
+ * Refaite le 2026-11-24 (v52, Mika : "Les presets ne sont pas assez bons ! ca doit etre vraiment super super bons comme
+ * ca et doit s'associer facilement a de la musique techno") : une banque qui tourne tout de suite sous un kick 4/4.
+ *   - BPM 124 a 132. Quatre familles, les quatre colonnes de LIBRARY : BASS 12 (le grave sous le kick), ACID 8 (accent et
+ *     slide, la resonance tenue : cinq dans le grave, trois lignes du dessus), SEQ 12 (le medium hypnotique : sequences,
+ *     plucks, arpeges), CHORD 8 (stabs, nappes qui pulsent, un drone pour les breaks) ; la couleur dark disco gardee
+ *     (MUNICH BASS, OCTAVE DISCO, DISCO OCTAVES, ITALO ARP, EBM BASS).
+ *   - Un geste rythmique par preset, pense pour le kick : les basses roulantes frappent apres lui (e, et, a), l'offbeat
+ *     sur le et ; SUR KICK (tests/presets_render.cpp, la part du sub dans le premier quart du temps) : 5 % en mediane
+ *     (32 % en v45). Le groove par le sequenceur : RATE 1/16 surtout, 1/8, des triolets par RATCHET x3 sur des croches,
+ *     SWING leger, accents par pas (ACC FILTER : l'accent ouvre le filtre, l'acid sans resonance excessive), SLIDE,
+ *     CHANCE et RATCHET pour faire varier une boucle hypnotique ; la progression : un accord, ou deux qui montent peu.
+ *   - Le grave : BASS et ACID en VOICE MODE MONO (une voix : aucune queue sous la note suivante, le SLIDE glisse dans la
+ *     meme voix), WIDTH 0, BASS MONO 0.62 (135 Hz). Mesure (CLASSIC HQ, les 17 du registre grave) : sub sous 100 Hz 34 %
+ *     en mediane (19 % en v45), 200-400 Hz 16 % (22 %, 38 % au plus avant), cote sous 120 Hz 4.8 % au plus (16 %).
+ *   - Les regles v43 restent toutes (aucun effet, passe-bas modere, pas trop aigu, les cibles ci-dessous) ; un seul ajout :
+ *     VOICE MODE POLY ou MONO, jamais LEGATO (analog.ts, presets-check.mjs, RANDOM qui pose MONO sur ses basses).
+ *   - Diversite (presets_render) : D 2.40 et DS 1.66 au moins (seuils 2.4 et 1.6) en CLASSIC x4 et x8 et en PRO STD.
  *
  * LES REGLES (v43, verifiees ici a l'ecriture et par tests/presets-check.mjs ; les memes pour RANDOM de la face, toutes
  * dans src/v4/plugin/arp/analog.ts) :
  *   - AUCUN effet : OVERDRIVE / DISTO, CHORUS, DELAY, REVERB, TAPE, GLUE, SIDECHAIN a l'arret ; WARMTH, PHASER,
  *     FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH PASS, COMB a 0 ; la DISTO, la page DELAY, la reverbe (BigSky
- *     a CLASSIC), l'EQ 6 bandes, l'ancien EQ, le MASTER (BASS, AIR, WIDTH), la matrice, les modes de voix et AMP a
- *     leur neutre ;
+ *     a CLASSIC), l'EQ 6 bandes, l'ancien EQ, le MASTER (BASS, AIR, WIDTH), la matrice, BEND RANGE et AMP a leur
+ *     neutre ; VOICE MODE POLY ou MONO (v52) ;
  *   - le filtre : un passe-bas (MOOG, LP12, MS-10), CUTOFF 0.25 a 0.6, RES 0.45 au plus, ENV AMT 0.5 au plus, jamais
  *     ouvert au-dela de 6 kHz par l'enveloppe, ACC FILTER 0.6 au plus, les LFO sur la coupure ou la resonance a 0.25 ;
  *   - pas trop aigu : OCTAVE 0 au plus, RANGE 4' au plus, FM 0.2, NOISE 0.12, vibrato 0.08 au plus.
  * (Avant la v43 : HELL MIX 0.10 au plus, reverbe CLASSIC, DISTO neutre ; elles restent vraies, en plus strict.)
- * Les cibles mesurees hors ligne (tests/presets_render.cpp --bars 4, CLASSIC HQ et PRO STD, aucun son joue) : crete
- * sous -3 dBFS ; sonie -23 LUFS (PAD -24) a 1 LU pres, RMS a 3 dB de la mediane ; DC sous -60 dBFS ; part au-dessus de
- * 6 kHz sous 0.5 % ; centroide 150 a 500 Hz (BASS), 150 a 700 Hz (DARK), 350 a 1000 Hz (ARP, PAD) ; bas-medium
- * (120-500 Hz) au moins 30 % de l'energie. Mesure v43 (CLASSIC HQ) : les 40 dans les cibles (15 hors cibles avant) ;
- * centroide median 398 Hz (782 au plus, 2064 avant), au-dessus de 6 kHz 0.34 % au plus (4.95 avant), crete -4.0 dBFS au
- * plus, RMS a 1.4 dB de la mediane, DC -92 dBFS au plus, bas-medium 35 % au moins (0 avant).
+ * Les cibles mesurees hors ligne (tests/presets_render.cpp, 8 mesures, CLASSIC HQ et PRO STD, aucun son joue ; le code de
+ * sortie les verifie depuis la v52) : crete sous -3 dBFS ; sonie -23 LUFS a 0.7 LU pres (-24 pour la famille PAD de
+ * RANDOM) ; DC sous -60 dBFS ; part au-dessus de 6 kHz sous 0.5 % ; centroide 150 a 500 Hz (BASS), 150 a 700 Hz (ACID),
+ * 350 a 1000 Hz (SEQ), 200 a 1000 Hz (CHORD) ; bas-medium (120-500 Hz) au moins 30 % ; BASS et ACID mono sous 120 Hz.
+ * Mesure v52 (CLASSIC HQ) : les 40 dans les cibles ; crete -3.3 dBFS au plus, au-dessus de 6 kHz 0.07 % au plus (0.34 en
+ * v45), centroide median 278 Hz (398), bas-medium 30.9 % au moins.
  *
  * Source unique de la banque : ce fichier ecrit
  *   - plugin/mm-arp/presets/factory.json        { v: 1, presets: [ { name, cat, desc, bpm, knobs, seq, prog, extra, steps } ] }
@@ -45,7 +56,7 @@
  * verification : plugin/mm-arp/tests/presets-render.sh.
  *
  * VOLUME : cale par le rendu hors ligne (tests/presets_render.cpp --calibrate presets/volumes.json : la sonie ponderee
- * K de chaque preset sur 8 mesures, vers -23 LUFS, les PAD vers -24). Recaler apres un changement de son :
+ * K de chaque preset sur 8 mesures, vers -23 LUFS). Recaler apres un changement de son :
  *   plugin/mm-arp/presets/calibrate.sh
  */
 
@@ -171,459 +182,472 @@ const steps = (o = {}) => {
 /* ---------------- la banque ---------------- */
 
 /*
- * Reperes : un degre est compte dans fa diese mineur depuis la racine de l'accord (0 racine, 2 tierce, 4 quinte, 6
- * septieme, 7 octave, 9 la tierce au-dessus). La racine est posee vers fa diese 3 (185 Hz) : OCTAVE -1 la descend vers
- * fa diese 2 (92 Hz), le registre des basses disco. Accords : 0 F#m, 1 D, 2 E, 3 C#m, 4 Bm, 5 A, 6 F#m7, 7 Dmaj7 ; une
- * mesure par accord.
+ * Reperes : un degre est compte dans fa diese mineur depuis la racine de l'accord (0 racine, 2 tierce, 3 quarte, 4
+ * quinte, 6 septieme, 7 octave, -3 la quinte en dessous). La racine est posee vers fa diese 3 (185 Hz) : OCTAVE -1 la
+ * descend vers fa diese 2 (92 Hz), le registre des basses techno, et le SUB a -1 vers fa diese 1 (46 Hz). Accords (indices
+ * du site) : 0 F#m, 1 D, 2 E, 3 C#m, 4 Bm, 5 A, 6 F#m7, 7 Dmaj7 ; une mesure par accord. Les basses restent sur un accord,
+ * ou deux qui montent peu (A : +3, Bm : +5), pour que le grave ne quitte pas le kick.
  *
- * v43 : chaque preset a UN caractere tenu par la voix seule (forme d'onde, desaccord, SUB, filtre, enveloppes) et un
- * geste rythmique (RATE, longueur de la suite, pistes par pas) ; plus aucun espace (effets). Les LFO restent doux : la
- * largeur d'impulsion qui respire, la coupure qui bouge de moins d'une octave, un vibrato de quelques cents.
+ * v52 : chaque preset a UN geste rythmique pense pour un kick 4/4 (la ou il frappe, la ou il laisse la place) et UNE
+ * voix ; BASS et ACID en MONO (une seule voix : aucune queue de note sous la suivante, le glisse d'une vraie ligne),
+ * centrees (WIDTH 0) et mono sous 135 Hz (BASS MONO 0.62).
  */
+
+/** VOICE MODE (extra-params.json) : POLY, MONO ; LEGATO jamais (analog.ts). */
+const VOICE = (n) => exStep('xVoiceMode', n);
+const MONO = { xVoiceMode: VOICE('MONO') };
+/** Le socle des basses et des lignes acides : OCTAVE -1, au centre, mono sous 135 Hz, une phase de depart fixe. */
+const LOW = { octave: OCT(-1), range1: FEET[8], width: 0, wide: 0, space: 0, stack: 0, monoLow: 0.62, phase: 0.3, drift: 0.22, keyTrack: 0.5 };
+/** Le socle du medium (SEQ, CHORD) : OCTAVE 0, un peu de largeur, BASS MONO coupe (rien sous 120 Hz). */
+const MID = { octave: OCT(0), range1: FEET[8], monoLow: 0, phase: 0, drift: 0.3 };
+
 const BANK = [
-  /* ======================= BASS (16) : octave basse, passe-bas a mi-course, enveloppes qui claquent ======================= */
+  /* ======================= BASS (12) : le grave sous le kick, mono, un geste par preset ======================= */
+  {
+    name: 'ROLLING BASS',
+    cat: 'BASS',
+    desc: 'The techno rolling bass: three sixteenths after every kick, a saw over a sine sub, the mixer pushing the ladder filter, the middle note pushed, an octave turning the bar.',
+    bpm: 126,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.95, sub: 0.3, subOct: SUBOCT['-1'], subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.48, res: 0.15, envAmt: 0.36, fA: 0, fD: 0.28, fS: 0.03, fR: 0.15, aA: 0, aD: 0.38, aS: 0.2, aR: 0.15, accent: 0.35, accFlt: 0.45, load: 0.35 },
+    seq: edit([R, 0, 0, 0, R, 0, 0, 0, R, 0, 0, 0, R, 0, 7, 0]),
+    prog: [0],
+    steps: steps({ acc: [1, 0, 2, 1] }),
+    extra: { ...MONO, xSwing: 0.2 },
+  },
+  {
+    name: 'OFFBEAT BASS',
+    cat: 'BASS',
+    desc: 'The offbeat bass between the kicks: one round eighth on every and, a saw and a softer square over a sine sub, a fifth closing the second bar, F sharp minor to A.',
+    bpm: 124,
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.62, wave1: WAVE1.SQUARE, osc1: 0.45, wave2: WAVE2.SAW, range2: FEET[8], osc2: 1, fine1: cents(-4), fine2: cents(4), sub: 0.22, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.5, res: 0.18, envAmt: 0.32, fD: 0.42, fS: 0.25, fR: 0.2, aD: 0.55, aS: 0.6, aR: 0.22, accent: 0.3, accFlt: 0.4, load: 0.12 },
+    seq: edit([R, 0, R, 0, R, 0, R, 0, R, 0, R, 0, R, 0, R, 4]),
+    prog: [0, 0, 5, 5],
+    steps: steps({ acc: [1, 1, 1, 2] }),
+    extra: { ...MONO },
+  },
+  {
+    name: 'SUB PULSE',
+    cat: 'BASS',
+    desc: 'A deep pulse on the off sixteenths: a saw over a big sine sub in a soft 12 dB filter, the mixer pushed for body, nothing on the kick.',
+    bpm: 128,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.6, wave1: WAVE1.SAW, osc1: 0.85, sub: 0.4, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.45, res: 0.12, envAmt: 0.28, fD: 0.4, fS: 0.3, fR: 0.2, aA: 0.04, aD: 0.5, aS: 0.65, aR: 0.2, accent: 0.25, accFlt: 0.3, load: 0.3 },
+    seq: edit([R, 0, R, 0]),
+    prog: [0],
+    steps: steps({ acc: [1, 0, 1, 2] }),
+    extra: { ...MONO },
+  },
   {
     name: 'MUNICH BASS',
     cat: 'BASS',
-    desc: 'The 1977 sequenced bass: root, octave, fifth and seventh in sixteenths, a saw and a square through the ladder filter, a tight pluck, the twin filters opening the stereo a little.',
-    bpm: 120,
-    knobs: { rate: RATE['1/16'], gate: 0.55, wave1: WAVE1.SAW, osc1: 0.9, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.5, fine1: cents(-4), fine2: cents(4), octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.5, res: 0.28, envAmt: 0.4, keyTrack: 0.6, fA: 0, fD: 0.3, fS: 0.1, fR: 0.22, aA: 0, aD: 0.38, aS: 0.5, aR: 0.18, accent: 0.55, accFlt: 0.45, phase: 0.3, drift: 0.3, width: 0.4, monoLow: 0.45, load: 0.15, space: 0.45 },
-    seq: edit([0, 7, 4, 6, 0, 7, 4, 7]),
+    desc: 'The 1977 disco bass for dark disco: root and octave bouncing in sixteenths, a saw and a square plucked by the ladder filter, the fifth and seventh closing the bar.',
+    bpm: 124,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.45, wave1: WAVE1.SAW, osc1: 0.88, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.4, fine1: cents(-5), fine2: cents(5), sub: 0.3, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.43, res: 0.26, envAmt: 0.38, fD: 0.3, fS: 0.08, fR: 0.16, aD: 0.4, aS: 0.4, aR: 0.15, accent: 0.45, accFlt: 0.45, load: 0.12 },
+    seq: edit([0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 4, 7, 6, 7]),
     prog: [0, 0, 1, 2],
-    steps: steps({ acc: [2, 1, 0, 1, 2, 1, 0, 2], gate: [1, 0, 1, 0, 1, 0, 1, 2] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.15 },
+    steps: steps({ acc: [2, 0, 1, 0], gate: [1, 0, 1, 0] }),
+    extra: { ...MONO },
   },
   {
     name: 'GALLOP BASS',
     cat: 'BASS',
-    desc: 'The galloping octave disco bass: a breathing pulse wave over a round sine sub, long first note and short answers, a ratchet closing every other beat.',
+    desc: 'A galloping bass that answers the kick: root on the and, octave on the last sixteenth, a pulse wave breathing over two bars above a sine sub, its top a little apart.',
     bpm: 124,
-    knobs: { rate: RATE['1/16'], gate: 0.55, wave1: 0.7, osc1: 0.88, sub: 0.5, subOct: SUBOCT['-1'], subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.6, res: 0.2, envAmt: 0.3, keyTrack: 0.5, fD: 0.3, fS: 0.15, fR: 0.2, aD: 0.5, aS: 0.55, aR: 0.15, accent: 0.6, accFlt: 0.45, phase: 0.25, drift: 0.35, width: 0.2, monoLow: 0.45, load: 0.1 },
-    seq: edit([0, R, 7, 7, 0, R, 7, 0]),
-    prog: [0, 4, 1, 2],
-    steps: steps({ acc: [2, 1, 1, 0, 2, 1, 1, 1], gate: [2, 1, 0, 0, 2, 1, 0, 1], rat: [1, 1, 1, 1, 1, 1, 1, 2] }),
-    extra: { xLfo2Rate: L2RATE('1 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('WAVE'), xLfo2Depth: 0.3 },
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.42, wave1: 0.66, osc1: 0.9, sub: 0.5, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.36, res: 0.22, envAmt: 0.34, fD: 0.3, fS: 0.1, fR: 0.15, aD: 0.4, aS: 0.4, aR: 0.14, accent: 0.4, accFlt: 0.5, load: 0.1, space: 0.4, monoLow: 0.75 },
+    seq: edit([R, R, 0, 7, R, R, 0, 7, R, R, 0, 7, R, 0, 0, 7]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [1, 1, 1, 2] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('WAVE'), xLfo2Depth: 0.4 },
   },
   {
-    name: 'BOOGIE BASS',
+    name: 'EBM BASS',
     cat: 'BASS',
-    desc: 'A swung boogie bass at 112: a square and a saw an octave below over a triangle sub, slides up to the octave, soft ghost notes between the accents.',
-    bpm: 112,
-    knobs: { rate: RATE['1/16'], gate: 0.75, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[16], osc2: 0.35, fine1: cents(-3), fine2: cents(3), sub: 0.25, subWave: SUBW.TRI, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.5, res: 0.25, envAmt: 0.38, keyTrack: 0.5, fD: 0.45, fS: 0.25, fR: 0.28, aD: 0.55, aS: 0.75, aR: 0.3, accent: 0.6, accFlt: 0.45, load: 0.25, phase: 0.3, drift: 0.35, width: 0.2, monoLow: 0.45 },
-    seq: edit([0, R, 7, 0, R, 7, R, 4, 0, R, 7, 7, 4, R, 2, 4]),
-    prog: [4, 2, 0, 0],
-    steps: steps({ slide: [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], acc: [2, 1, 1, 0, 1, 2, 1, 0, 2, 1, 1, 0, 2, 1, 0, 1], gate: [2, 1, 1, 0, 1, 2, 1, 0, 2, 1, 0, 2, 1, 1, 0, 1] }),
-    extra: { xSwing: 0.6, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('ENV AMT'), xLfo2Depth: 0.15 },
+    desc: 'Body music: straight eighths that never stop, a saw and a square through the Korg filter, short and hard, an octave jump closing the bar.',
+    bpm: 125,
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.3, wave1: WAVE1.SAW, osc1: 0.9, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.45, fine1: cents(-3), fine2: cents(3), sub: 0.25, subWave: SUBW.SINE, fmode: FMODE.MS10, cutoff: 0.44, res: 0.32, envAmt: 0.4, fD: 0.3, fS: 0.05, fR: 0.14, aD: 0.4, aS: 0.25, aR: 0.14, accent: 0.4, accFlt: 0.5, load: 0.25 },
+    seq: edit([0, 0, 0, 0, 0, 0, 7, 0]),
+    prog: [0, 0, 0, 4],
+    steps: steps({ acc: [2, 1, 1, 1, 2, 1, 1, 0] }),
+    extra: { ...MONO },
   },
   {
-    name: 'HI-NRG BASS',
+    name: 'TRIPLET ROLL',
     cat: 'BASS',
-    desc: 'Hi-NRG at 130: octaves in sixteenths on two saws pulled apart by a few cents, stacked and spread wide, a sine sub keeping the low end centred.',
-    bpm: 130,
-    knobs: { rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-9), fine2: cents(9), osc1: 0.8, osc2: 0.8, sub: 0.35, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.52, res: 0.22, envAmt: 0.32, keyTrack: 0.5, fD: 0.36, fS: 0.35, fR: 0.2, aD: 0.5, aS: 0.65, aR: 0.18, accent: 0.5, accFlt: 0.4, phase: 0.2, drift: 0.3, width: 0.55, monoLow: 0.4, load: 0.1, stack: 0.35},
-    seq: edit([0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 4, 7, 6, 7]),
-    prog: [0, 1, 2, 2],
-    steps: steps({ acc: [2, 0, 1, 0] }),
-    extra: {},
-  },
-  {
-    name: 'FUNK BASS',
-    cat: 'BASS',
-    desc: 'A rubbery funk bass in swung, syncopated sixteenths: a fat pulse with a triangle sub, the filter following the keys and snapping on the accents.',
-    bpm: 108,
-    knobs: { rate: RATE['1/16'], gate: 0.42, wave1: 0.7, osc1: 0.95, sub: 0.45, subWave: SUBW.TRI, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.6, res: 0.2, envAmt: 0.26, keyTrack: 0.9, fD: 0.2, fS: 0, fR: 0.15, aD: 0.4, aS: 0.4, aR: 0.1, accent: 0.6, accFlt: 0.55, phase: 0.1, drift: 0.35, width: 0.2, monoLow: 0.4 },
-    seq: edit([0, R, 7, 0, R, 4, R, 7, R, 0, R, 4, 7, R, 6, R]),
-    prog: [0, 4],
-    steps: steps({ acc: [2, 1, 0, 2, 1, 1, 1, 0, 1, 2, 1, 0, 2, 1, 1, 1], gate: [1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 2, 1, 0, 1] }),
-    extra: { xSwing: 0.5 },
-  },
-  {
-    name: 'ORBIT ROLL',
-    cat: 'BASS',
-    desc: 'A round bass rolling over eleven steps and sliding between its notes: a soft triangle over a sine sub, the twin filters turning it slightly in the stereo.',
-    bpm: 123,
-    knobs: { rate: RATE['1/16'], gate: 0.6, wave1: 0.35, osc1: 0.95, osc2: 0, sub: 0.25, subOct: SUBOCT['-1'], subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.54, res: 0.15, envAmt: 0.3, keyTrack: 0.6, fA: 0, fD: 0.4, fS: 0.25, fR: 0.25, aA: 0.05, aD: 0.5, aS: 0.65, aR: 0.2, accent: 0.5, accFlt: 0.35, phase: 0.3, drift: 0.2, width: 0.35, monoLow: 0.5, load: 0.15, space: 0.5 },
-    seq: edit([0, 0, R, 4, 0, R, 7, 0, 2, R, 0]),
+    desc: 'Sixteenth triplets rolling off every kick: an eighth on the and split in three, a hollow square over a sine sub in the ladder filter, the first of each three pushed.',
+    bpm: 127,
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.55, wave1: WAVE1.SQUARE, osc1: 0.95, sub: 0.35, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.43, res: 0.28, envAmt: 0.35, fD: 0.28, fS: 0.05, fR: 0.14, aD: 0.36, aS: 0.4, aR: 0.13, accent: 0.3, accFlt: 0.45, load: 0.15 },
+    seq: edit([R, 0, R, 0, R, 0, R, 7]),
     prog: [0],
-    steps: steps({ slide: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0], gate: [1, 0, 1, 2, 1, 1, 3, 1, 1, 1, 0], acc: [2, 1, 1, 1, 0, 1, 2, 1, 1, 1, 0], prob: [100, 75, 100, 100, 100, 100, 100, 75, 100, 100, 50] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('WAVE'), xLfo2Depth: 0.2 },
-  },
-  {
-    name: 'ACID BASS',
-    cat: 'BASS',
-    desc: 'A soft acid line: one saw in the ladder filter, the resonance kept warm, slides tied into the next note and accents that open the filter a little.',
-    bpm: 126,
-    knobs: { rate: RATE['1/16'], gate: 0.45, wave1: WAVE1.SAW, osc1: 0.9, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.52, res: 0.45, envAmt: 0.4, keyTrack: 0.5, fA: 0, fD: 0.38, fS: 0.15, fR: 0.25, aA: 0, aD: 0.5, aS: 0.55, aR: 0.16, lfoRate: L1RATE['2 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.8, accFlt: 0.6, phase: 0.3, drift: 0.25, width: 0.2, monoLow: 0.4, load: 0.2 },
-    seq: edit([0, 0, 7, 0, R, 0, 6, 7, 0, 2, 0, 7, R, 4, 0, 7]),
-    prog: [0],
-    steps: steps({ slide: [0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1], acc: [1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2, 2], gate: [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('ENV AMT'), xLfo2Depth: 0.25 },
-  },
-  {
-    name: 'ACID ROLL',
-    cat: 'BASS',
-    desc: 'A hollow square acid bass at 110 in the Korg filter: five steps that slide and fold on themselves, warm resonance, a double hit at the end.',
-    bpm: 110,
-    knobs: { rate: RATE['1/16'], gate: 0.55, wave1: WAVE1.SQUARE, osc1: 0.9, sub: 0, octave: OCT(-1), fmode: FMODE.MS10, cutoff: 0.5, res: 0.38, envAmt: 0.42, keyTrack: 0.5, fD: 0.42, fS: 0, fR: 0.3, aD: 0.55, aS: 0.5, aR: 0.22, accent: 0.75, accFlt: 0.55, phase: 0.3, drift: 0.25, width: 0.2, monoLow: 0.4, load: 0.15 },
-    seq: edit([0, 0, 7, R, 4]),
-    prog: [0],
-    steps: steps({ slide: [0, 0, 1, 0, 1], acc: [1, 2, 1, 1, 2], rat: [1, 1, 1, 1, 2], gate: [1, 0, 2, 1, 1] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('ENV AMT'), xLfo2Depth: 0.25 },
-  },
-  {
-    name: 'CURSED BASS',
-    cat: 'BASS',
-    desc: 'A dark disco bass in eighths through the Korg filter: two saws an octave apart and a sine sub, the mixer pushed into the filter for growl, slow swelling notes.',
-    bpm: 118,
-    knobs: { rate: RATE["1/8"], gate: 0.85, wave1: WAVE1.SAW, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[16], fine1: cents(-12), fine2: cents(12), osc2: 0.6, sub: 0.35, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.MS10, cutoff: 0.32, res: 0.3, envAmt: 0.32, fA: 0.4, fD: 0.5, fS: 0.3, fR: 0.25, aD: 0.5, aS: 0.72, aR: 0.2, load: 0.6, lfoRate: L1RATE["2 BAR"], lfoShape: L1SHAPE.SAW, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.25, accent: 0.6, accFlt: 0.45, phase: 0.3, drift: 0.35, width: 0.2, monoLow: 0.45, aA: 0.45},
-    seq: edit([0, 0, R, 0, 7, 0, R, 4]),
-    prog: [0, 3, 1, 2],
-    steps: steps({ acc: [2, 1, 0, 1, 2, 1, 0, 2], gate: [1, 1, 0, 0, 1, 1, 0, 2] }),
-    extra: {},
-  },
-  {
-    name: 'IRON ROLL',
-    cat: 'BASS',
-    desc: 'Hammered and martial: a hard sync bass, the second saw locked a fifth above the first, a dry snapping envelope, the last hit doubled.',
-    bpm: 124,
-    knobs: { rate: RATE['1/16'], gate: 0.4, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-4), fine2: cents(4), osc1: 0.55, osc2: 0.85, stack: 0, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.5, res: 0.2, envAmt: 0.35, keyTrack: 0.5, fD: 0.28, fS: 0.15, fR: 0.15, aD: 0.44, aS: 0.35, aR: 0.1, accent: 0.55, accFlt: 0.45, phase: 0.2, drift: 0.2, width: 0.1, monoLow: 0.45, load: 0.2, semi2: SEMI(7), sync: ON },
-    seq: edit([0, 0, R, 0, 0, 7, R, 0]),
-    prog: [0, 0, 4, 1],
-    steps: steps({ acc: [2, 1, 1, 2, 1, 2, 1, 0], rat: [1, 1, 1, 1, 1, 1, 1, 2] }),
-    extra: {},
-  },
-  {
-    name: 'SUB BASS',
-    cat: 'BASS',
-    desc: 'The indie dance bass rolling between the kicks: a big sine sub, a pulse on top, the mixer pushed into the ladder filter for warmth.',
-    bpm: 122,
-    knobs: { rate: RATE['1/16'], gate: 0.6, wave1: 0.68, osc1: 0.7, sub: 0.55, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.38, res: 0.32, envAmt: 0.35, keyTrack: 0.5, fD: 0.4, fS: 0.15, fR: 0.25, aD: 0.45, aS: 0.55, aR: 0.2, load: 0.4, accent: 0.5, accFlt: 0.4, phase: 0.3, drift: 0.2, width: 0.15, monoLow: 0.55 },
-    seq: edit([R, 0, 0, R, R, 0, 0, R, R, 0, 0, R, R, 0, 7, 0]),
-    prog: [0, 5],
-    steps: steps({ acc: [1, 2, 0, 1, 1, 2, 0, 1, 1, 2, 0, 1, 1, 2, 1, 0], slide: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1] }),
-    extra: { xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('RND'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.2 },
+    steps: steps({ rat: [1, 3], acc: [1, 2] }),
+    extra: { ...MONO },
   },
   {
     name: 'DUB BASS',
     cat: 'BASS',
-    desc: 'A round dub bass in eighths: a soft triangle with a deep sine sub, the filter just open, long notes that breathe between the hits.',
-    bpm: 118,
-    knobs: { rate: RATE['1/8'], gate: 0.7, wave1: 0.35, osc1: 0.9, sub: 0.4, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.42, res: 0.12, envAmt: 0.2, keyTrack: 0.5, fD: 0.5, fS: 0.4, fR: 0.35, aA: 0.3, aD: 0.6, aS: 0.7, aR: 0.3, accent: 0.45, accFlt: 0.3, phase: 0.3, drift: 0.3, width: 0.15, monoLow: 0.55, fA: 0.2 },
-    seq: edit([0, R, 0, 4, R, 7, 4, R]),
-    prog: [0, 0, 4, 4],
-    steps: steps({ acc: [2, 1, 1, 0, 1, 2, 1, 1], gate: [2, 1, 1, 2, 1, 1, 2, 1] }),
-    extra: {},
-  },
-  {
-    name: 'PENDULUM BASS',
-    cat: 'BASS',
-    desc: 'Three eighths against eight, tied and sliding: a saw and a square, slow attacks, the twin filters of the Voyager wide apart.',
-    bpm: 118,
-    knobs: { rate: RATE['1/8'], gate: 0.6, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-5), fine2: cents(5), osc1: 0.84, osc2: 0.5, octave: OCT(-1), fmode: FMODE.MOOG, space: 0.8, cutoff: 0.56, res: 0.3, envAmt: 0.3, fD: 0.5, fS: 0.25, fR: 0.4, aA: 0.4, aD: 0.6, aS: 0.6, aR: 0.35, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.WCUT, lfoAmt: 0.18, phase: 0.2, drift: 0.35, width: 0.6, monoLow: 0.4, load: 0.15 },
-    seq: edit([0, 7, 4]),
-    prog: [0, 0, 1, 1],
-    steps: steps({ gate: [3, 1, 2], slide: [0, 1, 0] }),
-    extra: {},
-  },
-  {
-    name: 'CRAWLER BASS',
-    cat: 'BASS',
-    desc: 'A dark descending bass with a reversed filter contour, the notes opening as they end, a square a fifth below for weight.',
-    bpm: 120,
-    knobs: { rate: RATE['1/16'], gate: 0.55, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], semi2: SEMI(7), osc1: 0.82, osc2: 0.45, octave: OCT(-1), fmode: FMODE.MOOG, fpol: NEG, cutoff: 0.52, res: 0.28, envAmt: 0.3, keyTrack: 0.5, fD: 0.5, fS: 0, fR: 0.35, aD: 0.55, aS: 0.45, aR: 0.25, accent: 0.5, accFlt: 0.3, load: 0.2, phase: 0.2, drift: 0.35, width: 0.5, monoLow: 0.4, space: 0.4 },
-    seq: edit([7, 4, 2, R, 0, 2]),
-    prog: [4, 0, 1, 3],
-    steps: steps({ slide: [0, 1, 0, 0, 1, 0], gate: [1, 2, 1, 1, 2, 0] }),
-    extra: { xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.15 },
-  },
-  {
-    name: 'RITUAL BASS',
-    cat: 'BASS',
-    desc: 'Five steps in the Korg filter: one note ratchets, two play only sometimes, a square an octave below, the resonance breathing over eight bars.',
-    bpm: 122,
-    knobs: { rate: RATE['1/16'], gate: 0.38, wave1: WAVE1.SAW, osc1: 0.9, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.3, octave: OCT(-1), fmode: FMODE.MS10, cutoff: 0.36, res: 0.4, envAmt: 0.4, keyTrack: 0.5, fD: 0.38, fS: 0, fR: 0.28, aD: 0.5, aS: 0.3, aR: 0.3, lfoRate: L1RATE['2 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.6, accFlt: 0.5, phase: 0.3, drift: 0.3, width: 0.2, monoLow: 0.4, load: 0.1 },
-    seq: edit([0, R, 4, 2, 7]),
-    prog: [0, 0, 0, 3],
-    steps: steps({ rat: [1, 1, 2, 1, 1], prob: [100, 100, 100, 75, 50], acc: [2, 1, 1, 0, 1] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('RES'), xLfo2Depth: 0.2 },
-  },
-  {
-    name: 'TRIPLET BASS',
-    cat: 'BASS',
-    desc: 'Three short notes against the bar: a square and its fifth in a 12 dB filter, the third note doubled and sometimes left out, the cutoff slowly breathing.',
+    desc: 'Dub techno weight: a round saw over a deep sine sub on the offbeats, long swelling notes in a soft 12 dB filter moving over eight bars, the last one sliding down to the fifth.',
     bpm: 124,
-    knobs: { rate: RATE['1/16'], gate: 0.38, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.SQUARE, range2: FEET[8], semi2: SEMI(7), osc2: 0.3, sub: 0, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.34, res: 0.32, envAmt: 0.4, keyTrack: 0.5, fD: 0.3, fS: 0, fR: 0.28, aD: 0.34, aS: 0.05, aR: 0.28, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.12, accent: 0.55, accFlt: 0.45, phase: 0.3, drift: 0.25, width: 0.2, monoLow: 0.45 },
-    seq: edit([0, 7, 4]),
-    prog: [0],
-    steps: steps({ acc: [2, 1, 0], rat: [1, 1, 2], prob: [100, 100, 75] }),
-    extra: { xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.12 },
-  },
-  /* ======================= ARP (12) : arpeges, leads et claviers, dans le medium ======================= */
-  {
-    name: 'NEON ARP',
-    cat: 'ARP',
-    desc: 'An italo lead in eighths that slides into its high notes and ties them, a square against a saw, a slow filter swell and a gentle vibrato.',
-    bpm: 120,
-    knobs: { rate: RATE['1/8'], gate: 0.7, wave1: 0.62, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc1: 0.84, osc2: 0.55, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.56, res: 0.22, envAmt: 0.25, keyTrack: 0.6, fA: 0.1, fD: 0.55, fS: 0.5, fR: 0.35, aA: 0.08, aD: 0.6, aS: 0.85, aR: 0.3, lfoRate: L1RATE['1/8'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.PITCH, lfoAmt: 0.06, accent: 0.4, accFlt: 0.3, drift: 0.4, width: 0.35 },
-    seq: edit([4, 7, R, 7, 7, 7, 6, 4, 2, 4, R, 4, 6, 4, 2, 0]),
-    prog: [0, 5, 2, 1],
-    steps: steps({ slide: [0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1], gate: [1, 3, 1, 1, 3, 2, 1, 1, 1, 3, 1, 1, 3, 2, 1, 2], acc: [2, 1, 1, 1, 2, 1, 1, 0] }),
-    extra: {},
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.85, wave1: 0.4, osc1: 0.88, sub: 0.38, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.46, res: 0.1, envAmt: 0.22, fA: 0.1, fD: 0.5, fS: 0.4, fR: 0.3, aA: 0.3, aD: 0.6, aS: 0.75, aR: 0.32, accent: 0.2, accFlt: 0.3, load: 0.35 },
+    seq: edit([R, 0, R, R, R, 0, R, -3]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ slide: [0, 0, 0, 0, 0, 0, 0, 1], gate: [1, 2, 1, 1, 1, 2, 1, 3] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.25 },
   },
   {
-    name: 'PLUCK ARP',
-    cat: 'ARP',
-    desc: 'A classic poly pluck: two saws a few cents apart through a 12 dB low pass that snaps shut, swung offbeats and a double hit now and then.',
-    bpm: 122,
-    knobs: { rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-8), fine2: cents(8), osc1: 0.85, osc2: 0.7, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.52, res: 0.2, envAmt: 0.4, keyTrack: 0.6, fA: 0, fD: 0.32, fS: 0.05, fR: 0.2, aA: 0, aD: 0.5, aS: 0.25, aR: 0.25, accent: 0.6, accFlt: 0.45, drift: 0.4, width: 0.4 },
-    seq: edit([R, 7, R, 7, R, 4, 7, R, R, 7, R, 4, 0, R, 7, R]),
-    prog: [0, 1],
-    steps: steps({ rat: [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1], prob: [100, 100, 100, 75, 100, 100, 100, 100, 100, 100, 100, 75, 100, 100, 50, 100], acc: [1, 2, 1, 1, 1, 2, 0, 1] }),
-    extra: { xSwing: 0.45 },
-  },
-  {
-    name: 'RATCHET ARP',
-    cat: 'ARP',
-    desc: 'A disco arpeggio with triple and quadruple ratchets inside it: a saw over a square an octave below, the ladder filter plucked on every note.',
+    name: 'FIFTH BASS',
+    cat: 'BASS',
+    desc: 'A stab bass in fifths: two saws a fifth apart over a sine sub, short syncopated hits that leave the kick alone.',
     bpm: 126,
-    knobs: { rate: RATE['1/16'], gate: 0.4, wave1: WAVE1.SAW, osc1: 0.85, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.4, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.56, res: 0.3, envAmt: 0.36, keyTrack: 0.6, fD: 0.3, fS: 0.1, fR: 0.2, aD: 0.38, aS: 0.2, aR: 0.18, accent: 0.55, accFlt: 0.45, phase: 0.1, drift: 0.3, width: 0.35 },
-    seq: edit([0, 2, 4, 7, 6, 7, 4, 2]),
-    prog: [0, 5, 1, 2],
-    steps: steps({ rat: [1, 1, 1, 3, 1, 1, 4, 1, 1, 2, 1, 1, 1, 1, 4, 1], acc: [2, 1, 1, 2, 1, 1, 2, 1], gate: [1, 1, 1, 0, 1, 1, 0, 1] }),
-    extra: {},
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.95, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(7), osc2: 0.7, fine1: cents(-4), fine2: cents(4), sub: 0.35, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.4, res: 0.2, envAmt: 0.38, fD: 0.32, fS: 0.05, fR: 0.15, aD: 0.5, aS: 0.4, aR: 0.16, accent: 0.35, accFlt: 0.45, load: 0.15 },
+    seq: edit([R, R, 0, R, R, 0, R, 0, R, R, 0, R, R, 0, R, 0]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [1, 1, 2, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 0] }),
+    extra: { ...MONO },
   },
   {
-    name: 'OFFBEAT ARP',
-    cat: 'ARP',
-    desc: 'Offbeat organ stabs: two squares a fifth apart, short and round in a 12 dB filter, a double hit closing the bar.',
-    bpm: 122,
-    knobs: { rate: RATE['1/16'], gate: 0.4, wave1: 0.5, osc1: 0.95, wave2: WAVE2.SQUARE, range2: FEET[8], semi2: SEMI(7), osc2: 0.75, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.58, res: 0.2, envAmt: 0.32, keyTrack: 0.4, fA: 0, fD: 0.32, fS: 0, fR: 0.2, aA: 0, aD: 0.42, aS: 0.3, aR: 0.22, accent: 0.6, accFlt: 0.4, drift: 0.3, width: 0.3 },
-    seq: edit([R, R, 0, R, R, R, 0, R, R, R, 0, R, R, R, 0, 0]),
+    name: 'KNOCK BASS',
+    cat: 'BASS',
+    desc: 'A minimal knock: a sine touched by FM and a triangle an octave above for the wooden attack, a sine sub, very short notes in a broken sixteenth pattern.',
+    bpm: 128,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.35, wave1: 0.12, osc1: 1, fm: 0.2, ratio: RATIO('3'), sub: 0.28, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.56, res: 0.15, envAmt: 0.38, fD: 0.24, fS: 0, fR: 0.12, aD: 0.42, aS: 0.05, aR: 0.14, accent: 0.4, accFlt: 0.4, load: 0.4, wave2: WAVE2.TRI, range2: FEET[4], osc2: 1 },
+    seq: edit([R, R, 0, 0, R, R, 0, R, R, R, 0, 0, R, 0, R, 7]),
     prog: [0],
-    steps: steps({ acc: [1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0], rat: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2], prob: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 50] }),
-    extra: {},
+    steps: steps({ acc: [1, 1, 2, 0, 1, 1, 2, 1, 1, 1, 2, 0, 1, 1, 1, 1] }),
+    extra: { ...MONO },
   },
   {
-    name: 'BRASS ARP',
-    cat: 'ARP',
-    desc: 'Analog brass in eighths: two detuned saws, stacked thick, the filter swelling open on each note like a horn section.',
-    bpm: 118,
-    knobs: { rate: RATE['1/8'], gate: 0.62, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-7), fine2: cents(7), osc1: 0.84, osc2: 0.75, stack: 0.3, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.5, res: 0.15, envAmt: 0.4, keyTrack: 0.6, fA: 0.3, fD: 0.55, fS: 0.5, fR: 0.35, aA: 0.05, aD: 0.6, aS: 0.8, aR: 0.25, accent: 0.45, accFlt: 0.4, drift: 0.45, width: 0.35 },
-    seq: edit([0, R, 0, 4, R, 7, 6, 4]),
-    prog: [0, 5, 4, 2],
-    steps: steps({ acc: [2, 1, 1, 1, 1, 2, 1, 0], gate: [1, 1, 0, 2, 1, 1, 1, 2] }),
-    extra: {},
-  },
-  {
-    name: 'DISCO KEYS ARP',
-    cat: 'ARP',
-    desc: 'Disco keys in sixteenths over two octaves of sevenths: a soft triangle edging to a saw and a hollow square, a round 12 dB filter, spread wide, a few notes left to chance.',
-    bpm: 116,
-    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.55, wave1: 0.35, osc1: 0.9, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.35, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.52, res: 0.15, envAmt: 0.3, keyTrack: 0.6, fD: 0.4, fS: 0.15, fR: 0.3, aD: 0.45, aS: 0.45, aR: 0.3, accent: 0.45, accFlt: 0.35, drift: 0.3, width: 0.75},
-    seq: AUTO,
-    prog: [6, 4, 7, 2],
-    steps: steps({ prob: [100, 100, 75, 100, 100, 100, 100, 75, 100, 100, 100], acc: [2, 1, 1, 0, 1] }),
-    extra: {},
-  },
-  {
-    name: 'MOON ARP',
-    cat: 'ARP',
-    desc: 'Seven steps turning against sixteen: a pulse wave whose width breathes over four bars, a sine sub, the 12 dB filter drifting slowly.',
-    bpm: 120,
-    knobs: { rate: RATE['1/16'], gate: 0.42, wave1: 0.7, osc1: 0.9, sub: 0.2, subWave: SUBW.SINE, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.54, res: 0.3, envAmt: 0.25, keyTrack: 0.5, fD: 0.45, fS: 0.1, fR: 0.3, aD: 0.55, aS: 0.3, aR: 0.35, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.WAVE, lfoAmt: 0.35, drift: 0.35, width: 0.35 },
-    seq: edit([0, 7, 4, R, 6, 4, R]),
-    prog: [0],
-    steps: steps({ gate: [1, 0, 1, 1, 2, 0, 1], acc: [2, 1, 1, 1, 2, 0, 1] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.2 },
-  },
-  {
-    name: 'HOLLOW ARP',
-    cat: 'ARP',
-    desc: 'Nine steps against the bar: two squares an octave apart, hollow and woody, a breath of noise and the ladder filter slowly moving.',
-    bpm: 121,
-    knobs: { rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.4, fine1: cents(-4), fine2: cents(4), noise: 0.04, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.52, res: 0.35, envAmt: 0.3, keyTrack: 0.6, fD: 0.32, fS: 0.1, fR: 0.3, aD: 0.65, aS: 0.3, aR: 0.35, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.12, accent: 0.55, accFlt: 0.45, drift: 0.35, width: 0.4 },
-    seq: edit([0, R, 4, 7, R, 2, R, 7, 4]),
-    prog: [0, 0, 5, 5],
-    steps: steps({ prob: [100, 100, 100, 75, 100, 100, 100, 50, 100], acc: [2, 1, 1, 0, 1, 2, 1, 0, 1] }),
-    extra: { xNoiseColor: 0.4 },
-  },
-  {
-    name: 'DROPLET ARP',
-    cat: 'ARP',
-    desc: 'Random droplets over two octaves of ninths: a triangle plucked through a 12 dB filter, each note with its own brightness and its own odds of falling.',
+    name: 'OCTAVE DISCO',
+    cat: 'BASS',
+    desc: 'Disco octaves in eighths: a square and a saw bouncing root to octave, a short slide up now and then, over F sharp minor, A, D and E.',
     bpm: 125,
-    knobs: { rate: RATE['1/16'], mode: MODE.RAND, range: RANGE[2], notes: NOTES(0), chord: CHORD['9TH'], gate: 0.3, wave1: 0.22, osc1: 1, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.5, res: 0.28, envAmt: 0.28, keyTrack: 0.7, fD: 0.3, fS: 0, fR: 0.25, aD: 0.42, aS: 0.15, aR: 0.3, lfoRate: L1RATE['1/16'], lfoShape: L1SHAPE.SH, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, drift: 0.25, width: 0.5 },
-    seq: AUTO,
-    prog: [0],
-    steps: steps({ prob: [100, 75, 100, 50, 100, 75, 100, 25, 75, 100, 50] }),
-    extra: {},
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.55, wave1: WAVE1.SQUARE, osc1: 0.9, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.35, fine1: cents(-6), fine2: cents(6), sub: 0.38, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.42, res: 0.22, envAmt: 0.32, fD: 0.38, fS: 0.15, fR: 0.2, aD: 0.5, aS: 0.5, aR: 0.18, accent: 0.45, accFlt: 0.4, load: 0.1 },
+    seq: edit([0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 0, 7, 4, 7, 6, 7]),
+    prog: [0, 5, 1, 2],
+    steps: steps({ slide: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], acc: [2, 1] }),
+    extra: { ...MONO },
   },
   {
-    name: 'GHOST ARP',
-    cat: 'ARP',
-    desc: 'Ghost notes for a minimal groove: a short square and saw blip on the octave, ratchets and odds on every step so the bar never comes back the same.',
-    bpm: 127,
-    knobs: { rate: RATE['1/16'], gate: 0.3, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-5), fine2: cents(5), osc2: 0.4, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.46, res: 0.25, envAmt: 0.38, keyTrack: 0.5, fA: 0, fD: 0.25, fS: 0, fR: 0.15, aA: 0, aD: 0.38, aS: 0.15, aR: 0.15, accent: 0.55, accFlt: 0.5, phase: 0.05, drift: 0.3, width: 0.45 },
-    seq: edit([7, R, 7, 7, R, 7, R, 7, 7, R, 7, R, 7, 7, R, 7]),
+    name: 'PEAK ROLL',
+    cat: 'BASS',
+    desc: 'Peak time at 130: a growling saw with a second saw an octave above through the Korg filter, the mixer pushed hard, two hits after every kick and a doubled octave closing the bar.',
+    bpm: 130,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.55, wave1: WAVE1.SAW, osc1: 0.75, wave2: WAVE2.SAW, range2: FEET[4], osc2: 0.65, fine1: cents(-7), fine2: cents(7), sub: 0.22, subWave: SUBW.SINE, fmode: FMODE.MS10, cutoff: 0.5, res: 0.32, envAmt: 0.4, fD: 0.3, fS: 0.05, fR: 0.14, aD: 0.4, aS: 0.45, aR: 0.14, accent: 0.45, accFlt: 0.55, load: 0.45 },
+    seq: edit([R, 0, 0, R, R, 0, 0, R, R, 0, 0, R, R, 0, 7, R]),
     prog: [0],
-    steps: steps({ rat: [1, 1, 2, 1, 1, 3, 1, 1, 2, 1, 4, 1, 1, 2, 1, 3], prob: [100, 100, 50, 75, 100, 50, 100, 100, 75, 100, 25, 100, 100, 50, 100, 50], acc: [2, 1, 0, 1, 1, 0, 1, 2, 1, 1, 0, 1, 2, 0, 1, 0] }),
-    extra: {},
+    steps: steps({ acc: [1, 2, 0, 1, 1, 2, 0, 1, 1, 2, 0, 1, 1, 2, 1, 1], rat: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.18 },
+  },
+
+  /* ======================= ACID (8) : accent + slide, la resonance tenue (0.45 au plus), mono ======================= */
+  {
+    name: 'ACID LINE',
+    cat: 'ACID',
+    desc: 'A classic acid line: one saw in the ladder filter, warm resonance, accents that open it and slides that tie into the octave and back.',
+    bpm: 128,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.9, sub: 0.2, subWave: SUBW.SINE, fmode: FMODE.MOOG, cutoff: 0.37, res: 0.45, envAmt: 0.47, keyTrack: 0.6, fD: 0.4, fS: 0, fR: 0.2, aD: 0.5, aS: 0.55, aR: 0.16, accent: 0.25, accFlt: 0.6, load: 0.2 },
+    seq: edit([0, R, 0, 7, 0, R, 2, 0, 0, 0, 7, 0, R, 6, 7, 0]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 2, 0, 1, 1, 0, 1, 1, 2, 1, 1, 1, 2, 0], slide: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0], gate: [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0] }),
+    extra: { ...MONO },
   },
   {
-    name: 'WOOD ARP',
-    cat: 'ARP',
-    desc: 'A struck wooden key over seven steps: a sine and its octave with a touch of FM for the knock, a very short envelope, two notes left to chance.',
-    bpm: 122,
-    knobs: { rate: RATE['1/16'], gate: 0.3, wave1: 0.35, osc1: 0.9, fm: 0.2, ratio: RATIO('3'), octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.6, res: 0.18, envAmt: 0.3, keyTrack: 0.7, fD: 0.22, fS: 0, fR: 0.18, aD: 0.42, aS: 0, aR: 0.25, accent: 0.6, accFlt: 0.4, phase: 0.04, drift: 0.2, width: 0.4, wave2: WAVE2.SINE, range2: FEET[4], osc2: 0.6},
-    seq: edit([0, R, 4, 0, R, 7, 2]),
-    prog: [0],
-    steps: steps({ prob: [100, 100, 75, 100, 100, 50, 75], rat: [1, 1, 1, 1, 1, 2, 1], acc: [2, 1, 1, 1, 1, 0, 1] }),
-    extra: { xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('FM'), xLfo2Depth: 0.15 },
+    name: 'SOFT ACID',
+    cat: 'ACID',
+    desc: 'Deep house acid: a soft wave between triangle and saw in the 12 dB filter, rounder resonance breathing over four bars, a sparse swung line sliding up to the octave.',
+    bpm: 124,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.6, wave1: 0.32, osc1: 0.9, sub: 0.3, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.36, res: 0.32, envAmt: 0.32, fD: 0.48, fS: 0.15, fR: 0.2, aD: 0.55, aS: 0.7, aR: 0.22, accent: 0.25, accFlt: 0.5, load: 0.1, space: 0.6, monoLow: 0.7 },
+    seq: edit([0, R, R, 7, R, 0, 3, R]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [2, 1, 1, 2, 1, 1, 1, 0], slide: [0, 0, 0, 1, 0, 0, 0, 0] }),
+    extra: { ...MONO, xSwing: 0.3, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('ENV AMT'), xLfo2Depth: 0.35 },
   },
   {
-    name: 'GLASS ARP',
-    cat: 'ARP',
-    desc: 'Nine glass steps against sixteen: a soft triangle with a hollow square an octave above, clear and round, the two blending over eight bars.',
+    name: 'ACID ROLL',
+    cat: 'ACID',
+    desc: 'An acid top line at 130, an octave above the bass: a hollow pulse wave in the Korg filter, a three three two rhythm, slides into the octave, the two filters a little apart.',
+    bpm: 130,
+    knobs: { ...LOW, octave: OCT(0), rate: RATE['1/16'], gate: 0.5, wave1: 0.7, osc1: 1, sub: 0, fmode: FMODE.MS10, cutoff: 0.36, res: 0.42, envAmt: 0.4, fD: 0.34, fS: 0, fR: 0.18, aD: 0.45, aS: 0.5, aR: 0.15, accent: 0.3, accFlt: 0.55, load: 0.25, space: 0.3 },
+    seq: edit([0, 0, R, 7, 0, R, 0, 2, R, 0, 7, R, 0, 6, R, 4]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 1, 2, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 0], slide: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0] }),
+    extra: { ...MONO },
+  },
+  {
+    name: 'ACID HYPNO',
+    cat: 'ACID',
+    desc: 'Three acid steps turning against the bar at 132, in the middle register: root, root, a slide to the octave, the cutoff rising and falling over eight bars.',
+    bpm: 132,
+    knobs: { ...LOW, octave: OCT(0), rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.9, sub: 0, fmode: FMODE.MOOG, cutoff: 0.38, res: 0.44, envAmt: 0.4, fD: 0.38, fS: 0.05, fR: 0.2, aD: 0.5, aS: 0.5, aR: 0.15, accent: 0.2, accFlt: 0.55, load: 0.2, space: 0.25 },
+    seq: edit([0, 0, 7]),
+    prog: [0],
+    steps: steps({ acc: [2, 0, 1], slide: [0, 0, 1] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.22 },
+  },
+  {
+    name: 'SQUARE ACID',
+    cat: 'ACID',
+    desc: 'A square wave acid bass, hollow and woody in the 12 dB filter, the two filters a little apart, a sparse syncopated line with two slides per bar.',
     bpm: 126,
-    knobs: { rate: RATE['1/16'], gate: 0.3, wave1: 0.3, osc1: 1, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.55, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.6, res: 0.12, envAmt: 0.25, keyTrack: 0.5, fD: 0.3, fS: 0, fR: 0.3, aD: 0.55, aS: 0.1, aR: 0.45, drift: 0.15, width: 0.45 },
-    seq: edit([7, R, 7, R, 4, R, 7, 4, R]),
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SQUARE, osc1: 0.9, sub: 0.25, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.42, res: 0.38, envAmt: 0.4, fD: 0.48, fS: 0.05, fR: 0.18, aD: 0.45, aS: 0.5, aR: 0.16, accent: 0.25, accFlt: 0.55, load: 0.15, space: 0.3, monoLow: 0.7 },
+    seq: edit([0, R, R, 0, R, R, 7, R, 0, R, R, 3, R, 0, R, 4]),
     prog: [0],
-    steps: steps({ rat: [1, 1, 1, 1, 2, 1, 1, 1, 1], prob: [100, 100, 75, 100, 100, 100, 100, 50, 100] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('OSC MIX'), xLfo2Depth: 0.3 },
-  },
-  /* ======================= PAD (6) : nappes courtes, attaques douces ======================= */
-  {
-    name: 'STRING PAD',
-    cat: 'PAD',
-    desc: 'A string machine playing sevenths in eighths: two saws stacked and spread over the twin filters, soft attack, a short warm release.',
-    bpm: 116,
-    knobs: { rate: RATE['1/8'], mode: MODE.UPDN, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.9, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-7), fine2: cents(7), osc1: 0.8, osc2: 0.65, stack: 0.3, wide: 0.3, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.54, res: 0.08, envAmt: 0.12, fA: 0.4, fD: 0.6, fS: 0.7, fR: 0.5, aA: 0.45, aD: 0.6, aS: 0.8, aR: 0.5, accent: 0.2, accFlt: 0.15, drift: 0.5, width: 0.55, monoLow: 0.3 },
-    seq: AUTO,
-    prog: [7, 2, 3, 0],
-    steps: steps({ gate: [2, 2, 3, 2], acc: [1, 0, 1, 0] }),
-    extra: {},
+    steps: steps({ acc: [2, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 2, 1, 0, 1, 1], slide: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0] }),
+    extra: { ...MONO },
   },
   {
-    name: 'AURORA PAD',
-    cat: 'PAD',
-    desc: 'A slow arpeggiated pad over two octaves of ninths: a square and a saw stacked and spread, long attack, the filter breathing over four bars.',
-    bpm: 110,
-    knobs: { rate: RATE['1/4'], mode: MODE.UP, range: RANGE[2], notes: NOTES(0), chord: CHORD['9TH'], gate: 0.9, wave1: WAVE1.SQUARE, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-9), fine2: cents(9), osc1: 0.78, osc2: 0.78, stack: 0.3, wide: 0.5, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.54, res: 0.2, envAmt: 0.25, fA: 0.5, fD: 0.65, fS: 0.5, fR: 0.55, aA: 0.55, aD: 0.7, aS: 0.7, aR: 0.55, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.3, drift: 0.5, width: 0.7, monoLow: 0.35 },
-    seq: AUTO,
-    prog: [7, 2, 6, 4],
-    steps: steps({ gate: [3, 2, 2, 3] }),
-    extra: {},
+    name: 'GHOST ACID',
+    cat: 'ACID',
+    desc: 'Minimal acid: a few saw notes left to chance, soft ghost notes between the accents, one ratchet, the resonance breathing slowly.',
+    bpm: 125,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.95, sub: 0.25, subWave: SUBW.SINE, fmode: FMODE.LP12, cutoff: 0.36, res: 0.4, envAmt: 0.42, fD: 0.32, fS: 0, fR: 0.16, aD: 0.42, aS: 0.5, aR: 0.15, accent: 0.25, accFlt: 0.55, load: 0.15 },
+    seq: edit([0, R, R, 0, R, 0, R, R, 0, R, 7, R, R, 0, R, 2]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 0, 1, 0, 1, 1, 2, 1, 1, 1, 1, 0, 1, 1], prob: [100, 100, 100, 75, 100, 50, 100, 100, 100, 100, 75, 100, 100, 75, 100, 50], rat: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1], slide: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('RES'), xLfo2Depth: 0.2 },
   },
   {
-    name: 'FROZEN PAD',
-    cat: 'PAD',
-    desc: 'Cold random notes of an eleventh chord: a sine and a triangle a few cents apart, soft attacks and short tails, half of them left out, spread wide.',
-    bpm: 100,
-    knobs: { rate: RATE['1/16'], mode: MODE.RAND, range: RANGE[2], notes: NOTES(0), chord: CHORD['11TH'], gate: 0.55, wave1: 0.15, osc1: 0.85, wave2: WAVE2.TRI, range2: FEET[8], fine1: cents(-5), fine2: cents(5), osc2: 0.4, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.52, res: 0.15, envAmt: 0.2, fD: 0.5, fS: 0.2, fR: 0.45, aA: 0.15, aD: 0.6, aS: 0.25, aR: 0.5, accent: 0.3, drift: 0.35, width: 0.7 },
-    seq: AUTO,
-    prog: [6],
-    steps: steps({ prob: [100, 50, 25, 75, 50, 100, 25, 50, 75, 25, 50] }),
-    extra: {},
-  },
-  {
-    name: 'VELVET PAD',
-    cat: 'PAD',
-    desc: 'Five quarter notes melting together in a closed ladder filter: two saws stacked thick, slow attack and release, the mix of the two drifting.',
-    bpm: 96,
-    knobs: { rate: RATE['1/4'], gate: 0.92, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-8), fine2: cents(8), osc1: 0.8, osc2: 0.75, stack: 0.45, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.45, res: 0.2, envAmt: 0.22, fA: 0.6, fD: 0.75, fS: 0.5, fR: 0.6, aA: 0.6, aD: 0.75, aS: 0.8, aR: 0.6, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.2, drift: 0.5, width: 0.5, monoLow: 0.35 },
-    seq: edit([0, 4, 7, 7, 4]),
+    name: 'SWING ACID',
+    cat: 'ACID',
+    desc: 'A swung acid top line an octave above the bass: a saw through the Korg filter, sixteenths pushed late, doubled hits, octave slides and a minor seventh answer, the two filters apart.',
+    bpm: 124,
+    knobs: { ...LOW, rate: RATE['1/16'], gate: 0.42, wave1: WAVE1.SAW, osc1: 0.9, sub: 0, fmode: FMODE.MS10, cutoff: 0.42, res: 0.38, envAmt: 0.42, fD: 0.36, fS: 0.05, fR: 0.18, aD: 0.45, aS: 0.35, aR: 0.16, accent: 0.3, accFlt: 0.55, load: 0.2, space: 0.6, monoLow: 0.7, octave: OCT(0) },
+    seq: edit([0, 0, R, 0, 7, R, 0, 0, R, 0, 6, 0, 7, R, 0, 4]),
     prog: [0, 0, 5, 5],
-    steps: steps({ gate: [3, 3, 2, 3, 3] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('OSC MIX'), xLfo2Depth: 0.3 },
+    steps: steps({ acc: [2, 0, 1, 1, 2, 1, 1, 0, 1, 1, 2, 0, 2, 1, 1, 1], slide: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0], rat: [1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2] }),
+    extra: { ...MONO, xSwing: 0.55 },
   },
   {
-    name: 'SUNSET PAD',
-    cat: 'PAD',
-    desc: 'Arpeggiated sevenths up and down in sixteenths, an octave low: two triangles stacked and spread, soft attacks, the filter swaying over two bars.',
-    bpm: 104,
-    knobs: { rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.7, wave1: 0.3, wave2: WAVE2.TRI, range2: FEET[8], fine1: cents(-8), fine2: cents(8), osc1: 0.82, osc2: 0.82, stack: 0.25, wide: 0.35, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.5, res: 0.2, envAmt: 0.25, fA: 0.3, fD: 0.6, fS: 0.45, fR: 0.45, aA: 0.3, aD: 0.6, aS: 0.6, aR: 0.45, lfoRate: L1RATE['2 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.3, drift: 0.45, width: 0.5, monoLow: 0.35 },
+    name: 'DEEP ACID',
+    cat: 'ACID',
+    desc: 'Deep acid an octave down, in eighths: a saw and a square on the low F sharp, the resonance singing through the harmonics, long slides falling to the fifth below.',
+    bpm: 126,
+    knobs: { ...LOW, octave: OCT(-2), rate: RATE['1/8'], gate: 0.62, wave1: WAVE1.SAW, osc1: 0.88, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.35, fine1: cents(-5), fine2: cents(5), sub: 0, fmode: FMODE.LP12, cutoff: 0.48, res: 0.4, envAmt: 0.42, fD: 0.45, fS: 0.1, fR: 0.25, aD: 0.55, aS: 0.6, aR: 0.2, accent: 0.25, accFlt: 0.5, load: 0.2 },
+    seq: edit([0, R, 0, 7, 0, R, 3, -3]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 2, 1, 1, 1, 0], slide: [0, 0, 0, 1, 1, 0, 0, 1] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.18 },
+  },
+
+  /* ======================= SEQ (12) : le medium hypnotique, sequences, plucks, arpeges ======================= */
+  {
+    name: 'HYPNO SEQ',
+    cat: 'SEQ',
+    desc: 'Berlin school against the four on the floor: three notes and a breath, seven steps turning over sixteen, a saw over a square an octave below, the cutoff drifting over four bars.',
+    bpm: 126,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.45, wave1: WAVE1.SAW, osc1: 0.85, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.4, fine1: cents(-5), fine2: cents(5), fmode: FMODE.MOOG, cutoff: 0.45, res: 0.28, envAmt: 0.3, keyTrack: 0.6, fD: 0.35, fS: 0.1, fR: 0.25, aD: 0.45, aS: 0.3, aR: 0.25, accent: 0.4, accFlt: 0.45, width: 0.35 },
+    seq: edit([0, 7, 4, 0, 7, 4, R]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 1, 1, 0, 1] }),
+    extra: { xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.25 },
+  },
+  {
+    name: 'BLEEP SEQ',
+    cat: 'SEQ',
+    desc: 'Bleep techno: clean sine and triangle tones, short and dry, a sparse two octave figure that leaves room for the drums.',
+    bpm: 130,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.35, wave1: 0.1, osc1: 1, wave2: WAVE2.TRI, range2: FEET[8], osc2: 0.6, fine1: cents(-3), fine2: cents(3), fmode: FMODE.LP12, cutoff: 0.5, res: 0.1, envAmt: 0.2, keyTrack: 0.6, fD: 0.3, fS: 0, fR: 0.2, aD: 0.4, aS: 0.05, aR: 0.22, accent: 0.4, accFlt: 0.3, width: 0.3 },
+    seq: edit([7, R, 7, R, R, 7, R, 9, 7, R, R, 7, R, 4, R, 7]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 0, 1, 1, 1, 1, 2, 2, 1, 1, 0, 1, 1, 1, 2] }),
+    extra: {},
+  },
+  {
+    name: 'PLUCK SEQ',
+    cat: 'SEQ',
+    desc: 'A swung techno pluck: two saws a few cents apart snapping shut in the 12 dB filter, chord tones on the offbeats.',
+    bpm: 125,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.4, wave1: WAVE1.SAW, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.7, fine1: cents(-8), fine2: cents(8), fmode: FMODE.LP12, cutoff: 0.44, res: 0.2, envAmt: 0.4, keyTrack: 0.6, fD: 0.3, fS: 0, fR: 0.2, aD: 0.5, aS: 0.2, aR: 0.24, accent: 0.45, accFlt: 0.45, width: 0.4 },
+    seq: edit([R, 4, R, 7, 2, R, 6, R, R, 4, R, 7, R, 9, R, 6]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [1, 2, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 2, 1, 0] }),
+    extra: { xSwing: 0.35 },
+  },
+  {
+    name: 'DISCO OCTAVES',
+    cat: 'SEQ',
+    desc: 'Galloping disco octaves in the middle: a square and a saw jumping an octave, long first note and two short answers, over the Munich progression.',
+    bpm: 125,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.4, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.45, fine1: cents(-6), fine2: cents(6), fmode: FMODE.MOOG, cutoff: 0.44, res: 0.24, envAmt: 0.32, keyTrack: 0.5, fD: 0.32, fS: 0.1, fR: 0.2, aD: 0.42, aS: 0.35, aR: 0.18, accent: 0.45, accFlt: 0.45, width: 0.05 },
+    seq: edit([0, R, 7, 7, 0, R, 7, 7, 0, R, 7, 7, 4, R, 7, 6]),
+    prog: [0, 0, 1, 2],
+    steps: steps({ acc: [2, 1, 1, 0], gate: [2, 1, 0, 0] }),
+    extra: {},
+  },
+  {
+    name: 'ITALO ARP',
+    cat: 'SEQ',
+    desc: 'An italo arpeggio climbing sevenths over two octaves in sixteenths, a pulse and a saw, through F sharp minor, D, A and E.',
+    bpm: 124,
+    knobs: { ...MID, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.42, wave1: 0.72, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.4, fine1: cents(-6), fine2: cents(6), fmode: FMODE.LP12, cutoff: 0.44, res: 0.22, envAmt: 0.3, keyTrack: 0.5, fD: 0.32, fS: 0.1, fR: 0.2, aD: 0.42, aS: 0.3, aR: 0.2, accent: 0.45, accFlt: 0.4, width: 0.4 },
     seq: AUTO,
-    prog: [5, 1, 0, 2],
+    prog: [0, 1, 5, 2],
+    steps: steps({ acc: [2, 1, 1, 1, 1, 1, 1, 0] }),
+    extra: {},
+  },
+  {
+    name: 'DETROIT ARP',
+    cat: 'SEQ',
+    desc: 'Warm Detroit chords broken into swung sixteenths: ninths up and down, a square and a triangle, the ladder filter half open.',
+    bpm: 127,
+    knobs: { ...MID, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[1], notes: NOTES(0), chord: CHORD['9TH'], gate: 0.5, wave1: WAVE1.SQUARE, osc1: 0.85, wave2: WAVE2.TRI, range2: FEET[8], osc2: 0.5, fine1: cents(-5), fine2: cents(5), fmode: FMODE.MOOG, cutoff: 0.52, res: 0.22, envAmt: 0.28, keyTrack: 0.5, fD: 0.38, fS: 0.15, fR: 0.25, aD: 0.5, aS: 0.5, aR: 0.35, accent: 0.4, accFlt: 0.4, width: 0.7, wide: 0.35 },
+    seq: AUTO,
+    prog: [6, 4],
+    steps: steps({ acc: [2, 1, 1, 0], prob: [100, 100, 100, 100, 100, 75, 100, 100, 100, 100, 100, 50] }),
+    extra: { xSwing: 0.4 },
+  },
+  {
+    name: 'RATCHET SEQ',
+    cat: 'SEQ',
+    desc: 'A sparse figure that stutters: a pulse wave plucked by the ladder filter, double, triple and quadruple hits inside single steps.',
+    bpm: 129,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.4, wave1: 0.75, osc1: 0.9, fmode: FMODE.LP12, cutoff: 0.42, res: 0.3, envAmt: 0.36, keyTrack: 0.5, fD: 0.28, fS: 0.05, fR: 0.18, aD: 0.38, aS: 0, aR: 0.16, accent: 0.45, accFlt: 0.45, width: 0.35, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.35 },
+    seq: edit([0, R, R, 7, R, R, 0, R, 4, R, R, 7, R, 0, R, R]),
+    prog: [0],
+    steps: steps({ rat: [1, 1, 1, 2, 1, 1, 3, 1, 1, 1, 1, 1, 1, 4, 1, 1], acc: [2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1] }),
+    extra: {},
+  },
+  {
+    name: 'POLYMETER SEQ',
+    cat: 'SEQ',
+    desc: 'Five steps against sixteen, three notes and two rests: a saw and a hollow square, the pattern landing somewhere new on every bar, one note left to chance.',
+    bpm: 126,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.45, wave1: WAVE1.SAW, osc1: 0.8, wave2: WAVE2.SQUARE, range2: FEET[8], osc2: 0.45, fine1: cents(-4), fine2: cents(4), fmode: FMODE.LP12, cutoff: 0.48, res: 0.26, envAmt: 0.32, keyTrack: 0.6, fD: 0.34, fS: 0.05, fR: 0.2, aD: 0.45, aS: 0.25, aR: 0.2, accent: 0.4, accFlt: 0.45, width: 0.35 },
+    seq: edit([0, R, 4, 7, R]),
+    prog: [0, 0, 5, 5],
+    steps: steps({ acc: [2, 1, 1, 0, 1], prob: [100, 100, 100, 75, 100] }),
+    extra: { xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.15 },
+  },
+  {
+    name: 'DOTTED SEQ',
+    cat: 'SEQ',
+    desc: 'Dotted eighths written into the notes, the echo without a delay: a saw and a triangle every three sixteenths, nine steps turning against the bar.',
+    bpm: 124,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.7, wave1: WAVE1.SAW, osc1: 0.8, wave2: WAVE2.TRI, range2: FEET[8], osc2: 0.5, fine1: cents(-6), fine2: cents(6), fmode: FMODE.MOOG, cutoff: 0.43, res: 0.25, envAmt: 0.32, keyTrack: 0.6, fD: 0.42, fS: 0.2, fR: 0.28, aD: 0.55, aS: 0.4, aR: 0.28, accent: 0.4, accFlt: 0.4, width: 0.4 },
+    seq: edit([7, R, R, 4, R, R, 2, R, R]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [2, 1, 1, 1, 1, 1, 0, 1, 1] }),
+    extra: {},
+  },
+  {
+    name: 'SYNC SEQ',
+    cat: 'SEQ',
+    desc: 'A hard sync lead that cuts without getting bright: the second saw locked to the first, its pitch swept over two bars, short syncopated notes.',
+    bpm: 128,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.6, wave1: WAVE1.SAW, osc1: 0.6, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(5), osc2: 0.85, sync: ON, fmode: FMODE.MOOG, cutoff: 0.5, res: 0.22, envAmt: 0.3, keyTrack: 0.5, fD: 0.34, fS: 0.15, fR: 0.2, aD: 0.45, aS: 0.5, aR: 0.2, accent: 0.4, accFlt: 0.4, width: 0.45 },
+    seq: edit([0, R, 0, R, R, 7, R, 0, R, 0, R, 6, R, R, 4, R]),
+    prog: [0],
+    steps: steps({ acc: [2, 1, 1, 1, 1, 2, 1, 0, 1, 1, 1, 2, 1, 1, 1, 1] }),
+    extra: { xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('OSC 2 PITCH'), xLfo2Depth: 0.3 },
+  },
+  {
+    name: 'WOOD SEQ',
+    cat: 'SEQ',
+    desc: 'Percussive wood for minimal grooves: a sine knocked by FM, very short, a broken figure with notes left to chance.',
+    bpm: 128,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.35, wave1: 0.1, osc1: 0.95, fm: 0.2, ratio: RATIO('3'), wave2: WAVE2.SINE, range2: FEET[4], osc2: 0.75, fmode: FMODE.LP12, cutoff: 0.56, res: 0.15, envAmt: 0.3, keyTrack: 0.6, fD: 0.22, fS: 0, fR: 0.14, aD: 0.42, aS: 0, aR: 0.18, accent: 0.5, accFlt: 0.4, width: 0.4 },
+    seq: edit([0, R, 4, 0, R, 7, 0, R, 0, 4, R, 7, 0, R, 2, R]),
+    prog: [0],
+    steps: steps({ prob: [100, 100, 75, 100, 100, 50, 100, 100, 100, 75, 100, 100, 100, 100, 50, 100], acc: [2, 1, 1, 0, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1] }),
+    extra: {},
+  },
+  {
+    name: 'DARK ARP',
+    cat: 'SEQ',
+    desc: 'A dark three note arpeggio falling against the bar, a pulse wave in the Korg filter, its width jumping at random, F sharp minor to C sharp minor.',
+    bpm: 128,
+    knobs: { ...MID, rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[1], notes: NOTES(0), chord: CHORD.TRIAD, gate: 0.4, wave1: 0.75, osc1: 0.9, fmode: FMODE.MS10, cutoff: 0.46, res: 0.4, envAmt: 0.32, keyTrack: 0.5, fD: 0.32, fS: 0.15, fR: 0.2, aD: 0.32, aS: 0, aR: 0.16, accent: 0.45, accFlt: 0.45, width: 0.15 },
+    seq: AUTO,
+    prog: [0, 3],
+    steps: steps({ acc: [2, 1, 1] }),
+    extra: { xLfo2Rate: L2RATE('1/8'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('WAVE'), xLfo2Depth: 0.2 },
+  },
+
+  /* ======================= CHORD (8) : stabs, nappes qui pulsent, drone pour les breaks ======================= */
+  {
+    name: 'DUB STAB',
+    cat: 'CHORD',
+    desc: 'The dub techno stab: two saws a fifth apart, stacked and spread, a soft decaying chord on every offbeat, the second and fourth pushed.',
+    bpm: 125,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.4, wave1: WAVE1.SAW, osc1: 0.9, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(7), osc2: 0.8, fine1: cents(-6), fine2: cents(6), stack: 0.2, wide: 0.3, fmode: FMODE.LP12, cutoff: 0.42, res: 0.15, envAmt: 0.3, keyTrack: 0.5, fD: 0.55, fS: 0.1, fR: 0.45, aD: 0.66, aS: 0, aR: 0.5, accent: 0.3, accFlt: 0.35, width: 0.35 },
+    seq: edit([R, R, 0, R, R, R, 0, R, R, R, 0, R, R, R, 0, R]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 2, 1] }),
+    extra: { xSwing: 0.25 },
+  },
+  {
+    name: 'MINOR STAB',
+    cat: 'CHORD',
+    desc: 'A minor Detroit stab: a saw on the root and a square on the minor tenth, snapping shut, syncopated sixteenths over F sharp minor, B minor and C sharp minor.',
+    bpm: 126,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.35, wave1: WAVE1.SAW, osc1: 0.95, wave2: WAVE2.SQUARE, range2: FEET[4], semi2: SEMI(3), osc2: 0.65, fine1: cents(-4), fine2: cents(4), fmode: FMODE.MOOG, cutoff: 0.44, res: 0.2, envAmt: 0.4, keyTrack: 0.5, fD: 0.32, fS: 0.05, fR: 0.22, aD: 0.5, aS: 0.05, aR: 0.28, accent: 0.4, accFlt: 0.45, width: 0.3 },
+    seq: edit([0, R, R, 0, R, R, 0, R, R, 0, R, 0, R, R, 0, R]),
+    prog: [0, 0, 4, 3],
+    steps: steps({ acc: [2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 1, 1] }),
+    extra: {},
+  },
+  {
+    name: 'SEVENTH STAB',
+    cat: 'CHORD',
+    desc: 'A deep seventh, two long chords a bar: a soft wave and a saw a minor seventh apart in a round 12 dB filter, on the and of one and just after three, F sharp minor to B minor.',
+    bpm: 124,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.9, wave1: 0.3, osc1: 0.85, wave2: WAVE2.SAW, range2: FEET[4], semi2: SEMI(-2), osc2: 0.5, fine1: cents(-5), fine2: cents(5), fmode: FMODE.LP12, cutoff: 0.42, res: 0.18, envAmt: 0.3, keyTrack: 0.5, fD: 0.48, fS: 0.15, fR: 0.38, aD: 0.7, aS: 0.2, aR: 0.6, accent: 0.35, accFlt: 0.35, width: 0.4 },
+    seq: edit([R, R, 0, R, R, R, R, R, R, 0, R, R, R, R, R, R]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ acc: [1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] }),
+    extra: {},
+  },
+  {
+    name: 'ORGAN STAB',
+    cat: 'CHORD',
+    desc: 'A nineties house organ: two squares an octave apart over a square sub, a fast organ envelope, a stab on the and of every beat with little pickups.',
+    bpm: 126,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.35, wave1: WAVE1.SQUARE, osc1: 0.8, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.5, fine1: cents(-3), fine2: cents(3), sub: 0.2, subWave: SUBW.SQUARE, fmode: FMODE.LP12, cutoff: 0.5, res: 0.1, envAmt: 0.15, keyTrack: 0.5, fD: 0.4, fS: 0.4, fR: 0.2, aD: 0.5, aS: 0.7, aR: 0.2, accent: 0.35, accFlt: 0.3, width: 0.3 },
+    seq: edit([R, R, 0, R, R, R, 0, 2, R, R, 0, R, R, 4, R, 2]),
+    prog: [0, 0, 5, 5],
+    steps: steps({ acc: [1, 1, 2, 1, 1, 1, 2, 0, 1, 1, 2, 1, 1, 1, 1, 0] }),
+    extra: {},
+  },
+  {
+    name: 'GATED CHORD',
+    cat: 'CHORD',
+    desc: 'A held fifth chopped into a rhythm: twelve hits a bar, the gate and accent lanes carving short and long ones, a few left to chance, stacked and spread.',
+    bpm: 128,
+    knobs: { ...MID, rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.8, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(7), osc2: 0.6, fine1: cents(-7), fine2: cents(7), stack: 0.2, fmode: FMODE.MOOG, cutoff: 0.4, res: 0.18, envAmt: 0.25, keyTrack: 0.5, fA: 0.05, fD: 0.4, fS: 0.3, fR: 0.2, aA: 0.05, aD: 0.5, aS: 0.6, aR: 0.15, accent: 0.4, accFlt: 0.35, width: 0.35, wide: 0.3 },
+    seq: edit([0, 0, 0, R, 0, 0, R, 0, 0, 0, 0, R, 0, R, 0, 0]),
+    prog: [0, 0, 4, 4],
+    steps: steps({ gate: [2, 0, 1, 0, 2, 0, 0, 1, 2, 0, 1, 0, 3, 1, 0, 0], acc: [2, 0, 1, 0, 2, 0, 1, 1, 2, 0, 1, 0, 2, 1, 0, 1], prob: [100, 75, 100, 50, 100, 75, 100, 100, 100, 75, 100, 50, 100, 100, 75, 50] }),
+    extra: {},
+  },
+  {
+    name: 'PULSE PAD',
+    cat: 'CHORD',
+    desc: 'A pad that pulses: ninths arpeggiated up and down in sixteenths, two saws stacked and spread, soft attacks and tails that overlap into a moving chord.',
+    bpm: 124,
+    knobs: { ...MID, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], notes: NOTES(0), chord: CHORD['9TH'], gate: 0.7, wave1: WAVE1.SAW, osc1: 0.75, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.6, fine1: cents(-8), fine2: cents(8), stack: 0.25, wide: 0.4, fmode: FMODE.LP12, cutoff: 0.44, res: 0.12, envAmt: 0.15, keyTrack: 0.5, fA: 0.2, fD: 0.6, fS: 0.5, fR: 0.45, aA: 0.25, aD: 0.6, aS: 0.6, aR: 0.5, accent: 0.25, accFlt: 0.2, width: 0.5, drift: 0.4 },
+    seq: AUTO,
+    prog: [0, 0, 1, 1],
     steps: steps({ acc: [1, 0, 1, 0] }),
     extra: {},
   },
   {
-    name: 'MIST PAD',
-    cat: 'PAD',
-    desc: 'A soft pad of slow random notes from an eleventh chord: a triangle and a quiet saw, a breath of filtered noise coming and going.',
-    bpm: 98,
-    knobs: { rate: RATE['1/4'], mode: MODE.RAND, range: RANGE[2], notes: NOTES(0), chord: CHORD['11TH'], gate: 0.9, wave1: WAVE1.TRI, osc1: 0.75, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc2: 0.3, noise: 0.06, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.44, res: 0.15, envAmt: 0.12, keyTrack: 0.6, fA: 0.5, fD: 0.6, fS: 0.6, fR: 0.55, aA: 0.55, aD: 0.7, aS: 0.7, aR: 0.6, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.12, accent: 0.2, drift: 0.5, width: 0.7, wide: 0.4 },
+    name: 'BREAK PAD',
+    cat: 'CHORD',
+    desc: 'For the breakdown: slow quarter notes of a seventh chord melting together, stacked saws spread wide, the filter breathing over four bars.',
+    bpm: 124,
+    knobs: { ...MID, rate: RATE['1/4'], mode: MODE.UP, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.95, wave1: WAVE1.SAW, osc1: 0.75, wave2: WAVE2.SAW, range2: FEET[8], osc2: 0.7, fine1: cents(-9), fine2: cents(9), stack: 0.35, wide: 0.5, fmode: FMODE.MOOG, cutoff: 0.42, res: 0.15, envAmt: 0.2, keyTrack: 0.5, fA: 0.5, fD: 0.65, fS: 0.6, fR: 0.55, aA: 0.55, aD: 0.7, aS: 0.75, aR: 0.6, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.15, accent: 0.2, accFlt: 0.15, width: 0.6, drift: 0.5 },
     seq: AUTO,
-    prog: [6, 7],
-    steps: steps({ gate: [3, 2, 3, 3], prob: [100, 75, 100, 50, 100] }),
-    extra: { xNoiseColor: 0.3, xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('NOISE'), xLfo2Depth: 0.3 },
-  },
-  /* ======================= DARK (6) : drones, orgue, lead et arpege sombres ======================= */
-  {
-    name: 'GREY DRONE',
-    cat: 'DARK',
-    desc: 'Three long quarter notes against four, stacked saws down low over a sine sub, the wave shape drifting over four bars and the filter over eight.',
-    bpm: 120,
-    knobs: { rate: RATE['1/4'], gate: 0.72, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc1: 0.84, osc2: 0.7, stack: 0.4, sub: 0.1, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.MOOG, cutoff: 0.34, res: 0.3, envAmt: 0.3, fA: 0.45, fD: 0.65, fS: 0.3, fR: 0.5, aA: 0.5, aD: 0.7, aS: 0.65, aR: 0.5, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.WAVE, lfoAmt: 0.25, drift: 0.5, width: 0.7, monoLow: 0.4, load: 0.2, wide: 0.55},
-    seq: edit([0, 4, 7]),
-    prog: [6, 6, 6, 6, 7, 7, 7, 7],
-    steps: steps({ gate: [3, 1, 2] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.2 },
-  },
-  {
-    name: 'CATHEDRAL DRONE',
-    cat: 'DARK',
-    desc: 'A dark organ: two squares an octave apart over a sine sub, the filter half open, seven held notes turning slowly against the bar.',
-    bpm: 112,
-    knobs: { rate: RATE['1/8'], gate: 0.85, wave1: WAVE1.SQUARE, osc1: 0.8, wave2: WAVE2.SQUARE, range2: FEET[16], osc2: 0.6, sub: 0.25, subWave: SUBW.SINE, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.5, res: 0.1, envAmt: 0.1, fA: 0.2, fD: 0.6, fS: 0.8, fR: 0.5, aA: 0.25, aD: 0.6, aS: 0.9, aR: 0.5, accent: 0.3, accFlt: 0.2, drift: 0.3, width: 0.4, monoLow: 0.35 },
-    seq: edit([7, 2, 4, 7, 4, 2, R]),
-    prog: [7, 0],
-    steps: steps({ prob: [100, 100, 75, 100, 100, 50, 100] }),
+    prog: [6, 7, 6, 4],
+    steps: steps({ gate: [3, 2, 2, 3] }),
     extra: {},
   },
   {
-    name: 'DRIFT DRONE',
-    cat: 'DARK',
-    desc: 'A memory on a worn machine: a saw half way to a square and a triangle, the pitch wandering at random, the oscillators drifting far apart, a breath of hiss.',
-    bpm: 90,
-    knobs: { rate: RATE['1/8'], gate: 0.72, wave1: 0.5, osc1: 0.84, wave2: WAVE2.TRI, range2: FEET[8], osc2: 0.5, noise: 0.04, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.4, res: 0.15, envAmt: 0.25, fA: 0.3, fD: 0.6, fS: 0.4, fR: 0.5, aA: 0.45, aD: 0.6, aS: 0.55, aR: 0.55, lfoRate: L1RATE['2 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.PITCH, lfoAmt: 0.05, accent: 0.3, drift: 0.9, width: 0.4 },
-    seq: edit([0, R, 4, 7, 2]),
-    prog: [3, 1],
-    steps: steps({ prob: [100, 100, 75, 100, 75], gate: [2, 1, 1, 3, 1] }),
-    extra: { xNoiseColor: 0.25, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.2 },
-  },
-  {
-    name: 'OCEAN DRONE',
-    cat: 'DARK',
-    desc: 'A low tide of stacked saws and a square below, six slow notes spread across the twin filters, the cutoff rising and falling like a swell over eight bars.',
-    bpm: 92,
-    knobs: { rate: RATE['1/4'], gate: 0.95, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], fine1: cents(-6), fine2: cents(6), osc1: 0.8, osc2: 0.55, stack: 0.35, wide: 0.4, sub: 0.15, subWave: SUBW.SINE, octave: OCT(-1), fmode: FMODE.LP12, cutoff: 0.5, res: 0.15, envAmt: 0.2, fA: 0.6, fD: 0.7, fS: 0.6, fR: 0.6, aA: 0.65, aD: 0.7, aS: 0.8, aR: 0.65, accent: 0.2, drift: 0.5, width: 0.55, monoLow: 0.35 },
-    seq: edit([0, 4, 7, 4, 2, 6]),
-    prog: [0, 0, 3, 3, 1, 1, 2, 2],
-    steps: steps({ gate: [3, 3, 3, 2, 3, 3], slide: [0, 0, 1, 0, 0, 1] }),
-    extra: { xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.25 },
-  },
-  {
-    name: 'CRYPT ARP',
-    cat: 'DARK',
-    desc: 'A descent into the crypt: a pulse arpeggio falling over two octaves of sevenths in the Korg filter, a square sub, the pulse width jumping at random.',
-    bpm: 119,
-    knobs: { rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[2], notes: NOTES(0), chord: CHORD['7TH'], gate: 0.6, wave1: 0.75, osc1: 0.9, sub: 0.25, subWave: SUBW.SQUARE, octave: OCT(0), fmode: FMODE.MS10, cutoff: 0.34, res: 0.32, envAmt: 0.32, keyTrack: 0.5, fD: 0.35, fS: 0.3, fR: 0.25, aD: 0.42, aS: 0.5, aR: 0.2, accent: 0.5, accFlt: 0.4, phase: 0.1, drift: 0.3, width: 0.2},
-    seq: AUTO,
-    prog: [0, 3, 1, 4],
-    steps: steps({ rat: [1, 1, 1, 1, 1, 1, 1, 2], acc: [2, 1, 1, 1] }),
-    extra: { xLfo2Rate: L2RATE('1/8'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('WAVE'), xLfo2Depth: 0.25 },
-  },
-  {
-    name: 'SYNC GRIND',
-    cat: 'DARK',
-    desc: 'A dark hard sync lead in eighths: the second saw locked to the first and swept slowly over two bars, lightly stacked, the ladder filter keeping it warm.',
-    bpm: 122,
-    knobs: { rate: RATE['1/8'], gate: 0.72, wave1: WAVE1.SAW, osc1: 0.5, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(5), osc2: 0.8, sync: ON, stack: 0.2, octave: OCT(0), fmode: FMODE.MOOG, cutoff: 0.44, res: 0.25, envAmt: 0.3, fD: 0.45, fS: 0.4, fR: 0.3, aA: 0.04, aD: 0.5, aS: 0.7, aR: 0.3, accent: 0.45, accFlt: 0.35, phase: 0.3, drift: 0.35, width: 0.35 },
-    seq: edit([0, R, 7, 6, R, 4, 2, 4]),
-    prog: [0, 2],
-    steps: steps({ slide: [0, 0, 1, 1, 0, 0, 1, 0], gate: [2, 1, 3, 1, 1, 2, 3, 1], acc: [2, 1, 1, 1, 1, 2, 1, 1] }),
-    extra: { xLfo2Rate: L2RATE('2 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('OSC 2 PITCH'), xLfo2Depth: 0.3 },
+    name: 'PULSE DRONE',
+    cat: 'CHORD',
+    desc: 'A drone for the break: a low fifth held without a gap, the mixer pushed into the ladder filter, the level pulsing in eighths and the cutoff moving over four bars.',
+    bpm: 126,
+    knobs: { ...LOW, rate: RATE['1/4'], gate: 0.95, wave1: WAVE1.SAW, osc1: 0.8, wave2: WAVE2.SAW, range2: FEET[8], semi2: SEMI(7), osc2: 0.7, fine1: cents(-6), fine2: cents(6), fmode: FMODE.MOOG, cutoff: 0.53, res: 0.3, envAmt: 0.1, fA: 0.3, fD: 0.6, fS: 0.9, fR: 0.5, aA: 0.4, aD: 0.6, aS: 1, aR: 0.5, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.18, accent: 0, accFlt: 0, load: 0.35, drift: 0.4 },
+    seq: edit([0]),
+    prog: [0],
+    steps: steps({ gate: [3] }),
+    extra: { ...MONO, xLfo2Rate: L2RATE('1/8'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('AMP'), xLfo2Depth: 0.35 },
   },
 ];
 
@@ -700,6 +724,8 @@ const V27 = EXTRA.slice(V27_FROM);
  */
 // v50 : la matrice de l'encart LFO (section mod, xMx1..8) aussi : ses emplacements restent a OFF dans toute la banque
 const NEUTRAL_SECTIONS = new Set(['reverb', 'master', 'phaser', 'flanger', 'pump', 'crush', 'old', 'space', 'matrix', 'voice', 'amp', 'dist', 'hell', 'sky', 'filter', 'mod']);
+// v52 : sauf VOICE MODE (POLY ou MONO ; LEGATO jamais, analog.ts) : les basses et les lignes acides de la banque en MONO
+const BANK_VOICE = new Set(['xVoiceMode']);
 const EXTRA_STEPS = Object.fromEntries(EXTRA.filter((e) => e.steps).map((e) => [e.id, e.steps]));
 
 function full(p) {
@@ -712,6 +738,7 @@ function full(p) {
   // v43 : le preset ne pose que la voix (LFO, OSC +, swing) ; tout ce qui est effet ou neutre de banque est refuse
   for (const id of Object.keys(p.extra)) {
     const e = EXTRA.find((x) => x.id === id);
+    if (BANK_VOICE.has(id)) continue;
     if (NEUTRAL_SECTIONS.has(e.section) || id in ANALOG_FX_OFF_EXTRA || e.section === 'delay' || e.section === 'eq' || e.section === 'chorus' || e.section === 'disto' || e.section === 'engine')
       throw new Error(`${p.name} : ${id} reste a son neutre dans la banque d'usine (v43 : aucun effet)`);
   }
@@ -729,7 +756,7 @@ function full(p) {
   if (faults.length) throw new Error(`${p.name} : ${faults.join(' ; ')}`);
   // et ce qui doit rester exactement au neutre (la reverbe BigSky sur CLASSIC, HELL entier, la DISTO, la pedale...)
   for (const e of EXTRA) {
-    if (e.id === 'xSkyType' || e.id === 'xQuality') continue;
+    if (e.id === 'xSkyType' || e.id === 'xQuality' || BANK_VOICE.has(e.id)) continue;
     if ((NEUTRAL_SECTIONS.has(e.section) || e.section === 'disto' || e.section === 'eq' || e.section === 'chorus') && extra[e.id] !== cleanExtra(e.id, e.def))
       throw new Error(`${p.name} : ${e.id} = ${extra[e.id]}, son neutre est ${e.def}`);
   }

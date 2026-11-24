@@ -13,11 +13,14 @@
  * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, bpm ; desc : une
  *   phrase en anglais (ASCII, sans tiret cadratin) ;
  * - chaque .mmarp : NN NOM.mmarp, format mm-arp-preset v1, le meme contenu que factory.json ;
- * - la repartition demandee : BASS 16, ARP 12, PAD 6, DARK 6 (40 presets ; v28, avant 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE) ;
+ * - la repartition demandee : v52 (2026-11-24, la banque techno) BASS 12, ACID 8, SEQ 12, CHORD 8 (40 presets ; v28 a v51 :
+ *   BASS 16, ARP 12, PAD 6, DARK 6 ; avant, 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE) ; BPM 124 a 132 (sous un kick 4/4) ;
  * - v43 (2026-11-20) : le son analogique a sec (src/v4/plugin/arp/analog.ts analogFaults) : aucun effet (OVERDRIVE,
  *   CHORUS, DELAY, REVERB, TAPE, GLUE, SIDECHAIN, WARMTH, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH
  *   PASS, COMB), un passe-bas modere (CUTOFF 0.25 a 0.6, RES 0.45, ENV AMT 0.5, ouvert a 6 kHz au plus), pas trop aigu
- *   (OCTAVE 0, RANGE 4', FM 0.2, NOISE 0.12) ; HELL, la DISTO, l'EQ 6 bandes et la reverbe BigSky (CLASSIC) au neutre.
+ *   (OCTAVE 0, RANGE 4', FM 0.2, NOISE 0.12) ; HELL, la DISTO, l'EQ 6 bandes et la reverbe BigSky (CLASSIC) au neutre ;
+ * - v52 : VOICE MODE POLY ou MONO (jamais LEGATO, analog.ts) ; BASS et ACID en MONO, au centre (WIDTH 0) et mono dans le
+ *   grave (BASS MONO 0.62 au moins : 135 Hz).
  *
  *   node plugin/mm-arp/tests/presets-check.mjs
  */
@@ -58,12 +61,12 @@ for (const p of bank.presets ?? []) {
   if (typeof p.name !== 'string' || !/^[A-Z0-9-][A-Z0-9 -]{0,23}$/.test(p.name) || p.name.endsWith(' ') || p.name.includes('  ')) err(who, 'nom invalide');
   if (names.has(p.name)) err(who, 'nom en double');
   names.add(p.name);
-  if (!['BASS', 'ARP', 'PAD', 'DARK'].includes(p.cat)) err(who, `cat ${p.cat}`);
+  if (!['BASS', 'ACID', 'SEQ', 'CHORD'].includes(p.cat)) err(who, `cat ${p.cat}`);
   cats[p.cat] = (cats[p.cat] ?? 0) + 1;
   if (typeof p.desc !== 'string' || p.desc.length < 20) err(who, 'desc manquante');
   if (/[^\x20-\x7e]/.test(p.desc ?? '')) err(who, 'desc : accent, tiret cadratin ou caractere hors ASCII');
   if (/\b(le|la|les|des|une|qui|sur|dans|avec)\b/i.test(p.desc ?? '')) err(who, 'desc : en anglais');
-  if (!(p.bpm >= 60 && p.bpm <= 180)) err(who, `bpm ${p.bpm}`);
+  if (!(p.bpm >= 124 && p.bpm <= 132)) err(who, `bpm ${p.bpm} : 124 a 132 (v52, sous un kick 4/4)`);
   const kn = p.knobs ?? {};
   for (const k of VOY_KNOBS) {
     const v = kn[k.id];
@@ -83,6 +86,12 @@ for (const p of bank.presets ?? []) {
   for (const e of EXTRA)
     if (NEUTRAL.has(e.section) && e.id !== 'xSkyType' && okNum(ex[e.id]) && ex[e.id] !== stepClean(e, e.def)) err(who, `v43 : ${e.id} ${ex[e.id]} au lieu de son neutre ${e.def}`);
   if (ex.xSkyType !== 0) err(who, 'v43 : la reverbe reste CLASSIC (xSkyType 0)');
+  // v52 : les basses et les lignes acides en MONO, au centre, mono dans le grave ; les autres en POLY ou MONO
+  if (p.cat === 'BASS' || p.cat === 'ACID') {
+    if (ex.xVoiceMode !== 0.5) err(who, 'v52 : BASS et ACID en VOICE MODE MONO');
+    if (kn.width !== 0) err(who, `v52 : BASS et ACID au centre (WIDTH ${kn.width})`);
+    if (!(kn.monoLow >= 0.62)) err(who, `v52 : BASS MONO ${kn.monoLow} (0.62 au moins : 135 Hz)`);
+  }
   if (ex.xUnison === 1 && (kn.wide ?? 0) >= 0.02) heavy.push(who);
   const st = p.steps ?? {};
   for (const [id, ok] of Object.entries(STEP_OK)) {
@@ -98,8 +107,8 @@ for (const p of bank.presets ?? []) {
   if (s.edit && !s.has) err(who, 'EDIT sans has');
   if (!Array.isArray(p.prog) || p.prog.length < 1 || p.prog.length > 8 || !p.prog.every((c) => Number.isInteger(c) && c >= 0 && c <= 7)) err(who, 'prog');
 }
-// v28 : BASS 16 (40 %), ARP 12, PAD 6, DARK 6 ; HELL MIX 0.10 au plus
-const want = { BASS: 16, ARP: 12, PAD: 6, DARK: 6 };
+// v52 : BASS 12, ACID 8 (la moitie de la banque dans le grave), SEQ 12, CHORD 8 (v28 a v51 : BASS 16, ARP 12, PAD 6, DARK 6)
+const want = { BASS: 12, ACID: 8, SEQ: 12, CHORD: 8 };
 if (heavy.length > 3) err('CPU', `UNISON 7 avec WIDE dans ${heavy.length} presets (3 au plus) : ${heavy.join(', ')}`);
 for (const [c, n] of Object.entries(want)) if (cats[c] !== n) err('repartition', `${c} : ${cats[c] ?? 0} au lieu de ${n}`);
 
