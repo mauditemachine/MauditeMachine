@@ -303,10 +303,29 @@ struct ModView {
   uint32_t seq = 0;      // le nombre de mises a jour
 };
 
+/**
+ * v52 (2026-11-24, le plugin MM-ARP : l'ecran des enveloppes de la colonne FILTER EG / AMP EG de la face, choix 3C de
+ * Mika) : ou en sont les deux enveloppes de la voix la plus recente (la derniere declenchee, celle que la matrice lit
+ * aussi), a la fin du dernier bloc rendu. Calcule a la demande (Voyager::egView), sans allocation ni ecriture : rien du
+ * son n'en depend. Les lois (Voyager.cpp, la boucle des voix) : attaque vers 1.3 en A / 1.466 (1 atteint en A),
+ * decroissance vers SUSTAIN en D / 4.6, relachement vers 0 en R / 4.6, au taux interne.
+ */
+struct EgView {
+  bool on = false;   // la voix sonne encore (false : rien a montrer, le reste est a 0)
+  double fV = 0;     // le niveau de l'enveloppe du filtre (0..1 ; l'attaque s'arrete a 1)
+  double aV = 0;     // celui de l'enveloppe d'amplitude
+  int fStage = 0;    // 1 attaque, 2 decroissance puis maintien, 3 relachement
+  int aStage = 0;
+  double tOn = 0;    // secondes depuis le depart de la note (sa reprise en MONO ; une note liee en LEGATO continue)
+  double tOff = -1;  // secondes du depart a la fin de son gate (le relachement) ; -1 : pas de fin connue (note tenue)
+};
+
 class Voyager {
  public:
   /** Les modulations du dernier bloc rendu (voir ModView). */
   const ModView& modView() const;
+  /** v52 : les enveloppes de la voix la plus recente, a la fin du dernier bloc rendu (voir EgView). */
+  EgView egView() const;
   static constexpr int kMaxBlock = 4096;
   static constexpr int kQueueCap = 1024;
   static constexpr int kBeatCap = 512;

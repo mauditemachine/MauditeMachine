@@ -120,6 +120,13 @@ public:
     float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
     // ATTITUDE, le VU de la page DISTO (2026-11-17, v25) : 0..1 pour -20..+3 dB dans la saturation ; NaN : DISTO coupee
     float distoVu() const { return distoVu_.load(std::memory_order_relaxed); }
+    // v52 : l'ecran des enveloppes de la face (la colonne FILTER EG / AMP EG, mm_tick.e) : les deux enveloppes de la voix la
+    // plus recente a la fin du dernier bloc (Voyager::egView) : 0 niveau du filtre, 1 niveau de l'ampli, 2 et 3 leur etape
+    // (1 attaque, 2 decroissance / maintien, 3 relachement), 4 secondes depuis le depart de la note, 5 secondes du depart a
+    // la fin du gate (-1 : tenue). [0] NaN : aucune voix ne sonne. Ecrits par le thread audio (des atomiques, sans
+    // allocation ni verrou), lus par le timer de l'editeur ; rien du son n'en depend.
+    static constexpr int kEgN = 6;
+    float egValue(int i) const { return egVal_[static_cast<size_t>(i)].load(std::memory_order_relaxed); }
     // v50, la matrice de modulation (les 8 emplacements xMx) : pour chaque emplacement actif qui vise un reglage hote
     // (cible 32 + k), l'indice k (mmx, -1 : rien) et la valeur effective normalisee du reglage (l'arc de la face,
     // mm_tick.m). Ecrits par le thread audio a chaque bloc, lus par le timer de l'editeur.
@@ -234,6 +241,9 @@ private:
     std::array<std::atomic<float>, kModN> modVal_{};
     std::array<int, kModN> modKnob_{};
     void publishMod();
+    // v52 : l'ecran des enveloppes (egValue)
+    std::array<std::atomic<float>, kEgN> egVal_{};
+    void publishEg();
     mmarp::Arp arp_;
     double sr_ = 0;
     int64_t frame_ = 0;

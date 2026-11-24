@@ -4595,6 +4595,24 @@ void Voyager::process(float* L, float* R, int n) {
 
 int64_t Voyager::currentFrame() const { return m_->cf; }
 const ModView& Voyager::modView() const { return m_->modv; }
+EgView Voyager::egView() const {
+  // v52 : une lecture de l'etat de la voix la plus recente (xmx.lastV, posee a chaque note), rien n'est ecrit
+  EgView e;
+  const Impl& I = *m_;
+  const int i = I.xmx.lastV;
+  if (i < 0 || i >= I.nv) return e;
+  const Voice& v = I.voices[i];
+  if (!v.on) return e;
+  e.on = true;
+  e.fV = v.fV;
+  e.aV = v.aV;
+  e.fStage = v.fStage;
+  e.aStage = v.aStage;
+  e.tOn = (static_cast<double>(I.cf) - v.start) / I.sampleRate;
+  const double g = (v.off - v.start) / I.sampleRate;
+  e.tOff = g >= 0 && g < 1e6 ? g : -1;
+  return e;
+}
 
 int Voyager::latencySamples() const {
   // Les demi-bandes (31 coefficients au rythme x4 : 15 / 4 ; 63 au rythme x2 : 31 / 2), en echantillons du contexte
