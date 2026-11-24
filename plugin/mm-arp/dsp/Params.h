@@ -73,6 +73,18 @@ int engineParams(const double* knobs, ParamKV* out, int max);
 /** La chaine (audio/synth.ts applyFx) : chorus, delay, reverb, tape, monoLowHz, volume ; delaySeconds non rempli. */
 void fxSettings(const double* knobs, ArpFxSettings& out, double& dly16);
 
+/**
+ * v52 (2026-11-24, choix 2A de Mika) : la tonalite au choix, deux reglages de l'instance en fin de liste (xKey : 12 crans
+ * C a B ; xScale : MINOR, MAJOR, DORIAN, PHRYGIAN). Le depart, F# MINOR, rend la banque et les notes d'avant au bit pres.
+ * La tonique se pose entre do 3 (48) et si 3 (59) : 48 + key (F# : 54, le FS3 d'avant) ; les huit pads : les sept degres
+ * de la gamme dans l'ordre (le degre diminue en demi-diminue a quatre sons), puis la tonique a quatre sons (m7, maj7 en
+ * MAJOR). Le meme calcul que chords.ts keyChords (verifie par tests/params-ref.mjs + params_test).
+ */
+constexpr int kKeyCount = 12;
+constexpr int kScaleCount = 4;
+constexpr int kKeyDef = 6;    // F#
+constexpr int kScaleDef = 0;  // MINOR
+
 /** Les capacites que reserveArp prepare : 8 accords (MAX_CHORDS de voyager/arp.ts) de 64 notes, 8 mesures. */
 constexpr int kArpChords = 8;
 constexpr int kArpNotes = 64;
@@ -87,13 +99,15 @@ void reserveArp(ArpProgram& out);
  * parseProgram (le site peut monter a 129 : degre 24 sur E, OCTAVE +2). swing n'est pas touche.
  * Sans allocation apres reserveArp(out) : out.chords garde ses kArpChords entrees, les accords distincts d'abord (dans
  * l'ordre de prog), les autres a c = -1 et vides (ArpProgram::chord ne les trouve jamais). Sans reserveArp, out.chords
- * grandit au besoin (allocation) et n'est jamais raccourci.
+ * grandit au besoin (allocation) et n'est jamais raccourci. v52 : key, scale, la tonalite (crans de xKey, xScale ; hors
+ * bornes : la plus proche) ; par defaut F# MINOR.
  */
-void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int nProg, ArpProgram& out);
+void arpProgram(const double* knobs, const SeqStateC& seq, const int* prog, int nProg, ArpProgram& out, int key = kKeyDef, int scale = kScaleDef);
 
 /**
  * Les accords des pads (v43, Mika : "pourquoi on a pas toutes les fondamentales finalement ?") : ceux du plugin
- * (voyager/chords.ts ARP_CHORDS : F#m G#ø A Bm C#m D E F#m7, les sept degres de F# mineur puis i7). Ce que la face
+ * (voyager/chords.ts ARP_CHORDS : F#m G#ø A Bm C#m D E F#m7, les sept degres de F# mineur puis i7 ; v52 : ceux de la
+ * tonalite choisie, les memes indices : un pad est un degre). Ce que la face
  * garde porte la marque chordBank = kChordBank ; sans elle (un projet, un preset d'avant la v43, la banque d'usine), une
  * progression est en indices du site (F#m D E C#m Bm A F#m7 Dmaj7) : chordFromSite la convertit, le meme accord (Dmaj7,
  * sans pad, devient D). kSiteToArp est la table de chords.ts SITE_TO_ARP (verifiee par params_test).
@@ -105,9 +119,13 @@ inline int chordFromSite(int c) { return c >= 0 && c < 8 ? kSiteToArp[c] : -1; }
 
 /* ---- les fonctions du site, pour les tests et l'interface ---- */
 
-/** chords.ts degreeMidi : la note midi du degre d au-dessus de la racine de l'accord i (0..7). */
-int degreeMidi(int chord, int d);
+/** chords.ts degreeMidi : la note midi du degre d au-dessus de la racine de l'accord i (0..7), dans la tonalite (v52). */
+int degreeMidi(int chord, int d, int key = kKeyDef, int scale = kScaleDef);
 /** seq.ts poolSteps(chord, p, mode) : les degres de la suite AUTO ; rend le nombre (au plus max, 32 suffisent). */
-int poolSteps(const double* knobs, int chord, int mode, int* out, int max);
+int poolSteps(const double* knobs, int chord, int mode, int* out, int max, int key = kKeyDef, int scale = kScaleDef);
+/** v52 : la tonique de la tonalite key (48 + key : do 3 a si 3). */
+int keyTonic(int key);
+/** v52 : l'accord du pad chord (0..7) dans la tonalite : sa racine midi, ses intervalles ; rend leur nombre (3 ou 4, 0 hors 0..7). */
+int keyChord(int key, int scale, int chord, int* root, int* tones);
 
 }  // namespace mmarp

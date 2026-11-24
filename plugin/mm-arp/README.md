@@ -34,6 +34,7 @@ architecture que `plugin/mm-rytm`.
 | Moteur : OSC 1 / 2, SUB, FM, SYNC, bruit, filtres MOOG / LP12 / MS-10 / BP / HP, LOAD, SPACE, enveloppes, GLIDE, DRIFT, STACK, WIDE, GLUE, OVERDRIVE, LFO MOD cale sur la mesure | identique au bit pres au site |
 | CHORUS I / II, DELAY ping-pong, TAPE, REVERB, BASS MONO, VOLUME | comme au site (-60 a -100 dB d'ecart, la precision des biquads du navigateur) |
 | Arpege : progression (une mesure par accord, calee sur les mesures du morceau), RATE, GATE, OCTAVE, MODE, RANGE, NOTES, CHORD, suite EDIT, silences, ACCENT, DRIFT, SWING | joue |
+| v52 : la tonalite au choix (le selecteur CHORDS sous les pads ; parametres KEY `xKey`, C a B, et KEY SCALE `xScale`, MINOR / MAJOR / DORIAN / PHRYGIAN ; depart F# MINOR, au bit pres d'avant) : les 8 pads = les 7 degres puis la tonique a 4 sons, la tonique entre C3 et B3 ; reglages de l'instance, aucun preset ne les change (`dsp/Params.cpp` keyOf, 0 ecart sur les 48 tonalites) | joue |
 | Transport d'Ableton ; RUN de la face (horloge interne) quand Ableton est arrete | joue |
 | Notes MIDI d'Ableton : le synthe joue directement (velocite 100 = accent 1) | joue |
 | Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |

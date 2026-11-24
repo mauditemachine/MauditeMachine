@@ -1266,7 +1266,8 @@ int main() {
                     order = order && mmx::allIndex(id.c_str()) == mmarp::kKnobs + 271 + 3 * (n - 1) + r;
                 }
             MMArpProcessor p;
-            check(order && mmx::kExtra == 295 && mmx::kAll == 357 && p.getParameters().size() == 360 && mmx::ex_xLatency == 263,
+            // (v52 : deux reglages de plus apres eux, xKey et xScale : le compte exact est verifie plus bas)
+            check(order && mmx::kExtra >= 295 && mmx::kAll == mmarp::kKnobs + mmx::kExtra && static_cast<int>(p.getParameters().size()) == mmx::kAll + 3 && mmx::ex_xLatency == 263,
                   "v50 : 31 reglages en fin de liste dans l'ordre du contrat (264 a 294 ; 295 reglages du VST3 seul, " + std::to_string(p.getParameters().size()) +
                       " parametres hote)");
         }
@@ -1330,6 +1331,99 @@ int main() {
             for (float v : a) pk = std::max(pk, static_cast<double>(std::fabs(v)));
             check(da && db2 && a == b && pk > 0.01, "v50 : projet d'avant sans les 31 reglages : leurs defauts a l'ouverture (" + std::string(da ? "oui" : "NON") +
                                                         "), le son au bit pres (" + std::string(a == b ? "oui" : "NON") + ", crete " + juce::String(pk, 3).toStdString() + ")");
+        }
+    }
+    // v52 (choix 2A de Mika) : la tonalite au choix, xKey et xScale en fin de liste, reglages de l'instance
+    {
+        // 1. le contrat : 295 et 296, 297 reglages du VST3 seul ; depart F# MINOR ; texte et nom de l'hote ; jamais une cible
+        {
+            MMArpProcessor p;
+            const auto& D = mmx::kExtraDefs;
+            bool modFree = true;
+            for (int i = 0; i < mmx::kModDestCount; ++i)
+                modFree = modFree && std::strcmp(mmx::kModDests[i].id, "xKey") != 0 && std::strcmp(mmx::kModDests[i].id, "xScale") != 0;
+            auto* key = p.knobParam(mmx::allIndex("xKey"));
+            auto* sc = p.knobParam(mmx::allIndex("xScale"));
+            const juce::String tk = key->getText(key->getValue(), 32), ts = sc->getText(sc->getValue(), 32), ta = key->getText(9.f / 11, 32), tp = sc->getText(1.f, 32);
+            check(mmx::ex_xKey == 295 && mmx::ex_xScale == 296 && mmx::kExtra == 297 && mmx::kAll == mmarp::kKnobs + 297 && p.getParameters().size() == 362 &&
+                      D[mmx::ex_xKey].nSteps == 12 && D[mmx::ex_xScale].nSteps == 4 && mmx::exStep(mmx::ex_xKey, D[mmx::ex_xKey].def) == mmarp::kKeyDef &&
+                      mmx::exStep(mmx::ex_xScale, D[mmx::ex_xScale].def) == mmarp::kScaleDef && tk == "F#" && ts == "MINOR" && ta == "A" && tp == "PHRYGIAN" &&
+                      key->getName(32) == "KEY" && sc->getName(32) == "KEY SCALE" && modFree,
+                  "v52 : KEY (295) et KEY SCALE (296) en fin de liste, 297 reglages, " + std::to_string(p.getParameters().size()) + " parametres hote ; depart " +
+                      tk.toStdString() + " " + ts.toStdString() + " ; textes " + ta.toStdString() + ", " + tp.toStdString() + " ; jamais une cible de modulation (" +
+                      (modFree ? "oui" : "NON") + ")");
+        }
+        // 2. les notes suivent : A MINOR = F# MINOR trois demi-tons plus haut (meme gamme, tonique 57 au lieu de 54), note pour
+        // note (le clip DRAG MIDI) ; D# PHRYGIAN : toutes les notes dans sa gamme ; la tonique entre do 3 et si 3
+        {
+            const auto notesOf = [](MMArpProcessor& p) {
+                int bars = 0;
+                std::vector<int> out;
+                const juce::MidiFile mf = p.arpMidi(1, bars);
+                if (mf.getNumTracks() > 0)
+                    for (const auto* ev : *mf.getTrack(0))
+                        if (ev->message.isNoteOn()) out.push_back(ev->message.getNoteNumber());
+                return out;
+            };
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 512);
+            p.faceProgram(program("[0,1,2,3,4,5,6,7]"));
+            const std::vector<int> fs = notesOf(p);
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(9.f / 11);
+            const std::vector<int> am = notesOf(p);
+            bool up3 = !fs.empty() && fs.size() == am.size();
+            for (size_t i = 0; up3 && i < fs.size(); ++i) up3 = am[i] == fs[i] + 3;
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(3.f / 11);
+            p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f);
+            const std::vector<int> dp = notesOf(p);
+            const std::set<int> phryg = {3, 4, 6, 8, 10, 11, 1};
+            bool inScale = !dp.empty();
+            for (int m : dp) inScale = inScale && phryg.count(m % 12) == 1;
+            bool tonics = true;
+            for (int k = 0; k < 12; ++k) tonics = tonics && mmarp::keyTonic(k) == 48 + k && mmarp::degreeMidi(0, 0, k, 0) >= 48 && mmarp::degreeMidi(0, 0, k, 0) <= 59;
+            check(up3 && inScale && tonics && mmarp::degreeMidi(0, 0) == 54,
+                  "v52 : A MINOR = F# MINOR + 3 demi-tons note pour note (" + std::to_string(am.size()) + " notes : " + (up3 ? "oui" : "NON") +
+                      ") ; D# PHRYGIAN dans sa gamme (" + std::to_string(dp.size()) + " notes : " + (inScale ? "oui" : "NON") + ") ; toniques de C3 a B3, F# = 54");
+            // en lecture : la tonalite change sans la face (l'automation de l'hote), la note jouee suit
+            h.playing = true;
+            h.ppq = 0;
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(0.f);
+            p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f / 3);
+            run(p, h, 48000 * 2, 512);
+            const int m1 = p.feedback().midi;
+            const std::set<int> cmaj = {0, 2, 4, 5, 7, 9, 11};
+            check(m1 >= 0 && cmaj.count(m1 % 12) == 1, "v52 : automation de KEY / KEY SCALE en lecture (C MAJOR) : la note jouee " + std::to_string(m1) + " est dans la gamme");
+        }
+        // 3. un projet d'avant (sans xKey ni xScale) s'ouvre en F# MINOR, quelle que soit la tonalite de l'instance avant
+        // l'ouverture ; le meme projet en A MINOR la garde
+        {
+            const auto reopen = [&](bool drop, float key) {
+                MMArpProcessor a;
+                a.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(key);
+                juce::MemoryBlock mb;
+                a.getStateInformation(mb);
+                auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                juce::ValueTree params = st.getChild(0);
+                for (int i = params.getNumChildren(); --i >= 0;) {
+                    const juce::String id = params.getChild(i).getProperty("id").toString();
+                    if (drop && (id == "xKey" || id == "xScale")) params.removeChild(i, nullptr);
+                }
+                juce::MemoryBlock m2;
+                juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                MMArpProcessor p;
+                p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(2.f / 11);
+                p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f);
+                p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                return std::make_pair(mmx::exStep(mmx::ex_xKey, p.knobParam(mmx::allIndex("xKey"))->getValue()),
+                                      mmx::exStep(mmx::ex_xScale, p.knobParam(mmx::allIndex("xScale"))->getValue()));
+            };
+            const auto old = reopen(true, 9.f / 11), kept = reopen(false, 9.f / 11);
+            check(old.first == 6 && old.second == 0 && kept.first == 9 && kept.second == 0,
+                  "v52 : projet d'avant sans tonalite : F# MINOR a l'ouverture (" + std::to_string(old.first) + "/" + std::to_string(old.second) +
+                      ") ; un projet en A MINOR la garde (" + std::to_string(kept.first) + "/" + std::to_string(kept.second) + ")");
         }
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
