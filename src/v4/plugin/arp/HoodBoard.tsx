@@ -40,6 +40,7 @@ import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, say, setFullName, SRC } from './pcbui';
 import { arpSteps } from './steps';
 import './hood.css';
+import './dots.css';
 import { NavKeys, SeqPage, SoundPage } from './pages2';
 
 /** Le cadre de la page (la fenetre de base du VST3). */

@@ -14,6 +14,7 @@ const REPO = resolve(__dirname, '../../..');
 const OUT = resolve(__dirname, '../build-web');
 const SAMPLE_ID = 'virtual:rytm-samples';
 const FONTS = ['RobotRadicals.woff2', 'SF-Pro-Display-Regular.woff2', 'SF-Pro-Display-Medium.woff2', 'SF-Pro-Display-Semibold.woff2', 'SF-Pro-Display-Bold.woff2', 'SF-Pro-Display-Black.woff2'];
+const PLUGIN_FONTS = ['Doto-700.woff2', 'Doto-800.woff2', 'Doto-900.woff2', 'Doto-OFL.txt'];
 // Le wordmark et le logotype serigraphies sur le panneau du MM-ARP (scene/silk.ts whenLogos, theme.ts SILK_LOGOS)
 const LOGOS = ['mauditemachine-logotype.svg', 'mauditemachine-logo-aligned.svg'];
 
@@ -39,6 +40,8 @@ export default defineConfig({
         }
         mkdirSync(resolve(OUT, 'fonts'), { recursive: true });
         for (const f of FONTS) copyFileSync(resolve(REPO, 'public/fonts', f), resolve(OUT, 'fonts', f));
+        // v52 (Mika, choix 4A) : l'afficheur a points des ecrans (Doto, OFL), au plugin seul : pas dans public/ (le site)
+        for (const f of PLUGIN_FONTS) copyFileSync(resolve(__dirname, 'fonts', f), resolve(OUT, 'fonts', f));
         mkdirSync(resolve(OUT, 'logo'), { recursive: true });
         for (const f of LOGOS) copyFileSync(resolve(REPO, 'public/logo', f), resolve(OUT, 'logo', f));
       },
