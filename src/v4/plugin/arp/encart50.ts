@@ -36,6 +36,7 @@ import { PLUGIN_ACCENT } from '../../theme/base';
 import { arp, arpExternal } from '../../voyager/arp';
 import { voyMsg } from '../../voyager/msg';
 import { RATES, voyParams, type VoyKnobId } from '../../voyager/params';
+import { paintLed } from '../../voyager/ledLens';
 import { seq, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
 import { VOY_SEQ } from '../../voyager/seqscreen';
 import { arpExtra, isExtra } from './extra';
@@ -110,6 +111,8 @@ const rgba = (hex: string, a: number): string => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 };
+/** Le halo d'une LED allumee de l'encart (les touches de la bascule, la tete de SQ) : celui d'avant, a l'accent. */
+export const LED_HALO_50 = { r0: 0, r1: 3.4, stops: [[0, 0.6], [1, 0]] } as const;
 
 /* ---------------- le panneau et ses aides de dessin (unites : u depuis le bord gauche du verre, v depuis le haut) ---------------- */
 
@@ -325,22 +328,8 @@ function pen(c: HTMLCanvasElement) {
     g.fill();
     text(s, u, v + 0.003, 0.052, 800, '#121212', 0.04);
   };
-  const led = (u: number, v: number, r: number): void => {
-    const x = px(u);
-    const y = py(v);
-    const R = r * U;
-    const c0 = g.createRadialGradient(x - R * 0.3, y - R * 0.35, 0, x, y, R);
-    c0.addColorStop(0, 'rgba(255, 210, 200, 0.25)');
-    c0.addColorStop(0.35, '#4a1712');
-    c0.addColorStop(1, '#2a0b08');
-    g.fillStyle = c0;
-    g.beginPath();
-    g.arc(x, y, R, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = '#070505';
-    g.lineWidth = 2;
-    g.stroke();
-  };
+  /** Une LED eteinte (2026-11-24 : le verre clair et neutre des LED du plugin, voyager/ledLens.ts ; plus de rouge). */
+  const led = (u: number, v: number, r: number): void => paintLed(g, px(u), py(v), r * U, null, { ring: 1.16 });
   /** La petite vue d'un LFO : une fenetre de verre, sa forme sur deux cycles (le point : Encart50Overlay.tsx). */
   const wave = (u0: number, v0: number, w: number, h: number, shape: string): void => {
     const x = px(u0);
@@ -847,25 +836,8 @@ function sqHead(y: number): Page50['head'] {
     g.lineWidth = 5;
     g.stroke();
   });
-  const led = mk(0.2, 0.2, (g, w, h) => {
-    const a = accent50();
-    const x = w / 2;
-    const yy = h / 2;
-    const R = 0.032 * (w / 0.2);
-    const glow = g.createRadialGradient(x, yy, 0, x, yy, R * 3.4);
-    glow.addColorStop(0, rgba(a, 0.6));
-    glow.addColorStop(1, rgba(a, 0));
-    g.fillStyle = glow;
-    g.fillRect(0, 0, w, h);
-    const l = g.createRadialGradient(x - R * 0.3, yy - R * 0.35, 0, x, yy, R);
-    l.addColorStop(0, '#ffffff');
-    l.addColorStop(0.3, rgba(a, 0.9));
-    l.addColorStop(1, a);
-    g.fillStyle = l;
-    g.beginPath();
-    g.arc(x, yy, R, 0, Math.PI * 2);
-    g.fill();
-  });
+  // la LED allumee (la lentille des LED du plugin, voyager/ledLens.ts), a l'accent, son halo d'avant
+  const led = mk(0.2, 0.2, (g, w, h) => paintLed(g, w / 2, h / 2, 0.032 * (w / 0.2), accent50(), { ring: 1.16, halo: LED_HALO_50 }));
   let lastAt = -2;
   let lastAccent = accent50();
   return {
@@ -1161,31 +1133,8 @@ function keyTop(w: number, d: number, label: string, on: boolean, cap: number): 
   const lx = 0.085 * S;
   const ly = c.height / 2;
   const R = 0.024 * S;
-  if (on) {
-    const a = accent50();
-    const glow = g.createRadialGradient(lx, ly, 0, lx, ly, R * 3.4);
-    glow.addColorStop(0, rgba(a, 0.6));
-    glow.addColorStop(1, rgba(a, 0));
-    g.fillStyle = glow;
-    g.fillRect(lx - R * 3.4, ly - R * 3.4, R * 6.8, R * 6.8);
-    const l = g.createRadialGradient(lx - R * 0.3, ly - R * 0.35, 0, lx, ly, R);
-    l.addColorStop(0, '#ffffff');
-    l.addColorStop(0.32, rgba(a, 0.75));
-    l.addColorStop(1, a);
-    g.fillStyle = l;
-  } else {
-    const l = g.createRadialGradient(lx - R * 0.3, ly - R * 0.35, 0, lx, ly, R);
-    l.addColorStop(0, 'rgba(255, 210, 200, 0.3)');
-    l.addColorStop(0.3, '#4a1712');
-    l.addColorStop(1, '#2a0b08');
-    g.fillStyle = l;
-  }
-  g.beginPath();
-  g.arc(lx, ly, R, 0, Math.PI * 2);
-  g.fill();
-  g.strokeStyle = '#070505';
-  g.lineWidth = 3;
-  g.stroke();
+  // 2026-11-24 (Mika) : eteinte, le verre clair et neutre ; allumee, l'accent et son halo d'avant (voyager/ledLens.ts)
+  paintLed(g, lx, ly, R, on ? accent50() : null, { ring: 1.16, halo: LED_HALO_50 });
   g.font = `700 ${Math.round(cap * S * 1.38)}px ${FONT_DISPLAY}`;
   (g as unknown as { letterSpacing: string }).letterSpacing = `${(cap * S * 0.14).toFixed(1)}px`;
   g.fillStyle = on ? '#fff8ee' : 'rgba(240, 234, 224, 0.6)';

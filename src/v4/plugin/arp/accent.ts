@@ -1,6 +1,8 @@
 /**
  * La couleur d'accent du plugin (theme/base.ts PLUGIN_ACCENT, #FF0066 au depart) posee en variables CSS pour OPEN et la
- * face (--mm-accent, --mm-accent-ink sur les fonds clairs). Les LED restent rouges.
+ * face (--mm-accent, --mm-accent-ink sur les fonds clairs). Les LED aussi depuis le 2026-11-24 (Mika : "quand on
+ * selectionne ca prend la couleur fondamentale choisie") : allumees a l'accent, eteintes en verre clair et neutre (face.css
+ * --mm-led-glass, voyager/ledLens.ts) ; plus aucune LED rouge.
  * v31 (2026-11-18, Mika : "un crossfader dans les settings avec des couleurs de cette tranche de luminosite") : la teinte
  * se regle (look.ts hue, le curseur ACCENT COLOR) ; la saturation et la luminosite restent celles de #FF0066 (TSV 100 %,
  * 100 %), toute la roue des teintes vives. applyAccent pose la couleur partout : variables CSS, serigraphie et pads de la

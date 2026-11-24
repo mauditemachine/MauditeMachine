@@ -32,6 +32,7 @@ import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } f
 import { APPEARANCE, GAIN, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
+import { paintLed, type LedHalo } from './ledLens';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
 import {
   VOY_BODY,
@@ -195,6 +196,15 @@ function btnLed(b: (typeof VOY_BUTTONS)[number]): { x: number; z: number; r: num
   return { x: b.x, z: b.z - b.d / 2 - 0.06 - r, r };
 }
 
+/** Le halo d'une LED de touche allumee (le plugin, v43) et celui, plus court, des poussoirs (2026-11-16, "trop fort"). */
+const LED_HALO_KEY: LedHalo = { r0: 0.5, r1: 3.1, stops: [[0, 0.5], [0.45, 0.16], [1, 0]] };
+const LED_HALO_PUSH: LedHalo = { r0: 0.6, r1: 2.6, stops: [[0, 0.38], [0.45, 0.12], [1, 0]] };
+/**
+ * Le verre eteint des LED de la face (2026-11-24) : celui d'OPEN, un rien plus froid (la serigraphie est eclairee par les
+ * lumieres chaudes de la scene, comme le cuir : LEATHER.tone) pour sortir neutre a l'ecran.
+ */
+const LED_GLASS_SILK: readonly [string, string, string] = ['#393c43', '#191b1f', '#0b0c0e'];
+
 /**
  * Le cuir du plugin MM-ARP (v35 : une photo du cuir, voyager/leather.ts) : LEATHER TEXTURE dose la photo (0 : la laque
  * lisse, 1 : le cuir du fond de Legend HZ, le depart). tone : la teinte du cuir plein (lineaire, par canal), reglee a la
@@ -218,8 +228,14 @@ export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math
  */
 const PATCHES = PLUGIN_ARP;
 
-/** Le materiau d'une toile de serigraphie (la grande ou un encart) : transparent, mat, les noms orange luisent un peu. */
-function silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial {
+/**
+ * Le materiau d'une toile de serigraphie (la grande ou un encart) : transparent, mat, les noms orange luisent un peu.
+ * vivid (le plugin, les encarts des LED, 2026-11-24) : une LED allumee luit quelle que soit la couleur d'accent (une
+ * couleur vive : son canal le plus fort loin du plus faible), plus seulement les rouges et les roses ; le verre eteint,
+ * gris, ne luit pas. La lueur est ramenee a la luminance du rose de depart (0.222 ; 0.23 : au rose, la lueur entiere,
+ * celle d'avant) : un cyan ou un jaune, plus clairs, n'y blanchissent pas.
+ */
+function silkMaterial(map: CanvasTexture, offset: number, vivid = false): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({
     map,
     transparent: true,
@@ -231,14 +247,17 @@ function silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial 
     metalness: 0,
   });
   mat.name = 'voySilk';
-  // Les noms orange luisent un peu, comme sur la 808
+  // Les noms orange luisent un peu, comme sur la 808 (vivid : toute couleur vive, a luminance egale)
+  const glow = vivid
+    ? 'step(0.5, max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b)) * min(1.0, 0.23 / max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.01))'
+    : 'step(0.5, diffuseColor.r - diffuseColor.b)';
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
-      `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * step(0.5, diffuseColor.r - diffuseColor.b) * ${SILK.orangeGlow.toFixed(2)};`
+      `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * ${glow} * ${SILK.orangeGlow.toFixed(2)};`
     );
   };
-  mat.customProgramCacheKey = () => 'silkOrange';
+  mat.customProgramCacheKey = () => (vivid ? 'silkVivid' : 'silkOrange');
   return mat;
 }
 
@@ -448,7 +467,7 @@ export class VoySilk {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const tex = makeCanvasTexture(canvas, this.aniso);
-    const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2));
+    const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2, kind === 'led' || kind === 'bled'));
     mesh.name = `voySilkPatch-${id}`;
     mesh.position.y = 0.0006;
     mesh.renderOrder = 1;
@@ -838,7 +857,7 @@ export class VoySilk {
   /**
    * Les LED de chaque bouton poussoir (SUB OCT, 2026-10-11 : celles de ON avant ; CHORUS, 2026-10-12), son nom
    * au-dessus de chacune (-1, -2 ; I, II) : celle du cran choisi rouge allumee (elle luit), les autres sombres ;
-   * CHORUS a OFF : toutes eteintes.
+   * CHORUS a OFF : toutes eteintes. Le plugin (2026-11-24) : allumee a la couleur d'accent, eteinte en verre clair (led).
    */
   private leds(): void {
     for (const k of VOY_FACE_KNOBS) {
@@ -860,88 +879,21 @@ export class VoySilk {
     for (const led of voyPushLeds(id, k.steps ?? [])) this.led(led.x, led.z, led.step === cur);
   }
 
-  /** Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte ; v43 : celles des touches, a la couleur d'accent. */
+  /**
+   * Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte (le site). Le plugin MM-ARP : une vraie LED a lentille
+   * (voyager/ledLens.ts : la bague noire, la lentille bombee, son reflet) ; 2026-11-24 (Mika : "quand on ne selectionne pas
+   * la diode est rouge eteinte.. peut-etre faire quelque chose de transparent et quand on selectionne ca prend la couleur
+   * fondamentale choisie") : eteinte, un verre clair et neutre ; allumee, la couleur d'accent (HEX.orange, SETTINGS), celles
+   * des poussoirs (CHORUS, SUB OCT) comme celles des touches. Les halos d'avant gardes (2026-11-16, Mika : "trop fort") :
+   * celui des touches (accent), celui, plus court, des poussoirs.
+   */
   private led(lx: number, lz: number, lit: boolean, radius: number = VOY_LED.r, accent = false): void {
     const ctx = this.ctx;
     const x = this.px(lx);
     const y = this.py(lz);
     const r = radius * this.ppu;
-    if (PLUGIN_ARP && accent) {
-      // la LED des touches (73.webp) : eteinte, un rouge sombre a lentille ; allumee, l'accent et son halo
-      const c = new Color(HEX.orange);
-      const rgb = (k: number, a = 1): string => `rgba(${Math.round(Math.min(255, c.r * 255 * k))}, ${Math.round(Math.min(255, c.g * 255 * k))}, ${Math.round(Math.min(255, c.b * 255 * k))}, ${a})`;
-      if (lit) {
-        const g = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 3.1);
-        g.addColorStop(0, rgb(1, 0.5));
-        g.addColorStop(0.45, rgb(1, 0.16));
-        g.addColorStop(1, rgb(1, 0));
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, r * 3.1, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = '#050404';
-      ctx.beginPath();
-      ctx.arc(x, y + r * 0.08, r * 1.28, 0, Math.PI * 2);
-      ctx.fill();
-      const lens = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.05, x, y, r);
-      if (lit) {
-        lens.addColorStop(0, '#fff3f6');
-        lens.addColorStop(0.3, rgb(1.25));
-        lens.addColorStop(0.75, rgb(1));
-        lens.addColorStop(1, rgb(0.62));
-      } else {
-        lens.addColorStop(0, '#7a3a34');
-        lens.addColorStop(0.35, '#4a1612');
-        lens.addColorStop(1, '#260806');
-      }
-      ctx.fillStyle = lens;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = lit ? 'rgba(255,255,255,0.75)' : 'rgba(255,220,210,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(x - r * 0.32, y - r * 0.38, r * 0.28, r * 0.17, -0.6, 0, Math.PI * 2);
-      ctx.fill();
-      return;
-    }
     if (PLUGIN_ARP) {
-      // 2026-11-16 : une vraie LED : la bague noire, la lentille bombee (son reflet), le halo allumee ; eteinte, un
-      // rouge sombre qu'on voit
-      if (lit) {
-        // le halo, attenue (2026-11-16, Mika : "trop fort")
-        const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 2.6);
-        g.addColorStop(0, 'rgba(255, 60, 40, 0.38)');
-        g.addColorStop(0.45, 'rgba(255, 50, 30, 0.12)');
-        g.addColorStop(1, 'rgba(255, 50, 30, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = '#050404';
-      ctx.beginPath();
-      ctx.arc(x, y + r * 0.08, r * 1.28, 0, Math.PI * 2);
-      ctx.fill();
-      const lens = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.05, x, y, r);
-      if (lit) {
-        lens.addColorStop(0, '#fff1e8');
-        lens.addColorStop(0.28, '#ff8a6a');
-        lens.addColorStop(0.7, '#ff2d1c');
-        lens.addColorStop(1, '#b3140a');
-      } else {
-        lens.addColorStop(0, '#7a3a34');
-        lens.addColorStop(0.35, '#4a1612');
-        lens.addColorStop(1, '#260806');
-      }
-      ctx.fillStyle = lens;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = lit ? 'rgba(255,255,255,0.75)' : 'rgba(255,220,210,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(x - r * 0.32, y - r * 0.38, r * 0.28, r * 0.17, -0.6, 0, Math.PI * 2);
-      ctx.fill();
+      paintLed(ctx, x, y, r, lit ? `#${new Color().setStyle(HEX.orange).getHexString()}` : null, { halo: accent ? LED_HALO_KEY : LED_HALO_PUSH, glass: LED_GLASS_SILK });
       return;
     }
     if (lit) {

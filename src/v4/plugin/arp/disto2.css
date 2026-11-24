@@ -64,16 +64,14 @@
   opacity: 0.45;
 }
 
-/* la LED de PUNISH : la lentille des LED du plugin, a la couleur d'accent */
+/* la LED de PUNISH : la lentille des LED du plugin, a la couleur d'accent ; 2026-11-24 : eteinte, le verre clair et
+   neutre des autres (face.css --mm-led-glass), plus teinte d'accent */
 .mm-plugin-arp .mm-d2-pun .mm-d2-pun-led,
 .mm-plugin-arp .mm-d2-pun .mm-key-led {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle at 36% 32%, rgba(255, 255, 255, 0.28) 0 12%, color-mix(in srgb, var(--mm-accent) 24%, #0d0c0b) 30%, color-mix(in srgb, var(--mm-accent) 12%, #050505) 100%);
-  box-shadow:
-    0 0 0 1.2px #070505,
-    0 0 0 1.8px rgba(255, 255, 255, 0.06),
-    0 1px 1px rgba(0, 0, 0, 0.8);
+  background: var(--mm-led-glass);
+  box-shadow: var(--mm-led-ring);
 }
 
 .mm-plugin-arp .mm-d2-pun[data-on='1'] .mm-d2-pun-led,
@@ -558,7 +556,8 @@
   letter-spacing: 0.14em;
 }
 
-/* la touche d'un point qui agit : un point rouge sur le capuchon */
+/* la touche d'un point qui agit : un point allume sur le capuchon ; 2026-11-24 : a la couleur d'accent (plus de rouge),
+   presque blanc sur la touche choisie (son capuchon est deja a l'accent) */
 .mm-plugin-arp .mm-d2-eqkeys .mm-d2-lit .mm-key-cap::after {
   content: '';
   position: absolute;
@@ -568,8 +567,13 @@
   height: 4px;
   margin: -2px 0 0 -2px;
   border-radius: 50%;
-  background: #ff3a24;
-  box-shadow: 0 0 5px rgba(255, 60, 40, 0.9);
+  background: var(--mm-accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--mm-accent) 90%, transparent);
+}
+
+.mm-plugin-arp .mm-d2-eqkeys .mm-d2-lit[data-on='1'] .mm-key-cap::after {
+  background: color-mix(in srgb, var(--mm-accent) 18%, #fff);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
 }
 
 .mm-plugin-arp .mm-d2-eqcells {
