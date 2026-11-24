@@ -4,7 +4,8 @@
  * sans aucun son. N tirages a graine fixe (la meme suite de familles que la face : family, randomPatch, hypnoSeq),
  * chacun depuis les valeurs de depart des potards, au VOLUME de depart (RANDOM ne touche jamais au VOLUME : l'ecart de
  * sonie entre tirages est celui qu'entend Mika). Les regles du son (analog.ts analogFaults) sont verifiees sur chaque
- * tirage : le script sort en erreur si l'une manque.
+ * tirage : le script sort en erreur si l'une manque. v52 : VOICE MODE de la famille (analog.ts analogVoice : MONO pour les
+ * basses), que presets_render passe au moteur comme le plugin.
  *
  *   node plugin/mm-arp/tests/random-analog.mjs <sortie.json> [N] [graine]   (esbuild l assemble avec des bouchons)
  *   plugin/mm-arp/build-presets/presets_render <sortie.json> --os 4 --bars 4 --csv <mesures.csv>
@@ -13,7 +14,7 @@ import { writeFileSync } from 'node:fs';
 import { VOY_KNOBS } from '../../../src/v4/voyager/params';
 import { randomVoyOf } from '../../../src/v4/voyager/random';
 import { family, hypnoArp, hypnoSeq, randomPatch, SITE_OF, tameSeq, type HypnoStyle, type RandomFamily } from '../../../src/v4/plugin/arp/hypno';
-import { analogFaults, ANALOG_FX_OFF_EXTRA } from '../../../src/v4/plugin/arp/analog';
+import { analogFaults, analogVoice, ANALOG_FX_OFF_EXTRA } from '../../../src/v4/plugin/arp/analog';
 
 const out = process.argv[2] ?? 'random-analog.json';
 const n = Number(process.argv[3] ?? 48);
@@ -42,7 +43,9 @@ for (let i = 0; i < n; i += 1) {
   const patch = randomPatch(fam, site.patch, { rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
   const knobs: Record<string, number> = {};
   for (const k of VOY_KNOBS) knobs[k.id] = patch[k.id] ?? k.def;
-  const faults = analogFaults(knobs);
+  // v52 : VOICE MODE de la famille (MONO pour les basses), pose par RANDOM comme les effets a l'arret (hypno.ts fxOff)
+  const extra = { xQuality: 1, ...ANALOG_FX_OFF_EXTRA, xVoiceMode: analogVoice(fam) };
+  const faults = analogFaults(knobs, extra);
   if (faults.length) {
     bad += 1;
     console.error(`RANDOM ${i + 1} (${fam}) : ${faults.join(' ; ')}`);
@@ -55,7 +58,7 @@ for (let i = 0; i < n; i += 1) {
     knobs,
     seq: { edit: true, buf: Array.from({ length: 16 }, (_, j) => seq[j % seq.length] ?? null), len: Math.min(16, seq.length), has: true },
     prog: h.prog,
-    extra: { xQuality: 1, ...ANALOG_FX_OFF_EXTRA },
+    extra,
     steps: h.steps,
   });
 }
