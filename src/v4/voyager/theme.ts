@@ -196,7 +196,8 @@ const DESK_EG = [1.12, 1.84, 2.56, 3.28] as const;
  * descend entre l'ancienne rangee du milieu et celle du bas : les deux enveloppes respirent, rien d'autre ne bouge. Le
  * site ne change pas.
  */
-const DESK_AMP_Z = PLUGIN_ARP ? 1.16 : RB;
+// v52 (le plugin seul, choix 3C de Mika) : AMP EG remonte (1.16 en v50) sous l'ecran des enveloppes (VOY_EG_COL, plus bas)
+const DESK_AMP_Z = PLUGIN_ARP ? 0.92 : RB;
 const DESK_FX = [4.02, 4.72] as const;
 const DESK_FILTER_X = -0.15;
 const DESK_OUT_X = 5.66;
@@ -491,11 +492,43 @@ const betweenRows = (r: number): number => {
   const sr = VOY_KNOB.skirt.r * SIZE_SCALE.s;
   return (DESK_ROWS[r] + sr + 0.13 + DESK_ROWS[r + 1] - sr) / 2;
 };
-/** v50 (le plugin) : le meme milieu entre deux rangees de petits potards quelconques. */
-const betweenZ = (a: number, b: number): number => {
-  const sr = VOY_KNOB.skirt.r * SIZE_SCALE.s;
-  return (a + sr + 0.13 + b - sr) / 2;
-};
+
+/**
+ * v52 (le plugin MM-ARP seul, 2026-11-24, Mika sur la colonne FILTER EG / AMP EG : "ya beaucoup d'espace ici non ? que
+ * pouvons-nous rajouter qui est en rapport ?", puis l'option C de la maquette) : la colonne remplie, de haut en bas
+ * (plugin/arp/EgColumn.tsx) :
+ *   FILTER EG, sur la rangee du haut (RA, comme avant) ;
+ *   un petit ecran de verre (screen) qui dessine les deux enveloppes, de la jupe d'ATTACK a celle de RELEASE ;
+ *   le titre AMP EG (ampTitleZ) et ses potards (DESK_AMP_Z : 0.92, 1.16 en v50) ;
+ *   une rangee de quatre reglages du moteur qui n'etaient pas sur la face : POLARITY et VOICE (deux selecteurs a
+ *   segments), KEY TRACK et ACCENT (le petit potard de Mika, k3), leurs noms sur la ligne de ceux de la rangee du bas
+ *   (OSC 1, MODE, HELL, DETUNE : row.labelZ).
+ * Les autres colonnes ne bougent pas ; le site ne l'appelle jamais.
+ */
+export const VOY_EG_COL = (() => {
+  const s = VOY_KNOB.panelScale * SIZE_SCALE.s;
+  // le rayon exterieur des potards des enveloppes (le PNG k1 : RYTM_KNOB.R = 0.3, fois leur echelle)
+  const kr = 0.3 * s;
+  // la ligne des noms de la rangee du bas (celle d'OSC 1 : RC + la jupe d'un petit + 0.13)
+  const labelZ = RC + VOY_KNOB.skirt.r * s + 0.13;
+  const knobR = 0.19;
+  // un petit potard : son nom a 0.17 de son bord, comme OSC 1 (FLUTED : 0.216 de rayon, son nom a labelZ)
+  const knobZ = labelZ - 0.17 - knobR;
+  return {
+    screen: { x0: DESK_EG[0] - kr, x1: DESK_EG[3] + kr, z0: -0.2, z1: 0.22 },
+    ampTitleZ: 0.43,
+    row: {
+      labelZ,
+      knobZ,
+      knobR,
+      /** les selecteurs a segments : leur centre, leur profondeur, la largeur d'un segment */
+      selZ: knobZ + 0.035,
+      selD: 0.17,
+      segW: { fpol: 0.24, xVoiceMode: 0.24 },
+      x: { fpol: 1.16, keyTrack: 1.88, accent: 2.55, xVoiceMode: 3.21 },
+    },
+  } as const;
+})();
 
 /**
  * Titres des sections facon Moog (desktop : au-dessus des colonnes, avec
@@ -508,7 +541,8 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
       { text: 'OSCILLATORS', x: (-6.25 + DESK_RULES_X[0]) / 2, z: DESK_TITLE_Z },
       { text: 'FILTER', x: DESK_FILTER_X, z: DESK_TITLE_Z },
       { text: 'FILTER EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: DESK_TITLE_Z },
-      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: PLUGIN_ARP ? betweenZ(RA, DESK_AMP_Z) : betweenRows(0) },
+      // v52 (le plugin) : sous l'ecran des enveloppes (VOY_EG_COL) ; v50 : au milieu du jour entre FILTER EG et AMP EG
+      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: PLUGIN_ARP ? VOY_EG_COL.ampTitleZ : betweenRows(0) },
       ...(PLUGIN_ARP ? [] : [{ text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) }]),
       { text: 'EFFECTS', x: (DESK_FX[0] + DESK_FX[1]) / 2, z: DESK_TITLE_Z },
       { text: 'OUTPUT', x: DESK_OUT_X, z: DESK_TITLE_Z },
