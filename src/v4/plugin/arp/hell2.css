@@ -18,6 +18,9 @@
   left: 0;
   top: 0;
   overflow: visible;
+  /* v52 : decor seul ; ses anneaux debordaient sur la barre des pages et prenaient la souris (SOUND, DISTO, DELAY : seul
+     le mot restait cliquable) */
+  pointer-events: none;
 }
 
 /* v49 : un anneau qui tourne est sa propre couche, tournee par le compositeur (HellPage2.tsx useSpin) : rien ne se

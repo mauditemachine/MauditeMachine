@@ -5,6 +5,9 @@
 
 /* ---------------- 1. la barre des pages : des touches mates, le nom grave dessus, une LED dans la touche ---------------- */
 .mm-plugin-arp .mm-nv {
+  /* v52 : au-dessus de toute page (un decor qui deborde ne prend plus la souris aux touches) */
+  position: relative;
+  z-index: 30;
   display: flex;
   flex: none;
   align-items: center;
