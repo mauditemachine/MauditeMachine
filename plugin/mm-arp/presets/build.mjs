@@ -636,7 +636,7 @@ const BANK = [
     cat: 'BASS',
     desc: 'Cold wave: the bass played high like a lead, the octave above walking down the scale in eighths, a hollow square through the Korg filter with a Juno chorus and a short echo.',
     bpm: 112,
-    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.5, wave1: WAVE1.SQUARE, osc1: 0.92, sub: 0.34, subWave: SUBW.SINE, fmode: FMODE.MS10, cutoff: 0.48, res: 0.15, envAmt: 0.28, fD: 0.45, fS: 0.15, fR: 0.18, aD: 0.5, aS: 0.45, aR: 0.16, accent: 0.35, accFlt: 0.35, load: 0.1, monoLow: 0.9 },
+    knobs: { ...LOW, rate: RATE['1/8'], gate: 0.5, wave1: WAVE1.SQUARE, osc1: 0.92, sub: 0.34, subWave: SUBW.SINE, fmode: FMODE.MS10, cutoff: 0.48, res: 0.15, envAmt: 0.28, fD: 0.45, fS: 0.15, fR: 0.18, aD: 0.5, aS: 0.45, aR: 0.16, accent: 0.35, accFlt: 0.35, load: 0.1, monoLow: 1 },
     seq: edit([7, 7, 6, 4, 7, 7, 4, 2]),
     prog: [0, 0, 1, 1],
     steps: steps({ acc: [2, 1, 1, 1] }),
