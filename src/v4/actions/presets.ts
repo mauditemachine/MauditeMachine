@@ -13,6 +13,7 @@ import { type PresetMachine } from '../state/presets';
 import { dtFace } from '../state/dtFace';
 import { DT_FACE, SCREEN_TOUCH } from '../theme';
 import { voyMsg } from '../voyager/msg';
+import { voyPresetHook } from '../voyager/presetHook';
 import { eventAt, gesture } from './shared';
 import { bankViewClose, bankViewToggle } from './internal/patterns';
 import { presetAbs } from './internal/dials';
@@ -75,6 +76,8 @@ export function voyPresetRow(r: number, stage: Stage | null): void {
 /** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */
 export function presetKey(m: PresetMachine, k: PresetKey): void {
   gesture();
+  // Le plugin MM-ARP (v53) : PRESET ouvre son navigateur de presets (plugin/arp/PresetBrowser.tsx) ; au site, rien (crochet vide)
+  if (m === 'voy' && voyPresetHook.key(k)) return;
   // Les potards absolus (MIDI) repartent de leur prochaine valeur a chaque ouverture
   if (k === 'open') {
     presetAbs.u = [];

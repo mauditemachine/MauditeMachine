@@ -237,6 +237,13 @@ export const voyPatch = {
   random(style: string): void {
     remember({ id: null, name: `RANDOM ${style}`, sig: sigNow() });
   },
+  /**
+   * Le plugin MM-ARP seul (v53, plugin/arp/bridge.ts) : un preset de sa banque ou du disque vient d'etre pose, son nom
+   * devient celui du son (une etoile s'il s'en ecarte, comme un preset du site). Le site ne l'appelle pas.
+   */
+  named(name: string): void {
+    remember({ id: null, name, sig: sigNow() });
+  },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
     return () => {
