@@ -634,8 +634,20 @@ Mika : « je veux que quand j'appuie sur la touche Shift, que Function soit acti
 - **Verifie** : Chromium (sans son) : Maj enfoncee : FUNC: + A KEY, FUNC allumee, les fonctions sur les touches ; un clic sur TRIG : QUANTIZE ; Maj lachee puis TRIG : la page TRIG ; Maj + Espace ne fait pas PASTE ; PERFORM : Maj + clic garde puis rend le pad ; SOLO : Maj + clic ajoute SD a BD. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 44654599545), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f286d0f, branche claude/intelligent-ride-56tyeo, 2026-11-20 01:43 UTC.
 
+### Lot 44, les maquettes du MM-RYTM v3 (2026-11-25)
+
+Mika : « je voudrais que tu redesign MM-RYTM avec la meme taille que MM-ARP mais oriente rythmiques [...] les open de page doivent se faire de la meme maniere que ARP [...] DISTO DELAY REVERB HELL CHORUS [...] je veux plus d'espace donc fait le plugin plus gros et j'aime encore le background aluminium brosse noir [...] le bouton OPEN doit entierement etre redesign [...] fais-moi des images avant de coder ».
+
+- **Etude du MM-ARP** (branche claude/nifty-bohr-7ixmpf, v52) : sa face construite et capturee dans Chromium (sans son) : 1100 x 704, l'OPEN prend toute la fenetre avec les onglets en pilule en haut (SOUND, DISTO, DELAY, HELL, REVERB, SEQ), le menu ≡ (SETTINGS en liste deroulante), la bande du bas LIBRARY / MIDI / LEARN, un petit ecran et CLOSE ; ses knobs sont les PNG de Mika (k1, k3, le selecteur, tiny : `src/v4/plugin/arp/vknob`), jamais redessines.
+- **14 maquettes** (`docs/maquettes/mm-rytm-v3/`, HTML rendu en image, les vrais PNG des knobs, une texture d'alu brosse noir generee, la vraie forme d'onde du kick 808 SUB BOOM) : la face (1400 x 896 : SAMPLE, FILTER, AMP EG, LFO 1 et 2, FX SENDS ; TRIG, l'ecran avec la grille des 16 pistes, le crossfader des scenes, les touches, MASTER ; les 16 pistes et les 16 pas, pages 1 a 4), la feuille des choix, le menu ≡, puis les pages d'OPEN : SAMPLE (l'editeur de sample garde : S et E, l'enveloppe en jaune, la banque a droite), SEQ (nouvelle : les voies VELOCITY, PROBABILITY, CONDITION, μTIME, RETRIG, LENGTH, P-LOCK ; TRIG, VAR, GROOVE), LFO (LFO 1 et 2 de la piste en grand), DISTO, CHORUS, DELAY, REVERB, HELL, MASTER (COMP, BIT, TONE, le mixer des 16 pistes), LIBRARY (les 81 presets d'usine, le disque) et MIDI (DRAG MIDI, MIDI LEARN, les niveaux).
+- **Chaque page d'effet a sa rangee PER TRACK** : les 16 envois des pistes vers l'effet, cote a cote, plus le retour.
+- **Les ajouts proposes portent une etiquette NEW** (a valider un par un, rien n'existe encore dans le moteur) : LFO 3 global vers les effets, HUMAN dans GROOVE, HEAT (cadran) dans DISTO, presets du CHORUS, WIDTH et DUCK du DELAY, WIDTH et LOW CUT de la REVERB, NOTES OUT en MIDI.
+- **Rien n'est code** : Mika valide d'abord (regle du projet : des images avant tout changement de design).
+
 ## 2. Decisions prises et pourquoi
 
+- **Lot 44 : les onglets d'OPEN sur la face (choix C conseille)** : le MM-RYTM a 9 pages d'OPEN ; un seul bouton OPEN obligerait a choisir la page une fois dedans, les onglets de l'ARP poses sur la face ouvrent directement la bonne, et l'OPEN garde les memes au meme endroit. Les choix A (une touche) et B (un loquet) restent sur la feuille des choix.
+- **Lot 44 : 1400 x 896** : le format de l'ARP (1,56) agrandi, pour loger le son de la piste, l'ecran et les 16 + 16 touches sans tasser ; la fenetre reste agrandissable au coin.
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
 - **Le son et la hauteur : la position la plus proche** : un son se calcule hors du thread audio ; 9 hauteurs par coup mene par une scene, c'est le « calcul le plus proche » du site (lazy).
 - **La REVERB change de forme quand x se pose** : une nouvelle reponse remet le convolueur a zero ; la changer a chaque bloc d'un geste couperait la queue en continu.
@@ -761,6 +773,7 @@ Mika : « je veux que quand j'appuie sur la touche Shift, que Function soit acti
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 44)** : regarder les 14 maquettes ; repondre aux 3 choix (bouton OPEN A / B / C, couleur des pas A / B / C, taille A / B / C) ; dire pour chaque etiquette NEW oui ou non ; puis le code (face, pages d'OPEN, editeur JUCE a la nouvelle taille).
 - **Cote Mika (lot 43)** : la commande mm-rytm ; tenir Shift et cliquer les touches (leurs fonctions jaunes) ; dire si Shift + clic sur un pas doit plutot faire autre chose que le mute rapide.
 - **Cote Mika (lot 42)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : 808 SUB BOOM 1, 2, 3.
 - **Cote Mika (lot 41)** : la commande mm-rytm ; RANDOM plusieurs fois puis la touche LFO sur des pistes differentes : dire si les LFO sont trop sages ou trop fous.
@@ -816,6 +829,16 @@ Mika : « je veux que quand j'appuie sur la touche Shift, que Function soit acti
 - Cote Mika (lot 6) : `update.sh`, puis dire si la face facon DT2 lui va (icones, fonctions imprimees, crossfader a la place des fleches), si OPEN contient ce qu'il attend, et si OPEN FOLDER ouvre bien le Finder depuis Ableton.
 
 ## 4. Commandes utiles ajoutees
+
+Lot 44 : les maquettes v3 se refont depuis leur source :
+
+```bash
+bash docs/maquettes/mm-rytm-v3/source/assets.sh
+```
+
+```bash
+node docs/maquettes/mm-rytm-v3/source/shot.cjs /tmp/maquettes face choices menu open_sample open_seq open_lfo open_disto open_chorus open_delay open_reverb open_hell open_master open_library open_midi
+```
 
 Lot 31 : `node plugin/mm-rytm/tools/site-sound.mjs ["808 SUB BOOM"]` rend un son du site en WAV pour la banque du plugin (`plugin/mm-rytm/samples/`).
 

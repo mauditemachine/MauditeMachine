@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head>
+<body><div id="root"></div>
+<script src="lib.js"></script><script src="face.js"></script><script src="open.js"></script>
+<script>
+(async()=>{await loadWave();await document.fonts.load('20px Robot');await document.fonts.load('900 20px Dots');
+const pg=(location.hash||'#face').slice(1);const fn=window['page_'+pg.replace(/-/g,'_')]||face;fn();
+await Promise.all([...document.querySelectorAll('.rot,.cap')].map(()=>0));setTimeout(()=>document.body.setAttribute('data-ready','1'),600);})();
+</script></body></html>
