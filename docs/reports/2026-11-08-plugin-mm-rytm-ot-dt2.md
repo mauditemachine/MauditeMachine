@@ -673,6 +673,16 @@ Mika, sur la face v3 : « tu as tout detruit [...] l'interface est horrible, tro
 - **Verifie** : Chromium (sans son) : la face d'avant par defaut, OPEN ouvre SAMPLE, un onglet, le menu, Echap (le menu puis la page), O rouvre, CLOSE, pas de capot ; SEQ : une tape pose le pas 4, un glisser pose 15 et 16, la voie VELOCITY pose le pas 8, une tape retire le pas 4 (le programme les joue) ; DISTO : le point LOW CUT tire regle LOW CUT et THUMP. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 45555698514), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 25bfa5c, branche claude/intelligent-ride-56tyeo, 2026-11-25 05:54 UTC.
 
+### Lot 47, maquettes de la face avant amelioree (2026-11-25, a valider)
+
+Mika : « refais un peu la face avant de RYTM par rapport a ce que je t'ai dit qui etait bien, la tu as tout enleve ; ameliore la face avant et agrandis le plugin, mais garde le max de choses ; des images avant de coder ».
+
+- **4 images** dans `docs/maquettes/mm-rytm-lot47/` (la vraie face rendue en 3D en fond, la rangee v3 par-dessus ; sources dans `source/`) :
+  - **A sobre** : la face d'avant entiere (ecran, 8 potards, touches de page, rangee d'icones, transport, crossfader, colonne FUNC TRK PTN MUTE SOLO), seuls les 16 pads 2 x 8 deviennent la rangee des 16 pistes (nom, niveau en direct, point mute/solo, piste choisie en jaune) au-dessus des 16 pas en ligne (BEAT 1 a 4, tete de lecture, P-LOCK, condition, velocite) ; 1600 x 975.
+  - **B** : A + un bandeau en haut (MAUDITE MACHINE, MM-RYTM, les onglets d'OPEN, le menu) et une barre DRAG MIDI en bas ; 1600 x 1069.
+  - **Les etats de la rangee** : lecture, MUTE, PERFORM (les vrais pads), longueur de piste (TLEN).
+  - **Avant / apres** : 1400 x 853 contre 1600 x 975.
+
 ## 2. Decisions prises et pourquoi
 
 - **Lot 46 : 1400 x 853** : la face 3D est cadree pour le rapport 1200 x 731 ; a 1400 x 896 elle etait rognee ; le meme rapport, plus grand, garde la face entiere et donne la place demandee ; les sous-pages (dessinees en 1400 x 896) zooment dedans.
@@ -806,6 +816,8 @@ Mika, sur la face v3 : « tu as tout detruit [...] l'interface est horrible, tro
 - **Mesurer faute d'ecouter** : chaque preset est rendu par le vrai moteur C++ hors ligne (aucun son joue, la regle du projet) pour verifier ce qu'un controle de donnees ne voit pas : le niveau de chaque piste par rapport au kick, les cretes, et que les COND tombent sur les bonnes mesures. Ce rendu a montre que le passe-bas balaye coupait trop les charleys (9 dB de moins dans MINIMAL 3, 4 a 5 ailleurs) : sa coupure suit maintenant la brillance du charley, avec +2 dB.
 
 ## 3. Ce qui reste a faire / points en suspens
+
+- **Lot 47, a valider par Mika** : la face A ou B (`docs/maquettes/mm-rytm-lot47/`), la taille par defaut 1600 x 975 ; aucun code avant son choix.
 
 - **Cote Mika (lot 46)** : la commande mm-rytm ; la face d'avant, OPEN : les sous-pages ; SEQ (poser des pas), LFO, DISTO (tirer les points de l'EQ), les envois. A venir, en maquette d'abord : la rangee des 16 pistes au-dessus des pas (Mika : « y'a quand meme de bonnes choses, genre ca »), plus de details facon MM-ARP dans les autres pages d'effets, les logos du dossier Knobs (a glisser dans le chat).
 - **Cote Mika (lot 45)** : la commande mm-rytm ; ouvrir MM-RYTM dans Live : la nouvelle face. Essayer les knobs, un pas tenu puis un knob (P-LOCK), le clic droit (conditions), les onglets d'OPEN, REC (LIVE REC d'un clic) ; dire ce qui manque, ce qui gene, et oui ou non pour chaque ajout NEW des maquettes. `?face=old` n'est pas joignable dans Live : si un geste d'avant manque, le dire.
