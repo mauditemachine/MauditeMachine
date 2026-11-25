@@ -30,10 +30,10 @@ import { PLUGIN_ARP } from '../theme/base';
 export type VividLevel = 'off' | 'A' | 'B' | 'C';
 
 /**
- * LE REGLAGE de la face publiee. 'off' : la face de la v52, rien ne change. Le choix de Mika fait (A, B ou C), il
- * suffit de le poser ici.
+ * LE REGLAGE de la face publiee. 'off' : la face de la v52, rien ne change. v55 (2026-11-25, Mika : "couleurs B") : B,
+ * le niveau moyen.
  */
-export const VIVID_LEVEL: VividLevel = 'off';
+export const VIVID_LEVEL: VividLevel = 'B';
 
 /** Une lueur : dans la courbe (tm, multiple de celle de la v52), apres la courbe (post, part de l'accent), le halo (multiple). */
 export interface VividGlow {

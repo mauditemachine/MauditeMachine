@@ -1120,3 +1120,13 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   d'OPEN, DRIFT et LFO 1 SPEED de l'encart, levier SYNC (deux bascules), deux clics lents (rien), Alt + clic ;
   egtest.js mis a jour (il verifiait que le double clic ne faisait rien). Serie de la face en Chromium muet : smoke,
   func, func2, funckey, egtest, funcpb TOUT OK. Publiee : commit acc9464, zip 2026-11-25 16:43 UTC.
+
+## 2026-11-25 (suite) : v55, vivacite des couleurs au niveau B
+
+- Mika : "couleurs B" (images A / B / C de la v53). voyager/vivid.ts : VIVID_LEVEL = 'B', la face publiee par defaut
+  (plus de drapeau d'URL a poser) : selecteurs de forme d'onde plus epais (arcs x2), halo de la forme choisie, encre de
+  l'accent hors de la courbe ACES, pads et touches allumes a la teinte exacte de l'accent, LED, courbe d'enveloppe,
+  arcs de modulation. Les potards (PNG de Mika), le cuir et les pages d'OPEN ne changent pas ; ?vivid=off|A|C reste
+  pour comparer.
+- Tests : tsc 105 ; face en Chromium muet sans ?vivid= : __mmProbe.vivid() = B, capture avec l'accent cyan de Mika,
+  console sans erreur ; smoke.
