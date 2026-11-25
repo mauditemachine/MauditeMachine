@@ -131,14 +131,16 @@ export const Screen: React.FC = () => {
             {TRACK_NAMES[i]}
           </div>
         </div>
-        <div className="mm3-t8" style={{ left: 118, top: 44, lineHeight: 1.7 }}>
+        <div className="mm3-t8" style={{ left: 118, top: 40, lineHeight: 1.55 }}>
           <span className="mm3-w" style={{ display: 'inline-block', maxWidth: 120, overflow: 'hidden', verticalAlign: 'bottom' }}>
             {smp ? smpLabel(smp) : 'NO SAMPLE'}
           </span>
           <br />
           TUNE <span className="mm3-w">{shown(C.tune)}</span>
           <br />
-          DEC <span className="mm3-w">{shown(C.dec)}</span> · FREQ <span className="mm3-w">{shown(C.fcut)}</span>
+          DEC <span className="mm3-w">{shown(C.dec)}</span>
+          <br />
+          FREQ <span className="mm3-w">{shown(C.fcut)}</span>
         </div>
         <div style={{ left: 14, top: 100 }}>
           <MiniWave skey={skey} w={196} h={58} color="#e8e8e8" />
