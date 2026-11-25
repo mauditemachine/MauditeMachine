@@ -30,6 +30,7 @@
       "Juno style chorus, ping-pong and tape delay, reverb",
       "Factory presets for bass, acid, sequences and chords; save your own",
       "Every knob is a host parameter: automate it, map it to your controller"
-    ]
+    ],
+    "web": "/mm-arp/play/"
   }
 }

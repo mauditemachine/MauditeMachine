@@ -31,3 +31,11 @@ Mika : "je voudrais vraiment que tu fasses un systeme d'installation comme tous 
 - `.github/workflows/plugin-public.yml` : trois jobs. `mac` : pkgbuild (bundle non relocalisable) + productbuild (hostArchitectures arm64 et x86_64, macOS 11), puis `sudo installer` sur le runner et `codesign --verify` du plugin installe. `windows` : Inno Setup (choco), installation silencieuse, verification du .vst3, desinstallation silencieuse, verification qu'il est parti. `publish` : le .pkg, le .exe et le zip qui les reunit dans `mm-<plugin>-public`.
 - `/download/` : boutons Mac et Windows, celui du visiteur en plein et lance tout seul ; plus de ligne de Terminal.
 - Non signes : un clic de plus a la premiere ouverture (Mac : Open Anyway ; Windows : Run anyway).
+
+## MM-ARP dans le navigateur (meme jour)
+
+Mika : "je veux les memes plugins dans mon site.. exactement les memes !!! commence par ARP ... en desktop".
+
+- `plugin/mm-arp/web-engine/ArpEngine.{h,cpp}` : `PluginProcessor.cpp` sans JUCE, API C (36 fonctions). Banc `compare/compare_vst.cpp` contre le vrai processeur JUCE 8.0.9 : 91/91, 0 echantillon different (80 presets, automation QUALITY/ENGINE/LATENCY, DISTO, HELL, matrice, MIDI, blocs de 1 a 1024).
+- WebAssembly : clang 18 `wasm32-wasi` (paquets Ubuntu `wasi-libc`, `libc++-18-dev-wasm32`...), `scripts/build-arp-wasm.sh`, 750 Ko, 5 fonctions systeme. Par rapport au natif x86 : 145 rendus sur 160 identiques au bit, les autres different seulement sur des valeurs quasi nulles (le wasm ne vide pas les sous-normaux), au plus 7e-15.
+- `/mm-arp/play/` : la worklet (`src/v4/plugin/arp/web/arpEngine.worklet.js`), le faux backend JUCE (`webBackend.ts` : messages de la face, minuterie de l'editeur portee ligne a ligne, presets, MIDI), la page (`WebArpPlugin.tsx`, `WebPluginShell` partage avec RYTM). 35 essais headless muets au vert.

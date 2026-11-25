@@ -9,6 +9,8 @@
  *
  * Une bande fine en haut : le nom, "Get the VST3, free" (la page /mm-rytm/) et le retour au site. On y arrive par un
  * chargement complet (theme/base.ts PLUGIN_WEB lit l'adresse a l'evaluation des modules).
+ *
+ * WebPluginShell (2026-11-25) : la meme page pour /mm-arp/play/ (WebArpPlugin.tsx, le moteur du VST3 en WebAssembly).
  */
 
 import React, { Suspense, useLayoutEffect, useState } from 'react';
@@ -16,6 +18,13 @@ import { COARSE_QUERY, MOBILE_QUERY } from '../theme';
 import './webplugin.css';
 
 const PluginFace = React.lazy(() => import('./PluginFace'));
+
+export type WebPluginKind = 'rytm' | 'arp';
+
+const INFO: Record<WebPluginKind, { name: string; title: string; vst: string; phone: string }> = {
+  rytm: { name: 'MM-RYTM', title: 'MM-RYTM, play the plugin in your browser | Maudite Machine', vst: '/mm-rytm/', phone: '/?m=mm-rytm' },
+  arp: { name: 'MM-ARP', title: 'MM-ARP, play the plugin in your browser | Maudite Machine', vst: '/mm-arp/', phone: '/?m=mm-arp' },
+};
 
 const desktop = (): boolean => {
   try {
@@ -25,47 +34,53 @@ const desktop = (): boolean => {
   }
 };
 
-const Bar: React.FC = () => (
-  <header className="mm-webplugin-bar">
-    <a className="mm-webplugin-home" href="/">
-      Maudite Machine
-    </a>
-    <span className="mm-webplugin-name">MM-RYTM · the VST3 plugin, in your browser</span>
-    <nav className="mm-webplugin-links" aria-label="MM-RYTM">
-      <a className="mm-webplugin-get" href="/mm-rytm/">
-        Get the VST3, free
+const Bar: React.FC<{ kind: WebPluginKind }> = ({ kind }) => {
+  const p = INFO[kind];
+  return (
+    <header className="mm-webplugin-bar">
+      <a className="mm-webplugin-home" href="/">
+        Maudite Machine
       </a>
-      <a href="/">Back to the site</a>
-    </nav>
-  </header>
-);
+      <span className="mm-webplugin-name">{p.name} · the VST3 plugin, in your browser</span>
+      <nav className="mm-webplugin-links" aria-label={p.name}>
+        <a className="mm-webplugin-get" href={p.vst}>
+          Get the VST3, free
+        </a>
+        <a href="/">Back to the site</a>
+      </nav>
+    </header>
+  );
+};
 
-const WebPlugin: React.FC = () => {
+/** La page d'un plugin dans le navigateur : le titre, la bande du haut, la face (children) au desktop, un mot au telephone. */
+export const WebPluginShell: React.FC<{ kind: WebPluginKind; children: React.ReactNode; notice?: React.ReactNode }> = ({ kind, children, notice }) => {
   const [ok] = useState(desktop);
+  const p = INFO[kind];
 
   useLayoutEffect(() => {
     const prev = document.title;
-    document.title = 'MM-RYTM, play the plugin in your browser | Maudite Machine';
-    document.documentElement.classList.add('mm-webplugin-page');
+    document.title = p.title;
+    const root = document.documentElement.classList;
+    root.add('mm-webplugin-page', `mm-webplugin-${kind}`);
     return () => {
       document.title = prev;
-      document.documentElement.classList.remove('mm-webplugin-page');
+      root.remove('mm-webplugin-page', `mm-webplugin-${kind}`);
     };
-  }, []);
+  }, [kind, p.title]);
 
   if (!ok) {
     return (
       <main className="mm-webplugin-phone">
-        <p className="mm-webplugin-kicker">Maudite Machine · MM-RYTM</p>
+        <p className="mm-webplugin-kicker">Maudite Machine · {p.name}</p>
         <h1>Desktop only</h1>
         <p>The full plugin runs on a computer, with a mouse. Open this page on your Mac or PC.</p>
         <p>
-          <a className="mm-webplugin-get" href="/mm-rytm/">
+          <a className="mm-webplugin-get" href={p.vst}>
             Get the VST3, free
           </a>
         </p>
         <p>
-          <a href="/?m=mm-rytm">Play MM-RYTM on this phone</a>
+          <a href={p.phone}>Play {p.name} on this phone</a>
         </p>
       </main>
     );
@@ -73,12 +88,19 @@ const WebPlugin: React.FC = () => {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <PluginFace />
-      </Suspense>
-      <Bar />
+      {children}
+      <Bar kind={kind} />
+      {notice}
     </>
   );
 };
+
+const WebPlugin: React.FC = () => (
+  <WebPluginShell kind="rytm">
+    <Suspense fallback={null}>
+      <PluginFace />
+    </Suspense>
+  </WebPluginShell>
+);
 
 export default WebPlugin;

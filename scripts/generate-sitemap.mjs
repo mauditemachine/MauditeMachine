@@ -74,7 +74,7 @@ const ROUTES = [
   { path: '/mixtapes/', changefreq: 'monthly' },
   { path: '/contact/', changefreq: 'yearly' },
   { path: '/goodies/', changefreq: 'monthly' },
-  // les pages des plugins (2026-11-25) ; /mm-rytm/play/ (noindex) n'y est pas
+  // les pages des plugins (2026-11-25) ; /mm-rytm/play/ et /mm-arp/play/ (noindex) n'y sont pas
   { path: '/mm-rytm/', changefreq: 'monthly' },
   { path: '/mm-arp/', changefreq: 'monthly' },
   { path: '/merch/', changefreq: 'monthly' },
@@ -238,7 +238,7 @@ const llmsLines = [
   '- [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck',
   '- MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed',
   '- UNDO and REDO, presets saved in the browser, Dark and Light appearances',
-  '- Free VST3 plugins: [MM-RYTM](https://mauditemachine.com/mm-rytm/) (Mac and Windows, playable in the browser at https://mauditemachine.com/mm-rytm/play/) and [MM-ARP](https://mauditemachine.com/mm-arp/) (Mac), sent by email',
+  '- Free VST3 plugins: [MM-RYTM](https://mauditemachine.com/mm-rytm/) (Mac and Windows, playable in the browser at https://mauditemachine.com/mm-rytm/play/) and [MM-ARP](https://mauditemachine.com/mm-arp/) (Mac, playable in the browser at https://mauditemachine.com/mm-arp/play/), sent by email',
   '- SHARE: the MM-RYTM beat as a link (https://mauditemachine.com/?m=rytm&b=...) that opens it, steps, sounds and effects included',
   '- [Drum patterns](https://mauditemachine.com/mm-studio/drum-patterns/): ten styles (acid house, dark disco, indie dance, minimal, rolling techno, techno, house, electro, EBM, italo disco), each with its 16-step grid and velocities, a MIDI file and a link that plays it on MM-RYTM; also in [French](https://mauditemachine.com/fr/mm-studio/rythmes/) and [Spanish](https://mauditemachine.com/es/mm-studio/ritmos/)',
   ...patternEn.map((p) => {
