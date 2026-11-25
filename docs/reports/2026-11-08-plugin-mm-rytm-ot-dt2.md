@@ -656,6 +656,8 @@ Mika, sur les maquettes du lot 44 : Â« OPEN C, pas rouges, 1400 x 896, go code Â
 - **La fenetre** : 1400 x 896 (`src/PluginEditor.cpp`), le contenu zoome avec elle ; reduite a l'ecran au depart s'il est plus petit (un MacBook en 1440 x 900).
 - **Rien de neuf dans le son** : les ajouts NEW des maquettes (LFO 3, HUMAN, HEAT, presets du CHORUS, WIDTH et DUCK du DELAY, WIDTH et LOW CUT de la REVERB, NOTES OUT) ne sont pas codes, en attente de ton oui.
 - **Verifie** : Chromium (sans son) : la face et les 11 pages rendues sans erreur ; une tape allume le pas 4 (le programme le joue), DEC tire de 124 a 97, un pas tenu passe en P-LOCK et CUTOFF tourne s'y verrouille (le coup du pas 1 porte sa tranche), le clic droit ouvre les conditions et Echap le ferme, PERFORM (CUT BD...), MUTE (SD coupee), la piste SD choisie, O et Echap, le crossfader a 75 %, SEQ PROBABILITY ecrit 49 % sur le pas 1, LFO 1 -> FREQ, un preset d'usine charge (130 -> 118 BPM), la fenetre a 1050 x 672 zoome tout. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 45550232622), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit c4012a2, branche claude/intelligent-ride-56tyeo, 2026-11-25 05:05 UTC.
+- **Les logos du dossier Knobs de Mika** (iCloud, sur son Mac) : pas joignables depuis la session cloud ; a glisser dans le chat pour les integrer.
 
 ## 2. Decisions prises et pourquoi
 
