@@ -12,11 +12,11 @@
 
 namespace {
 
-// La face fait 256 x 156 mm : la fenetre garde ces proportions
-// 1400 x 853 (2026-11-25, Mika : "je veux plus d'espace donc fait le plugin plus gros", puis "reprend l'interface d'avant") :
-// la face d'avant (cadree pour 1200 x 731) en plus grand, au meme rapport ; les sous-pages d'OPEN zooment dedans
-constexpr int kW = 1400;
-constexpr int kH = 853;
+// La face fait 256 x 156 mm ; la face B (2026-11-25, lot 47, Mika : "B, 1600 c'est bon") : la face d'avant en 1600 x 975,
+// un bandeau de 50 au-dessus (le nom, les onglets d'OPEN, le menu) et la barre DRAG MIDI de 44 dessous : 1600 x 1069
+// (src/v4/plugin/v3/FaceB.tsx FB) ; les sous-pages d'OPEN zooment dedans
+constexpr int kW = 1600;
+constexpr int kH = 1069;
 
 // Les fichiers de la face (le zip de plugin/mm-rytm/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {

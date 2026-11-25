@@ -33,9 +33,23 @@ import { extHead } from '../head';
 import { meters } from '../meters';
 import { useTick } from './ui';
 
-const X0 = 178;
-const P = (1348 - X0) / 16;
-const YC = 630;
+/**
+ * La place de la rangee (les pistes, les pas, les BEAT, la ligne d'aide) : la face v3 (1400 x 896) ; la face B du plugin
+ * (2026-11-25, lot 47 : la face d'avant, ses pads 2 x 8 remplaces par la rangee) la pose dans le cadre des pas, en plus grand.
+ */
+export interface RowLay {
+  readonly x0: number;
+  readonly x1: number;
+  readonly chipY: number;
+  readonly chipH: number;
+  readonly stepY: number;
+  readonly stepH: number;
+  readonly brY: number;
+  readonly noteY: number;
+  /** la face B : la ligne d'aide dit les gestes des pistes, sans la version */
+  readonly faceB: boolean;
+}
+export const V3_ROW: RowLay = { x0: 178, x1: 1348, chipY: 632, chipH: 32, stepY: 684, stepH: 84, brY: 776, noteY: 820, faceB: false };
 const LOCK_HOLD_MS = 350;
 const STEP_HOLD_MS = 400;
 const VEL_PX = 12;
@@ -131,8 +145,10 @@ function condWord(l: ReturnType<typeof lockOf>): string {
 /** Le pas a-t-il d'autres verrous que sa COND et sa PROB (un P-LOCK) ? */
 const hasLocks = (l: ReturnType<typeof lockOf>): boolean => !!l && Object.keys(l).some((k) => k !== 'cond' && k !== 'prob');
 
-export const Steps: React.FC = () => {
+export const Steps: React.FC<{ lay?: RowLay }> = ({ lay = V3_ROW }) => {
   useTick();
+  const X0 = lay.x0;
+  const P = (lay.x1 - lay.x0) / 16;
   const t = useSyncExternalStore(activeTrack.subscribe, () => activeTrack.get() ?? 'BD');
   useSyncExternalStore(voices.subscribe, () => voices.get());
   useSyncExternalStore(dtFace.subscribe, () => `${dtFace.mute()}|${dtFace.solo()}|${dtFace.menu()}`);
@@ -210,7 +226,7 @@ export const Steps: React.FC = () => {
     if (!d.velDrag && (Math.abs(dy) < 6 || d.vel0 <= 0)) return;
     if (!d.velDrag) undo.boundary('mm808', 'step');
     d.velDrag = true;
-    const zoom = (e.currentTarget as HTMLElement).getBoundingClientRect().height / 84 || 1;
+    const zoom = (e.currentTarget as HTMLElement).getBoundingClientRect().height / lay.stepH || 1;
     const base = d.vel0 > 0 ? d.vel0 : VEL_FROM_EMPTY;
     setStepVel(d.i, base + Math.round(-dy / zoom / VEL_PX));
   };
@@ -316,7 +332,7 @@ export const Steps: React.FC = () => {
         key={i}
         className={cls}
         data-mm3-step={i}
-        style={{ left: x, top: YC + 54, width: P - 8, height: 84 }}
+        style={{ left: x, top: lay.stepY, width: P - 8, height: lay.stepH }}
         role="button"
         aria-label={`Step ${i + 1}`}
         onPointerDown={(e) => onDown(e, i)}
@@ -339,7 +355,7 @@ export const Steps: React.FC = () => {
           <div
             key={k}
             className={`mm3-trk${k === t ? ' sel' : ''}${muted ? ' mute' : ''}`}
-            style={{ left: X0 + i * P, top: YC + 2, width: P - 8, height: 32 }}
+            style={{ left: X0 + i * P, top: lay.chipY, width: P - 8, height: lay.chipH }}
             role="button"
             aria-label={`Track ${i + 1} ${TRACK_NAMES[i]}${muted ? ', muted' : ''}`}
             title="Click: this track · right click: mute"
@@ -369,30 +385,41 @@ export const Steps: React.FC = () => {
       })}
       {keys}
       {[0, 1, 2, 3].map((g) => (
-        <div key={g} className="mm3-bracket" style={{ left: X0 + g * 4 * P + 4, top: YC + 146, width: 4 * P - 16 }}>
+        <div key={g} className="mm3-bracket" style={{ left: X0 + g * 4 * P + 4, top: lay.brY, width: 4 * P - 16 }}>
           <span>{perf ? ['CUTS', 'CUTS', 'REPEAT · LOW CUT', 'THROWS · TAPE'][g] : mute ? 'MUTE' : solo ? 'SOLO' : `BEAT ${g + 1}`}</span>
         </div>
       ))}
-      <StepFoot t={t} />
+      <StepFoot t={t} lay={lay} />
     </>
   );
 };
 
 /** La ligne sous les pas : la longueur du pattern et de la piste, la legende. */
-const StepFoot: React.FC<{ t: TrackKey }> = ({ t }) => {
+const StepFoot: React.FC<{ t: TrackKey; lay: RowLay }> = ({ t, lay }) => {
   const len = pattern.stepCount();
   const tlen = Math.round(pattern.get().trigs?.[t]?.tlen ?? 0);
   return (
     <>
-      <div className="mm3-note" style={{ left: X0, top: YC + 190 }}>
-        PATTERN <b>{len}</b> STEPS · TRACK <b>{tlen > 0 && tlen < len ? tlen : len}</b> · HOLD A STEP : <i>P-LOCK</i> · RIGHT CLICK : <i>CONDITIONS</i> · DRAG : <i>VELOCITY</i>
+      <div className="mm3-note" style={{ left: lay.x0, top: lay.noteY }}>
+        PATTERN <b>{len}</b> STEPS · TRACK <b>{tlen > 0 && tlen < len ? tlen : len}</b> ·{' '}
+        {lay.faceB ? (
+          <>
+            CLICK A TRACK : <i>SELECT</i> · RIGHT CLICK : <i>MUTE</i> · HOLD A STEP : <i>P-LOCK</i> · DRAG : <i>VELOCITY</i>
+          </>
+        ) : (
+          <>
+            HOLD A STEP : <i>P-LOCK</i> · RIGHT CLICK : <i>CONDITIONS</i> · DRAG : <i>VELOCITY</i>
+          </>
+        )}
       </div>
-      <div className="mm3-note" style={{ left: 1348, top: YC + 190, transform: 'translateX(-100%)' }}>
+      <div className="mm3-note" style={{ left: lay.x1 - (lay.faceB ? 8 : 0), top: lay.noteY, transform: 'translateX(-100%)' }}>
         <i>●</i> P-LOCK &nbsp; <i>1:2</i> CONDITION &nbsp; <b>▬</b> VELOCITY
       </div>
-      <div className="mm3-note" style={{ left: 1348, top: YC + 216, transform: 'translateX(-100%)', color: '#6a6a6a', fontSize: 7 }}>
-        MM-RYTM V3 · 2026
-      </div>
+      {!lay.faceB && (
+        <div className="mm3-note" style={{ left: lay.x1, top: lay.noteY + 26, transform: 'translateX(-100%)', color: '#6a6a6a', fontSize: 7 }}>
+          MM-RYTM V3 · 2026
+        </div>
+      )}
     </>
   );
 };

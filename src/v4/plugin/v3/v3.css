@@ -930,3 +930,155 @@
 .mm3-drag {
   position: absolute;
 }
+
+/* ---------- la face B du plugin (lot 47, 2026-11-25) : la face 3D, la rangee v3 sur ses pads, le bandeau, la barre ---------- */
+
+/* le bandeau et la barre : sous la face 3D (elle est posee par-dessus, entre les deux) */
+.mm3-faceb {
+  background: #0c0c0d;
+}
+.mm3-fbbar {
+  background: linear-gradient(#1b1b1b, #121212);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+.mm3-fbbar.foot {
+  background: linear-gradient(#121212, #0e0e0e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.mm3-fbtabs {
+  gap: 5px;
+}
+.mm3-fbtabs .mm3-tab {
+  height: 26px;
+  font-size: 9px;
+  padding: 0 11px 0 20px;
+  background: linear-gradient(#2a2a2c, #1c1c1d);
+  box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mm3-fbtabs .mm3-tab::before {
+  left: 9px;
+}
+.mm3-fbdrag {
+  border-radius: 6px;
+  border: 1.5px solid var(--acc);
+  background: rgba(255, 217, 0, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #f2f2f2;
+  cursor: grab;
+  touch-action: none;
+}
+.mm3-fbdrag em {
+  font-style: normal;
+  color: var(--acc);
+  letter-spacing: 0;
+  font-size: 14px;
+}
+.mm3-fbinfo {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #cfcfcf;
+}
+.mm3-fbinfo span {
+  color: #7d7d7d;
+}
+
+/* la rangee, dans la racine de la face 3D (a son zoom) ; seuls le fond et les touches prennent la souris */
+.mm3-row {
+  --acc: #ffd900;
+  --acc-glow: rgba(255, 217, 0, 0.55);
+  --red: #ff3d2e;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 975px;
+  transform-origin: 0 0;
+  z-index: 5;
+  pointer-events: none;
+  font-family: 'SF Pro Display', -apple-system, sans-serif;
+  line-height: normal;
+  color: #e6e6e6;
+  -webkit-font-smoothing: antialiased;
+}
+.mm3-row * {
+  box-sizing: border-box;
+}
+.mm3-row > div {
+  position: absolute;
+  pointer-events: auto;
+}
+/* le fond du cadre des pas : la plaque de la face (mesuree sur son rendu), les pads 3D dessous */
+.mm3-rowplate {
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0) 22%), linear-gradient(90deg, #221f1f 0%, #272424 50%, #302d2c 100%);
+}
+.mm3-row .mm3-note {
+  pointer-events: none;
+  font-size: 9px;
+}
+.mm3-row .mm3-bracket {
+  pointer-events: none;
+}
+.mm3-row .mm3-bracket span {
+  font-size: 10.5px;
+  transform: translate(-50%, 3px);
+}
+.mm3-row .mm3-trk .n {
+  top: 12px;
+  font-size: 12px;
+}
+.mm3-row .mm3-trk .no {
+  left: 7px;
+  top: 5px;
+  font-size: 7.5px;
+}
+.mm3-row .mm3-trk .m {
+  right: 7px;
+  top: 6px;
+  width: 5px;
+  height: 5px;
+}
+.mm3-row .mm3-trk .vu {
+  left: 9px;
+  right: 9px;
+  bottom: 6px;
+}
+.mm3-row .mm3-step {
+  border-radius: 10px;
+}
+.mm3-row .mm3-step .win {
+  left: 11px;
+  right: 11px;
+  top: 10px;
+}
+.mm3-row .mm3-step .num {
+  bottom: 11px;
+  font-size: 15px;
+}
+.mm3-row .mm3-step .plab {
+  top: 40px;
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+.mm3-row .mm3-step .cond {
+  right: 8px;
+  top: 22px;
+  font-size: 8.5px;
+}
+.mm3-row .mm3-step .lockdot {
+  left: 9px;
+  top: 23px;
+  width: 6px;
+  height: 6px;
+}
+.mm3-row .mm3-step .vel {
+  left: 11px;
+  right: 11px;
+  bottom: 34px;
+}

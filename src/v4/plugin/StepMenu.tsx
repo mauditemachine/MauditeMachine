@@ -116,8 +116,8 @@ export const StepMenu: React.FC = () => {
   // la couvre jamais, un second clic droit l'atteint), centre sur elle, dans la fenetre
   const em = Math.max(11, Math.min(18, window.innerWidth / 92));
   const w = 23 * em;
-  // la face v3 (2026-11-25) : ses touches de pas portent data-mm3-step
-  const key = (document.querySelector(`.v4-twin[aria-label^="Trig ${v.step + 1},"]`) ?? document.querySelector(`[data-mm3-step="${v.step}"]`))?.getBoundingClientRect();
+  // la face v3 et la face B (2026-11-25) : leurs touches de pas portent data-mm3-step (la face B garde les pas 3D dessous)
+  const key = (document.querySelector(`[data-mm3-step="${v.step}"]`) ?? document.querySelector(`.v4-twin[aria-label^="Trig ${v.step + 1},"]`))?.getBoundingClientRect();
   const cx = key ? key.left + key.width / 2 : v.x;
   const above = key ? key.top - 0.5 * em : v.y - 2 * em;
   const left = Math.max(8, Math.min(window.innerWidth - w - 8, cx - w / 2));

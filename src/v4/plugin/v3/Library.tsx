@@ -145,19 +145,20 @@ export const Library: React.FC = () => {
 
 /* ---------------- MIDI ---------------- */
 
-const useMidi = (): ReturnType<typeof pluginMidi.get> => useSyncExternalStore(pluginMidi.subscribe, pluginMidi.get, pluginMidi.get);
+export const useMidi = (): ReturnType<typeof pluginMidi.get> => useSyncExternalStore(pluginMidi.subscribe, pluginMidi.get, pluginMidi.get);
 
-/** DRAG MIDI : tire de 4 px, le plugin donne le fichier au glisser du Mac ; un clic sans glisser garde le .mid. */
-const DragMidi: React.FC = () => {
-  useTick();
-  const { info, status } = useMidi();
+/**
+ * Le geste de DRAG MIDI (la page MIDI, la barre du bas de la face B) : tire de 4 px, le plugin donne le fichier au glisser
+ * du Mac ; un clic sans glisser garde le .mid.
+ */
+export function useMidiDrag(): (e: React.PointerEvent) => void {
   const press = useRef<{ id: number; x: number; y: number; sent: boolean } | null>(null);
   const off = useRef<(() => void) | null>(null);
   useEffect(() => {
     pluginMidi.request?.();
     return () => off.current?.();
   }, []);
-  const onDown = (e: React.PointerEvent): void => {
+  return (e: React.PointerEvent): void => {
     if (e.button !== 0) return;
     off.current?.();
     press.current = { id: e.pointerId, x: e.clientX, y: e.clientY, sent: false };
@@ -187,6 +188,13 @@ const DragMidi: React.FC = () => {
     window.addEventListener('pointerup', end, true);
     window.addEventListener('pointercancel', end, true);
   };
+}
+
+/** DRAG MIDI : tire de 4 px, le plugin donne le fichier au glisser du Mac ; un clic sans glisser garde le .mid. */
+const DragMidi: React.FC = () => {
+  useTick();
+  const { info, status } = useMidi();
+  const onDown = useMidiDrag();
   const can = !!info && info.ok && info.notes > 0;
   return (
     <>
@@ -237,7 +245,7 @@ const PatternDots: React.FC<{ x: number; y: number; cw: number; rh: number }> = 
 };
 
 /** NEW et CLEAR, confirmes d'un second clic (Cmd+Z les annule aussi). */
-const Confirm: React.FC<{ x: number; y: number; word: string; title: string; run: () => void }> = ({ x, y, word, title, run }) => {
+export const Confirm: React.FC<{ x: number; y: number; w?: number; h?: number; word: string; title: string; run: () => void }> = ({ x, y, w = 100, h = 22, word, title, run }) => {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return undefined;
@@ -248,8 +256,8 @@ const Confirm: React.FC<{ x: number; y: number; word: string; title: string; run
     <Key
       x={x}
       y={y}
-      w={100}
-      h={22}
+      w={w}
+      h={h}
       r={8}
       inner={armed ? 'SURE ?' : word}
       lit={armed ? 'red' : null}

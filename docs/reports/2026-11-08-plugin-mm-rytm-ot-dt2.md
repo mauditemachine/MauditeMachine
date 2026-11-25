@@ -673,7 +673,7 @@ Mika, sur la face v3 : « tu as tout detruit [...] l'interface est horrible, tro
 - **Verifie** : Chromium (sans son) : la face d'avant par defaut, OPEN ouvre SAMPLE, un onglet, le menu, Echap (le menu puis la page), O rouvre, CLOSE, pas de capot ; SEQ : une tape pose le pas 4, un glisser pose 15 et 16, la voie VELOCITY pose le pas 8, une tape retire le pas 4 (le programme les joue) ; DISTO : le point LOW CUT tire regle LOW CUT et THUMP. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 45555698514), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 25bfa5c, branche claude/intelligent-ride-56tyeo, 2026-11-25 05:54 UTC.
 
-### Lot 47, maquettes de la face avant amelioree (2026-11-25, a valider)
+### Lot 47, la face B : maquettes, puis le code (2026-11-25)
 
 Mika : « refais un peu la face avant de RYTM par rapport a ce que je t'ai dit qui etait bien, la tu as tout enleve ; ameliore la face avant et agrandis le plugin, mais garde le max de choses ; des images avant de coder ».
 
@@ -683,7 +683,18 @@ Mika : « refais un peu la face avant de RYTM par rapport a ce que je t'ai dit q
   - **Les etats de la rangee** : lecture, MUTE, PERFORM (les vrais pads), longueur de piste (TLEN).
   - **Avant / apres** : 1400 x 853 contre 1600 x 975.
 
+Mika : « B, 1600 c'est bon, go code ».
+
+- **La face B codee** (`src/v4/plugin/v3/FaceB.tsx`) : la fenetre a **1600 x 1069** (`PluginEditor.cpp` kW/kH) ; la face 3D (inchangee) posee entre un bandeau de 50 et une barre de 44 (`PluginFace.tsx` : la racine 3D a la place de la face, zoomee a la fenetre).
+- **La rangee sur la face** : le fond du cadre des pas (la plaque mesuree sur le rendu) couvre les pads 3D ; dessus, `Steps` de la v3 en grand (`Steps.tsx` RowLay : la geometrie de la v3 par defaut, celle de la face B) : les 16 pistes (un clic : la piste, un clic droit : mute ; le niveau, le point mute/solo), les 16 pas en ligne (une tape pose ou retire, une tenue : P-LOCK, un glisser : velocite, un clic droit : les conditions pres de la touche, `StepMenu.tsx`), BEAT 1 a 4, la ligne d'aide. MUTE, SOLO, PERFORM, FUNC de la face 3D y passent comme avant.
+- **Le bandeau** : MAUDITE MACHINE, MM-RYTM, les onglets d'OPEN (SAMPLE a MASTER, LIBRARY, MIDI : un clic ouvre la page), le menu ≡ qui s'ouvre sur la face (`Overlay.tsx` : Echap ou un clic ailleurs le ferme).
+- **La barre du bas** : DRAG MIDI (glisser : le clip vers Ableton ; un clic : le .mid), la pattern (A01 / 16 STEPS / 32 NOTES, le message du plugin), NEW… (confirme) et SAVE .MID (`Library.tsx` : useMidiDrag, Confirm exportes).
+- **Verifie** : Chromium (sans son), 1600 x 1069 : la racine 3D en 0, 50, 1600 x 975 ; 16 pistes, 16 pas ; poser et retirer le pas 4 de BD (le programme envoye au moteur) ; SD choisie puis son pas 2 ; OH coupee puis rendue au clic droit ; le menu des conditions au-dessus du pas 1 ; DISTO par l'onglet, Echap ; le menu ≡ (Echap, clic ailleurs) ; la touche OPEN de la face ; SAVE .MID et un glisser de DRAG MIDI (mm_save_midi, mm_drag_midi) ; MUTE : les pas deviennent les pistes ; a 1200 x 802 tout se reduit ensemble ; aucune erreur. Site : 4 vues a 0 pixel ; tsc 105 (la base) ; face:test 7/7, presets:test 5/5.
+
 ## 2. Decisions prises et pourquoi
+
+- **Lot 47 : la rangee en DOM par-dessus la face 3D** plutot que de nouveaux pads en 3D : c'est exactement la rangee que Mika a aimee (image 1), deja branchee sur les gestes ; la face 3D et le site ne changent pas (les pads 3D restent dessous, invisibles, sans clic). Le fond est la couleur de la plaque mesuree sur le rendu.
+- **Lot 47 : la taille gardee** : une taille choisie au coin reste celle de la reouverture ; une fenetre qui s'ouvrirait plus petite que 1600 se tire au coin.
 
 - **Lot 46 : 1400 x 853** : la face 3D est cadree pour le rapport 1200 x 731 ; a 1400 x 896 elle etait rognee ; le meme rapport, plus grand, garde la face entiere et donne la place demandee ; les sous-pages (dessinees en 1400 x 896) zooment dedans.
 - **Lot 46 : un seul LFO partout** : sur la sous-page seule, la page de la machine aurait encore montre deux LFO ; aucun preset d'usine n'utilise le LFO 2, seul RANDOM le tirait.
@@ -817,7 +828,7 @@ Mika : « refais un peu la face avant de RYTM par rapport a ce que je t'ai dit q
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- **Lot 47, a valider par Mika** : la face A ou B (`docs/maquettes/mm-rytm-lot47/`), la taille par defaut 1600 x 975 ; aucun code avant son choix.
+- **Cote Mika (lot 47)** : la commande mm-rytm ; la face B : choisir une piste dans la rangee, poser des pas, clic droit sur une piste (mute), les onglets du bandeau, le menu ≡, DRAG MIDI vers Ableton ; dire si les niveaux des pistes bougent bien en lecture.
 
 - **Cote Mika (lot 46)** : la commande mm-rytm ; la face d'avant, OPEN : les sous-pages ; SEQ (poser des pas), LFO, DISTO (tirer les points de l'EQ), les envois. A venir, en maquette d'abord : la rangee des 16 pistes au-dessus des pas (Mika : « y'a quand meme de bonnes choses, genre ca »), plus de details facon MM-ARP dans les autres pages d'effets, les logos du dossier Knobs (a glisser dans le chat).
 - **Cote Mika (lot 45)** : la commande mm-rytm ; ouvrir MM-RYTM dans Live : la nouvelle face. Essayer les knobs, un pas tenu puis un knob (P-LOCK), le clic droit (conditions), les onglets d'OPEN, REC (LIVE REC d'un clic) ; dire ce qui manque, ce qui gene, et oui ou non pour chaque ajout NEW des maquettes. `?face=old` n'est pas joignable dans Live : si un geste d'avant manque, le dire.

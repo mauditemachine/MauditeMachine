@@ -68,7 +68,7 @@ export const OpenOverlay: React.FC = () => {
         view.toggle();
         return;
       }
-      if (e.key !== 'Escape' || !view.get().page) return;
+      if (e.key !== 'Escape' || (!view.get().page && !view.get().menu)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       if (view.get().menu) view.menu(false);
@@ -77,6 +77,25 @@ export const OpenOverlay: React.FC = () => {
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
+  // La face B (lot 47) : le menu de son bandeau s'ouvre sur la face, sans page ; un clic ailleurs le ferme
+  if (!v.page && v.menu)
+    return (
+      <div
+        className="mm3-root mm3-overlay"
+        style={{ zIndex: 60, background: 'transparent' }}
+        onContextMenu={(e) => e.preventDefault()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          view.menu(false);
+        }}
+      >
+        <div className="mm3-stage" style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.k})` }}>
+          <Boundary key="menu">
+            <Menu />
+          </Boundary>
+        </div>
+      </div>
+    );
   if (!v.page) return null;
   return (
     <div

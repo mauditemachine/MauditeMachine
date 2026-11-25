@@ -30,6 +30,7 @@ import { Lcd } from '../ui/Lcd';
 import { NameDialog } from './NameDialog';
 import { bridge } from './bridge';
 import { OpenOverlay } from './v3/Overlay';
+import { FB, FaceChrome, FaceRow, useFaceZoom } from './v3/FaceB';
 import { StepMenu } from './StepMenu';
 import { ScreenMouse } from './ScreenMouse';
 
@@ -59,6 +60,8 @@ const PluginFace: React.FC = () => {
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const running = useSyncExternalStore(clock.subscribe, () => clock.running);
   const instrument = useSyncExternalStore(pattern.subscribe, () => pattern.get().instrument);
+  // La face B (lot 47) : la face 3D dans 1600 x 975, entre le bandeau et la barre du bas, zoomee a la fenetre
+  const z = useFaceZoom();
 
   const onError = useCallback((m: string) => {
     setError(m);
@@ -140,44 +143,50 @@ const PluginFace: React.FC = () => {
   }, [look, onError]);
 
   return (
-    <div
-      className="v4-root mm-plugin"
-      style={{ position: 'fixed' }}
-      data-v4-state={running ? 'running' : instrument ? 'selected' : 'idle'}
-      data-v4-gl={error ? 'fallback' : 'webgl'}
-      data-v4-layout="desktop"
-      data-v4-motion="full"
-      data-v4-muted="1"
-      data-v4-intro="0"
-      data-v4-running={running ? '1' : '0'}
-      data-v4-theme={look}
-      data-v4-focus="mm808"
-      data-mm-plugin="1"
-    >
-      <div ref={inputRef} className="v4-stage">
+    <>
+      <FaceChrome z={z} />
+      <div
+        className="v4-root mm-plugin"
+        style={{ position: 'fixed', left: z.x, top: z.y + FB.head * z.k, width: FB.w * z.k, height: FB.face * z.k, right: 'auto', bottom: 'auto' }}
+        data-v4-state={running ? 'running' : instrument ? 'selected' : 'idle'}
+        data-v4-gl={error ? 'fallback' : 'webgl'}
+        data-v4-layout="desktop"
+        data-v4-motion="full"
+        data-v4-muted="1"
+        data-v4-intro="0"
+        data-v4-running={running ? '1' : '0'}
+        data-v4-theme={look}
+        data-v4-focus="mm808"
+        data-mm-plugin="1"
+      >
+        <div ref={inputRef} className="v4-stage">
+          <Boundary onError={onError}>
+            <div ref={hostRef} className="v4-canvas-host" aria-hidden="true" />
+          </Boundary>
+          <Boundary onError={onError}>
+            <HitLayer getStage={getStage} stage={stage} />
+            <section id="v4-controls" aria-label="MM-RYTM controls">
+              <Twins stage={stage} />
+            </section>
+          </Boundary>
+        </div>
         <Boundary onError={onError}>
-          <div ref={hostRef} className="v4-canvas-host" aria-hidden="true" />
+          <FaceRow k={z.k} />
         </Boundary>
         <Boundary onError={onError}>
-          <HitLayer getStage={getStage} stage={stage} />
-          <section id="v4-controls" aria-label="MM-RYTM controls">
-            <Twins stage={stage} />
-          </section>
+          <ScreenMouse stage={stage} />
+          <Lcd />
+          <NameDialog stage={stage} />
+          <OpenOverlay />
+          <StepMenu />
         </Boundary>
+        {error && (
+          <p className="mm-plugin-error" role="alert">
+            MM-RYTM : {error}
+          </p>
+        )}
       </div>
-      <Boundary onError={onError}>
-        <ScreenMouse stage={stage} />
-        <Lcd />
-        <NameDialog stage={stage} />
-        <OpenOverlay />
-        <StepMenu />
-      </Boundary>
-      {error && (
-        <p className="mm-plugin-error" role="alert">
-          MM-RYTM : {error}
-        </p>
-      )}
-    </div>
+    </>
   );
 };
 
