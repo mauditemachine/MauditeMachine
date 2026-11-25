@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+@font-face { font-family: 'SFD'; src: url(fonts/SF-Pro-Display-Medium.woff2); font-weight: 500; }
+@font-face { font-family: 'SFD'; src: url(fonts/SF-Pro-Display-Semibold.woff2); font-weight: 600; }
+@font-face { font-family: 'SFD'; src: url(fonts/SF-Pro-Display-Bold.woff2); font-weight: 700; }
+@font-face { font-family: 'SFD'; src: url(fonts/SF-Pro-Display-Black.woff2); font-weight: 800 900; }
+@font-face { font-family: 'Robot'; src: url(fonts/RobotRadicals.woff2); }
+:root { --acc: #ffd900; --acc-glow: rgba(255, 217, 0, 0.55); --red: #ff3d2e; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #0b0b0b; }
+body { font-family: 'SFD', 'Inter', sans-serif; -webkit-font-smoothing: antialiased; color: #ddd; }
+#win { position: relative; overflow: hidden; background: #121212; }
+#win > * { position: absolute; }
+.face { width: 1600px; height: 975px; background-size: 1600px 975px; }
+.plate { border-radius: 11px; background: linear-gradient(90deg, #211f1f 0%, #262423 55%, #2c2a29 100%); }
+.trk { border-radius: 7px; background: linear-gradient(#252527, #19191a);
+  box-shadow: 0 0 0 1px #080808, inset 0 1px 0 rgba(255,255,255,.08), 0 2px 3px rgba(0,0,0,.55); }
+.trk > *, .step > * { position: absolute; }
+.trk .n { left: 0; right: 0; top: 11px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .1em; color: #d8d8d8; }
+.trk .no { left: 7px; top: 5px; font-size: 7.5px; font-weight: 700; color: #747474; }
+.trk .vu { left: 9px; right: 9px; bottom: 6px; height: 3px; border-radius: 2px; background: #0b0b0b; overflow: hidden; }
+.trk .vu b { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #5c5c5c, #cfcfcf); }
+.trk .m { right: 7px; top: 6px; width: 5px; height: 5px; border-radius: 50%; background: #303032; }
+.trk .m.on { background: var(--red); box-shadow: 0 0 5px rgba(255,61,46,.8); }
+.trk .m.solo { background: var(--acc); box-shadow: 0 0 5px var(--acc-glow); }
+.trk.sel { background: linear-gradient(#3a3214, #251f08); box-shadow: 0 0 0 1px var(--acc), inset 0 1px 0 rgba(255,255,255,.12), 0 0 10px rgba(255,217,0,.25); }
+.trk.sel .n { color: var(--acc); }
+.trk.mute .n { color: #5c5c5c; text-decoration: line-through; }
+.trk.dim .n { color: #5c5c5c; }
+.step { border-radius: 10px; background: linear-gradient(180deg, #2a2a2c 0%, #1b1b1c 60%, #141415 100%);
+  box-shadow: 0 0 0 1px #060606, inset 0 1px 0 rgba(255,255,255,.09), inset 0 -3px 4px rgba(0,0,0,.45), 0 4px 6px rgba(0,0,0,.6); }
+.step .win { left: 11px; right: 11px; top: 10px; height: 5px; border-radius: 3px; background: #0a0a0a; box-shadow: inset 0 1px 1px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.06); }
+.step.on { background: linear-gradient(180deg, #ff6b5d 0%, #f2382a 55%, #c9261b 100%);
+  box-shadow: 0 0 0 1px #3e0a06, inset 0 1px 0 rgba(255,255,255,.45), inset 0 -3px 5px rgba(120,10,0,.4), 0 0 18px rgba(255,61,46,.35), 0 4px 6px rgba(0,0,0,.55); }
+.step.on .win { background: rgba(90,0,0,.35); box-shadow: inset 0 1px 1px rgba(0,0,0,.4); }
+.step.ph .win { background: var(--acc); box-shadow: 0 0 8px var(--acc-glow), inset 0 1px 0 rgba(255,255,255,.6); }
+.step.lock { box-shadow: 0 0 0 2px var(--acc), 0 0 16px rgba(255,217,0,.35), 0 4px 6px rgba(0,0,0,.55); }
+.step.out { opacity: .32; }
+.step.perf { background: linear-gradient(180deg, #34301c 0%, #232013 60%, #19170d 100%); }
+.step.perf.down { background: linear-gradient(180deg, #ffe85a 0%, #ffd900 55%, #d9b500 100%); }
+.step .num { left: 0; right: 0; bottom: 11px; text-align: center; font-size: 15px; font-weight: 700; color: #bdbdbd; }
+.step.on .num { color: #fff3f1; text-shadow: 0 1px 0 rgba(120,0,0,.5); }
+.step .plab { left: 2px; right: 2px; top: 38px; text-align: center; font-size: 9.5px; font-weight: 800; letter-spacing: .08em; color: var(--acc); line-height: 1.25; }
+.step.perf.down .plab, .step.perf.down .num { color: #1f1a00; }
+.step .cond { right: 8px; top: 22px; font-size: 8.5px; font-weight: 800; letter-spacing: .06em; color: var(--acc); }
+.step.on .cond { color: #fff6a8; }
+.step .lockdot { left: 9px; top: 23px; width: 6px; height: 6px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 5px var(--acc-glow); }
+.step.on .lockdot { background: #fff6a8; }
+.step .vel { left: 11px; right: 11px; bottom: 34px; height: 3px; border-radius: 2px; background: rgba(0,0,0,.25); }
+.step .vel b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: rgba(255,255,255,.55); }
+.bracket { height: 9px; border: 1px solid rgba(255,255,255,.22); border-top: 0; }
+.bracket span { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 3px); font-size: 10.5px; font-weight: 700; letter-spacing: .22em; color: #dedede; white-space: nowrap; }
+.note { font-size: 9px; font-weight: 600; letter-spacing: .14em; color: #8e8e8e; white-space: nowrap; }
+.note b { color: #e8e8e8; font-weight: 700; }
+.note i { font-style: normal; color: var(--acc); }
+/* bandeau d'en-tete et barre MIDI (variante B) */
+.head { left: 0; top: 0; width: 1600px; height: 50px; background: linear-gradient(#1b1b1b, #121212); box-shadow: inset 0 -1px 0 rgba(255,255,255,.05); }
+.head > *, .foot > * { position: absolute; }
+.wm { left: 26px; top: 13px; font-family: 'Robot'; font-size: 22px; color: #f2f2f2; letter-spacing: .02em; }
+.model { left: 300px; top: 15px; font-size: 19px; font-weight: 500; letter-spacing: .14em; color: #cfcfcf; }
+.openlab { left: 452px; top: 20px; font-size: 9px; font-weight: 700; letter-spacing: .2em; color: var(--acc); }
+.tabs { left: 508px; top: 12px; display: flex; gap: 5px; }
+.tab { height: 26px; border-radius: 13px; padding: 0 11px 0 20px; display: flex; align-items: center; position: relative; font-size: 9px; font-weight: 700; letter-spacing: .12em; color: #cfcfcf; background: linear-gradient(#2a2a2c, #1c1c1d); box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255,255,255,.08); }
+.tab::before { content: ''; position: absolute; left: 9px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5d5d60, #222224); }
+.ham { right: 24px; top: 10px; width: 40px; height: 30px; border-radius: 8px; background: linear-gradient(#2a2a2c, #1c1c1d); box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255,255,255,.08); }
+.ham i { position: absolute; left: 12px; right: 12px; height: 2px; background: #ddd; border-radius: 1px; }
+.foot { left: 0; width: 1600px; height: 44px; background: linear-gradient(#121212, #0e0e0e); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.drag { left: 20px; top: 8px; height: 28px; width: 170px; border-radius: 6px; border: 1.5px solid var(--acc); background: rgba(255,217,0,.06); display: flex; align-items: center; gap: 10px; padding-left: 12px; font-size: 12px; font-weight: 700; letter-spacing: .1em; color: #f2f2f2; }
+.drag em { font-style: normal; color: var(--acc); letter-spacing: 0; font-size: 14px; }
+.finfo { left: 210px; top: 15px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: #cfcfcf; }
+.finfo span { color: #7d7d7d; }
+.fbtn { top: 8px; height: 28px; border-radius: 6px; padding: 0 16px; display: flex; align-items: center; font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #ddd; background: linear-gradient(#2a2a2c, #1c1c1d); box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255,255,255,.08); }
+/* annotations */
+.ann { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: #111; background: var(--acc); border-radius: 13px; padding: 5px 12px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.ann.w { background: #f2f2f2; }
+.cap { font-size: 22px; font-weight: 700; letter-spacing: .08em; color: #f2f2f2; }
+.sub { font-size: 14px; font-weight: 500; color: #a8a8a8; letter-spacing: .02em; line-height: 1.5; }
+.sub b { color: var(--acc); font-weight: 700; }
+.ring { border: 2px solid var(--acc); border-radius: 12px; box-shadow: 0 0 0 4px rgba(255,217,0,.15); }
+.pill { font-size: 12px; font-weight: 800; letter-spacing: .16em; color: #111; background: var(--acc); padding: 4px 10px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="win"></div>
+<script>
+const NAMES = ['BD','SD','CH','OH','CP','TOM','HT','CY','BD2','SD2','CH2','OH2','CP2','TOM2','HT2','CY2'];
+const VU = [.82,.55,.3,.42,.6,.35,0,0,.12,0,.22,0,0,0,.1,0];
+const q = new URLSearchParams(location.hash.slice(1));
+const V = q.get('v') || 'A';
+const win = document.getElementById('win');
+const el = (cls, st, html) => { const d = document.createElement('div'); if (cls) d.className = cls; Object.assign(d.style, st || {}); if (html != null) d.innerHTML = html; return d; };
+const px = (n) => n + 'px';
+
+/** La rangee des pistes, les 16 pas, les BEAT et la ligne d'aide, dans le cadre des pas (x0..x1, y0). */
+function bottom(root, o) {
+  const X0 = o.x0, X1 = o.x1, P = (X1 - X0) / 16, W = P - 8, Y = o.y0;
+  const st = o.state || 'play';
+  for (let i = 0; i < 16; i++) {
+    const sel = i === 0 && st !== 'solo';
+    const mute = st === 'mute' ? [3, 6, 7, 11].includes(i) : i === 11;
+    const solo = st === 'solo' && (i === 1 || i === 4);
+    let cls = 'trk' + (sel ? ' sel' : '') + (mute ? ' mute' : '') + (st === 'solo' && !solo ? ' dim' : '');
+    const t = el(cls, { left: px(X0 + i * P), top: px(Y), width: px(W), height: px(40) });
+    t.append(el('no', {}, String(i + 1).padStart(2, '0')), el('n', {}, NAMES[i]), el('m' + (mute ? ' on' : solo ? ' solo' : '')), el('vu', {}, `<b style="width:${Math.round((st === 'solo' && !solo ? 0 : VU[i]) * 100)}%"></b>`));
+    root.append(t);
+  }
+  const SY = Y + 52, SH = o.stepH || 112;
+  const ON = { 0: 9, 4: 7, 8: 9, 12: 8, 15: 5 };
+  for (let i = 0; i < 16; i++) {
+    let cls = 'step', body = '<div class="win"></div>';
+    if (st === 'mute' || st === 'solo') {
+      const on = st === 'mute' ? ![3, 6, 7, 11].includes(i) : (i === 1 || i === 4);
+      cls += on ? ' on' : '';
+      body += `<div class="plab" style="color:${on ? '#fff3f1' : '#9a9a9a'}">${NAMES[i]}</div><div class="num">${i + 1}</div>`;
+    } else if (st === 'perf') {
+      const L = ['CUT<br>BD','CUT<br>SD','CUT<br>CH','CUT<br>OH','CUT<br>CP','CUT<br>TOM','CUT<br>HT','CUT<br>CY','RPT<br>1/8','RPT<br>1/16','RPT<br>1/32','LOW<br>CUT','DELAY','REVERB','HELL','TAPE'];
+      cls += ' perf' + (i === 9 ? ' down' : '');
+      body += `<div class="plab">${L[i]}</div><div class="num">${i + 1}</div>`;
+    } else {
+      const v = ON[i] || 0;
+      if (v) cls += ' on'; else cls += ' off';
+      if (i === 6) cls += ' ph';
+      if (st === 'tlen' && i >= 12) cls += ' out';
+      if (st === 'lock' && i === 12) cls += ' lock';
+      if (i === 15) body += '<div class="cond">1:2</div>';
+      if (i === 12) body += '<div class="lockdot"></div>';
+      if (v) body += `<div class="vel"><b style="width:${Math.round(v / 9 * 100)}%"></b></div>`;
+      body += `<div class="num">${i + 1}</div>`;
+    }
+    const s = el(cls, { left: px(X0 + i * P), top: px(SY), width: px(W), height: px(SH) }, body);
+    s.dataset.i = i;
+    root.append(s);
+  }
+  const BY = SY + SH + 10;
+  for (let g = 0; g < 4; g++) {
+    const lab = st === 'perf' ? ['CUTS', 'CUTS', 'REPEAT · LOW CUT', 'THROWS · TAPE'][g] : st === 'mute' ? 'MUTE' : st === 'solo' ? 'SOLO' : `BEAT ${g + 1}`;
+    root.append(el('bracket', { left: px(X0 + g * 4 * P + 4), top: px(BY), width: px(4 * P - 16) }, `<span>${lab}</span>`));
+  }
+  if (o.hint !== false) {
+    const len = st === 'tlen' ? 12 : 16;
+    root.append(el('note', { left: px(X0), top: px(BY + 36) }, `PATTERN <b>16</b> STEPS · TRACK <b>${len}</b> · CLICK A TRACK : <i>SELECT</i> · RIGHT CLICK : <i>MUTE</i> · HOLD A STEP : <i>P-LOCK</i> · DRAG : <i>VELOCITY</i>`));
+    root.append(el('note', { left: px(X1 - 8), top: px(BY + 36), transform: 'translateX(-100%)' }, `<i>●</i> P-LOCK &nbsp; <i>1:2</i> CONDITION &nbsp; <b>▬</b> VELOCITY`));
+  }
+  return { P, SY, SH, BY };
+}
+
+/** La face d'avant (rendu 3D reel) a 1600 x 975, ses pads remplaces par la rangee. */
+function face(top, state) {
+  const f = el('face', { left: 0, top: px(top), backgroundImage: 'url(face.png)' });
+  win.append(f);
+  // l'interieur du cadre des pas (x 212.5..1562.5, y 683.5..962) repeint, le cadre garde
+  win.append(el('plate', { left: px(215), top: px(top + 686), width: px(1345), height: px(274) }));
+  return bottom(win, { x0: 232, x1: 1552, y0: top + 698, state, stepH: 124 });
+}
+
+function header() {
+  const h = el('head');
+  h.append(el('wm', {}, 'MAUDITE MACHINE'), el('model', {}, 'MM-RYTM'), el('openlab', {}, 'OPEN ›'));
+  const tabs = el('tabs');
+  for (const t of ['SAMPLE', 'SEQ', 'LFO', 'DISTO', 'CHORUS', 'DELAY', 'REVERB', 'HELL', 'MASTER', 'LIBRARY', 'MIDI']) tabs.append(el('tab', {}, t));
+  h.append(tabs);
+  h.append(el('ham', {}, '<i style="top:9px"></i><i style="top:14px"></i><i style="top:19px"></i>'));
+  win.append(h);
+}
+function footer(top) {
+  const f = el('foot', { top: px(top) });
+  f.append(el('drag', {}, '<em>⠿</em> DRAG MIDI'));
+  f.append(el('finfo', {}, 'A01 <span>/</span> 1 BAR <span>/</span> 25 NOTES <span>&nbsp; · &nbsp;DROP IT ON A MIDI TRACK OR A DRUM RACK</span>'));
+  f.append(el('fbtn', { right: px(20) }, 'SAVE .MID'));
+  f.append(el('fbtn', { right: px(140) }, 'NEW'));
+  win.append(f);
+}
+
+if (V === 'A') {
+  Object.assign(win.style, { width: '1600px', height: '975px' });
+  face(0, 'play');
+} else if (V === 'B') {
+  Object.assign(win.style, { width: '1600px', height: '1069px' });
+  header();
+  face(50, 'play');
+  footer(1025);
+} else if (V === 'size') {
+  Object.assign(win.style, { width: '3080px', height: '1090px', background: '#0e0e0e' });
+  win.append(el('', { left: '20px', top: px(1090 - 853 - 20), width: '1400px', height: '853px', backgroundImage: 'url(old.png)', backgroundSize: '1400px 853px', boxShadow: '0 0 0 1px #333' }));
+  win.append(el('', { left: '1460px', top: px(1090 - 975 - 20), width: '1600px', height: '975px', backgroundImage: 'url(mA.png)', backgroundSize: '1600px 975px', boxShadow: '0 0 0 2px #ffd900' }));
+  win.append(el('cap', { left: '20px', top: px(1090 - 853 - 66), fontSize: '30px' }, 'AVANT &nbsp;<span style="color:#8a8a8a">1400 × 853</span>'));
+  win.append(el('cap', { left: '1460px', top: px(1090 - 975 - 62), fontSize: '30px', color: '#ffd900' }, 'APRÈS &nbsp;<span style="color:#f2f2f2">1600 × 975</span>'));
+} else if (V === 'detail') {
+  // 4 etats de la rangee, sur fond de plaque
+  Object.assign(win.style, { width: '1600px', height: '1360px', background: '#141414' });
+  const rows = [
+    ['play', 'LECTURE', 'La piste <b>BD</b> choisie (jaune), son niveau qui bouge sous chaque nom, la tête de lecture (pas 7), un <b>P-LOCK</b> (pas 13), une <b>condition 1:2</b> (pas 16), la vélocité en barre.'],
+    ['mute', 'MUTE', 'La touche <b>MUTE</b> de gauche : les pas deviennent les pistes, comme maintenant. Ou un clic droit direct sur la piste. Le point <b>rouge</b> = coupée.'],
+    ['perf', 'PERFORM', 'Les 16 pas deviennent les <b>pads de performance</b> (CUT par piste, REPEAT, LOW CUT, DELAY, REVERB, HELL, TAPE), comme maintenant.'],
+    ['tlen', 'LONGUEUR DE PISTE', 'Une piste de <b>12 pas</b> : les pas 13 à 16 s\'éteignent (polymétrie), comme maintenant sur la face.'],
+  ];
+  rows.forEach(([st, cap, sub], k) => {
+    const y = 30 + k * 335;
+    win.append(el('cap', { left: px(40), top: px(y) }, cap));
+    win.append(el('sub', { left: px(40), top: px(y + 34), width: px(1500) }, sub));
+    win.append(el('plate', { left: px(40), top: px(y + 70), width: px(1520), height: px(250), border: '1px solid #5f5c59' }));
+    bottom(win, { x0: 60, x1: 1540, y0: y + 84, state: st, stepH: 112, hint: false });
+  });
+}
+</script>
+</body>
+</html>
