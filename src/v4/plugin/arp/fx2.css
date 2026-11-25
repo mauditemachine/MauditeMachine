@@ -1,0 +1,461 @@
+/* =====================================================================================================================
+   Les pages DELAY et REVERB (v46 : l'option A des maquettes v44, DelayPage2.tsx et SkyPage2.tsx) et leur petit ecran
+   (fx2Lcd.tsx). HELL a son fichier (hell2.css) ; les ajouts v46 sont dans fxPages.css. Tout est sous .mm-plugin-arp.
+   ===================================================================================================================== */
+
+/* ---------------- le petit ecran, du style du grand ecran de la face (voyager/screen.ts) ---------------- */
+.mm-plugin-arp .mm-fx2-lcd {
+  --ink: #f6f1e7;
+  --half: rgba(246, 241, 231, 0.5);
+  --faint: rgba(246, 241, 231, 0.18);
+  position: relative;
+  box-sizing: border-box;
+  padding: 6px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #1c1b1a 0%, #121110 55%, #0c0b0a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0 0 1px #050505,
+    0 3px 10px rgba(0, 0, 0, 0.55);
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-glass {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 7px 9px 6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 38%),
+    #050506;
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.95);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 10px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-hd {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-play {
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--ink);
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-hd b {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-hd span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--half);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-hd em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-hd em small {
+  margin-left: 2px;
+  font-size: 5.5px;
+  font-weight: 700;
+  color: var(--half);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-big {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-blab {
+  font-size: 5.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--half);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-bv {
+  margin-top: 1px;
+  font-size: 27px;
+  line-height: 28px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-bu {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--half);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-bar {
+  position: relative;
+  display: block;
+  height: 3px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: var(--faint);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-tab {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: center;
+  row-gap: 2px;
+  column-gap: 6px;
+  margin: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--faint);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-tab dt {
+  font-size: 5.5px;
+  line-height: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--half);
+}
+
+.mm-plugin-arp .mm-fx2-lcd-tab dd {
+  margin: 0;
+  text-align: right;
+  font-size: 7.5px;
+  line-height: 9px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-ft {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 7px;
+  font-weight: 600;
+  color: var(--half);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-fx2-lcd-pill {
+  padding: 1.5px 6px;
+  border: 0.8px solid var(--ink);
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-fx2-corner .mm-fx2-pkeys {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 8px;
+}
+
+/* ---------------- DELAY : les echos ---------------- */
+.mm-plugin-arp .mm-fx2-stylekeys {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mm-plugin-arp .mm-fx2-stylekeys .mm-key-name {
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.mm-plugin-arp .mm-fx2-echo svg text {
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+}
+
+.mm-plugin-arp .mm-fx2-echo .lr-k {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  fill: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-fx2-echo .lr-big {
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 0;
+  fill: #f6f1e7;
+}
+
+.mm-plugin-arp .mm-fx2-echo .lr-small {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  fill: rgba(246, 241, 231, 0.5);
+}
+
+.mm-plugin-arp .mm-fx2-echo .lr-sep {
+  stroke: rgba(246, 241, 231, 0.12);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-six {
+  stroke: rgba(246, 241, 231, 0.035);
+  stroke-width: 0.7;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-beat {
+  stroke: rgba(246, 241, 231, 0.09);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-bar {
+  stroke: rgba(246, 241, 231, 0.22);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-mid {
+  stroke: rgba(246, 241, 231, 0.3);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-db {
+  stroke: rgba(246, 241, 231, 0.05);
+  stroke-width: 0.7;
+  stroke-dasharray: 2 3;
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-lab {
+  font-size: 6.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  fill: rgba(246, 241, 231, 0.32);
+}
+
+.mm-plugin-arp .mm-fx2-echo .g-lab.bar {
+  fill: rgba(246, 241, 231, 0.7);
+  font-weight: 700;
+}
+
+.mm-plugin-arp .mm-fx2-echo .env {
+  fill: none;
+  stroke: color-mix(in srgb, var(--mm-accent) 45%, transparent);
+  stroke-width: 0.9;
+  stroke-dasharray: 3 3;
+}
+
+.mm-plugin-arp .mm-fx2-echo .dry {
+  stroke: #f6f1e7;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.mm-plugin-arp .mm-fx2-echo .tap path {
+  stroke: var(--mm-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 70%, transparent));
+}
+
+.mm-plugin-arp .mm-fx2-echo .tap circle,
+.mm-plugin-arp .mm-fx2-echo .tap rect {
+  fill: color-mix(in srgb, var(--mm-accent) 55%, #fff);
+}
+
+.mm-plugin-arp .mm-fx2-echo .k-num {
+  font-size: 6px;
+  font-weight: 700;
+  fill: rgba(246, 241, 231, 0.55);
+}
+
+.mm-plugin-arp .mm-fx2-echo .head {
+  stroke: rgba(246, 241, 231, 0.55);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 3px rgba(246, 241, 231, 0.5));
+}
+
+.mm-plugin-arp .mm-fx2-echo .t-k {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  fill: rgba(246, 241, 231, 0.5);
+}
+
+.mm-plugin-arp .mm-fx2-echo .t-hot {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  fill: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-fx2-echo {
+  cursor: default;
+}
+
+/* ---------------- REVERB ---------------- */
+.mm-plugin-arp .mm-fx2-skykeys {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 28px;
+  display: grid;
+  row-gap: 16px;
+  justify-items: center;
+}
+
+.mm-plugin-arp .mm-fx2-skykeys .mm-key-name {
+  font-size: 7px;
+  letter-spacing: 0.06em;
+}
+
+.mm-plugin-arp .mm-fx2-skyblurb {
+  min-height: 22px;
+  padding: 2px 6px 0;
+  text-align: center;
+  font-size: 7.5px;
+  line-height: 10px;
+  letter-spacing: 0.04em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-fx2-skymk {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+}
+
+.mm-plugin-arp .mm-fx2-wf svg text {
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+}
+
+.mm-plugin-arp .mm-fx2-wf .floor {
+  fill: rgba(246, 241, 231, 0.025);
+  stroke: rgba(246, 241, 231, 0.12);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-fx2-wf .g {
+  stroke: rgba(246, 241, 231, 0.06);
+  stroke-width: 0.7;
+}
+
+.mm-plugin-arp .mm-fx2-wf .mask {
+  fill: #0d0b07;
+}
+
+.mm-plugin-arp .mm-fx2-wf .fill {
+  fill: color-mix(in srgb, var(--mm-accent) 22%, transparent);
+}
+
+.mm-plugin-arp .mm-fx2-wf .line {
+  fill: none;
+  stroke: var(--mm-accent);
+  stroke-width: 0.9;
+}
+
+.mm-plugin-arp .mm-fx2-wf .line.front {
+  stroke: color-mix(in srgb, var(--mm-accent) 60%, #fff);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 80%, transparent));
+}
+
+.mm-plugin-arp .mm-fx2-wf .tax {
+  stroke: rgba(246, 241, 231, 0.3);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-fx2-wf .ax {
+  font-size: 6.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  fill: rgba(246, 241, 231, 0.45);
+}
+
+.mm-plugin-arp .mm-fx2-wf .kind {
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  fill: rgba(244, 241, 234, 0.5);
+}
+
+.mm-plugin-arp .mm-fx2-wf .name {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  fill: var(--mm-accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--mm-accent) 60%, transparent));
+}
+
+.mm-plugin-arp .mm-fx2-wf .k {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  fill: rgba(244, 241, 234, 0.5);
+}
+
+.mm-plugin-arp .mm-fx2-wf .v {
+  font-size: 20px;
+  font-weight: 300;
+  fill: #f6f1e7;
+}
+
+.mm-plugin-arp .mm-fx2-skyeq .ghost {
+  fill: none;
+  stroke: rgba(246, 241, 231, 0.35);
+  stroke-width: 0.9;
+  stroke-dasharray: 3 2;
+}
+
+.mm-plugin-arp .mm-fx2-skymk-col {
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  width: 64px;
+  height: 84px;
+  margin-left: 6px;
+}

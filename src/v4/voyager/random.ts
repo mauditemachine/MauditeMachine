@@ -17,6 +17,7 @@
  * II.
  */
 
+import { fromSiteProg } from './chords';
 import { LFO_SHAPES, NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
 
 type Rnd = () => number;
@@ -206,8 +207,11 @@ function acidLine(rnd: Rnd): Step[] {
   return Array.from({ length: 16 }, (_, i) => (i % 4 === 0 && chance(rnd, 0.6) ? 0 : pickOf(rnd, pool)));
 }
 
-/** Progressions courtes pour les basses et l'acid (indices de CHORDS). */
-const SHORT_PROGS: readonly (readonly number[])[] = [[0], [0, 0, 1, 2], [0, 1], [0, 2], [0, 5, 1, 2], [4, 0], [0, 0, 5, 2]];
+/**
+ * Progressions courtes pour les basses et l'acid (indices de CHORDS) : ecrites en indices du site, converties dans le
+ * plugin MM-ARP (v43, chords.ts fromSiteProg : les memes accords dans sa banque).
+ */
+const SHORT_PROGS: readonly (readonly number[])[] = [[0], [0, 0, 1, 2], [0, 1], [0, 2], [0, 5, 1, 2], [4, 0], [0, 0, 5, 2]].map(fromSiteProg);
 
 export interface VoyRandom {
   style: VoyStyle;
@@ -216,7 +220,15 @@ export interface VoyRandom {
   seq: Step[] | null;
   /** une progression imposee ; null : au choix de RANDOM (les progressions de chords.ts) */
   prog: readonly number[] | null;
+  /** ce que dit l'ecran apres RANDOM (absent : le style) */
+  label?: string;
 }
+
+/**
+ * Le RANDOM du plugin MM-ARP (2026-11-13, plugin/arp/hypno.ts) : il reprend le tirage du site et le rend hypnotique
+ * (suite courte qui boucle, pistes par pas coherentes). Vide au site : RANDOM ne change pas.
+ */
+export const voyRandomHook: { fn: ((r: VoyRandom) => VoyRandom) | null } = { fn: null };
 
 function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
   // La base : un patch complet (aucun reglage ne reste du precedent), puis le caractere du style
@@ -484,6 +496,11 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
     };
   }
   return { style: 'ARP', patch: base, seq: null, prog: null };
+}
+
+/** Le tirage d'un style donne (le plugin MM-ARP, v28 : il choisit lui-meme ses familles ; le site ne s'en sert pas). */
+export function randomVoyOf(style: VoyStyle, rnd: Rnd = Math.random): VoyRandom {
+  return styled(style, rnd);
 }
 
 /** RANDOM : un style au hasard (jamais le meme deux fois de suite), et son patch. */

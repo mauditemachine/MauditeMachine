@@ -1,0 +1,50 @@
+/* =====================================================================================================================
+   v53 (2026-11-25, Mika : "les diodes dans OPEN je suis pas extra fan" ; "plutot sans diode" ; choix A de la maquette) :
+   plus aucune diode dans les pages d'OPEN (.mm-p2). La touche allumee se remplit d'accent (comme avant) ; un titre de
+   section actif, le cote ON d'un levier, le cran choisi d'un selecteur et la page montree dans la barre : leur MOT
+   s'allume a l'accent. Un titre de section a l'arret s'eteint un peu. Les diodes de la face (capot ferme) ne changent pas.
+   :has() : WebKit de macOS 12.3 et plus, Chromium.
+   ===================================================================================================================== */
+
+.mm-plugin-arp .mm-p2 {
+  --mm-noled-glow: 0 0 6px color-mix(in srgb, var(--mm-accent) 70%, transparent);
+}
+
+.mm-plugin-arp .mm-p2 .mm-key-led,
+.mm-plugin-arp .mm-p2 .mm-p2-led,
+.mm-plugin-arp .mm-p2 .mm-sx-tled,
+.mm-plugin-arp .mm-p2 .mm-d2-pun-led,
+.mm-plugin-arp .mm-p2 .mm-nv-lamp {
+  display: none !important;
+}
+
+/* le cran choisi d'un selecteur (STRAIGHT DOTTED TRIPLET, SINGLE DUAL PING-PONG...) */
+.mm-plugin-arp .mm-p2 .mm-p2-step-led:has(.mm-p2-led[data-on='1']) b {
+  color: var(--mm-accent) !important;
+  text-shadow: var(--mm-noled-glow);
+}
+
+/* un levier sur ON (ou SYNC) : son mot s'allume ; sur OFF, rien ne s'allume */
+.mm-plugin-arp .mm-p2 .mm-p2-tog:has(.mm-p2-tog-sw[data-on='1']) .mm-p2-tog-names b[data-on='1'] {
+  color: var(--mm-accent) !important;
+  text-shadow: var(--mm-noled-glow);
+}
+
+/* un titre de section : actif, a l'accent ; a l'arret, un peu eteint */
+.mm-plugin-arp .mm-p2 .mm-p2-frame-title:has(.mm-p2-led[data-on='1']) {
+  color: var(--mm-accent) !important;
+  text-shadow: var(--mm-noled-glow);
+}
+.mm-plugin-arp .mm-p2 .mm-p2-frame-title:has(.mm-p2-led:not([data-on='1'])) {
+  opacity: 0.55;
+}
+
+/* la barre des pages : le nom de la page montree s'allume, centre dans sa touche */
+.mm-plugin-arp .mm-p2 .mm-nv-key {
+  justify-content: center;
+  padding-left: 0 !important;
+}
+.mm-plugin-arp .mm-p2 .mm-nv-key[data-on='1'] .mm-nv-label {
+  color: var(--mm-accent) !important;
+  text-shadow: var(--mm-noled-glow);
+}

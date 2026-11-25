@@ -26,7 +26,6 @@
  */
 
 import { Group, type Object3D } from 'three';
-import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { Explode, type ExplodeCfg } from '../scene/explode';
@@ -34,14 +33,14 @@ import { Pcb } from '../scene/pcb';
 import { fontsReady, onFonts } from '../scene/silk';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
-import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
+import { EXPLODE, PCB, PCB_TURN, PLUGIN_ARP, PORTRAIT, type SectionId } from '../theme';
 import { VoySeqScreen } from './seqscreen';
-import { arp } from './arp';
+import { arp, arpNow } from './arp';
 import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
-import { CHORDS } from './chords';
+import { CHORDS, arpKey } from './chords';
 import { VoyKnobs } from './knobs';
-import { VoyScreen, type VoyScreenState } from './screen';
+import { PRESET_LIST, VoyScreen, type VoyScreenState } from './screen';
 import { voyEcho } from './echo';
 import { voyPatch } from './patch';
 import { voyInfoIdOf } from './infoIds';
@@ -173,6 +172,12 @@ export class VoyagerRig {
 
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile, anisotropy: opts.anisotropy });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed, ...this.keys.labelMeshes());
+    if (this.keys.btnHalos) this.lid.add(this.keys.btnHalos);
+    // v43 (le plugin) : une touche allumee : sa LED et son nom (en accent) suivent, sur la serigraphie du plateau
+    if (PLUGIN_ARP)
+      this.keys.onLit = (id, on) => {
+        if (this.deckSilk.setButtonLit(id, on)) this.opts.repaint();
+      };
     // Les boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : chacun sur son plan, comme sa serigraphie
     // (le panneau incline ; au telephone, CHORUS sur le plateau)
     this.panel.add(this.keys.pushes.panel);
@@ -203,6 +208,9 @@ export class VoyagerRig {
       plateauY: B.deckY,
       pcbY: VOY_PCB_Y,
       tilt: 0,
+      // v28 (Mika : "la bascule doit etre rapide mais encore avec l'animation") : le capot du plugin en 240 + 30 ms, au
+      // pas de la carte d'OPEN (HoodBoard CARD_MS 220) ; le site garde ses 900 + 80 ms
+      ...(PLUGIN_ARP ? { ms: 240, staggerMs: 30 } : {}),
     };
     this.explode = new Explode({ plateau: this.lid, pcb: this.pcbGroup, parts: this.pcb.parts }, (open) => voyExplode.settle(open), this.cfg);
 
@@ -225,11 +233,22 @@ export class VoyagerRig {
       enabled: key === 'open',
     });
     const band = 0.72;
+    /**
+     * Le plugin (v43, Mika : "les presets je veux pouvoir les selectionner a la souris et avec la touche entree je valide
+     * le preset") : une zone par ligne de la liste (vlcd-row-<r>, index r : screen.ts PRESET_LIST, la ligne s'arrete a la
+     * bande des touches) a la place de PREV et NEXT ; un clic choisit le preset de la ligne, un double clic le charge
+     * (actions/presets.ts voyPresetRow). Le site garde PREV et NEXT.
+     */
+    const PL = PRESET_LIST;
+    const rowBox = (r: number): HotspotDef => {
+      const v0 = (PL.y0 + r * PL.rowH) / PL.uh;
+      const v1 = Math.min(band, (PL.y0 + (r + 1) * PL.rowH) / PL.uh);
+      return { ...lcdBox('prev', 0.02, 0.96, v0, v1), id: `vlcd-row-${r}`, lcd: undefined, index: r };
+    };
     const lcdDefs = [
       // Demande de Mika (2026-11-03) : seul le coin bas-droite (pastille PRESETS) ouvre les presets, pas tout l'ecran
       lcdBox('open', 0.82, 1, 0.82, 1),
-      lcdBox('prev', 0, 0.5, 0, band),
-      lcdBox('next', 0.5, 1, 0, band),
+      ...(PLUGIN_ARP ? Array.from({ length: PL.rows }, (_, r) => rowBox(r)) : [lcdBox('prev', 0, 0.5, 0, band), lcdBox('next', 0.5, 1, 0, band)]),
       // Cinq touches depuis le 2026-10-27 (LOAD SAVE NAME DEL EXIT, leur nom suit l'etape) : des cinquiemes
       ...PRESET_SLOTS.map((k, i) => lcdBox(k, i / 5, (i + 1) / 5, band, 1)),
     ];
@@ -263,6 +282,11 @@ export class VoyagerRig {
 
   get hotspots(): readonly HotspotDef[] {
     return this.defs;
+  }
+
+  /** Le rang du preset montre sur la ligne r de la liste du grand ecran (vlcd-row-<r>), null : aucun. */
+  presetRowAt(r: number): number | null {
+    return this.lcd.presetRowAt(r);
   }
 
   /** Les volumes pleins : bac, joues, capot (plateau et panneau), carte. */
@@ -306,6 +330,17 @@ export class VoyagerRig {
     this.unsubs.push(voyInfos.subscribe(this.syncLcd));
     this.unsubs.push(voyPatch.subscribe(this.syncLcd));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
+    // v52 (le plugin) : la tonalite change (xKey, xScale ; plugin/arp/KeySelect.tsx) : les noms des pads, les deux ecrans
+    if (PLUGIN_ARP)
+      this.unsubs.push(
+        arpKey.subscribe(() => {
+          this.deckSilk.draw();
+          this.lcd.invalidate();
+          this.seqScreen?.invalidate();
+          this.syncLcd();
+          this.opts.repaint();
+        })
+      );
     // 2026-10-22 (audit SB-01) : les polices pas encore la, la serigraphie et les deux ecrans se redessinent a leur
     // arrivee (avant, l'ecran restait dans la police de repli jusqu'au premier potard ou accord touche)
     if (!fontsReady()) {
@@ -340,6 +375,8 @@ export class VoyagerRig {
       const step = stepIndex(id, v[id]);
       if (this.panelSilk.setPush(id, step)) changed = true;
       if (this.deckSilk.setPush(id, step)) changed = true;
+      // v43 (le plugin) : CHORUS en marche (I ou II) : sa pilule en accent
+      if (PLUGIN_ARP && id === 'chorus' && this.keys.setPushLit(id, step > 0)) changed = true;
     }
     if (this.syncLcd(false)) changed = true;
     if (changed) {
@@ -541,9 +578,12 @@ export class VoyagerRig {
         res = 'paint';
       }
     } else {
-      res = 'poll';
-      const c = context();
-      const n = c ? arp.noteAt(c.currentTime) : null;
+      // v49 (le plugin MM-ARP) : la tete est celle du C++, elle ne bouge qu'a un mm_transport, qui reveille la boucle
+      // (plugin/head.ts extHead.wake) : plus de relecture a 30 images par seconde entre deux pas (le site lit l'horloge)
+      res = PLUGIN_ARP ? false : 'poll';
+      // L'heure de l'arpege : celle du contexte audio, ou (le plugin MM-ARP) la tete du C++ (voyager/arp.ts arpNow)
+      const at = arpNow();
+      const n = at !== null ? arp.noteAt(at) : null;
       if (n && n.seq !== this.lastSeq) {
         this.lastSeq = n.seq;
         if (n.chord !== this.playing) {
@@ -552,7 +592,7 @@ export class VoyagerRig {
           res = 'paint';
         }
       }
-      const p = c ? arp.posAt(c.currentTime) : null;
+      const p = at !== null ? arp.posAt(at) : null;
       this.pos = p ? p.pos : -1;
       this.posChord = p ? p.chord : -1;
       this.posSlot = p ? p.slot : -1;
@@ -614,6 +654,20 @@ export class VoyagerRig {
     return this.keys.setHover(slot) || push;
   }
 
+  /**
+   * v42 (le plugin, Mika : "la meme nettete que le LEGEND HZ") : la serigraphie a la definition de l'ecran : dpu, les
+   * pixels d'ecran par unite au plan de la face fermee (renderer.ts) ; au moins un pixel de toile par pixel d'ecran,
+   * plafonne (6144 px de large, la taille de texture de la carte) ; true si elle a ete redessinee.
+   */
+  fitSilk(dpu: number, maxTex: number): boolean {
+    if (!PLUGIN_ARP || !(dpu > 0)) return false;
+    const cap = Math.min(maxTex, 6144) / VOY_LID_W;
+    const ppu = Math.min(cap, Math.ceil(dpu / 8) * 8);
+    const a = this.panelSilk.setResolution(ppu);
+    const b = this.deckSilk.setResolution(ppu);
+    return a || b;
+  }
+
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     this.deckSilk.draw();
@@ -641,6 +695,7 @@ export class VoyagerRig {
       screen: { ...this.lcd.info, size: [...this.lcd.info.size], ladder: [...this.lcd.info.ladder] },
       lastPad: this.lastPad,
       silkDraws: [this.deckSilk.draws, this.panelSilk.draws],
+      silkRes: { panel: this.panelSilk.resolution, deck: this.deckSilk.resolution },
       // Les LED des boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran allume, sur chaque plan
       pushLeds: { panel: { ...this.panelSilk.pushes }, deck: { ...this.deckSilk.pushes } },
       pcb: { prepared: this.pcb.info().prepared },

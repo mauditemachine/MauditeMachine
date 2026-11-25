@@ -45,9 +45,9 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeomet
 import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
-import { FONT_DISPLAY, GAIN, HEX, PORTRAIT } from '../theme';
+import { FONT_DISPLAY, GAIN, HEX, PLUGIN_ARP, PORTRAIT } from '../theme';
 import type { PresetView } from '../state/presetMode';
-import { CHORDS } from './chords';
+import { CHORDS, chordRootPc, keyLine } from './chords';
 import { hzText, midiName, voyDiagram, type VoyDiagram } from './diagrams';
 import { VOY_INFO_SECTION } from './infoIds';
 import {
@@ -173,6 +173,11 @@ const CHORD_X1 = DESK ? 68 : 60;
 const LAD_X0 = DESK ? 78 : 66;
 const LAD_X1 = DESK ? 212 : UW - 10;
 const PAR_X0 = DESK ? 222 : 0;
+/**
+ * La liste des presets (unites) : ses lignes visibles, leur hauteur, le haut de la premiere ; band : le haut de la bande
+ * des touches, en part de la hauteur. Le plugin MM-ARP (v43) pose une zone de saisie par ligne aux memes cotes (rig.ts).
+ */
+export const PRESET_LIST = { rows: DESK ? 6 : 4, rowH: DESK ? 9.2 : 9.8, y0: DESK ? 24 : 21, band: 0.72, uh: UH } as const;
 /** La touche i : son centre et son rayon (theme.ts VOY_INFO_KEY pose sa zone au meme endroit) */
 export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 6.4 } as const;
 /** Les corps (unites) */
@@ -180,12 +185,18 @@ const FS = DESK
   ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.2, parRow: 9, rung: 6.2 }
   : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parRow: 0, rung: 6.2 };
 
-const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
+/** v52 (plugin MM-ARP seul, Mika choix 4A) : les grands noms et chiffres de l'ecran en afficheur a points (Doto, plugin/mm-arp/web) */
+const DOTS = `"MM Dots", ${FONT_DISPLAY}`;
+const font = (weight: number, size: number, dots = false): string => `${weight} ${size}px ${dots && PLUGIN_ARP ? DOTS : FONT_DISPLAY}`;
+/** la graisse d'un texte en points (Doto n'est embarquee qu'en 800 et 900) ; le site garde la sienne */
+const dw = (site: number, dots: number): number => (PLUGIN_ARP ? dots : site);
 
-/** Les degres des huit accords en fa diese mineur, et leur cle Camelot (le cercle des DJ). */
-const ROMAN = ['i', 'VI', 'VII', 'v', 'iv', 'III', 'i7', 'VImaj7'] as const;
-const CAMELOT = ['11A', '10B', '12B', '12A', '10A', '11B', '11A', '10B'] as const;
-export const chordCamelot = (i: number): string => CAMELOT[i] ?? '';
+/**
+ * Les degres des huit accords en fa diese mineur, et leur cle Camelot (le cercle des DJ) : ceux de la banque du moment
+ * (voyager/chords.ts : le site, ou le plugin MM-ARP depuis la v43).
+ */
+export const chordCamelot = (i: number): string => CHORDS[i]?.camelot ?? '';
+const chordRoman = (i: number): string => CHORDS[i]?.roman ?? '';
 
 /** Les roles d'un dessin des INFOS a l'ecran : tout en os, la hierarchie par l'epaisseur et l'intensite (comme bass/screen.ts). */
 const DIAGRAM_INK: Readonly<Record<VoyDiagram['paths'][number]['role'], { stroke: string; fill: string; lw: number }>> = {
@@ -385,6 +396,7 @@ export class VoyScreen {
     this.info.page = page;
     this.info.infos = s.infos;
     this.info.echo = page === 'echo' ? s.echo : null;
+    this.presetShown = [];
     if (page === 'presets' && s.presetView) this.drawPresets(s.presetView);
     else if (page === 'echo' && s.echo) this.drawEcho(s, s.echo);
     else this.drawHome(s, page === 'edit');
@@ -404,9 +416,9 @@ export class VoyScreen {
 
   /* ---------- outils de dessin ---------- */
 
-  private txt(s: string, x: number, y: number, size: number, color = INK, weight = 500, align: CanvasTextAlign = 'left'): number {
+  private txt(s: string, x: number, y: number, size: number, color = INK, weight = 500, align: CanvasTextAlign = 'left', dots = false): number {
     const c = this.ctx;
-    c.font = font(weight, size);
+    c.font = font(weight, size, dots);
     c.fillStyle = color;
     c.textAlign = align;
     c.textBaseline = 'alphabetic';
@@ -414,15 +426,15 @@ export class VoyScreen {
     return c.measureText(s).width;
   }
 
-  private width(s: string, size: number, weight: number): number {
-    this.ctx.font = font(weight, size);
+  private width(s: string, size: number, weight: number, dots = false): number {
+    this.ctx.font = font(weight, size, dots);
     return this.ctx.measureText(s).width;
   }
 
   /** La plus grande taille (jusqu'a size) ou le texte tient dans maxW. */
-  private fit(s: string, weight: number, size: number, maxW: number, min = 5): number {
+  private fit(s: string, weight: number, size: number, maxW: number, min = 5, dots = false): number {
     let z = size;
-    while (z > min && this.width(s, z, weight) > maxW) z -= 0.5;
+    while (z > min && this.width(s, z, weight, dots) > maxW) z -= 0.5;
     return z;
   }
 
@@ -485,7 +497,7 @@ export class VoyScreen {
   private tempo(bpm: number): number {
     const right = INFO_I.x - INFO_I.r - 6;
     const bw = this.txt('BPM', right, HY, FS.tiny, HALF, 700, 'right');
-    const nw = this.txt(String(Math.round(bpm)), right - bw - 3, HY, FS.head + 1, INK, 400, 'right');
+    const nw = this.txt(String(Math.round(bpm)), right - bw - 3, HY, FS.head + 1, INK, dw(400, 800), 'right', true);
     return right - bw - 3 - nw;
   }
 
@@ -553,7 +565,7 @@ export class VoyScreen {
     this.transport(s.running);
     let x = 24;
     if (edit) x += this.pill('EDIT', x, HY, FS.small, true) + 5;
-    else x += this.txt(VOY_COPY.lcdIdle, x, HY, FS.head, INK, 700) + 6;
+    else x += this.txt(VOY_COPY.lcdIdle, x, HY, FS.head, INK, dw(700, 900), 'left', true) + 6;
     const left = this.tempo(s.bpm) - 8;
     const sub = edit ? (s.seqEdit ? 'YOUR NOTES' : 'FROM THE KNOBS') : s.preset;
     if (sub) this.txt(this.clip(sub, FS.small, 600, left - x), x, HY, FS.small, HALF, 600);
@@ -563,12 +575,13 @@ export class VoyScreen {
     const name = CHORDS[chord].label;
     const cam = chordCamelot(chord);
     const has = s.prog.length > 0;
-    const cs = this.fit(name, 300, FS.chord, CHORD_X1 - 10);
+    const cs = this.fit(name, dw(300, 800), FS.chord, CHORD_X1 - 10, 5, true);
     const cy = MAIN0 + cs * 0.82;
-    this.txt(name, 9, cy, cs, has ? INK : HALF, 300);
+    this.txt(name, 9, cy, cs, has ? INK : HALF, dw(300, 800), 'left', true);
     const ry = cy + (DESK ? 11 : 10);
-    const rw = this.txt(ROMAN[chord], 10, ry, FS.small, INK, 700);
-    this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
+    const rw = this.txt(chordRoman(chord), 10, ry, FS.small, INK, 700);
+    // Sans cle Camelot (G#ø du plugin, v43 : un accord diminue n'en a pas), pas de pastille
+    if (cam) this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
     // Le rang qui joue s'il s'agit de cet accord (F#m F#m D E : le second F#m dit 2/4), sinon sa premiere place
     const at = s.slot >= 0 && s.prog[s.slot] === chord ? s.slot : s.prog.indexOf(chord);
     const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'VIEW ONLY';
@@ -621,7 +634,10 @@ export class VoyScreen {
     const settings = `${RATES[stepIndex('rate', v.rate)]}  ${MODES[stepIndex('mode', v.mode)]}  ${RANGES[stepIndex('range', v.range)]}`;
     const hint = edit
       ? DESK
-        ? 'DRAG ON THE STEPS BELOW  /  TAP A NOTE: REST  /  CLEAR: THE KNOBS'
+        ? // le plugin (v27) : l'encart d'EDIT regle le son, les notes sont dans OPEN, page SEQ
+          PLUGIN_ARP
+          ? 'THE SOUND BELOW  /  THE NOTES: OPEN > SEQ'
+          : 'DRAG ON THE STEPS BELOW  /  TAP A NOTE: REST  /  CLEAR: THE KNOBS'
         : 'DRAW IN THE PANEL BELOW'
       : !has
         ? 'TAP A CHORD PAD'
@@ -630,7 +646,8 @@ export class VoyScreen {
             ? 'RUN/STOP TO PLAY'
             : `RUN/STOP TO PLAY  ${settings}`
           : DESK
-            ? `F# MINOR  11A  ${s.prog.length} CHORD${s.prog.length > 1 ? 'S' : ''}`
+            ? // v52 (le plugin) : la tonalite choisie (F# MINOR  11A au depart, et toujours sur le site)
+              `${keyLine()}  ${s.prog.length} CHORD${s.prog.length > 1 ? 'S' : ''}`
             : settings;
     const msg = s.message ?? hint;
     // PRESETS : une pastille cernee, lisible (revue du 2026-10-08 : TOUCH: PRESETS en FAINT a 18 % se lisait a peine, et
@@ -674,7 +691,7 @@ export class VoyScreen {
     const ink = has ? 1 : 0.55;
     c.globalAlpha = ink;
     // Les filets des notes jouees, la racine plus marquee et nommee
-    const root = ((54 + (CHORDS[pv.chord]?.root ?? 0)) % 12 + 12) % 12;
+    const root = chordRootPc(pv.chord);
     const seen = new Set<number>();
     for (const nt of pv.notes) {
       if (nt.midi === null || seen.has(nt.midi)) continue;
@@ -793,16 +810,17 @@ export class VoyScreen {
     const colW = UW * 0.4 - 10;
     const top = MAIN0 - 2;
     const bot = UH - 10;
-    const label = k.section === 'feg' ? `F.EG ${k.label}` : k.section === 'aeg' ? `A.EG ${k.label}` : k.label;
+    // Le VST3 (2026-11-17) : DISTO a la place d'OVERDRIVE, comme sur sa face
+    const label = k.section === 'feg' ? `F.EG ${k.label}` : k.section === 'aeg' ? `A.EG ${k.label}` : PLUGIN_ARP && id === 'dist' ? 'DISTO' : k.label;
     const ls = this.fit(label, 700, DESK ? 12 : 12.5, colW);
     const stepped = !!k.steps && !k.morph;
     const us = this.fit(unit, 600, FS.small, colW, 5);
     // Le nom, la valeur, l'unite, la barre : la valeur prend la hauteur qui reste (jamais par-dessus l'unite)
     const room = (bot - top - ls - 3 - us - 3 - 7) / 0.92;
-    const vs = this.fit(value, 300, Math.min(room, stepped ? (DESK ? 26 : 24) : DESK ? 36 : 32), colW, 9);
+    const vs = this.fit(value, dw(300, 800), Math.min(room, stepped ? (DESK ? 26 : 24) : DESK ? 36 : 32), colW, 9, true);
     this.txt(label, 10, top + ls, ls, INK, 700);
     const vy = top + ls + 3 + vs * 0.92;
-    this.txt(value, 8.5, vy, vs, INK, 300);
+    this.txt(value, 8.5, vy, vs, INK, dw(300, 800), 'left', true);
     this.txt(unit, 10, vy + us + 3, us, HALF, 600);
     // La barre de la valeur : la course entiere, le point de la valeur (le centre marque pour FINE)
     const by = Math.min(bot - 1, vy + us + 9);
@@ -830,10 +848,17 @@ export class VoyScreen {
    * (LOAD, SAVE, NAME, DEL, EXIT).
    */
   private presetTop = 0;
+  /** Le rang (PresetRowItem.index) de chaque ligne dessinee de la liste, de haut en bas ; vide hors de la liste. */
+  private presetShown: number[] = [];
+
+  /** Le rang du preset dessine sur la ligne r de la liste (0 : la plus haute), null : aucun (le plugin MM-ARP, v43 : rig.ts). */
+  presetRowAt(r: number): number | null {
+    return this.presetShown[r] ?? null;
+  }
 
   private drawPresets(p: PresetView): void {
     const c = this.ctx;
-    const band = UH * 0.72;
+    const band = UH * PRESET_LIST.band;
     const headerTitle = p.title === 'PRESETS' ? 'ARP PRESET LIBRARY' : p.title;
     this.txt(headerTitle, 10, HY, FS.small + 1, INK, 700);
     if (p.count) this.txt(p.count, INFO_I.x - INFO_I.r - 6, HY, FS.small, HALF, 600, 'right');
@@ -844,9 +869,9 @@ export class VoyScreen {
 
     if (p.stage === 'browse') {
       if (p.list && p.list.length > 0) {
-        const visibleRows = DESK ? 6 : 4;
-        const rowH = DESK ? 9.2 : 9.8;
-        const startY = DESK ? 24 : 21;
+        const visibleRows = PRESET_LIST.rows;
+        const rowH = PRESET_LIST.rowH;
+        const startY = PRESET_LIST.y0;
         const listW = UW - 26;
         const curIdx = p.list.findIndex((it) => it.index === p.selectedIndex);
         const sel = curIdx >= 0 ? curIdx : 0;
@@ -857,6 +882,7 @@ export class VoyScreen {
 
         for (let r = 0; r < visibleRows && this.presetTop + r < p.list.length; r += 1) {
           const item = p.list[this.presetTop + r];
+          this.presetShown.push(item.index);
           const y = startY + r * rowH;
           const isSel = item.index === p.selectedIndex;
           const x0 = 8;

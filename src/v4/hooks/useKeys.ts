@@ -61,7 +61,7 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
 import { INSTRUMENTS } from '../audio/pattern';
-import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId, PLUGIN } from '../theme';
+import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId, PLUGIN, PLUGIN_ARP } from '../theme';
 
 /*
  * La face DT2 (V.6.0, 2026-11-01, ?face=dt2, la lane B4 ; cahier dt2 2.7), devant le MM-RYTM : A S D F Z X C V = TRIG 1 a 8,
@@ -101,6 +101,28 @@ const ownsArrows = (t: EventTarget | null): boolean => {
   return t.closest('[role="slider"], [role="tab"], [role="tablist"], [role="radio"], [role="menuitem"], [role="option"], [role="listbox"], input, textarea, select') !== null;
 };
 
+/**
+ * Le plugin MM-ARP (v43) : une touche pour la liste des presets du grand ecran, si elle est ouverte (rien d'autre : le
+ * clavier reste a Ableton, son clavier MIDI d'ordinateur). Haut et bas deplacent le curseur (arrete aux bouts, la touche
+ * tenue repete), Entree charge le preset du curseur (OK sur le nom ; tenue, une fois). true : la touche est prise.
+ */
+function arpPresetKey(e: KeyboardEvent): boolean {
+  if (!presetMode.on('voy') || e.metaKey || e.ctrlKey || e.altKey || isEditable(e.target)) return false;
+  const stage = presetMode.get().stage;
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    // Un reglage qui a le focus (un potard d'OPEN, une liste) garde ses fleches
+    if (stage !== 'browse' || ownsArrows(e.target)) return false;
+    presetMode.nudge('voy', e.key === 'ArrowDown' ? 1 : -1);
+    return true;
+  }
+  if (e.key === 'Enter' || e.key === 'NumpadEnter') {
+    if (stage !== 'browse' && stage !== 'name') return false;
+    if (!e.repeat) presetEnter('voy');
+    return true;
+  }
+  return false;
+}
+
 /** 'a' -> BD ... 'z' -> CP ... ; les majuscules (verrou) comptent aussi. */
 const PAD_KEYS = new Map(INSTRUMENTS.map((i) => [VOICE_KEYS[i].toLowerCase(), i] as const));
 /** Les pages (1 a 5, sur la carte depuis le 2026-10-03) et OPEN (6) : leur chiffre. */
@@ -136,6 +158,15 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
           return;
         }
         if (dt ? noKey(getStage(), true) : escape()) e.preventDefault();
+        return;
+      }
+      // v38 (le plugin MM-ARP, Mika : "je joue avec le clavier MIDI de l'ordi dans Ableton, E bloque") : plus aucune lettre
+      // ni chiffre ne fait rien ; seule Echap (au-dessus) ferme les pages et les menus. v43 (Mika : "les presets je veux
+      // pouvoir les selectionner a la souris et avec la touche entree je valide le preset !") : la liste des presets du
+      // grand ecran ouverte, et elle seulement, haut et bas y deplacent le curseur, Entree charge (OK sur le nom) ; Echap la
+      // ferme (escape, au-dessus). Liste fermee, aucune touche n'est prise.
+      if (PLUGIN_ARP) {
+        if (arpPresetKey(e)) e.preventDefault();
         return;
       }
       if (!on.current) return;
@@ -399,7 +430,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
       const digit = DIGIT_KEYS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
       // Le plugin (2026-11-08) : ni sections du site, ni capot, ni vue a remettre (la camera y est fixe)
-      if (PLUGIN && (digit || e.key === 'o' || e.key === 'O' || e.key === 'r' || e.key === 'R')) return;
+      // (le plugin MM-ARP garde O : OPEN y ouvre le capot, comme au site)
+      if (PLUGIN && (digit || (!PLUGIN_ARP && (e.key === 'o' || e.key === 'O')) || e.key === 'r' || e.key === 'R')) return;
       if (digit) {
         e.preventDefault();
         if (digit.page) page(digit.page, getStage());

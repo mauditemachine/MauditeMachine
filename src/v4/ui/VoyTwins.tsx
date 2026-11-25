@@ -24,7 +24,7 @@ import { focus } from '../state/focus';
 import { voyInfos } from '../state/voyInfos';
 import { DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
-import { CHORDS } from '../voyager/chords';
+import { CHORDS, arpKey } from '../voyager/chords';
 import { VOY_FACE_KNOBS, VOY_TWEAKS, stepIndex, voyParams, voyValueText, type VoyKnob, type VoyKnobId } from '../voyager/params';
 import { VOY_BUTTONS, VOY_COPY, isPush } from '../voyager/theme';
 
@@ -82,6 +82,8 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const infos = useSyncExternalStore(voyInfos.subscribe, () => voyInfos.get().on, () => false);
+  // v52 (le plugin) : la tonalite change, les noms lus des pads aussi
+  useSyncExternalStore(arpKey.subscribe, arpKey.get, arpKey.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);

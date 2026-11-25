@@ -22,10 +22,35 @@ import type { Dt2ButtonId } from '../rytm/dtFaceIds';
  * desktop ne change pas. Changer de largeur ensuite ne la change pas :
  * recharger.
  */
+/**
+ * Le genre de plugin demande (2026-11-09, plugin/mm-arp) : window.__MM_PLUGIN__ = true (la page du MM-RYTM, plugin/mm-rytm)
+ * ou 'arp' (la page du MM-ARP, plugin/mm-arp), sinon ?plugin=1 (RYTM) ou ?plugin=arp (ARP) dans l'adresse (essai dans un
+ * navigateur). Lu une fois, a l'evaluation, avant PORTRAIT ; jamais retenu.
+ */
+export type PluginKind = 'rytm' | 'arp';
+/** Les plugins dans le navigateur (2026-11-25, PLUGIN_WEB) : /mm-rytm/play/ et /mm-arp/play/. */
+const PLUGIN_WEB_PATH = /^\/mm-(rytm|arp)\/play\/?$/i;
+const pluginFlag = (): PluginKind | 'rytm-url' | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const f = (window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__;
+    if (f === true) return 'rytm';
+    if (f === 'arp') return 'arp';
+    const web = PLUGIN_WEB_PATH.exec(window.location.pathname);
+    if (web) return web[1].toLowerCase() === 'arp' ? 'arp' : 'rytm';
+    const q = new URLSearchParams(window.location.search).get('plugin');
+    if (q === 'arp') return 'arp';
+    return q === '1' ? 'rytm-url' : null;
+  } catch {
+    return null;
+  }
+};
+const PLUGIN_FLAG = pluginFlag();
+
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
   // Le plugin (plus bas) : toujours la face du desktop, quelle que soit la largeur de sa fenetre
-  if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return false;
+  if (PLUGIN_FLAG === 'rytm' || PLUGIN_FLAG === 'arp') return false;
   try {
     const q = new URLSearchParams(window.location.search).get('portrait');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.portrait', q);
@@ -38,35 +63,40 @@ export const PORTRAIT: boolean = (() => {
   }
 })();
 
-/** L'adresse du plugin dans le navigateur (PLUGIN_WEB). */
-const PLUGIN_WEB_PATH = /^\/mm-rytm\/play\/?$/i;
-
 /**
  * Le plugin (2026-11-08, Mika : "lance la WebView avec ma vraie face", plugin/mm-rytm) : la face du MM-RYTM seule, dans
  * la fenetre du VST3 (WebView JUCE), vue de dessus, sans le reste du site ; le son vient du plugin (C++), jamais du
  * navigateur. Pose par la page du plugin (window.__MM_PLUGIN__, avant tout module) ou ?plugin=1 (essai dans un
  * navigateur). Lu a l'evaluation des modules, comme PORTRAIT ; jamais retenu.
  */
-export const PLUGIN: boolean = (() => {
-  if (typeof window === 'undefined') return false;
-  try {
-    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
-    if (PLUGIN_WEB_PATH.test(window.location.pathname)) return true;
-    return new URLSearchParams(window.location.search).get('plugin') === '1';
-  } catch {
-    return false;
-  }
-})();
+export const PLUGIN: boolean = PLUGIN_FLAG !== null;
+
+/**
+ * Quelle machine le plugin montre (2026-11-09) : 'rytm' (plugin/mm-rytm, window.__MM_PLUGIN__ = true, ?plugin=1), 'arp'
+ * (plugin/mm-arp, window.__MM_PLUGIN__ = 'arp', ?plugin=arp : le MM-ARP seul, vu de dessus), null hors du plugin (le site).
+ * PLUGIN est vrai pour les deux.
+ */
+export const PLUGIN_KIND: PluginKind | null = PLUGIN_FLAG === null ? null : PLUGIN_FLAG === 'arp' ? 'arp' : 'rytm';
+/** Le plugin MM-ARP (raccourci de PLUGIN_KIND === 'arp'). */
+export const PLUGIN_ARP: boolean = PLUGIN_KIND === 'arp';
+/**
+ * v27 (Mika, v26 : l'orange "boring" devient un jaune vif ; v30, 2026-11-18 : "a la place du jaune cette couleur
+ * FF0066") : LA couleur d'accent du plugin MM-ARP, un seul jeton : la
+ * face 3D (theme.ts HEX.orange, PAD_GLOW) et OPEN (la variable CSS --mm-accent, posee par plugin/arp/accent.ts).
+ */
+export const PLUGIN_ACCENT = '#FF0066';
+/** sur un fond clair (le VU creme) : le meme rose, assombri pour se lire */
+export const PLUGIN_ACCENT_INK = '#A3003F';
 
 /**
  * Le plugin dans le navigateur (2026-11-25, Mika : "pourquoi tu mettrais pas les plugins en version web aussi ... le
- * plugin en entier, et uniquement en desktop") : /mm-rytm/play/, la face du VST3 (PLUGIN) mais le son du site (pas de
- * pont vers le C++, src/v4/plugin/WebPlugin.tsx). Une page a part : on y arrive par un chargement complet.
+ * plugin en entier, et uniquement en desktop") : /mm-rytm/play/ et /mm-arp/play/, la face du VST3 (PLUGIN, PLUGIN_KIND
+ * selon l'adresse) dans le navigateur (src/v4/plugin/WebPlugin.tsx). Une page a part : on y arrive par un chargement complet.
  */
 export const PLUGIN_WEB: boolean = (() => {
   if (typeof window === 'undefined') return false;
   try {
-    return (window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ !== true && PLUGIN_WEB_PATH.test(window.location.pathname);
+    return (window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__ === undefined && PLUGIN_WEB_PATH.test(window.location.pathname);
   } catch {
     return false;
   }
@@ -90,8 +120,9 @@ export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0'
  */
 export const RYTM_FACE_VER: RytmFaceVer = (() => {
   if (PORTRAIT || typeof window === 'undefined') return '5.0';
-  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse
-  if (PLUGIN) return '6.0';
+  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse ; le plugin MM-ARP (2026-11-09) ne
+  // montre pas le MM-RYTM : celui du site (la serigraphie partagee, SILK_LOGOS, reste celle du site : wordmark et logotype)
+  if (PLUGIN_KIND === 'rytm') return '6.0';
   try {
     const f = new URLSearchParams(window.location.search).get('face');
     // 2026-11-08 (Mika : "sur internet met la version avant le crossfad qui etait trop complexe") : sur le site, la V.3.0 par

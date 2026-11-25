@@ -29,7 +29,7 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { PCB, PORTRAIT, TEMPO_UI } from '../theme';
+import { ORBIT, PCB, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
@@ -191,6 +191,13 @@ const spread = (a: number, b: number, n: number): number[] => Array.from({ lengt
  */
 const DESK_RC_X = spread(-5.93, DESK_OSC.fm, 6);
 const DESK_EG = [1.12, 1.84, 2.56, 3.28] as const;
+/**
+ * v50 (le plugin MM-ARP seul) : MOD quitte la face (l'encart d'EDIT), FILTER EG reste sur la rangee du haut, AMP EG
+ * descend entre l'ancienne rangee du milieu et celle du bas : les deux enveloppes respirent, rien d'autre ne bouge. Le
+ * site ne change pas.
+ */
+// v52 (le plugin seul, choix 3C de Mika) : AMP EG remonte (1.16 en v50) sous l'ecran des enveloppes (VOY_EG_COL, plus bas)
+const DESK_AMP_Z = PLUGIN_ARP ? 0.92 : RB;
 const DESK_FX = [4.02, 4.72] as const;
 const DESK_FILTER_X = -0.15;
 const DESK_OUT_X = 5.66;
@@ -200,7 +207,8 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   range1: [DESK_OSC.range, RA, 's'],
   semi1: [DESK_OSC.semi, RA, 'm'],
   fine1: [DESK_OSC.fine, RA, 's'],
-  fm: [DESK_OSC.fm, RA, 'm'],
+  // v27 (le plugin) : FM devient un petit knob cannele, comme RATIO
+  fm: [DESK_OSC.fm, RA, PLUGIN_ARP ? 's' : 'm'],
   wave2: [DESK_OSC.wave, RB, 'sel'],
   range2: [DESK_OSC.range, RB, 's'],
   semi2: [DESK_OSC.semi, RB, 'm'],
@@ -221,10 +229,10 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   fD: [DESK_EG[1], RA, 's'],
   fS: [DESK_EG[2], RA, 's'],
   fR: [DESK_EG[3], RA, 's'],
-  aA: [DESK_EG[0], RB, 's'],
-  aD: [DESK_EG[1], RB, 's'],
-  aS: [DESK_EG[2], RB, 's'],
-  aR: [DESK_EG[3], RB, 's'],
+  aA: [DESK_EG[0], DESK_AMP_Z, 's'],
+  aD: [DESK_EG[1], DESK_AMP_Z, 's'],
+  aS: [DESK_EG[2], DESK_AMP_Z, 's'],
+  aR: [DESK_EG[3], DESK_AMP_Z, 's'],
   lfoRate: [DESK_EG[0], RC, 's'],
   lfoShape: [DESK_EG[1], RC, 's'],
   lfoDest: [DESK_EG[2], RC, 's'],
@@ -243,7 +251,8 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
  * GLIDE en quinconce (entre les colonnes du dessus). Les colonnes
  * repondent a celles des touches, a droite de l'ecran (DESK_KEY_X).
  */
-const DESK_ARP_Z = [0.84, 1.9] as const;
+// v27 (le plugin) : resserrees, l'ecran plus bas (0.84 et 1.9 au site)
+const DESK_ARP_Z = PLUGIN_ARP ? ([0.72, 1.6] as const) : ([0.84, 1.9] as const);
 const DESK_ARP_X = [-5.75, -4.95, -4.15, -3.35] as const;
 const between = (a: number, b: number): number => (a + b) / 2;
 const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
@@ -443,6 +452,30 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
 }
 
 /**
+ * HELL (2026-11-13, le plugin MM-ARP seul : plugin/arp/hellKnob.ts) : un petit potard de plus sur le panneau, dans la
+ * colonne EFFECTS, sur la rangee du bas (vide : MOD est dans les colonnes des enveloppes), centre sous DELAY et REVERB.
+ * Ce n'est pas un potard du site (voyParams) : le plugin le pose lui-meme, le site ne l'appelle jamais.
+ */
+export const VOY_HELL_PLACE = (() => {
+  const s = VOY_KNOB.panelScale * SIZE_SCALE.s;
+  const z = RC;
+  return { x: (DESK_FX[0] + DESK_FX[1]) / 2, z, s, labelZ: z + VOY_KNOB.skirt.r * s + 0.13 };
+})();
+
+/**
+ * v27 (le plugin) : DETUNE et SPREAD (Mika, 49.jpg) dans la colonne OUTPUT, sur la rangee du bas, sous le logotype.
+ * v28 : la paire resserree (0.32) et centree entre le filet EFFECTS | OUTPUT et le bois (DS_DX) : le D de DETUNE
+ * frolait le filet (1.5 px).
+ */
+const DS_DX = 0.025;
+export const VOY_DS_PLACE = (() => {
+  const s = VOY_KNOB.panelScale * 0.9;
+  const z = RC;
+  const lz = z + 0.24 * s + 0.13;
+  return { detune: { x: DESK_OUT_X + DS_DX - 0.32, z, s, labelZ: lz }, spread: { x: DESK_OUT_X + DS_DX + 0.32, z, s, labelZ: lz } };
+})();
+
+/**
  * Les LED d'un bouton poussoir et leurs noms au-dessus (plan de la touche) : une par cran a partir de ledFrom (SUB
  * OCT : -1, -2 ; CHORUS : I, II), step le cran qu'elle montre.
  */
@@ -462,6 +495,43 @@ const betweenRows = (r: number): number => {
 };
 
 /**
+ * v52 (le plugin MM-ARP seul, 2026-11-24, Mika sur la colonne FILTER EG / AMP EG : "ya beaucoup d'espace ici non ? que
+ * pouvons-nous rajouter qui est en rapport ?", puis l'option C de la maquette) : la colonne remplie, de haut en bas
+ * (plugin/arp/EgColumn.tsx) :
+ *   FILTER EG, sur la rangee du haut (RA, comme avant) ;
+ *   un petit ecran de verre (screen) qui dessine les deux enveloppes, de la jupe d'ATTACK a celle de RELEASE ;
+ *   le titre AMP EG (ampTitleZ) et ses potards (DESK_AMP_Z : 0.92, 1.16 en v50) ;
+ *   une rangee de quatre reglages du moteur qui n'etaient pas sur la face : POLARITY et VOICE (deux selecteurs a
+ *   segments), KEY TRACK et ACCENT (le petit potard de Mika, k3), leurs noms sur la ligne de ceux de la rangee du bas
+ *   (OSC 1, MODE, HELL, DETUNE : row.labelZ).
+ * Les autres colonnes ne bougent pas ; le site ne l'appelle jamais.
+ */
+export const VOY_EG_COL = (() => {
+  const s = VOY_KNOB.panelScale * SIZE_SCALE.s;
+  // le rayon exterieur des potards des enveloppes (le PNG k1 : RYTM_KNOB.R = 0.3, fois leur echelle)
+  const kr = 0.3 * s;
+  // la ligne des noms de la rangee du bas (celle d'OSC 1 : RC + la jupe d'un petit + 0.13)
+  const labelZ = RC + VOY_KNOB.skirt.r * s + 0.13;
+  const knobR = 0.19;
+  // un petit potard : son nom a 0.17 de son bord, comme OSC 1 (FLUTED : 0.216 de rayon, son nom a labelZ)
+  const knobZ = labelZ - 0.17 - knobR;
+  return {
+    screen: { x0: DESK_EG[0] - kr, x1: DESK_EG[3] + kr, z0: -0.2, z1: 0.22 },
+    ampTitleZ: 0.43,
+    row: {
+      labelZ,
+      knobZ,
+      knobR,
+      /** les selecteurs a segments : leur centre, leur profondeur, la largeur d'un segment */
+      selZ: knobZ + 0.035,
+      selD: 0.17,
+      segW: { fpol: 0.24, xVoiceMode: 0.24 },
+      x: { fpol: 1.16, keyTrack: 1.88, accent: 2.55, xVoiceMode: 3.21 },
+    },
+  } as const;
+})();
+
+/**
  * Titres des sections facon Moog (desktop : au-dessus des colonnes, avec
  * des filets verticaux entre elles). En portrait les groupes portent des
  * crochets (VOY_GROUPS) a la place.
@@ -472,15 +542,22 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
       { text: 'OSCILLATORS', x: (-6.25 + DESK_RULES_X[0]) / 2, z: DESK_TITLE_Z },
       { text: 'FILTER', x: DESK_FILTER_X, z: DESK_TITLE_Z },
       { text: 'FILTER EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: DESK_TITLE_Z },
-      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(0) },
-      { text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) },
+      // v52 (le plugin) : sous l'ecran des enveloppes (VOY_EG_COL) ; v50 : au milieu du jour entre FILTER EG et AMP EG
+      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: PLUGIN_ARP ? VOY_EG_COL.ampTitleZ : betweenRows(0) },
+      ...(PLUGIN_ARP ? [] : [{ text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) }]),
       { text: 'EFFECTS', x: (DESK_FX[0] + DESK_FX[1]) / 2, z: DESK_TITLE_Z },
       { text: 'OUTPUT', x: DESK_OUT_X, z: DESK_TITLE_Z },
     ];
 
 /** Filets verticaux entre les sections (desktop), jusqu'au bas de la troisieme rangee. */
 const RULE_END = RC + 0.5;
-export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]);
+export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
+  ? []
+  : [
+      ...DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]),
+      // v27 (le plugin) : le petit trait entre DETUNE et SPREAD
+      ...(PLUGIN_ARP ? [[DESK_OUT_X + DS_DX - 0.085, RC + 0.24 * 0.9 + 0.13, DESK_OUT_X + DS_DX + 0.085, RC + 0.24 * 0.9 + 0.13]] : []),
+    ];
 
 /**
  * En-tete du panneau, comme celui de la 808 : le wordmark a gauche,
@@ -494,7 +571,8 @@ export const VOY_HEAD = PORTRAIT
       word: { x: -5.9, w: 3.0 },
       model: { x: -2.6, cap: 0.14 },
       // desktop (Mika, 2026-11-02) : le logotype se place sous le potard de volume (OUTPUT)
-      mark: { x: DESK_OUT_X, h: 0.46, z: 1.35, align: 'center' as const },
+      // v27 (le plugin) : remonte, DETUNE et SPREAD dessous
+      mark: { x: DESK_OUT_X, h: 0.46, z: PLUGIN_ARP ? 0.98 : 1.35, align: 'center' as const },
       sub: { x: 5.9, text: fwText('voy') },
     };
 
@@ -511,7 +589,10 @@ export const VOY_PAD = PORTRAIT
   ? // 2026-11-13 (Mika : "met a hauteur les sons pour que ce soit pareil que Rytm") : carres comme les voix du MM-RYTM, le
     // nom de l'accord dessus (voyager/pads.ts), remontes de la bande des noms des boutons ; labelDz ne place plus que le titre
     { size: 0.86, depth: 0.86, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.52], perRow: 8, labelDz: 0.38 }
-  : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
+  : PLUGIN_ARP
+    ? // v27 (le plugin, Mika 50.jpg) : des pads plus petits
+      { size: 0.8, depth: 0.5, height: 0.16, radius: 0.07, dome: 0.032, xs: [-3.85, -2.75, -1.65, -0.55, 0.55, 1.65, 2.75, 3.85], zs: [3.06], perRow: 8, labelDz: 0.44 }
+    : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
   x: VOY_PAD.xs[i % VOY_PAD.perRow],
@@ -525,8 +606,11 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'preset' | 'open
  * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT, PRESET (demande de Mika 2026-11-03:
  * bouton dedie aux presets sur le plateau) et OPEN.
  */
-const DESK_KEY_X = [3.55, 4.55, 5.55] as const;
-const DESK_KEY_Z = [0.8, 1.86] as const;
+// v27 (le plugin, Mika 50.jpg : les six touches plus petites) : 0.6 x 0.36 ; au site 0.82 x 0.52 au pas de 1.0 et 1.06
+const DESK_KEY_X = PLUGIN_ARP ? ([3.85, 4.6, 5.35] as const) : ([3.55, 4.55, 5.55] as const);
+const DESK_KEY_Z = PLUGIN_ARP ? ([0.74, 1.56] as const) : ([0.8, 1.86] as const);
+const KW = PLUGIN_ARP ? 0.6 : 0.82;
+const KD = PLUGIN_ARP ? 0.36 : 0.52;
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
       { id: 'run', label: 'RUN/STOP', x: -2.75, z: 2.38, w: 1.02, d: 0.78 },
@@ -537,12 +621,12 @@ export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; 
       { id: 'open', label: 'OPEN', x: 2.75, z: 2.38, w: 1.02, d: 0.78 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: DESK_KEY_X[0], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
-      { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
-      { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'run', label: 'RUN/STOP', x: DESK_KEY_X[0], z: DESK_KEY_Z[1], w: KW, d: KD },
+      { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: KW, d: KD },
+      { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: KW, d: KD },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
@@ -555,7 +639,9 @@ export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } 
  */
 export const VOY_LCD = PORTRAIT
   ? { x: 0, z: 0.4, w: 7.0, d: 2.42, bezel: { w: 7.34, d: 2.76, h: 0.02 }, tex: 1024 }
-  : { x: 0, z: 1.4, w: 5.3, d: 2.06, bezel: { w: 5.6, d: 2.36, h: 0.02 }, tex: 1280 };
+  : PLUGIN_ARP
+    ? { x: 0, z: 1.3, w: 5.3, d: 1.88, bezel: { w: 5.6, d: 2.18, h: 0.02 }, tex: 1280 } // v27 (le plugin) : reduit, l'encart d'EDIT plus haut
+    : { x: 0, z: 1.4, w: 5.3, d: 2.06, bezel: { w: 5.6, d: 2.36, h: 0.02 }, tex: 1280 };
 
 /**
  * La touche i de l'ecran (2026-10-08, Mika : "un petit bouton i dans
@@ -593,6 +679,8 @@ export interface VoyGroup {
   x0: number;
   x1: number;
   z: number;
+  /** v52 (le plugin) : le nom n'est pas ecrit, le trait lui garde sa place (le selecteur de tonalite s'y pose) */
+  silent?: boolean;
 }
 export const VOY_GROUP_TYPE = { cap: PORTRAIT ? 0.095 : 0.075, weight: 700, dz: PORTRAIT ? 0.27 : 0.2, side: 0.06, tick: 0.08, pad: 0.1 } as const;
 
@@ -612,8 +700,15 @@ function knobGroup(text: string, ids: readonly VoyKnobId[], with_: readonly VoyK
 }
 
 const CHORDS_TEXT = 'CHORDS  F# MINOR';
+/**
+ * v52 (le plugin, choix 2A de Mika) : la ligne CHORDS devient le selecteur de tonalite (plugin/arp/KeySelect.tsx), une
+ * pastille posee dans le trait : la serigraphie n'ecrit plus le nom (silent) et le trait lui garde la place de la plus
+ * large (CHORDS F# PHRYGIAN et sa fleche), un peu d'air autour comme sur la maquette.
+ */
+const CHORDS_GAP = 'CHORDS  A#  PHRYGIAN  VVV';
 const padGroup = (): VoyGroup => ({
-  text: CHORDS_TEXT,
+  text: PLUGIN_ARP ? CHORDS_GAP : CHORDS_TEXT,
+  ...(PLUGIN_ARP ? { silent: true } : {}),
   where: 'deck',
   x0: VOY_PAD.xs[0] - VOY_PAD.size / 2 - VOY_GROUP_TYPE.side,
   x1: VOY_PAD.xs[VOY_PAD.perRow - 1] + VOY_PAD.size / 2 + VOY_GROUP_TYPE.side,
@@ -965,6 +1060,40 @@ export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; sw: boolea
 export const VOY_FRAME = PORTRAIT
   ? { plate: VOY_BODY.w, h: VOY_BODY.d, targetY: 1.6, radius: { closed: 9.0, open: 11.0 }, fitHalfH: 12.4, explodeTargetY: 4.2 }
   : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.6 }, fitHalfH: 8.6, explodeTargetY: 5.9 };
+
+/**
+ * La face du plugin MM-ARP (2026-11-09, plugin/mm-arp) : la machine vue de dessus, la camera a ORBIT.elDeg (mi-pente du
+ * panneau, theme.ts), bord a bord. Dans le plan de l'image, la hauteur va du bord avant du plateau (avec un filet de la
+ * face avant) au haut des joues de noyer, derriere le panneau ; la largeur, celle des joues. ty : le pivot (sur z = 0)
+ * qui centre ce cadre ; w et h : sa taille (unites de la scene), d'ou la proportion conseillee de la fenetre.
+ */
+export const VOY_PLUGIN_FACE = (() => {
+  const B = VOY_BODY;
+  const el = (ORBIT.elDeg * Math.PI) / 180;
+  // La coordonnee verticale de l'image d'un point (y, z) de la machine
+  const sv = (y: number, z: number): number => y * Math.cos(el) - z * Math.sin(el);
+  const lo = sv(B.deckY - 0.18, B.d / 2);
+  const top = B.topY + VOY_CHEEK.above;
+  const hi = Math.max(sv(top, B.backZ), sv(top - VOY_CHEEK.backR, -B.d / 2));
+  // 2026-11-10 (Mika : "c'est dommage d'avoir les barres noires autour, ca casse le design") : plus de marge, la machine
+  // deborde d'un rien de la fenetre (les joues de bois touchent les bords, le haut et le bas sont pleins)
+  const mw = 0.985;
+  const mh = 0.985;
+  return { w: B.w * mw, h: (hi - lo) * mh, ty: (hi + lo) / 2 / Math.cos(el) };
+})();
+
+/**
+ * Le capot ouvert du plugin MM-ARP (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
+ * imprime, comme avant") : la carte et ses TWEAKS remplissent la place que laisse le panneau du capot (plugin/arp/
+ * HoodPanel.tsx, Stage.setInset), vue de dessus a ORBIT.elDeg. w et h : la carte projetee (sa profondeur le long de la vue,
+ * plus la hauteur des potards soudes), avec un filet ; z : le pivot, un peu plus en avant qu'au site (VOY_OPEN_FRAME.z),
+ * pour centrer la carte dans la place libre (mesure dans Chromium, 1100 x 704).
+ */
+export const VOY_PLUGIN_OPEN = (() => {
+  const el = (ORBIT.elDeg * Math.PI) / 180;
+  const margin = 1.07;
+  return { w: PCB.w * margin, h: (PCB.d * Math.sin(el) + 0.5 * Math.cos(el)) * margin, z: 0.05 };
+})();
 
 
 /**

@@ -1,0 +1,3046 @@
+{
+  "_doc": "Les reglages du plugin VST3 seul (2026-11-10, Mika : 'une qualite eblouissante, seulement le VST3, le site on n'y touche pas'). Jamais dans voyager/params.ts : le site ne les connait pas. Valeurs 0..1 comme les potards du site ; steps : crans. Chaque def (sauf xQuality) rend le son du site au bit pres.",
+  "params": [
+    {
+      "id": "xQuality",
+      "label": "QUALITY",
+      "section": "engine",
+      "def": 0.5,
+      "steps": [
+        "ECO",
+        "STD",
+        "HQ"
+      ],
+      "help": "v32 (comme Diva : la precision temps reel n'est pas celle de l'export) : ECO x2 (le plugin seul), STD x4 (le moteur du site, au bit pres, le depart des instances neuves), HQ x8. Un projet d'avant en HQ le garde ; un projet en STD reste STD."
+    },
+    {
+      "id": "xLfo1Dest2",
+      "label": "TARGET 2",
+      "section": "lfo1",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "RES",
+        "AMP",
+        "PAN",
+        "OSC 2 PITCH",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "DRIVE",
+        "STACK",
+        "ENV AMT"
+      ],
+      "help": "Une seconde destination pour le LFO MOD de la face."
+    },
+    {
+      "id": "xLfo1Depth2",
+      "label": "DEPTH 2",
+      "section": "lfo1",
+      "def": 0.5
+    },
+    {
+      "id": "xLfo2Rate",
+      "label": "SPEED",
+      "section": "lfo2",
+      "def": 0.6153846153846154,
+      "steps": [
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/8T",
+        "1/16.",
+        "1/8",
+        "1/4T",
+        "1/8.",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR",
+        "8 BAR"
+      ],
+      "beats": [
+        0.125,
+        0.16666666666666666,
+        0.25,
+        0.3333333333333333,
+        0.375,
+        0.5,
+        0.6666666666666666,
+        0.75,
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "xLfo2Shape",
+      "label": "SHAPE",
+      "section": "lfo2",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "RAMP",
+        "SQR",
+        "S&H",
+        "RND"
+      ]
+    },
+    {
+      "id": "xLfo2Dest",
+      "label": "TARGET",
+      "section": "lfo2",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "WAVE",
+        "CUTOFF",
+        "FM",
+        "PITCH",
+        "RES",
+        "AMP",
+        "PAN",
+        "OSC 2 PITCH",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "DRIVE",
+        "STACK",
+        "ENV AMT"
+      ]
+    },
+    {
+      "id": "xLfo2Depth",
+      "label": "DEPTH",
+      "section": "lfo2",
+      "def": 0.5
+    },
+    {
+      "id": "xRevSize",
+      "label": "SIZE",
+      "section": "reverb",
+      "def": 0.5,
+      "help": "0.6 s a 9.6 s (2.4 s au centre, celle du site) : 2.4 * 4^(2v-1)"
+    },
+    {
+      "id": "xRevTone",
+      "label": "TONE",
+      "section": "reverb",
+      "def": 0.5,
+      "help": "sombre a brillante ; au centre celle du site (9 kHz vers 3 kHz) : x 4^(2v-1), 18 kHz au plus"
+    },
+    {
+      "id": "xRevPre",
+      "label": "PRE DELAY",
+      "section": "reverb",
+      "def": 0.2,
+      "help": "0 a 100 ms (20 ms : celle du site)"
+    },
+    {
+      "id": "xWarmth",
+      "label": "WARMTH",
+      "section": "master",
+      "def": 0,
+      "help": "saturation douce de sortie (transfo / bande), sans repliement"
+    },
+    {
+      "id": "xBass",
+      "label": "BASS",
+      "section": "master",
+      "def": 0.5,
+      "help": "plateau grave 120 Hz, -6 a +6 dB"
+    },
+    {
+      "id": "xAir",
+      "label": "AIR",
+      "section": "master",
+      "def": 0.5,
+      "help": "plateau aigu 10 kHz, -6 a +6 dB"
+    },
+    {
+      "id": "xWidth",
+      "label": "WIDTH",
+      "section": "master",
+      "def": 0.5,
+      "help": "largeur stereo : 0 mono, 0.5 celle du site, 1 le double du cote (les graves sous 150 Hz restent au centre)"
+    },
+    {
+      "id": "xSwing",
+      "label": "SWING",
+      "section": "seq",
+      "def": 0,
+      "help": "le swing propre de l'arpege : les doubles croches impaires retardees jusqu'a un tiers de pas, ajoute au swing de la face"
+    },
+    {
+      "id": "xRing",
+      "label": "RING MOD",
+      "section": "osc",
+      "def": 0,
+      "help": "OSC 1 x OSC 2, dose ; 0 : absent"
+    },
+    {
+      "id": "xFold",
+      "label": "FOLD",
+      "section": "osc",
+      "def": 0,
+      "help": "repliement d'onde (wavefolder) apres le melange des oscillateurs, sans repliement spectral ; 0 : absent"
+    },
+    {
+      "id": "xNoiseColor",
+      "label": "NOISE COLOR",
+      "section": "osc",
+      "def": 0.5,
+      "help": "sombre a brillant ; 0.5 : le bruit blanc du site"
+    },
+    {
+      "id": "xUnison",
+      "label": "UNISON",
+      "section": "osc",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "5",
+        "7"
+      ],
+      "help": "OFF : STACK du site (3 au plus) ; 5 ou 7 exemplaires par oscillateur"
+    },
+    {
+      "id": "xHpf",
+      "label": "HIGH PASS",
+      "section": "filter",
+      "def": 0,
+      "help": "un passe-haut 12 dB apres le filtre de chaque voix, 20 Hz a 2 kHz ; 0 : absent"
+    },
+    {
+      "id": "xComb",
+      "label": "COMB",
+      "section": "filter",
+      "def": 0,
+      "help": "filtre en peigne accorde sur la note, dose ; 0 : absent"
+    },
+    {
+      "id": "xCombFb",
+      "label": "COMB FB",
+      "section": "filter",
+      "def": 0.5,
+      "help": "reinjection du peigne, negative a positive ; 0.5 : aucune"
+    },
+    {
+      "id": "xPhMix",
+      "label": "PHASER",
+      "section": "phaser",
+      "def": 0,
+      "help": "dose du phaser 6 etages ; 0 : contourne"
+    },
+    {
+      "id": "xPhRate",
+      "label": "RATE",
+      "section": "phaser",
+      "def": 0.3,
+      "help": "0.05 a 8 Hz"
+    },
+    {
+      "id": "xPhDepth",
+      "label": "DEPTH",
+      "section": "phaser",
+      "def": 0.6
+    },
+    {
+      "id": "xPhFb",
+      "label": "FEEDBACK",
+      "section": "phaser",
+      "def": 0.4
+    },
+    {
+      "id": "xFlMix",
+      "label": "FLANGER",
+      "section": "flanger",
+      "def": 0,
+      "help": "dose du flanger ; 0 : contourne"
+    },
+    {
+      "id": "xFlRate",
+      "label": "RATE",
+      "section": "flanger",
+      "def": 0.25,
+      "help": "0.03 a 5 Hz"
+    },
+    {
+      "id": "xFlDepth",
+      "label": "DEPTH",
+      "section": "flanger",
+      "def": 0.6
+    },
+    {
+      "id": "xFlFb",
+      "label": "FEEDBACK",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "negative a positive ; 0.5 : aucune"
+    },
+    {
+      "id": "xPumpDepth",
+      "label": "PUMP",
+      "section": "pump",
+      "def": 0,
+      "help": "pompage facon sidechain cale au tempo : le niveau plonge a chaque temps ; 0 : absent"
+    },
+    {
+      "id": "xPumpRate",
+      "label": "RATE",
+      "section": "pump",
+      "def": 0.5,
+      "steps": [
+        "1/8",
+        "1/4",
+        "1/2"
+      ]
+    },
+    {
+      "id": "xPumpShape",
+      "label": "RELEASE",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la remontee : courte a longue"
+    },
+    {
+      "id": "xCrushBits",
+      "label": "CRUSH",
+      "section": "crush",
+      "def": 0,
+      "help": "reduction de bits, 16 a 4 ; 0 : contourne"
+    },
+    {
+      "id": "xCrushRate",
+      "label": "DOWNSAMPLE",
+      "section": "crush",
+      "def": 0,
+      "help": "reduction de la frequence d'echantillonnage, jusqu'a 2 kHz ; 0 : contourne"
+    },
+    {
+      "id": "xDlyMode",
+      "label": "OLD DLY MODE",
+      "section": "old",
+      "def": 0,
+      "steps": [
+        "PING PONG",
+        "STEREO",
+        "WIDE"
+      ],
+      "help": "masque (v27) : converti au chargement vers la page DELAY (xDlMode) ; son automation ne fait plus rien"
+    },
+    {
+      "id": "xShimmer",
+      "label": "SHIMMER",
+      "section": "space",
+      "def": 0,
+      "help": "une octave au-dessus reinjectee dans la reverb ; 0 : absent"
+    },
+    {
+      "id": "xM1Src",
+      "label": "SOURCE 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM1Dst",
+      "label": "DEST 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM1Amt",
+      "label": "AMOUNT 1",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM2Src",
+      "label": "SOURCE 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM2Dst",
+      "label": "DEST 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM2Amt",
+      "label": "AMOUNT 2",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM3Src",
+      "label": "SOURCE 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM3Dst",
+      "label": "DEST 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM3Amt",
+      "label": "AMOUNT 3",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM4Src",
+      "label": "SOURCE 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM4Dst",
+      "label": "DEST 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM4Amt",
+      "label": "AMOUNT 4",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM5Src",
+      "label": "SOURCE 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM5Dst",
+      "label": "DEST 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM5Amt",
+      "label": "AMOUNT 5",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM6Src",
+      "label": "SOURCE 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM6Dst",
+      "label": "DEST 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM6Amt",
+      "label": "AMOUNT 6",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xVoiceMode",
+      "label": "VOICE MODE",
+      "section": "voice",
+      "def": 0,
+      "steps": [
+        "POLY",
+        "MONO",
+        "LEGATO"
+      ],
+      "help": "POLY : le site ; MONO : une voix, chaque note redeclenche ; LEGATO : une voix, les notes liees glissent sans redeclencher"
+    },
+    {
+      "id": "xPbRange",
+      "label": "BEND RANGE",
+      "section": "voice",
+      "def": 0.16666666666666666,
+      "steps": [
+        "1",
+        "2",
+        "3",
+        "5",
+        "7",
+        "12",
+        "24"
+      ],
+      "help": "demi-tons du pitch bend"
+    },
+    {
+      "id": "xFeedback",
+      "label": "FEEDBACK",
+      "section": "amp",
+      "def": 0,
+      "help": "la sortie de la voix reinjectee dans son filtre ; 0 : absent"
+    },
+    {
+      "id": "xAmpMode",
+      "label": "AMP MODE",
+      "section": "amp",
+      "def": 0,
+      "steps": [
+        "CLEAN",
+        "TRIODE",
+        "PENTODE",
+        "SATURATED"
+      ],
+      "help": "l'etage de sortie : CLEAN = le site"
+    },
+    {
+      "id": "xEqLow",
+      "label": "OLD EQ LOW",
+      "section": "old",
+      "def": 0.5,
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
+    },
+    {
+      "id": "xEqMid",
+      "label": "OLD EQ MID",
+      "section": "old",
+      "def": 0.5,
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
+    },
+    {
+      "id": "xEqHigh",
+      "label": "OLD EQ HIGH",
+      "section": "old",
+      "def": 0.5,
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
+    },
+    {
+      "id": "xEqAir",
+      "label": "OLD EQ AIR",
+      "section": "old",
+      "def": 0.5,
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
+    },
+    {
+      "id": "xDist",
+      "label": "OLD PEDAL",
+      "section": "dist",
+      "def": 0,
+      "help": "OBSOLETE (2026-11-17, v25 : la pedale DISTORTION est masquee et convertie). Garde pour l'automation des anciens projets ; sans effet. Un projet ou un preset qui l'avait au-dessus de 0 passe a la DISTO : STYLE DIODE, DRIVE (dist) = sa dose, MIX = min(1, 20 x dose), AUTO, POST FILTER LP 12 dB/oct a la frequence de son TONE (PluginProcessor::convertPedal, disto.ts distoFromPedal)"
+    },
+    {
+      "id": "xDistTone",
+      "label": "OLD PEDAL TONE",
+      "section": "dist",
+      "def": 0.5,
+      "help": "OBSOLETE (v25) : sans effet ; converti avec la pedale (POST FILTER LP a 700 x (18000 / 700)^v Hz, sa cloche de presence au-dessus de 0.5 en TONE)"
+    },
+    {
+      "id": "xHellMix",
+      "label": "HELL",
+      "section": "hell",
+      "def": 0,
+      "help": "HELL (2026-11-13, facon Echobode) : dose de l'effet, delay + decaleur de frequence de Bode dans la boucle ; 0 : contourne au bit pres"
+    },
+    {
+      "id": "xHellSync",
+      "label": "HELL TIME SYNC",
+      "section": "hell",
+      "def": 0.5384615384615384,
+      "steps": [
+        "FREE",
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/16.",
+        "1/8T",
+        "1/8",
+        "1/8.",
+        "1/4T",
+        "1/4",
+        "1/4.",
+        "1/2",
+        "1/2.",
+        "1 BAR"
+      ],
+      "help": "FREE : TIME en ms ; sinon le temps en notes, cale au tempo de l'hote (4 s au plus)"
+    },
+    {
+      "id": "xHellTime",
+      "label": "HELL TIME",
+      "section": "hell",
+      "def": 0.5,
+      "help": "en FREE : 5 a 2000 ms (5 x 400^v ; 0.5 : 100 ms)"
+    },
+    {
+      "id": "xHellFb",
+      "label": "HELL FEEDBACK",
+      "section": "hell",
+      "def": 0.5,
+      "help": "la reinjection, 0 a 1 (un limiteur doux tient la boucle)"
+    },
+    {
+      "id": "xHellShift",
+      "label": "HELL SHIFT",
+      "section": "hell",
+      "def": 0.5,
+      "help": "le decalage par tour : -5 a +5 kHz en loi cubique (5000 (2v-1)^3), fin pres de 0 ; 0.5 : 0 Hz"
+    },
+    {
+      "id": "xHellUpDown",
+      "label": "HELL UP/DOWN",
+      "section": "hell",
+      "def": 1,
+      "help": "0 : la bande decalee vers le bas seule ; 1 : vers le haut seule ; 0.5 : les deux"
+    },
+    {
+      "id": "xHellSpread",
+      "label": "HELL SPREAD",
+      "section": "hell",
+      "def": 0,
+      "help": "le canal droit : decalage x (1 - 2v) (1 : a l'oppose), LFO en quadrature, ligne +23 ms au plus"
+    },
+    {
+      "id": "xHellLfoRate",
+      "label": "HELL LFO RATE",
+      "section": "hell",
+      "def": 0.4,
+      "help": "0.02 a 10 Hz (0.02 x 500^v)"
+    },
+    {
+      "id": "xHellLfoDepth",
+      "label": "HELL LFO DEPTH",
+      "section": "hell",
+      "def": 0,
+      "help": "0 a 400 Hz ajoutes au decalage (400 v^2)"
+    },
+    {
+      "id": "xHellTone",
+      "label": "HELL TONE",
+      "section": "hell",
+      "def": 0.5,
+      "help": "dans la boucle : 0.5 neutre ; dessous passe-bas 18 kHz -> 600 Hz, dessus passe-haut 20 Hz -> 3 kHz"
+    },
+    {
+      "id": "xSkyType",
+      "label": "REVERB TYPE",
+      "section": "sky",
+      "def": 0.16666666666666666,
+      "steps": [
+        "CLASSIC",
+        "ROOM",
+        "HALL",
+        "PLATE",
+        "SPRING",
+        "SWELL",
+        "BLOOM",
+        "CLOUD",
+        "CHORALE",
+        "SHIMMER",
+        "MAGNETO",
+        "NONLINEAR",
+        "REFLECTIONS"
+      ],
+      "help": "La reverbe (2026-11-16, facon BigSky, dsp/Sky.h) : CLASSIC est la reverbe d'avant (la convolution du site, SIZE / TONE / PRE DELAY / SHIMMER), puis les douze machines. Un projet ou un preset d'avant (sans cette cle) revient a CLASSIC."
+    },
+    {
+      "id": "xSkyDecay",
+      "label": "REVERB DECAY",
+      "section": "sky",
+      "def": 0.43,
+      "help": "DECAY (TIME sur NONLINEAR, SIZE sur REFLECTIONS) : le vrai Tr60, expo sur la course de la machine (HALL : 0.5 a 20 s ; 0.43 : 2.44 s)"
+    },
+    {
+      "id": "xSkyPre",
+      "label": "REVERB PRE-DELAY",
+      "section": "sky",
+      "def": 0.14,
+      "help": "PRE-DELAY v^2 s (FEEDBACK sur MAGNETO et NONLINEAR)"
+    },
+    {
+      "id": "xSkyTone",
+      "label": "REVERB TONE",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le passe-bas de sortie, 900 Hz a pleine bande"
+    },
+    {
+      "id": "xSkyMod",
+      "label": "REVERB MOD",
+      "section": "sky",
+      "def": 0.35,
+      "help": "la modulation des lignes ; au-dela de midi un chorus lent"
+    },
+    {
+      "id": "xSkyLow",
+      "label": "REVERB LOW END",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le coupe-bas de l'entree (320 a 18 Hz) et la duree des graves"
+    },
+    {
+      "id": "xSkyP1",
+      "label": "REVERB PARAM 1",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le premier reglage propre a la machine (sky.ts : HALL MID, ROOM SIZE, SPRING DWELL...)"
+    },
+    {
+      "id": "xSkyP2",
+      "label": "REVERB PARAM 2",
+      "section": "sky",
+      "def": 0,
+      "help": "le deuxieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP3",
+      "label": "REVERB PARAM 3",
+      "section": "sky",
+      "def": 0,
+      "help": "le troisieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP4",
+      "label": "REVERB PARAM 4",
+      "section": "sky",
+      "def": 0,
+      "help": "le quatrieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP5",
+      "label": "REVERB PARAM 5",
+      "section": "sky",
+      "def": 0,
+      "help": "le cinquieme reglage propre a la machine (NONLINEAR MOD SPEED)"
+    },
+    {
+      "id": "xHellCross",
+      "label": "HELL CROSS",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "HELL (2026-11-17) : la reinjection croisee, chaque canal repart dans l'autre"
+    },
+    {
+      "id": "xHellHp",
+      "label": "HELL HIGH-PASS",
+      "section": "hell",
+      "def": 0,
+      "help": "dans la boucle : 0 coupe, sinon 20 Hz a 4 kHz (20 x 200^v), 12 dB/oct"
+    },
+    {
+      "id": "xHellLp",
+      "label": "HELL LOW-PASS",
+      "section": "hell",
+      "def": 1,
+      "help": "dans la boucle : 1 coupe, sinon 300 Hz a 20 kHz (300 x 66.7^v), 12 dB/oct"
+    },
+    {
+      "id": "xHellSmear",
+      "label": "HELL SMEAR",
+      "section": "hell",
+      "def": 0,
+      "help": "la diffusion dans la boucle (quatre passe-tout de 3 a 11 ms) : les repetitions s'adoucissent"
+    },
+    {
+      "id": "xHellRange",
+      "label": "HELL RANGE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "FINE",
+        "WIDE",
+        "SYNC",
+        "MIDI"
+      ],
+      "help": "la loi du decalage : FINE +/-3..200 Hz, WIDE +/-10..5000 Hz, SYNC multiples du tempo, MIDI fraction de la note jouee"
+    },
+    {
+      "id": "xHellPhase",
+      "label": "HELL PHASE",
+      "section": "hell",
+      "def": 0,
+      "help": "le dephasage fixe de l'oscillateur du decaleur, 0 a 360 degres"
+    },
+    {
+      "id": "xHellAntiRefl",
+      "label": "HELL ANTI REFL",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : rien ne se replie sous 0 Hz (un passe-haut a |decalage| quand une bande descend)"
+    },
+    {
+      "id": "xHellLfoShape",
+      "label": "HELL LFO SHAPE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "SAW",
+        "SQUARE",
+        "RANDOM"
+      ],
+      "help": "la forme du LFO"
+    },
+    {
+      "id": "xHellLfoSync",
+      "label": "HELL LFO SYNC",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : RATE en notes (8 mesures a 1/32), cale au tempo"
+    },
+    {
+      "id": "xHellLfoAmt",
+      "label": "HELL LFO AMOUNT",
+      "section": "hell",
+      "def": 0.5,
+      "help": "bipolaire, 0.5 : rien ; FREQ +/-400 Hz, PHASE +/-180 degres, LOW-PASS +/-3 octaves, DELAY +/-25 %"
+    },
+    {
+      "id": "xHellLfoStereo",
+      "label": "HELL LFO STEREO",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : le LFO du canal droit decale d'un quart de cycle"
+    },
+    {
+      "id": "xHellLfoTarget",
+      "label": "HELL LFO TARGET",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "FREQ",
+        "PHASE",
+        "LOW-PASS",
+        "DELAY"
+      ],
+      "help": "ce que le LFO module"
+    },
+    {
+      "id": "xDStyle",
+      "label": "DISTO STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MM",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "DISTO (2026-11-16, facon Decapitator ; completee le 2026-11-17, v25) : MM, l'OVERDRIVE du moteur (le son du site, celui d'avant : le depart, et toute la banque d'usine) ; A preampli a lampes, E transistors, N transformateur, T triode, P pentode, TAPE bande, FUZZ, DIODE ecretage franc, AMP ampli de guitare, RECT redresseur, FOLD replieur, CRUSH quantification (dsp/Decap.h). Le DRIVE est le potard DISTO de la face (dist)"
+    },
+    {
+      "id": "xDPunish",
+      "label": "OLD DISTO PUNISH",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 : masque, l'ancien PUNISH (+20 dB dans la saturation, AUTO d'apres la table) ; un ancien projet ou preset qui l'avait le garde au bit pres, la touche PUNISH s'allume avec CLASSIC ecrit dessous ; le premier appui le convertit en DISTO PUNISH (xDPunish2)"
+    },
+    {
+      "id": "xDLow",
+      "label": "DISTO LOW CUT",
+      "section": "disto",
+      "def": 0,
+      "help": "avant la saturation, 12 dB/oct : OFF sous 0.02, puis 20 Hz a 1 kHz (20 x 50^u)"
+    },
+    {
+      "id": "xDThump",
+      "label": "DISTO THUMP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "une bosse resonante (Q 2) sur la coupure du LOW CUT"
+    },
+    {
+      "id": "xDTone",
+      "label": "DISTO TONE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "avant la saturation, bascule sombre / brillant +/- 6 dB autour de 700 Hz ; 0.5 : FLAT"
+    },
+    {
+      "id": "xDHigh",
+      "label": "DISTO HIGH CUT",
+      "section": "disto",
+      "def": 1,
+      "help": "apres la saturation, 6 dB/oct : 1 kHz a 20 kHz (1000 x 20^(v / 0.98)), OFF au-dessus de 0.98"
+    },
+    {
+      "id": "xDSteep",
+      "label": "DISTO STEEP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "HIGH CUT a 30 dB/oct (Butterworth 5)"
+    },
+    {
+      "id": "xDMix",
+      "label": "DISTO MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec (retarde, en phase) contre le mouille"
+    },
+    {
+      "id": "xDOut",
+      "label": "DISTO OUTPUT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB (0.5 : 0 dB) ; sur MM aussi"
+    },
+    {
+      "id": "xDAuto",
+      "label": "DISTO AUTO",
+      "section": "disto",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "le niveau suit STYLE et DRIVE (table mesuree)"
+    },
+    {
+      "id": "xDMorph",
+      "label": "DISTO MORPH",
+      "section": "disto",
+      "def": 0,
+      "help": "la courbe glisse du STYLE vers MORPH TO (accentuations et AUTO comprises) ; 0 : rien"
+    },
+    {
+      "id": "xDMorphTo",
+      "label": "DISTO MORPH TO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "le style vise par MORPH"
+    },
+    {
+      "id": "xDDyn",
+      "label": "DISTO DYNAMICS",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; dessous COMP (les forts baissent), dessus EXPAND ; +/- 12 dB au plus autour de -24 dBFS, detection 5 ms / 150 ms"
+    },
+    {
+      "id": "xDFb",
+      "label": "DISTO FEEDBACK",
+      "section": "disto",
+      "def": 0,
+      "help": "le mouille revient avant la saturation, accorde sur FB FREQ ; gain de boucle sous 0.9 : stable"
+    },
+    {
+      "id": "xDFbFreq",
+      "label": "DISTO FB FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "40 x 30^v Hz (40 Hz a 1.2 kHz) : la boucle et son passe-bande"
+    },
+    {
+      "id": "xDBands",
+      "label": "DISTO BANDS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "1",
+        "2",
+        "3"
+      ],
+      "help": "1, 2 ou 3 bandes (Linkwitz-Riley 24 dB/oct) ; deux bandes : LOW / MID seule"
+    },
+    {
+      "id": "xDXLo",
+      "label": "DISTO XOVER LOW",
+      "section": "disto",
+      "def": 0.4,
+      "help": "la coupure LOW / MID : 40 x 25^v Hz (40 Hz a 1 kHz)"
+    },
+    {
+      "id": "xDXHi",
+      "label": "DISTO XOVER HIGH",
+      "section": "disto",
+      "def": 0.5,
+      "help": "la coupure MID / HIGH : 600 x 25^v Hz (600 Hz a 15 kHz), au moins 1.5 fois LOW / MID"
+    },
+    {
+      "id": "xDB1Style",
+      "label": "DISTO LOW STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB1Drive",
+      "label": "DISTO LOW DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB1Mix",
+      "label": "DISTO LOW MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB1Level",
+      "label": "DISTO LOW LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB1Solo",
+      "label": "DISTO LOW SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB1Byp",
+      "label": "DISTO LOW BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDB2Style",
+      "label": "DISTO MID STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB2Drive",
+      "label": "DISTO MID DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB2Mix",
+      "label": "DISTO MID MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB2Level",
+      "label": "DISTO MID LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB2Solo",
+      "label": "DISTO MID SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB2Byp",
+      "label": "DISTO MID BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDB3Style",
+      "label": "DISTO HIGH STYLE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "MAIN",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P",
+        "TAPE",
+        "FUZZ",
+        "DIODE",
+        "AMP",
+        "RECT",
+        "FOLD",
+        "CRUSH"
+      ],
+      "help": "MAIN : le STYLE de la page (et son MORPH) ; sinon le sien"
+    },
+    {
+      "id": "xDB3Drive",
+      "label": "DISTO HIGH DRIVE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB autour du DRIVE (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB3Mix",
+      "label": "DISTO HIGH MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec de la bande contre son mouille"
+    },
+    {
+      "id": "xDB3Level",
+      "label": "DISTO HIGH LEVEL",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-12 a +12 dB (0.5 : 0 dB)"
+    },
+    {
+      "id": "xDB3Solo",
+      "label": "DISTO HIGH SOLO",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "seules les bandes en SOLO sonnent"
+    },
+    {
+      "id": "xDB3Byp",
+      "label": "DISTO HIGH BYPASS",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "la bande passe sans saturation"
+    },
+    {
+      "id": "xDEnvAmt",
+      "label": "DISTO ENV AMOUNT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; l'enveloppe de l'entree ajoute (ou retire) jusqu'a 24 dB au DRIVE"
+    },
+    {
+      "id": "xDEnvSpd",
+      "label": "DISTO ENV SPEED",
+      "section": "disto",
+      "def": 0.3,
+      "help": "attaque 1 x 30^v ms, relachement 30 x 30^v ms"
+    },
+    {
+      "id": "xDLfoShape",
+      "label": "DISTO LFO SHAPE",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "SQUARE",
+        "RANDOM"
+      ],
+      "help": "la forme du LFO"
+    },
+    {
+      "id": "xDLfoRate",
+      "label": "DISTO LFO RATE",
+      "section": "disto",
+      "def": 0.4,
+      "help": "0.02 x 500^v Hz ; SYNC : 8 BAR a 1/32 (comme HELL)"
+    },
+    {
+      "id": "xDLfoSync",
+      "label": "DISTO LFO SYNC",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo de l'hote"
+    },
+    {
+      "id": "xDLfoAmt",
+      "label": "DISTO LFO AMOUNT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "0.5 : rien ; bipolaire"
+    },
+    {
+      "id": "xDLfoTarget",
+      "label": "DISTO LFO TARGET",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "DRIVE",
+        "MORPH",
+        "TONE",
+        "PRE",
+        "POST",
+        "MIX"
+      ],
+      "help": "DRIVE +/- 18 dB, MORPH +/- 0.5, TONE, PRE et POST (+/- 2 octaves), MIX +/- 0.5"
+    },
+    {
+      "id": "xDPreMode",
+      "label": "DISTO PRE FILTER",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "LP",
+        "BP",
+        "HP",
+        "PEAK"
+      ],
+      "help": "avant la saturation ; PEAK : cloche +12 dB"
+    },
+    {
+      "id": "xDPreFreq",
+      "label": "DISTO PRE FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "20 x 1000^v Hz"
+    },
+    {
+      "id": "xDPreReso",
+      "label": "DISTO PRE RESO",
+      "section": "disto",
+      "def": 0,
+      "help": "Q 0.707 x 16^v (0 : Butterworth)"
+    },
+    {
+      "id": "xDPostMode",
+      "label": "DISTO POST FILTER",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "LP",
+        "BP",
+        "HP",
+        "PEAK"
+      ],
+      "help": "apres la saturation et BOX ; PEAK : cloche +12 dB"
+    },
+    {
+      "id": "xDPostFreq",
+      "label": "DISTO POST FREQ",
+      "section": "disto",
+      "def": 0.5,
+      "help": "20 x 1000^v Hz"
+    },
+    {
+      "id": "xDPostReso",
+      "label": "DISTO POST RESO",
+      "section": "disto",
+      "def": 0,
+      "help": "Q 0.707 x 16^v (0 : Butterworth)"
+    },
+    {
+      "id": "xDBox",
+      "label": "DISTO BOX",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "SMALL",
+        "COMBO",
+        "STACK",
+        "RADIO"
+      ],
+      "help": "une caisse courte : filtres et une resonance de quelques ms"
+    },
+    {
+      "id": "xDBoxSize",
+      "label": "DISTO BOX SIZE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "+/- 0.6 octave et la resonance plus longue ou plus courte"
+    },
+    {
+      "id": "xDBoxMix",
+      "label": "DISTO BOX MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "la part de la caisse"
+    },
+    {
+      "id": "xDlStyle",
+      "label": "DELAY STYLE",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "TAPE",
+        "ANALOG",
+        "DIGITAL",
+        "SPACE",
+        "LO-FI",
+        "DUB",
+        "CASSETTE",
+        "CRYSTAL"
+      ],
+      "help": "TAPE : la bande du site (WOBBLE = l'ancien TAPE) ; DIGITAL : le ping-pong du site ; les autres : leur couleur"
+    },
+    {
+      "id": "xDlSync",
+      "label": "DELAY SYNC",
+      "section": "delay",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : TIME en notes au tempo ; FREE : en ms"
+    },
+    {
+      "id": "xDlDiv",
+      "label": "DELAY DIVISION",
+      "section": "delay",
+      "def": 0.3333333333333333,
+      "steps": [
+        "1/32",
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR"
+      ],
+      "help": "le temps en SYNC (2 s au plus)"
+    },
+    {
+      "id": "xDlNote",
+      "label": "DELAY NOTE",
+      "section": "delay",
+      "def": 0.5,
+      "steps": [
+        "STRAIGHT",
+        "DOTTED",
+        "TRIPLET"
+      ]
+    },
+    {
+      "id": "xDlMs",
+      "label": "DELAY TIME",
+      "section": "delay",
+      "def": 0.721,
+      "help": "le temps en FREE : 5 ms a 2 s"
+    },
+    {
+      "id": "xDlFb",
+      "label": "DELAY FEEDBACK",
+      "section": "delay",
+      "def": 0.4325,
+      "help": "la reinjection, 0 a 100 % (stable au maximum) ; le depart : celle du site pour DELAY 0.25"
+    },
+    {
+      "id": "xDlMode",
+      "label": "DELAY MODE",
+      "section": "delay",
+      "def": 0.5,
+      "steps": [
+        "SINGLE",
+        "DUAL",
+        "PING-PONG",
+        "WIDE",
+        "RHYTHM"
+      ],
+      "help": "PING-PONG : le delay du site ; DUAL : l'ancien STEREO ; WIDE : la gauche a 3/4 ; RHYTHM : seize prises"
+    },
+    {
+      "id": "xDlWidth",
+      "label": "DELAY WIDTH",
+      "section": "delay",
+      "def": 1,
+      "help": "la largeur des echos : 0 mono, 100 % telle quelle"
+    },
+    {
+      "id": "xDlOffset",
+      "label": "DELAY OFFSET",
+      "section": "delay",
+      "def": 0.5,
+      "help": "la droite plus tot ou plus tard, -25 a +25 % du temps"
+    },
+    {
+      "id": "xDlSat",
+      "label": "DELAY SATURATION",
+      "section": "delay",
+      "def": 0
+    },
+    {
+      "id": "xDlWobble",
+      "label": "DELAY WOBBLE",
+      "section": "delay",
+      "def": 0.3,
+      "help": "pleurage et scintillement ; TAPE : la quantite de bande du site (l'ancien TAPE)"
+    },
+    {
+      "id": "xDlDiff",
+      "label": "DELAY DIFFUSION",
+      "section": "delay",
+      "def": 0
+    },
+    {
+      "id": "xDlLow",
+      "label": "DELAY LOW CUT",
+      "section": "delay",
+      "def": 0.5,
+      "help": "le passe-haut des echos ; 0.5 : celui du style"
+    },
+    {
+      "id": "xDlHigh",
+      "label": "DELAY HIGH CUT",
+      "section": "delay",
+      "def": 0.5,
+      "help": "le passe-bas dans la boucle ; 0.5 : celui du style"
+    },
+    {
+      "id": "xDlGroove",
+      "label": "DELAY GROOVE",
+      "section": "delay",
+      "def": 0,
+      "help": "le swing des echos"
+    },
+    {
+      "id": "xDlFeel",
+      "label": "DELAY FEEL",
+      "section": "delay",
+      "def": 0.5,
+      "help": "les echos en avance ou en retard"
+    },
+    {
+      "id": "xDlPrime",
+      "label": "DELAY PRIME",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "des temps en nombres premiers de ms : aucun echo ne se superpose"
+    },
+    {
+      "id": "xDlLofi",
+      "label": "DELAY LOFI",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xDlAnalog",
+      "label": "DELAY ANALOG",
+      "section": "delay",
+      "def": 0,
+      "help": "le souffle et la couleur des circuits"
+    },
+    {
+      "id": "xDlDuck",
+      "label": "DELAY DUCKING",
+      "section": "delay",
+      "def": 0,
+      "help": "les echos se taisent pendant que le son joue"
+    },
+    {
+      "id": "xDlDuckRel",
+      "label": "DELAY RELEASE",
+      "section": "delay",
+      "def": 0.35,
+      "help": "la remontee apres le ducking, 30 ms a 900 ms"
+    },
+    {
+      "id": "xDlRhythm",
+      "label": "DELAY RHYTHM",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "MACHINE",
+        "FOUR",
+        "CLAVE",
+        "TRESILLO",
+        "GALLOP",
+        "DOTTED",
+        "OFFBEAT",
+        "BOUNCE",
+        "SWELL",
+        "ROLL",
+        "SPARSE",
+        "SKIP"
+      ],
+      "help": "le motif des seize prises du mode RHYTHM"
+    },
+    {
+      "id": "xQ1On",
+      "label": "EQ 1 ON",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ1Type",
+      "label": "EQ 1 TYPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ1Freq",
+      "label": "EQ 1 FREQ",
+      "section": "eq",
+      "def": 0.059,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ1Gain",
+      "label": "EQ 1 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ1Q",
+      "label": "EQ 1 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ1Slope",
+      "label": "EQ 1 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ2On",
+      "label": "EQ 2 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ2Type",
+      "label": "EQ 2 TYPE",
+      "section": "eq",
+      "def": 0.2,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ2Freq",
+      "label": "EQ 2 FREQ",
+      "section": "eq",
+      "def": 0.233,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ2Gain",
+      "label": "EQ 2 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ2Q",
+      "label": "EQ 2 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ2Slope",
+      "label": "EQ 2 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ3On",
+      "label": "EQ 3 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ3Type",
+      "label": "EQ 3 TYPE",
+      "section": "eq",
+      "def": 0.4,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ3Freq",
+      "label": "EQ 3 FREQ",
+      "section": "eq",
+      "def": 0.434,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ3Gain",
+      "label": "EQ 3 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ3Q",
+      "label": "EQ 3 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ3Slope",
+      "label": "EQ 3 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ4On",
+      "label": "EQ 4 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ4Type",
+      "label": "EQ 4 TYPE",
+      "section": "eq",
+      "def": 0.4,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ4Freq",
+      "label": "EQ 4 FREQ",
+      "section": "eq",
+      "def": 0.699,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ4Gain",
+      "label": "EQ 4 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ4Q",
+      "label": "EQ 4 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ4Slope",
+      "label": "EQ 4 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ5On",
+      "label": "EQ 5 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ5Type",
+      "label": "EQ 5 TYPE",
+      "section": "eq",
+      "def": 0.8,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ5Freq",
+      "label": "EQ 5 FREQ",
+      "section": "eq",
+      "def": 0.867,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ5Gain",
+      "label": "EQ 5 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ5Q",
+      "label": "EQ 5 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ5Slope",
+      "label": "EQ 5 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ6On",
+      "label": "EQ 6 ON",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ6Type",
+      "label": "EQ 6 TYPE",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ6Freq",
+      "label": "EQ 6 FREQ",
+      "section": "eq",
+      "def": 0.985,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ6Gain",
+      "label": "EQ 6 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ6Q",
+      "label": "EQ 6 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ6Slope",
+      "label": "EQ 6 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQOut",
+      "label": "EQ OUTPUT",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-12 a +12 dB"
+    },
+    {
+      "id": "xQAna",
+      "label": "EQ ANALYZER",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "PRE",
+        "POST"
+      ],
+      "help": "l'analyseur de la page SOUND (calcule seulement quand la page est ouverte)"
+    },
+    {
+      "id": "xPhStages",
+      "label": "PHASER STAGES",
+      "section": "phaser",
+      "def": 0.3333333333333333,
+      "steps": [
+        "4",
+        "6",
+        "8",
+        "12"
+      ]
+    },
+    {
+      "id": "xPhCenter",
+      "label": "PHASER CENTER",
+      "section": "phaser",
+      "def": 0.5,
+      "help": "le centre du balayage, 200 Hz a 3.2 kHz (0.5 : 800 Hz)"
+    },
+    {
+      "id": "xPhSpread",
+      "label": "PHASER SPREAD",
+      "section": "phaser",
+      "def": 0.5,
+      "help": "l'ecart gauche / droite, 0 a 180 degres (0.5 : 90)"
+    },
+    {
+      "id": "xPhSync",
+      "label": "PHASER SYNC",
+      "section": "phaser",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo"
+    },
+    {
+      "id": "xFlDelay",
+      "label": "FLANGER DELAY",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "le retard de base, 0.6 a 10 ms (0.5 : 2.5 ms)"
+    },
+    {
+      "id": "xFlSpread",
+      "label": "FLANGER SPREAD",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "l'ecart gauche / droite, 0 a 180 degres (0.5 : 90)"
+    },
+    {
+      "id": "xFlSync",
+      "label": "FLANGER SYNC",
+      "section": "flanger",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo"
+    },
+    {
+      "id": "xFlThru",
+      "label": "FLANGER THRU-0",
+      "section": "flanger",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : a travers zero (celui du depart) ; OFF : le flanger classique"
+    },
+    {
+      "id": "xChBoth",
+      "label": "CHORUS I+II",
+      "section": "chorus",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "les deux touches du Juno ensemble : rapide et peu profond"
+    },
+    {
+      "id": "xChRate",
+      "label": "CHORUS RATE",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "x1/4 a x4 (0.5 : celle du Juno)"
+    },
+    {
+      "id": "xChDepth",
+      "label": "CHORUS DEPTH",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "0 a x1.6 (0.5 : celle du Juno)"
+    },
+    {
+      "id": "xChWidth",
+      "label": "CHORUS WIDTH",
+      "section": "chorus",
+      "def": 1,
+      "help": "la largeur du mouille : 0 mono, 100 % celle du Juno"
+    },
+    {
+      "id": "xChMix",
+      "label": "CHORUS MIX",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "0.5 : le Juno ; 0 : sec ; 1 : mouille seul (vibrato)"
+    },
+    {
+      "id": "xCrTone",
+      "label": "CRUSH TONE",
+      "section": "crush",
+      "def": 1,
+      "help": "un passe-bas apres le CRUSH, 1.5 a 20 kHz ; 100 % : aucun"
+    },
+    {
+      "id": "xCrMix",
+      "label": "CRUSH MIX",
+      "section": "crush",
+      "def": 1,
+      "help": "la part du CRUSH (100 % : celui du depart)"
+    },
+    {
+      "id": "xPuAttack",
+      "label": "PUMP ATTACK",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la plongee avant le temps, 0.08 a 50 ms (0.5 : 2 ms)"
+    },
+    {
+      "id": "xPuCurve",
+      "label": "PUMP CURVE",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la courbe de la remontee : creuse a bombee"
+    },
+    {
+      "id": "xExportHq",
+      "label": "EXPORT HQ",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v32 : le rendu hors ligne (l'export de l'hote, isNonRealtime) passe en HQ x8, quelle que soit QUALITY"
+    },
+    {
+      "id": "xEngine",
+      "label": "ENGINE",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "CLASSIC",
+        "PRO"
+      ],
+      "help": "v34 (Mika : \"CPU B\") : PRO, le moteur rapide (oscillateurs anti-replies au taux de base, filtre et saturation suresechantillonnes : ECO x1, STD x2, HQ x4) ; CLASSIC, le moteur du site au bit pres (ECO x2, STD x4, HQ x8). Les instances neuves : PRO ; un projet d'avant : CLASSIC."
+    },
+    {
+      "id": "xMidiIn",
+      "label": "MIDI IN",
+      "section": "engine",
+      "def": 0,
+      "steps": [
+        "NOTES",
+        "ARP",
+        "LAYER"
+      ],
+      "help": "v38 : NOTES, les notes MIDI jouent et coupent l'arpege (comme avant) ; ARP, les notes tenues deviennent l'accord arpege (RATE, MODE, RANGE, GATE, OCTAVE), synchro Ableton ou l'horloge interne ; LAYER, l'arpege continue sur les pads et les notes jouent par-dessus"
+    },
+    {
+      "id": "xArpHold",
+      "label": "HOLD",
+      "section": "engine",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v38 : MIDI IN en ARP, l'accord reste quand on lache (latch) ; une nouvelle note apres avoir tout lache en commence un autre"
+    },
+    {
+      "id": "xArpRun",
+      "label": "ARP RUN",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "STOP",
+        "RUN"
+      ],
+      "help": "v40 (Mika : \"STOP coupe meme si Ableton joue\") : quand l'hote joue, STOP met l'arpege en pause (les notes s'eteignent en 12 ms), RUN le relance au pas suivant de la grille de l'hote ; garde dans le projet, automatisable"
+    },
+    {
+      "id": "xDPunish2",
+      "label": "DISTO PUNISH",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 (Mika : \"il doit faire mal celui la\") : PUNISH v2, +20 dB dans la saturation, le snarl (cloche +6 dB a 1.4 kHz, -3 dB sous 120 Hz), un second etage dur asymetrique surechantillonne, compression legere, AUTO qui mesure (+3 LU au-dessus du son sans PUNISH), plafond doux a -0.3 dBFS (dsp/Decap.h)"
+    },
+    {
+      "id": "xHellV2",
+      "label": "HELL V2",
+      "section": "hell",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 (Mika : \"la botte secrete de tout le plugin\") : ON, HELL v2, la descente en six cercles (dsp/Hell2.h) ; OFF, l ancien HELL (Hell.cpp). Les instances neuves : ON ; un projet d avant (sans ce reglage) : OFF, son HELL au bit pres. Un preset HELL de la page le met a ON."
+    },
+    {
+      "id": "xHellWarp",
+      "label": "HELL WARP",
+      "section": "hell",
+      "def": 0.224,
+      "help": "II WARP : la profondeur, 0 a 12 demi-tons (12 v^2)"
+    },
+    {
+      "id": "xHellWarpRate",
+      "label": "HELL WARP RATE",
+      "section": "hell",
+      "def": 0.6666666666666666,
+      "steps": [
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR"
+      ],
+      "help": "II WARP : un cycle en notes (1/16 a 4 mesures), cale sur la mesure de l hote"
+    },
+    {
+      "id": "xHellWarpShape",
+      "label": "HELL WARP SHAPE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "WOBBLE",
+        "BEND",
+        "DROP",
+        "STOP",
+        "RANDOM"
+      ],
+      "help": "II WARP : WOBBLE sinus, BEND triangle, DROP la hauteur tombe puis revient, STOP arret de bande en fin de cycle, RANDOM une hauteur tiree a chaque cycle"
+    },
+    {
+      "id": "xHellSpin",
+      "label": "HELL SPIN",
+      "section": "hell",
+      "def": 0.5,
+      "help": "III SPIN : le panoramique qui tournoie"
+    },
+    {
+      "id": "xHellSpinRate",
+      "label": "HELL SPIN RATE",
+      "section": "hell",
+      "def": 0.8333333333333334,
+      "steps": [
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR"
+      ],
+      "help": "III SPIN : un tour en notes ; le balayage du filtre suit"
+    },
+    {
+      "id": "xHellDrunk",
+      "label": "HELL DRUNK",
+      "section": "hell",
+      "def": 0.3,
+      "help": "III SPIN : le chorus ivre, trois voix dont le retard titube (une marche aleatoire lissee, un pas par double-croche)"
+    },
+    {
+      "id": "xHellSweep",
+      "label": "HELL SWEEP",
+      "section": "hell",
+      "def": 0,
+      "help": "III SPIN : le passe-bas resonant qui balaie au rythme de SPIN RATE"
+    },
+    {
+      "id": "xHellShatter",
+      "label": "HELL SHATTER",
+      "section": "hell",
+      "def": 0.35,
+      "help": "IV SHATTER : le son en eclats (granulaire), la part des grains"
+    },
+    {
+      "id": "xHellShatterSize",
+      "label": "HELL SHATTER SIZE",
+      "section": "hell",
+      "def": 0.5,
+      "steps": [
+        "1/64",
+        "1/32",
+        "1/16",
+        "1/8",
+        "1/4"
+      ],
+      "help": "IV SHATTER : la taille des grains en notes (un grain tous les demi-grains, sur la grille du tempo)"
+    },
+    {
+      "id": "xHellShatterSpray",
+      "label": "HELL SHATTER SPRAY",
+      "section": "hell",
+      "def": 0.35,
+      "help": "IV SHATTER : la dispersion : octaves, quintes, grains a l envers, jetes a gauche et a droite"
+    },
+    {
+      "id": "xHellChop",
+      "label": "HELL CHOP",
+      "section": "hell",
+      "def": 0.3,
+      "help": "V CHOP : la chance qu une case de la grille rejoue la case d avant (stutter)"
+    },
+    {
+      "id": "xHellChopGrid",
+      "label": "HELL CHOP GRID",
+      "section": "hell",
+      "def": 0.5,
+      "steps": [
+        "1/64",
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/8T",
+        "1/8",
+        "1/4"
+      ],
+      "help": "V CHOP : la taille d une case, 1/64 a 1/4, calee sur la position de l hote"
+    },
+    {
+      "id": "xHellChopPitch",
+      "label": "HELL CHOP PITCH",
+      "section": "hell",
+      "def": 0.417,
+      "help": "V CHOP : chaque repetition monte ou descend de -12 a +12 demi-tons (round(24 (v - 0.5)), +/- 24 au total)"
+    },
+    {
+      "id": "xHellChopGate",
+      "label": "HELL CHOP GATE",
+      "section": "hell",
+      "def": 0.85,
+      "help": "V CHOP : la longueur de chaque repetition (1 : pleine)"
+    },
+    {
+      "id": "xHellRing",
+      "label": "HELL RING",
+      "section": "hell",
+      "def": 0,
+      "help": "VI METAL : la modulation en anneau"
+    },
+    {
+      "id": "xHellRingTune",
+      "label": "HELL RING TUNE",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "NOTE",
+        "NOTE x1.5",
+        "NOTE x2",
+        "NOTE /2",
+        "TEMPO x8",
+        "TEMPO x32"
+      ],
+      "help": "VI METAL : la frequence de l anneau : la note jouee (x1, x1.5, x2, /2) ou le tempo (8 ou 32 fois par temps)"
+    },
+    {
+      "id": "xHellComb",
+      "label": "HELL COMB",
+      "section": "hell",
+      "def": 0,
+      "help": "VI METAL : le peigne resonant accorde sur la note, qui change de hauteur a chaque noire"
+    },
+    {
+      "id": "xHellCombSeq",
+      "label": "HELL COMB SEQ",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "OCTAVES",
+        "FIFTHS",
+        "MINOR",
+        "CHROMATIC",
+        "RANDOM"
+      ],
+      "help": "VI METAL : la suite des hauteurs du peigne, une par noire (8 temps puis elle recommence)"
+    },
+    {
+      "id": "xHellDescent",
+      "label": "HELL DESCENT",
+      "section": "hell",
+      "def": 0,
+      "steps": [
+        "DESCENT",
+        "ALL"
+      ],
+      "help": "MIX : DESCENT les cercles entrent un par un (WARP 10 %, SPIN 22 %, SHATTER 36 %, CHOP 50 %, METAL 64 %), ALL tous ensemble"
+    },
+    {
+      "id": "xSkyLoCut",
+      "label": "REVERB LOW CUT",
+      "section": "sky",
+      "def": 0,
+      "help": "v46 (Mika : REVERB option A) : la sortie de la reverbe (le mouille seul, CLASSIC compris), un passe-haut ; 0 : OFF (contourne), sinon 20 Hz x 100^v (20 Hz a 2 kHz)"
+    },
+    {
+      "id": "xSkyLoSlope",
+      "label": "REVERB LOW CUT SLOPE",
+      "section": "sky",
+      "def": 0,
+      "steps": [
+        "12 DB",
+        "24 DB"
+      ],
+      "help": "v46 : la pente de LOW CUT, 12 ou 24 dB par octave (Butterworth)"
+    },
+    {
+      "id": "xSkyMidHz",
+      "label": "REVERB MID FREQ",
+      "section": "sky",
+      "def": 0.5,
+      "help": "v46 : la cloche de l'EQ de la reverbe, 200 Hz x 40^v (200 Hz a 8 kHz)"
+    },
+    {
+      "id": "xSkyMidDb",
+      "label": "REVERB MID GAIN",
+      "section": "sky",
+      "def": 0.5,
+      "help": "v46 : le gain de la cloche, 24 (v - 0.5) dB (-12 a +12) ; 0.5 : 0 dB, contournee"
+    },
+    {
+      "id": "xSkyMidQ",
+      "label": "REVERB MID Q",
+      "section": "sky",
+      "def": 0.3,
+      "help": "v46 : le Q de la cloche, 0.4 x 10^v (0.4 a 4)"
+    },
+    {
+      "id": "xSkyHiCut",
+      "label": "REVERB HIGH CUT",
+      "section": "sky",
+      "def": 1,
+      "help": "v46 : un passe-bas sur la sortie de la reverbe ; 1 : OFF (contourne), sinon 1 kHz x 20^v (1 a 20 kHz)"
+    },
+    {
+      "id": "xSkyHiSlope",
+      "label": "REVERB HIGH CUT SLOPE",
+      "section": "sky",
+      "def": 0,
+      "steps": [
+        "12 DB",
+        "24 DB"
+      ],
+      "help": "v46 : la pente de HIGH CUT, 12 ou 24 dB par octave (Butterworth)"
+    },
+    {
+      "id": "xSkyWidth",
+      "label": "REVERB WIDTH",
+      "section": "sky",
+      "def": 0.5,
+      "help": "v46 : la largeur de la reverbe (milieu / cote) : 0 mono, 0.5 : 100 % (contournee), 1 : 150 %"
+    },
+    {
+      "id": "xSkyDuck",
+      "label": "REVERB DUCK",
+      "section": "sky",
+      "def": 0,
+      "help": "v46 : la reverbe baisse sous le son sec (l'enveloppe du DUCKING du DELAY, retour 250 ms) ; 0 : contourne, 1 : la reverbe se tait des que le sec depasse -12 dBFS"
+    },
+    {
+      "id": "xSkyFreeze",
+      "label": "REVERB FREEZE",
+      "section": "sky",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "v46 : la queue tenue sans fin (les machines BigSky sauf SPRING : les gains du reseau a 1, l'entree coupee, en fondu de 50 ms) ; sans effet sur CLASSIC et SPRING"
+    },
+    {
+      "id": "xLatency",
+      "label": "LATENCY",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "EXACT",
+        "ZERO"
+      ],
+      "help": "v49 (Mika : \"le moins de ms possible\") : ZERO, aucune latence declaree a l'hote (les decimateurs du moteur, la DISTO et WARMTH par demi-bandes RII a phase minimale, plates a 1e-6 dB pres jusqu'a 20 kHz, repliement au plus celui d'EXACT ; et le chemin leger : la BigSky modulee par phaseurs, le DELAY du site endormi sans envoi) ; EXACT, les filtres a phase lineaire du site, au bit pres (16 a 21 echantillons declares selon QUALITY). Les instances neuves : ZERO ; un projet d'avant (sans ce reglage) : EXACT, son son au bit pres. Le changement attend le silence (12 ms, comme QUALITY)."
+    },
+    {
+      "id": "xLfo1Sync",
+      "label": "LFO 1 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC (le depart, l'ancien) : SPEED (lfoRate) en divisions du tempo, la phase calee sur le transport, au bit pres ; FREE : xLfo1Hz, une phase libre"
+    },
+    {
+      "id": "xLfo1Hz",
+      "label": "LFO 1 FREE RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : la vitesse du LFO 1 en FREE, 0.02 x 500^v Hz (0.02 a 10 Hz, la loi de xDLfoRate)"
+    },
+    {
+      "id": "xLfo2Sync",
+      "label": "LFO 2 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC (le depart, l'ancien) : SPEED (xLfo2Rate) en divisions du tempo, la phase calee sur le transport, au bit pres ; FREE : xLfo2Hz, une phase libre"
+    },
+    {
+      "id": "xLfo2Hz",
+      "label": "LFO 2 FREE RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : la vitesse du LFO 2 en FREE, 0.02 x 500^v Hz"
+    },
+    {
+      "id": "xLfo4Rate",
+      "label": "LFO 4 RATE",
+      "section": "lfo",
+      "def": 0.4,
+      "help": "v50 : FREE 0.02 x 500^v Hz ; SYNC : 8 BAR a 1/32 (la loi de xDLfoRate), la phase calee sur le transport quand il joue"
+    },
+    {
+      "id": "xLfo4Shape",
+      "label": "LFO 4 SHAPE",
+      "section": "lfo",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "RAMP",
+        "SQR",
+        "S&H",
+        "RND"
+      ],
+      "help": "v50 : les formes du LFO 2"
+    },
+    {
+      "id": "xLfo4Sync",
+      "label": "LFO 4 SYNC",
+      "section": "lfo",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "v50 : SYNC : RATE en divisions du tempo de l'hote ; FREE : en Hz"
+    },
+    {
+      "id": "xMx1Src",
+      "label": "MOD 1 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ],
+      "help": "v50 : la matrice de modulation, 8 emplacements (source, destination, quantite). Sources : celles de xM{n}Src puis LFO 3 (le LFO de la DISTO) et LFO 4 ; on n'ajoute qu'a la fin"
+    },
+    {
+      "id": "xMx1Dst",
+      "label": "MOD 1 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024,
+      "help": "v50 : 1024 crans (valeur = code / 1023) : 0 OFF, 1..19 les destinations synthe de xM{n}Dst (par voix), 32 + k le reglage hote d'indice k (potards puis reglages du VST3 seul) ; la table : src/v4/plugin/arp/modTable.ts et src/ModTable.inc (tests/extra-gen.mjs)"
+    },
+    {
+      "id": "xMx1Amt",
+      "label": "MOD 1 AMOUNT",
+      "section": "mod",
+      "def": 0.5,
+      "help": "v50 : -100 a +100 % (0.5 : rien) ; cible 32 + k : valeur effective = clamp(valeur + somme(source x (2 Amt - 1)), 0, 1)"
+    },
+    {
+      "id": "xMx2Src",
+      "label": "MOD 2 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx2Dst",
+      "label": "MOD 2 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx2Amt",
+      "label": "MOD 2 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx3Src",
+      "label": "MOD 3 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx3Dst",
+      "label": "MOD 3 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx3Amt",
+      "label": "MOD 3 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx4Src",
+      "label": "MOD 4 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx4Dst",
+      "label": "MOD 4 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx4Amt",
+      "label": "MOD 4 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx5Src",
+      "label": "MOD 5 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx5Dst",
+      "label": "MOD 5 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx5Amt",
+      "label": "MOD 5 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx6Src",
+      "label": "MOD 6 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx6Dst",
+      "label": "MOD 6 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx6Amt",
+      "label": "MOD 6 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx7Src",
+      "label": "MOD 7 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx7Dst",
+      "label": "MOD 7 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx7Amt",
+      "label": "MOD 7 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xMx8Src",
+      "label": "MOD 8 SOURCE",
+      "section": "mod",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM",
+        "LFO 3",
+        "LFO 4"
+      ]
+    },
+    {
+      "id": "xMx8Dst",
+      "label": "MOD 8 DEST",
+      "section": "mod",
+      "def": 0,
+      "nsteps": 1024
+    },
+    {
+      "id": "xMx8Amt",
+      "label": "MOD 8 AMOUNT",
+      "section": "mod",
+      "def": 0.5
+    },
+    {
+      "id": "xKey",
+      "label": "KEY",
+      "section": "key",
+      "def": 0.5454545454545454,
+      "steps": [
+        "C",
+        "C#",
+        "D",
+        "D#",
+        "E",
+        "F",
+        "F#",
+        "G",
+        "G#",
+        "A",
+        "A#",
+        "B"
+      ],
+      "instance": true,
+      "help": "v52 (Mika : \"pourquoi on a pas toutes les notes ?\", choix 2A) : la tonique des 8 pads (le selecteur CHORDS sous les pads), 12 crans de C a B, depart F# (6 / 11). La tonique se pose entre C3 et B3 (48 + cran ; F# : 54, la note d'avant). Un reglage de l'instance (le morceau), comme LATENCY : aucun preset (usine, disque, RANDOM) ne le change ; un projet d'avant s'ouvre en F# MINOR, au bit pres. Jamais une cible de modulation."
+    },
+    {
+      "id": "xScale",
+      "label": "SCALE",
+      "section": "key",
+      "def": 0,
+      "steps": [
+        "MINOR",
+        "MAJOR",
+        "DORIAN",
+        "PHRYGIAN"
+      ],
+      "instance": true,
+      "help": "v52 : le mode des 8 pads : les sept degres de sa gamme dans l'ordre (triades ; le degre diminue en demi-diminue a quatre sons, comme G#ø), puis la tonique a quatre sons (m7 ; maj7 en MAJOR). Les notes du sequenceur sont des degres de cette gamme. Depart MINOR ; un reglage de l'instance, comme xKey."
+    }
+  ]
+}

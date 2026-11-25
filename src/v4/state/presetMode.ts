@@ -583,6 +583,20 @@ export const presetMode = {
     commit({ ...state, index: at, note: '' });
   },
   /**
+   * Le plugin MM-ARP (v43) : un clic sur une ligne de la liste (pick : son rang) ou les fleches haut et bas (nudge : d
+   * lignes, arretees aux bouts comme le potard) ; le geste repousse la fermeture par l'attente. Rien ne se charge.
+   */
+  pick(m: PresetMachine, target: number): void {
+    if (state.machine !== m || state.stage !== 'browse') return;
+    touch();
+    presetMode.select(m, target);
+  },
+  nudge(m: PresetMachine, d: number): void {
+    if (state.machine !== m || state.stage !== 'browse') return;
+    touch();
+    presetMode.step(m, d);
+  },
+  /**
    * Un potard de la face du MM-RYTM tourne de d crans pendant le mode (2026-10-27, desktop : l'ecran ne se touche
    * pas) : sur la liste, il deplace le curseur (le potard A d'abord, l'ecran le dit, mais tous) ; sur le nom, A tourne la
    * lettre et B deplace le curseur (le repli materiel, facon Elektron), les autres ne font rien. true si le potard a servi.

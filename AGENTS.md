@@ -109,6 +109,8 @@ gh auth switch --user mauditemachine
 
 - Tout en francais, tutoiement, reponses **courtes et directes**, conclusion d'abord, pas de formules de politesse.
 - Une seule question oui/non a la fois (ou « aucune »).
+- Quand Mika doit choisir entre des options (A / B / C) : une image par option, la lettre ecrite en gros sur l'image, la meme lettre et le meme ordre dans le texte (Mika, 2026-11-18 : "je suis toujours en train de deviner lequel est le a b ou c").
+- Mika veut des images avant tout changement de design : maquette, il valide, puis code et publication. Une refonte n'est faite que si elle est la page par defaut du build publie, jamais derriere un drapeau d'URL.
 - Terminer chaque livraison a Mika par :
   ```
   === POUR MIKA ===

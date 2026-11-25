@@ -73,6 +73,9 @@ export interface ExplodeCfg {
   pcbY: number;
   /** pente du capot ferme (rad) */
   tilt: number;
+  /** duree d'une couche et decalage (ms) ; par defaut EXPLODE (900 et 80). v28 : le MM-ARP (plugin) a les siens, courts */
+  ms?: number;
+  staggerMs?: number;
 }
 
 export const EXPLODE_808: ExplodeCfg = {
@@ -160,14 +163,14 @@ export class Explode {
 
   /** Progression d'une couche partie apres `delay` ms, t ms apres le depart. */
   private k(t: number, delay: number): number {
-    return easeInOutQuart(clamp01((t - delay) / EXPLODE.ms));
+    return easeInOutQuart(clamp01((t - delay) / (this.cfg.ms ?? EXPLODE.ms)));
   }
 
   /** Animateur du Stage : true tant que les couches bougent (une frame par rAF). */
   update(now: number): boolean {
     if (this.dir === 0) return false;
     const t = this.cut ? Infinity : now - this.t0;
-    const s = EXPLODE.staggerMs;
+    const s = this.cfg.staggerMs ?? EXPLODE.staggerMs;
     const p = this.p;
     if (this.dir === 1) {
       p.plateau = this.k(t, 0);
@@ -179,7 +182,7 @@ export class Explode {
     // Le cadrage tient la couche la plus ecartee (le panneau leve, en haut)
     p.frame = Math.max(p.plateau, p.pcb);
     this.apply();
-    if (t >= EXPLODE_TOTAL_MS) {
+    if (t >= (this.cfg.ms ?? EXPLODE.ms) + s) {
       this.dir = 0;
       this.runs += 1;
       this.lastMs = this.cut ? 0 : now - this.t0;
