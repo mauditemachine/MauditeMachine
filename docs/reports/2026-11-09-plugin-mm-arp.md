@@ -1118,4 +1118,5 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Tests : tsc 105 ; dbl54/dbl.js (clics horodates par CDP : le rendu logiciel du conteneur met des centaines de ms par
   image) : CUTOFF, RES, REVERB (pas d'OPEN au double clic, OPEN au clic seul), HELL, KEY TRACK, ACCENT, un potard
   d'OPEN, DRIFT et LFO 1 SPEED de l'encart, levier SYNC (deux bascules), deux clics lents (rien), Alt + clic ;
-  egtest.js mis a jour (il verifiait que le double clic ne faisait rien).
+  egtest.js mis a jour (il verifiait que le double clic ne faisait rien). Serie de la face en Chromium muet : smoke,
+  func, func2, funckey, egtest, funcpb TOUT OK. Publiee : commit acc9464, zip 2026-11-25 16:43 UTC.
