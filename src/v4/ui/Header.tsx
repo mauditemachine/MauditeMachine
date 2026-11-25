@@ -141,7 +141,7 @@ export const GoodiesButton: React.FC<{ compact?: boolean; onPick?: () => void }>
       data-active={opened === 'goodies' ? '1' : '0'}
       aria-controls="v4-section-goodies"
       aria-expanded={opened === 'goodies'}
-      aria-label="Goodies: free plugins, machines to play and wallpapers"
+      aria-label="Goodies: machines to play online, wallpapers and covers"
       data-press-button=""
       onClick={() => {
         onPick?.();

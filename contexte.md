@@ -58,7 +58,7 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 
 ## 5. Plugins VST3 gratuits contre un courriel (24 nov 2026, `docs/vst-download.md`)
 
-- **GOODIES** (`src/v4/ui/sections/VstDownload.tsx`) : MM-RYTM (VST3 macOS et Windows beta) et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
+- **Formulaire** (`src/v4/ui/sections/VstDownload.tsx`, sur `/mm-rytm/` et `/mm-arp/`) : MM-RYTM (VST3 macOS et Windows beta) et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
 - **`/download/?p=rytm|arp`** (`public/download/index.html`, noindex, hors sitemap) : la page des liens du courriel, un bouton par systeme (celui du visiteur part tout seul), installation, don.
 - **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : `donateUrl` = `https://ko-fi.com/mauditemachine` (Ko-fi : Stripe branche, PayPal non, CA$, minimum 3) ; `emailjsTemplateId` = `template_63bjqgy` (25 nov, modele "VST download" du compte EmailJS Maudite Machine, `service_zeuwh04`) : le bloc PLUGINS est visible dans GOODIES** et `/goodies/` mentionne les plugins pour Google (prerendu).
 - **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
@@ -69,7 +69,8 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
   - Menu : `TRACKS, MIXTAPES, MM-RYTM, MM-ARP, GOODIES (badge FREE), SHOWS, PRESS, CONTACT` (`src/v4/ui/Header.tsx` `PAGE_LINKS`) ; la pastille GOODIES de "Under the hood" est retiree (reste MERCH).
   - En-tete : bouton jaune **GOODIES FREE** (desktop, avant MENU) et cadeau jaune (telephone), `GoodiesButton`.
   - **`/mm-rytm/` et `/mm-arp/`** (`PluginPage.tsx`, textes dans `src/data/vstPages.json`, images `public/images/vst/`) : presentation, systemes, "Play the full plugin" (RYTM, desktop), "Play it on the site", formulaire courriel ; prerendues avec un `SoftwareApplication` gratuit, dans le sitemap et `llms.txt`.
-  - **GOODIES** : Play online (MM-RYTM, MM-ARP, MM-DECKS), cartes des deux plugins, formulaire, fonds d'ecran et pochettes.
+  - **GOODIES** : Play online (MM-RYTM, MM-ARP, MM-DECKS), fonds d'ecran et pochettes. **Les plugins n'y sont plus** (25 nov, Mika : "les goodies ce sont les goodies.. les plugins ne sont pas des goodies !") : seulement sur `/mm-rytm/` et `/mm-arp/`.
+  - **`/download/`** : l'encart "Before it downloads" (Buy me a coffee / Just download) en haut, le telechargement part seul apres 8 s (25 nov, Mika : "je pensais qu'il y avait ce genre de chose avant de download").
   - **`/mm-rytm/play/`** (`WebPlugin.tsx`, noindex) : le plugin MM-RYTM entier dans le navigateur, desktop seulement (au telephone, un message). MM-ARP en version web : apres la fusion de sa branche (sa face v53 y vit, et la DISTO, les LFO 3-4 et la matrice n'existent qu'en C++).
 - **Publie (25 nov 2026, installeurs)** : `mm-rytm-public` = version `2026.11.25.8`, build `2fd52a6` de `main` (`.pkg` Mac universel, `.exe` Windows x64 beta, zip des deux) ; `mm-arp-public` = version `2026.11.25.6`, build `9744576` (v53) de `claude/nifty-bohr-7ixmpf` (`.pkg` Mac universel, zip). MM-RYTM se publie depuis le dernier build vert de `main` (artefacts de `plugin.yml`), MM-ARP depuis `mm-arp-latest`.
 

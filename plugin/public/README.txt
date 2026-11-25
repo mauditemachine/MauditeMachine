@@ -31,7 +31,7 @@ If you installed an older version by hand in ~/Library/Audio/Plug-Ins/VST3, dele
 TERMS
 Free to use in your music, commercial releases included.
 Please do not sell the plugin or put it up for download somewhere else:
-share https://mauditemachine.com/goodies/ instead. Provided as is, without warranty.
+share its page instead, https://mauditemachine.com/@SLUG@/ . Provided as is, without warranty.
 
 The plugins are free and stay free. If they end up in your tracks, you can buy me a coffee:
 https://ko-fi.com/mauditemachine
