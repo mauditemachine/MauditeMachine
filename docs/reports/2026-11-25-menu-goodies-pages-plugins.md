@@ -22,3 +22,12 @@ Mika : "Goodies est trop petit dans le menu on le voit pas" ; "laisse MM-RYTM et
 ## Reste
 
 - MM-ARP en version web : apres la fusion de `claude/nifty-bohr-7ixmpf` (face v53 ; DISTO, LFO 3-4 et matrice seulement en C++).
+
+## Les installeurs (meme jour)
+
+Mika : "je voudrais vraiment que tu fasses un systeme d'installation comme tous les bons plugins qui se respectent comme ca je me prends pas la tete ! et evite les design trop ia".
+
+- `plugin/installer/` : `mac/` (distribution.xml, welcome.html, conclusion.html, preinstall, postinstall, le logo en bas a gauche en clair et en sombre, 1x et 2x), `windows/installer.iss` (Inno Setup 6, panneau noir avec le A en or, icone), `license.txt`. Textes courts a la voix de Mika, aucun degrade ni effet.
+- `.github/workflows/plugin-public.yml` : trois jobs. `mac` : pkgbuild (bundle non relocalisable) + productbuild (hostArchitectures arm64 et x86_64, macOS 11), puis `sudo installer` sur le runner et `codesign --verify` du plugin installe. `windows` : Inno Setup (choco), installation silencieuse, verification du .vst3, desinstallation silencieuse, verification qu'il est parti. `publish` : le .pkg, le .exe et le zip qui les reunit dans `mm-<plugin>-public`.
+- `/download/` : boutons Mac et Windows, celui du visiteur en plein et lance tout seul ; plus de ligne de Terminal.
+- Non signes : un clic de plus a la premiere ouverture (Mac : Open Anyway ; Windows : Run anyway).

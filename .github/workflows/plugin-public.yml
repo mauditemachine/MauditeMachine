@@ -1,12 +1,17 @@
 name: Plugin public (MM-RYTM, MM-ARP)
 # 2026-11-24 (Mika : "mettre a disposition les plugins RYTM et ARP au telechargement", contre un courriel, don
 # volontaire ; docs/vst-download.md). Les releases mm-rytm-latest et mm-arp-latest suivent chaque build vert, de
-# n'importe quelle branche (chantiers en cours compris) : le public ne les telecharge jamais directement. Ce workflow,
-# lance a la main (Actions > Plugin public > Run workflow), copie le build -latest valide par Mika dans une release
-# fixe, mm-<plugin>-public, avec un README d'installation public a la place du guide perso (INSTALL.md, update.sh).
-# 2026-11-24 (Mika : Windows "dans le meme package, c'est aux gens de faire ce choix") : un seul zip par plugin,
-# MM-<PLUGIN>-VST3.zip, avec un dossier macOS/ et, s'il existe (et si l'option windows est cochee), un dossier Windows/.
-# L'adresse du zip ne change plus : celle de /download/?p=rytm et ?p=arp (public/download/index.html, public/data/vst.json).
+# n'importe quelle branche : le public ne les telecharge jamais directement. Ce workflow, lance a la main (Actions >
+# Plugin public > Run workflow), fait du dernier build vert la version publique, dans la release fixe mm-<plugin>-public.
+# 2026-11-25 (Mika : "un systeme d'installation comme tous les bons plugins ... comme ca je me prends pas la tete") : des
+# installeurs. Mac : un .pkg (pkgbuild + productbuild, plugin/installer/mac) qui pose le .vst3 dans
+# /Library/Audio/Plug-Ins/VST3 ; Windows : un .exe (Inno Setup, plugin/installer/windows) qui le pose dans
+# C:\Program Files\Common Files\VST3, avec sa desinstallation. Chacun est installe pour de vrai sur le runner avant
+# d'etre publie. La release porte les deux installeurs et un zip qui les reunit avec le README (MM-<PLUGIN>-VST3.zip,
+# l'adresse d'avant). Pas encore signes (compte Apple Developer, certificat Windows) : un clic de plus a l'ouverture.
+# 2026-11-25 : MM-RYTM vient du dernier build vert de main (les artefacts Mac et Windows du meme run de plugin.yml), plus
+# de la release mm-rytm-latest, que les branches de chantier ecrasent aussi (un zip public a melange un Mac d'une branche
+# de l'ARP et un Windows d'une autre). MM-ARP : sa release mm-arp-latest (seule sa branche la publie).
 on:
   workflow_dispatch:
     inputs:
@@ -24,75 +29,194 @@ on:
         default: true
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: plugin-public-${{ inputs.plugin }}
   cancel-in-progress: false
+env:
+  PLUGIN: ${{ inputs.plugin }}
+  GH_REPO: ${{ github.repository }}
 jobs:
+  mac:
+    name: Installeur macOS (.pkg)
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+      run: ${{ steps.pkg.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire et installer le .pkg
+        id: pkg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "$PLUGIN" in
+            rytm) N=MM-RYTM; KIND="The drum machine" ;;
+            arp) N=MM-ARP; KIND="The synth and arpeggiator" ;;
+          esac
+          ID="com.mauditemachine.mm$PLUGIN.vst3"
+          VER="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER"
+          I=plugin/installer
+          rm -rf in work root scripts res out && mkdir -p in work root scripts res out
+          RUN=""
+          if [ "$PLUGIN" = rytm ]; then
+            RUN="$(gh run list --workflow plugin.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            test -n "$RUN"
+            echo "MM-RYTM : le run $RUN de plugin.yml sur main"
+            gh run download "$RUN" -n "$N-macOS" -D in
+          else
+            gh release download "mm-$PLUGIN-latest" -p "$N-macOS.zip" -D in
+          fi
+          ditto -x -k "in/$N-macOS.zip" work
+          codesign --verify --deep --strict "work/$N/$N.vst3"
+          ditto "work/$N/$N.vst3" "root/$N.vst3"
+          # Le bundle reste ou on le pose (sinon Installer peut le deplacer vers une autre copie du meme identifiant)
+          pkgbuild --analyze --root root comp.plist
+          plutil -replace 0.BundleIsRelocatable -bool NO comp.plist
+          for s in preinstall postinstall; do sed "s/@NAME@/$N/g" "$I/mac/$s" > "scripts/$s"; chmod +x "scripts/$s"; done
+          pkgbuild --root root --component-plist comp.plist --install-location /Library/Audio/Plug-Ins/VST3 \
+            --identifier "$ID" --version "$VER" --scripts scripts component.pkg
+          # Les textes et le logo (1x et 2x dans un TIFF, net sur un ecran Retina)
+          tiffutil -cathidpicheck "$I/mac/background.png" "$I/mac/background@2x.png" -out res/background.tiff
+          tiffutil -cathidpicheck "$I/mac/background-dark.png" "$I/mac/background-dark@2x.png" -out res/background-dark.tiff
+          for f in welcome.html conclusion.html; do sed -e "s/@NAME@/$N/g" -e "s/@KIND@/$KIND/g" "$I/mac/$f" > "res/$f"; done
+          sed "s/@NAME@/$N/g" "$I/license.txt" > res/license.txt
+          sed -e "s/@NAME@/$N/g" -e "s/@ID@/$ID/g" -e "s/@VER@/$VER/g" "$I/mac/distribution.xml" > distribution.xml
+          productbuild --distribution distribution.xml --resources res --package-path . "out/$N-Installer-Mac.pkg"
+          # L'essai : installe sur ce Mac, au bon endroit, signature intacte
+          sudo installer -pkg "out/$N-Installer-Mac.pkg" -target /
+          P="/Library/Audio/Plug-Ins/VST3/$N.vst3"
+          test -d "$P"
+          codesign --verify --deep --strict "$P"
+          lipo -archs "$P/Contents/MacOS/$N"
+          pkgutil --pkg-info "$ID"
+          printf 'macOS : %s\n' "$(cat "work/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')" > out/BUILD-mac.txt
+          ls -la out
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: out/
+          retention-days: 7
+
+  windows:
+    name: Installeur Windows (.exe)
+    needs: mac
+    if: ${{ inputs.windows }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Le dernier build Windows (s'il existe)
+        id: src
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ needs.mac.outputs.run }}
+        run: |
+          N=$([ "$PLUGIN" = rytm ] && echo MM-RYTM || echo MM-ARP)
+          mkdir -p in work
+          # Le meme run que le Mac (MM-RYTM) ; sinon la release -latest
+          if { [ -n "$RUN" ] && gh run download "$RUN" -n "$N-Windows" -D in; } || { [ -z "$RUN" ] && gh release download "mm-$PLUGIN-latest" -p "$N-Windows.zip" -D in; }; then
+            7z x -y -owork "in/$N-Windows.zip" > /dev/null
+            test -d "work/$N/$N.vst3/Contents/x86_64-win"
+            echo "has=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Pas de build Windows pour $N : seulement le Mac"
+            echo "has=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Inno Setup
+        if: steps.src.outputs.has == '1'
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+      - name: Construire, installer et desinstaller le .exe
+        if: steps.src.outputs.has == '1'
+        shell: pwsh
+        env:
+          VER: ${{ needs.mac.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:PLUGIN -eq 'rytm') { $N = 'MM-RYTM'; $KIND = 'The drum machine'; $GUID = '26EB6186-5ABD-49A9-B10C-72C9A75F05DC' }
+          else { $N = 'MM-ARP'; $KIND = 'The synth and arpeggiator'; $GUID = 'DD292079-F100-4DF0-9497-23DF849EABA2' }
+          $src = (Resolve-Path "work/$N").Path
+          (Get-Content plugin/installer/license.txt -Raw).Replace('@NAME@', $N) | Set-Content -Path "$src/license.txt" -Encoding utf8
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $out = (Resolve-Path out).Path
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          Push-Location plugin/installer/windows
+          & $iscc /Q "/DAppName=$N" "/DAppKind=$KIND" "/DAppVer=$env:VER" "/DAppGuid=$GUID" "/DSrcDir=$src" "/DOutDir=$out" "/DOutName=$N-Installer-Windows" installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC a echoue ($LASTEXITCODE)" }
+          Pop-Location
+          $exe = "$out\$N-Installer-Windows.exe"
+          # L'essai : installe en silence, le plugin est la, la desinstallation le retire
+          $p = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installation : code $($p.ExitCode)" }
+          $dll = "$env:CommonProgramFiles\VST3\$N.vst3\Contents\x86_64-win\$N.vst3"
+          if (-not (Test-Path $dll)) { throw "le plugin n'est pas installe : $dll" }
+          Get-ChildItem "$env:CommonProgramFiles\VST3" | Select-Object Name
+          $un = Get-ChildItem "$env:ProgramFiles\Maudite Machine\$N" -Filter 'unins*.exe' | Select-Object -First 1
+          $p = Start-Process -FilePath $un.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 3
+          if (Test-Path "$env:CommonProgramFiles\VST3\$N.vst3") { throw 'la desinstallation a laisse le plugin' }
+          "Windows : $(Get-Content "work/$N/BUILD.txt" -Raw)".Trim() | Set-Content -Path "$out\BUILD-win.txt"
+          Get-ChildItem $out
+      - uses: actions/upload-artifact@v4
+        if: steps.src.outputs.has == '1'
+        with:
+          name: windows
+          path: out/
+          retention-days: 7
+
   publish:
     name: Publier ${{ inputs.plugin }}
-    # macOS : ditto et codesign gardent le bundle Mac tel que le CI l'a signe
-    runs-on: macos-latest
+    needs: [mac, windows]
+    if: ${{ always() && needs.mac.result == 'success' && (needs.windows.result == 'success' || needs.windows.result == 'skipped') }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Reunir Mac et Windows dans un paquet public
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Le zip, les installeurs, la release
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PLUGIN: ${{ inputs.plugin }}
-          WITH_WINDOWS: ${{ inputs.windows }}
+          VER: ${{ needs.mac.outputs.version }}
+          RUN: ${{ needs.mac.outputs.run }}
         run: |
           set -euo pipefail
-          case "$PLUGIN" in
-            rytm) N=MM-RYTM ;;
-            arp) N=MM-ARP ;;
-            *) echo "plugin inconnu : $PLUGIN"; exit 1 ;;
-          esac
+          N=$([ "$PLUGIN" = rytm ] && echo MM-RYTM || echo MM-ARP)
           SRC="mm-$PLUGIN-latest"
           DST="mm-$PLUGIN-public"
-          OUT="$N-VST3.zip"
-          rm -rf in work pkg && mkdir -p in work/mac work/win "pkg/$N"
-
-          # Mac (obligatoire)
-          gh release download "$SRC" -p "$N-macOS.zip" -D in
-          ditto -x -k "in/$N-macOS.zip" work/mac
-          codesign --verify --deep --strict "work/mac/$N/$N.vst3"
-          mkdir -p "pkg/$N/macOS"
-          ditto "work/mac/$N/$N.vst3" "pkg/$N/macOS/$N.vst3"
-          BUILD="macOS : $(cat "work/mac/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
-
-          # Windows (si le dernier build en a un)
-          WIN=0
-          if [ "$WITH_WINDOWS" = "true" ] && gh release download "$SRC" -p "$N-Windows.zip" -D in 2>/dev/null; then
-            ditto -x -k "in/$N-Windows.zip" work/win
-            test -d "work/win/$N/$N.vst3/Contents/x86_64-win"
-            mkdir -p "pkg/$N/Windows"
-            cp -R "work/win/$N/$N.vst3" "pkg/$N/Windows/$N.vst3"
+          ls -R art
+          MAC="art/mac/$N-Installer-Mac.pkg"
+          WINEXE="art/windows/$N-Installer-Windows.exe"
+          rm -rf pkg && mkdir -p "pkg/$N"
+          cp "$MAC" "pkg/$N/"
+          BUILD="$(cat art/mac/BUILD-mac.txt)"
+          if [ -f "$WINEXE" ]; then
+            cp "$WINEXE" "pkg/$N/"
             BUILD="$BUILD
-          Windows : $(cat "work/win/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')"
-            WIN=1
-          fi
-
-          if [ "$WIN" = 1 ]; then
+          $(cat art/windows/BUILD-win.txt)"
             perl -0pe 's/\[\[NOWIN\]\].*?\[\[\/NOWIN\]\]//gs; s/\[\[\/?WIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
-            OS="macOS and Windows (beta)"
+            OS="Mac and Windows (beta)"
           else
             perl -0pe 's/\[\[WIN\]\].*?\[\[\/WIN\]\]//gs; s/\[\[\/?NOWIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
-            OS="macOS"
+            OS="Mac"
           fi
-          printf '%s\n' "$BUILD" > "pkg/$N/BUILD.txt"
-          ditto -c -k --keepParent "pkg/$N" "$OUT"
-          unzip -l "$OUT" | grep -vE '/Contents/(Resources|_CodeSignature)/' | head -30
-
-          SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"
+          printf 'version %s\n%s\n' "$VER" "$BUILD" > "pkg/$N/BUILD.txt"
+          (cd pkg && zip -qr "../$N-VST3.zip" "$N")
+          unzip -l "$N-VST3.zip"
+          # L'etiquette publique : le commit construit (le run de main pour MM-RYTM, la release -latest sinon)
+          if [ -n "$RUN" ]; then SHA="$(gh run view "$RUN" --json headSha --jq .headSha)"; else SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"; fi
           if ! gh release view "$DST" >/dev/null 2>&1; then
             gh release create "$DST" --target "$SHA" --latest=false --title "$N (public)" --notes "$N, free VST3."
           fi
-          gh release upload "$DST" "$OUT" --clobber
-          # L'ancien zip Mac seul (avant le paquet unique) ne doit plus trainer
+          gh release upload "$DST" "$N-VST3.zip" "$MAC" --clobber
+          if [ -f "$WINEXE" ]; then gh release upload "$DST" "$WINEXE" --clobber; else gh release delete-asset "$DST" "$N-Installer-Windows.exe" -y 2>/dev/null || true; fi
           gh release delete-asset "$DST" "$N-VST3-macOS.zip" -y 2>/dev/null || true
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$DST" -f sha="$SHA" -F force=true >/dev/null
-          NOTES="$N, free VST3 by Maudite Machine, for $OS. One zip, one folder per system. Get it with the install guide at https://mauditemachine.com/goodies/ . Builds: $BUILD"
-          gh release edit "$DST" --notes "$NOTES"
-          echo "Publie : https://github.com/$GH_REPO/releases/download/$DST/$OUT ($OS)"
+          gh release edit "$DST" --notes "$N $VER, free VST3 by Maudite Machine, for $OS. Installers: $N-Installer-Mac.pkg$([ -f "$WINEXE" ] && echo ", $N-Installer-Windows.exe"), or both in $N-VST3.zip with the README. Install guide: https://mauditemachine.com/download/?p=$PLUGIN . Builds: $BUILD"
+          echo "Publie : $N $VER ($OS)"

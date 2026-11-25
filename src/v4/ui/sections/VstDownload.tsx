@@ -163,8 +163,8 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number; only?: string }
       )}
       <p className="v4-vst-note">
         {only
-          ? 'Free. Leave your email and the download links for both plugins land in your inbox. Mac, and Windows where listed.'
-          : 'Free. Leave your email and the download links land in your inbox. One zip per plugin, with a folder for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'}
+          ? 'Free. Leave your email and the download links for both plugins land in your inbox. Real installers for Mac, and Windows where listed.'
+          : 'Free. Leave your email and the download links land in your inbox. An installer for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'}
       </p>
       <form className="v4-form v4-vst-form" onSubmit={send} noValidate={false}>
         <label className="v4-field">

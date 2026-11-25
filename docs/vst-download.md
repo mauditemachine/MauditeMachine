@@ -4,6 +4,8 @@
 
 ## Le circuit
 
+Depuis le 2026-11-25 (Mika : "un systeme d'installation comme tous les bons plugins") : **des installeurs**. Mac : `MM-<PLUGIN>-Installer-Mac.pkg` (pose le .vst3 dans /Library/Audio/Plug-Ins/VST3, demande le mot de passe une fois) ; Windows : `MM-<PLUGIN>-Installer-Windows.exe` (Inno Setup, pose le .vst3 dans C:\Program Files\Common Files\VST3, desinstallation dans Applications). Fabriques par le workflow **Plugin public** depuis le dernier build vert (`plugin/installer/`), installes pour de vrai sur les runners avant publication. `/download/` propose les deux, celui du systeme du visiteur part tout seul. Le zip `MM-<PLUGIN>-VST3.zip` reunit les deux installeurs et le README. Pas encore signes : sur Mac, la premiere ouverture demande "Open Anyway" (Reglages Systeme > Confidentialite et securite) ; sur Windows, SmartScreen demande "Informations complementaires > Executer quand meme". Pour supprimer ces clics : compte Apple Developer (99 USD par an, signature Developer ID et notarisation) et certificat de signature Windows.
+
 Depuis le 2026-11-25 : les pages **`/mm-rytm/`** et **`/mm-arp/`** (`src/v4/ui/sections/PluginPage.tsx`, menu MM-RYTM et MM-ARP) presentent chaque plugin avec le formulaire ; **GOODIES** (menu, bouton jaune de l'en-tete) a les machines a jouer, les cartes des plugins et le meme formulaire ; **`/mm-rytm/play/`** (`src/v4/plugin/WebPlugin.tsx`) fait tourner le plugin MM-RYTM entier dans le navigateur (desktop).
 
 1. **GOODIES** (`/goodies/`, `src/v4/ui/sections/VstDownload.tsx`) : les deux plugins (avec leurs systemes), un champ courriel, une case facultative "nouvelles" (decochee), le bouton GET THE PLUGINS.
