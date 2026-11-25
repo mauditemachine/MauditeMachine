@@ -41,6 +41,7 @@ import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbS
 import { arpSteps } from './steps';
 import './hood.css';
 import './dots.css';
+import './noled.css';
 import { NavKeys, SeqPage, SoundPage } from './pages2';
 
 /** Le cadre de la page (la fenetre de base du VST3). */
