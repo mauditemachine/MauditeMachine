@@ -54,6 +54,7 @@ import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
 import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PAD_QUEUED, PLUGIN_ARP, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
+import { VIVID, VIVID_ON, type VividGlow } from './vivid';
 
 /** v41 (maquette) : les touches de la face en pastilles unies de la page OPEN (option A de la v40) */
 const PILL_KEYS = true;
@@ -100,6 +101,43 @@ const HALO: Record<Glow, number> = {
   flash: PAD_HALO.flash,
   orange: PAD_HALO.orange,
   orangeDim: PAD_HALO.orangeDim,
+};
+
+/**
+ * v53 (le plugin, vivid.ts : Mika, "la ou ya de la couleur que ce soit un peu plus voyant") : la lueur d'un etat selon
+ * le niveau de vivacite : la part de celle de la v52 dans la courbe ACES (tm), celle ajoutee apres la courbe a la teinte
+ * exacte de l'accent (post), le multiple du halo. 'off' : celle de la v52.
+ */
+const SAME: VividGlow = { tm: 1, post: 0, halo: 1 };
+const padVivid = (g: Glow): VividGlow => (VIVID_ON && g in VIVID.pads ? VIVID.pads[g as keyof typeof VIVID.pads] : SAME);
+const pillVivid = (g: Glow): VividGlow => (VIVID_ON && (g === 'orange' || g === 'active' || g === 'flash') ? VIVID.pill : SAME);
+
+/**
+ * v53 : la lueur d'apres la courbe : un second emissif par instance (instancePost), ajoute a la couleur deja passee par
+ * l'ACES (avant l'encodage sRGB) : un cyan, un jaune y gardent leur teinte (la courbe les delavait : un pad cyan allume
+ * sortait #3CB4C0). Ponderee par le carre du masque (le dessus entier, les flancs a 30 %). Un niveau autre que 'off'
+ * seulement : a 'off', les materiaux de la v52.
+ */
+function withPostGlow<M extends MeshStandardMaterial>(m: M): M {
+  const prev = m.onBeforeCompile;
+  const key = m.customProgramCacheKey();
+  m.onBeforeCompile = (shader, renderer) => {
+    prev.call(m, shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 instancePost;\nvarying vec3 vInstancePost;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvInstancePost = instancePost * emissiveMask * emissiveMask;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vInstancePost;')
+      .replace('#include <tonemapping_fragment>', '#include <tonemapping_fragment>\n\tgl_FragColor.rgb = min(gl_FragColor.rgb + vInstancePost, vec3(1.0));');
+  };
+  m.customProgramCacheKey = () => `${key}Post`;
+  return m;
+}
+
+const postAttr = (n: number): InstancedBufferAttribute => {
+  const a = new InstancedBufferAttribute(new Float32Array(Math.max(1, n) * 3), 3);
+  a.setUsage(DynamicDrawUsage);
+  return a;
 };
 
 const m4 = new Matrix4();
@@ -285,6 +323,12 @@ export class VoyKeys {
   /** les boutons poussoirs, un InstancedMesh par plan : rig.ts pose chacun dans le repere de son plan */
   readonly pushes: Record<VoyWhere, InstancedMesh>;
   private pushEm: Record<VoyWhere, InstancedBufferAttribute>;
+  /** v53 (vivid.ts) : la lueur d'apres la courbe des pads, des touches, des poussoirs ; null a 'off' */
+  private padPost: InstancedBufferAttribute | null = null;
+  private btnPost: InstancedBufferAttribute | null = null;
+  private pushPost: Record<VoyWhere, InstancedBufferAttribute> | null = null;
+  /** la couleur d'accent lineaire, son canal le plus fort a 1 (la teinte de la lueur d'apres la courbe) */
+  private acc = [0, 0, 0];
   private pushY = new Float32Array(PUSHES);
   /** le bouton poussoir survole (-1 : aucun) */
   private pushHover = -1;
@@ -323,6 +367,12 @@ export class VoyKeys {
     this.padEm.setUsage(DynamicDrawUsage);
     pg.setAttribute('instanceEmissive', this.padEm);
     this.padMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad }), true);
+    if (VIVID_ON) {
+      this.padPost = postAttr(PADS);
+      pg.setAttribute('instancePost', this.padPost);
+      withPostGlow(this.padMat);
+      this.setAcc();
+    }
     this.padMat.name = 'voyPad';
     this.pads = new InstancedMesh(pg, this.padMat, PADS);
     this.pads.name = 'voyPads';
@@ -335,6 +385,11 @@ export class VoyKeys {
     this.btnEm.setUsage(DynamicDrawUsage);
     bg.setAttribute('instanceEmissive', this.btnEm);
     this.btnMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad, ...(PLUGIN_ARP ? { roughness: PILL_KEYS ? 0.85 : 0.5 } : {}) }), true);
+    if (VIVID_ON) {
+      this.btnPost = postAttr(BTNS);
+      bg.setAttribute('instancePost', this.btnPost);
+      withPostGlow(this.btnMat);
+    }
     this.btnMat.name = 'voyButton';
     this.buttons = new InstancedMesh(bg, this.btnMat, BTNS);
     this.buttons.name = 'voyButtons';
@@ -358,6 +413,8 @@ export class VoyKeys {
       const em = new InstancedBufferAttribute(new Float32Array(Math.max(1, n) * 3), 3);
       em.setUsage(DynamicDrawUsage);
       ug.setAttribute('instanceEmissive', em);
+      // v53 : les poussoirs prennent la matiere des touches, sa lueur d'apres la courbe comprise
+      if (VIVID_ON) ug.setAttribute('instancePost', postAttr(n));
       const m = new InstancedMesh(ug, this.btnMat, n);
       m.name = where === 'panel' ? 'voyPushes' : 'voyDeckPushes';
       m.castShadow = !opts.mobile;
@@ -370,6 +427,7 @@ export class VoyKeys {
     const [dp, de] = mk('deck');
     this.pushes = { panel: pp, deck: dp };
     this.pushEm = { panel: pe, deck: de };
+    if (VIVID_ON) this.pushPost = { panel: pp.geometry.getAttribute('instancePost') as InstancedBufferAttribute, deck: dp.geometry.getAttribute('instancePost') as InstancedBufferAttribute };
     for (let i = 0; i < PUSHES; i += 1) {
       const s = PUSH_SLOT[i];
       this.pushes[s.where].setColorAt(s.j, col.setRGB(KEY_K, KEY_K, KEY_K));
@@ -455,11 +513,28 @@ export class VoyKeys {
     const em = this.pushEm[where];
     const a = em.array as Float32Array;
     const c = RGB[g];
+    const v = pillVivid(g);
     const lk = PLUGIN_ARP && g !== 'hover' ? HALO_PILL.fill : 1;
-    a[j * 3] = c[0] * lk;
-    a[j * 3 + 1] = c[1] * lk;
-    a[j * 3 + 2] = c[2] * lk;
+    a[j * 3] = c[0] * lk * v.tm;
+    a[j * 3 + 1] = c[1] * lk * v.tm;
+    a[j * 3 + 2] = c[2] * lk * v.tm;
     em.needsUpdate = true;
+    if (this.pushPost) this.post(this.pushPost[where], j, v.post);
+  }
+
+  /** v53 : la lueur d'apres la courbe de l'instance j : l'accent lineaire x p. */
+  private post(attr: InstancedBufferAttribute, j: number, p: number): void {
+    const a = attr.array as Float32Array;
+    a[j * 3] = this.acc[0] * p;
+    a[j * 3 + 1] = this.acc[1] * p;
+    a[j * 3 + 2] = this.acc[2] * p;
+    attr.needsUpdate = true;
+  }
+
+  /** v53 : la teinte de la lueur d'apres la courbe : la couleur d'accent lineaire (ORANGE), son canal le plus fort a 1. */
+  private setAcc(): void {
+    const top = Math.max(ORANGE.r, ORANGE.g, ORANGE.b, 1e-6);
+    this.acc = [ORANGE.r / top, ORANGE.g / top, ORANGE.b / top];
   }
 
   /** Survol d'un bouton poussoir (son id de saisie, vk-subOct, vk-chorus ; null : aucun) ; true s'il faut une frame. */
@@ -515,11 +590,13 @@ export class VoyKeys {
     this.padGlow[i] = g;
     const a = this.padEm.array as Float32Array;
     const c = RGB[g];
-    a[i * 3] = c[0];
-    a[i * 3 + 1] = c[1];
-    a[i * 3 + 2] = c[2];
+    const v = padVivid(g);
+    a[i * 3] = c[0] * v.tm;
+    a[i * 3 + 1] = c[1] * v.tm;
+    a[i * 3 + 2] = c[2] * v.tm;
     this.padEm.needsUpdate = true;
-    this.haloColor(i, g);
+    if (this.padPost) this.post(this.padPost, i, v.post);
+    this.haloColor(i, g, v.halo);
   }
 
   /**
@@ -541,11 +618,13 @@ export class VoyKeys {
     const k = i === OPEN_I && g === 'orange' ? this.breath : 1;
     const a = this.btnEm.array as Float32Array;
     const c = RGB[g];
-    a[i * 3] = c[0] * k * lk;
-    a[i * 3 + 1] = c[1] * k * lk;
-    a[i * 3 + 2] = c[2] * k * lk;
+    const v = pillVivid(g);
+    a[i * 3] = c[0] * k * lk * v.tm;
+    a[i * 3 + 1] = c[1] * k * lk * v.tm;
+    a[i * 3 + 2] = c[2] * k * lk * v.tm;
     this.btnEm.needsUpdate = true;
-    this.haloColor(PADS + i, g, k);
+    if (this.btnPost) this.post(this.btnPost, i, v.post * k);
+    this.haloColor(PADS + i, g, k * v.halo);
   }
 
   private padRest(i: number): Glow {
@@ -720,6 +799,7 @@ export class VoyKeys {
    */
   refreshAccent(): void {
     ORANGE.setHex(COLOR.orange);
+    if (VIVID_ON) this.setAcc();
     for (let i = 0; i < PADS; i += 1) this.setPadGlow(i, this.padGlow[i]);
     for (let i = 0; i < BTNS; i += 1) this.setBtnGlow(i, this.btnGlow[i]);
     for (let i = 0; i < PUSHES; i += 1) this.setPushGlow(i, this.pushRest(i));

@@ -51,6 +51,25 @@
   color: var(--mm-accent);
 }
 
+/* v53 (voyager/vivid.ts, la vivacite de la face) : la tonique luit, la pastille prend un lisere d'accent ; rien a 'off'
+   (l'attribut n'est pose qu'a A, B ou C) */
+html[data-mm-vivid] .mm-keysel-key {
+  text-shadow: 0 0 var(--mm-vivid-glow) color-mix(in srgb, var(--mm-accent) var(--mm-vivid-mix), transparent);
+}
+
+html[data-mm-vivid] .mm-keysel-pill {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) var(--mm-vivid-ring), rgba(255, 255, 255, 0.07)),
+    0 0 0 1px #000;
+}
+
+html[data-mm-vivid] .mm-keysel-pill:hover,
+html[data-mm-vivid] .mm-keysel[data-open] .mm-keysel-pill {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 70%, transparent),
+    0 0 0 1px #000;
+}
+
 .mm-keysel-mode {
   font: 700 9px/1 'SF Pro Display', system-ui, sans-serif;
   letter-spacing: 0.25em;

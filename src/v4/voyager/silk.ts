@@ -33,6 +33,7 @@ import { APPEARANCE, GAIN, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../the
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { paintLed, type LedHalo } from './ledLens';
+import { VIVID, VIVID_ON } from './vivid';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
 import {
   VOY_BODY,
@@ -197,9 +198,14 @@ function btnLed(b: (typeof VOY_BUTTONS)[number]): { x: number; z: number; r: num
   return { x: b.x, z: b.z - b.d / 2 - 0.06 - r, r };
 }
 
+/**
+ * v53 (le plugin, vivid.ts) : le halo d'une LED allumee selon le niveau de vivacite : plus opaque (plafonne a 1), plus
+ * loin ; tel quel a 'off'.
+ */
+const vividHalo = (h: LedHalo): LedHalo => (VIVID_ON ? { r0: h.r0, r1: h.r1 * VIVID.led.reach, stops: h.stops.map(([t, a]) => [t, Math.min(1, a * VIVID.led.halo)] as const) } : h);
 /** Le halo d'une LED de touche allumee (le plugin, v43) et celui, plus court, des poussoirs (2026-11-16, "trop fort"). */
-const LED_HALO_KEY: LedHalo = { r0: 0.5, r1: 3.1, stops: [[0, 0.5], [0.45, 0.16], [1, 0]] };
-const LED_HALO_PUSH: LedHalo = { r0: 0.6, r1: 2.6, stops: [[0, 0.38], [0.45, 0.12], [1, 0]] };
+const LED_HALO_KEY: LedHalo = vividHalo({ r0: 0.5, r1: 3.1, stops: [[0, 0.5], [0.45, 0.16], [1, 0]] });
+const LED_HALO_PUSH: LedHalo = vividHalo({ r0: 0.6, r1: 2.6, stops: [[0, 0.38], [0.45, 0.12], [1, 0]] });
 /**
  * Le verre eteint des LED de la face (2026-11-24) : celui d'OPEN, un rien plus froid (la serigraphie est eclairee par les
  * lumieres chaudes de la scene, comme le cuir : LEATHER.tone) pour sortir neutre a l'ecran.
@@ -236,7 +242,11 @@ const PATCHES = PLUGIN_ARP;
  * gris, ne luit pas. La lueur est ramenee a la luminance du rose de depart (0.222 ; 0.23 : au rose, la lueur entiere,
  * celle d'avant) : un cyan ou un jaune, plus clairs, n'y blanchissent pas.
  */
-function silkMaterial(map: CanvasTexture, offset: number, vivid = false): MeshStandardMaterial {
+/**
+ * v53 (vivid.ts) : ink, la part de l'encre de couleur (un texel sature : la couleur d'accent, a toute opacite) rendue
+ * telle quelle, apres la courbe ACES qui delave les cyans et les jaunes vifs ; 0 (la v52) : le materiau d'avant.
+ */
+function silkMaterial(map: CanvasTexture, offset: number, vivid = false, ink = 0): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({
     map,
     transparent: true,
@@ -252,13 +262,20 @@ function silkMaterial(map: CanvasTexture, offset: number, vivid = false): MeshSt
   const glow = vivid
     ? 'step(0.5, max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b)) * min(1.0, 0.23 / max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.01))'
     : 'step(0.5, diffuseColor.r - diffuseColor.b)';
+  const sat = 'smoothstep(0.2, 0.6, max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b) - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b))';
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * ${glow} * ${SILK.orangeGlow.toFixed(2)};`
     );
+    if (ink > 0)
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <tonemapping_fragment>',
+        `#include <tonemapping_fragment>\n\tgl_FragColor.rgb = mix(gl_FragColor.rgb, diffuseColor.rgb, ${ink.toFixed(3)} * ${sat});`
+      );
   };
-  mat.customProgramCacheKey = () => (vivid ? 'silkVivid' : 'silkOrange');
+  const key = vivid ? 'silkVivid' : 'silkOrange';
+  mat.customProgramCacheKey = () => (ink > 0 ? `${key}Ink${ink.toFixed(3)}` : key);
   return mat;
 }
 
@@ -437,13 +454,16 @@ export class VoySilk {
       let kind: Patch['kind'] = 'sel';
       if (isSelector(k.id)) {
         // la couronne, les dessins des formes dehors (FM ecrit compris), un peu d'air
-        const half = (S.glyphR + S.glyph.w / 2 + 0.07) * p.s;
+        // v53 (vivid.ts) : les dessins reculent avec l'arc plus epais, la forme choisie a son halo
+        const V = VIVID.sel;
+        const grow = S.arcW * (V.arcW - 1);
+        const half = VIVID_ON ? (S.glyphR + grow * Math.max(V.out, V.outV) + (S.glyph.w * Math.max(V.glyphW, V.glyphH)) / 2 + 0.07 + V.halo * S.arcW * V.arcW) * p.s : (S.glyphR + S.glyph.w / 2 + 0.07) * p.s;
         box = [p.x - half, p.z - half, p.x + half, p.z + half];
       } else if (isPush(k.id)) {
         const leds = voyPushLeds(k.id, k.steps ?? []);
         if (!leds.length) continue;
         // la LED, sa bague et son halo (2.6 rayons)
-        const e = VOY_LED.r * 2.7 + 0.01;
+        const e = VOY_LED.r * Math.max(2.7, LED_HALO_PUSH.r1 + 0.1) + 0.01;
         box = [Math.min(...leds.map((l) => l.x)) - e, Math.min(...leds.map((l) => l.z)) - e, Math.max(...leds.map((l) => l.x)) + e, Math.max(...leds.map((l) => l.z)) + e];
         kind = 'led';
       }
@@ -458,7 +478,7 @@ export class VoySilk {
       const half = (b.w + 0.12) / 2 + 0.04;
       this.addPatch(b.id, 'txt', [b.x - half, z - cap, b.x + half, z + cap]);
       const L = btnLed(b);
-      const e = L.r * 3.2 + 0.01;
+      const e = L.r * Math.max(3.2, LED_HALO_KEY.r1 + 0.1) + 0.01;
       this.addPatch(b.id, 'bled', [L.x - e, L.z - e, L.x + e, L.z + e]);
     }
   }
@@ -468,7 +488,8 @@ export class VoySilk {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const tex = makeCanvasTexture(canvas, this.aniso);
-    const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2, kind === 'led' || kind === 'bled'));
+    // v53 (vivid.ts) : l'encre de couleur des encarts (les selecteurs, les noms allumes, les LED) hors de la courbe
+    const mesh = new Mesh(new PlaneGeometry(1, 1), silkMaterial(tex, -2, kind === 'led' || kind === 'bled', VIVID.ink));
     mesh.name = `voySilkPatch-${id}`;
     mesh.position.y = 0.0006;
     mesh.renderOrder = 1;
@@ -716,7 +737,14 @@ export class VoySilk {
     // Le plugin MM-ARP (v30, Mika : "a la place du jaune cette couleur FF0066") : la couleur d'accent (HEX.orange) a la place du jaune Typhon
     const dark = PLUGIN_ARP ? new Color(HEX.orange).getStyle().replace('rgb(', '').replace(')', '') : '242, 194, 48';
     const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(${dark}, ${a})`);
-    const dim = light ? S.dim.light : S.dim.dark;
+    // v53 (vivid.ts, Mika : "les selecteurs de formes d'onde sont peut-etre un peu trop fins") : les arcs plus epais (vers
+    // l'exterieur : le bord interieur reste au ras du potard), les dessins plus nets et recules d'autant, la forme choisie
+    // dans un halo, les autres plus lisibles ; tel quel a 'off'
+    const V = VIVID.sel;
+    const dim = light ? S.dim.light : VIVID_ON ? V.dim : S.dim.dark;
+    const arcW = S.arcW * V.arcW;
+    const grow = arcW - S.arcW;
+    const gapDeg = VIVID_ON ? V.gap : S.gapDeg;
     for (const k of VOY_FACE_KNOBS) {
       if (!isSelector(k.id) || (only && k.id !== only)) continue;
       const p = voyKnobPlace(k.id);
@@ -725,10 +753,10 @@ export class VoySilk {
       const n = waves.length;
       const pos = this.sel[k.id as 'wave1' | 'wave2'];
       const step = 270 / (n - 1);
-      const half = step / 2 - S.gapDeg / 2;
+      const half = step / 2 - gapDeg / 2;
       const cx = this.px(p.x);
       const cy = this.py(p.z);
-      const rArc = S.arcR * p.s * this.ppu;
+      const rArc = (S.arcR + grow / 2) * p.s * this.ppu;
       ctx.lineCap = 'butt';
       waves.forEach((w, i) => {
         const a = 225 - step * i;
@@ -738,15 +766,30 @@ export class VoySilk {
         // Clair : l'orange porte la forme dominante, plus ou moins fort ; les autres a l'encre
         const alpha = light && on ? 0.35 + 0.65 * part : dim + (1 - dim) * part;
         ctx.globalAlpha = light && on ? alpha : 1;
+        // v53 : le halo de la forme choisie (le plugin, machine noire), a sa part du morphing
+        const glow = VIVID_ON && !light && V.halo > 0 && part > 0;
+        if (glow) {
+          ctx.shadowColor = `rgba(${dark}, ${(V.haloA * part).toFixed(3)})`;
+          ctx.shadowBlur = V.halo * arcW * p.s * this.ppu;
+        }
         // Arc : angles du canvas (y vers le bas), le sens inverse de ceux du panneau
         ctx.strokeStyle = color(alpha, on);
-        ctx.lineWidth = Math.max(1, S.arcW * p.s * this.ppu);
+        ctx.lineWidth = Math.max(1, arcW * p.s * this.ppu);
         ctx.beginPath();
         ctx.arc(cx, cy, rArc, (-(a + half) * Math.PI) / 180, (-(a - half) * Math.PI) / 180);
         ctx.stroke();
-        const gx = p.x + Math.cos((a * Math.PI) / 180) * S.glyphR * p.s;
-        const gz = p.z - Math.sin((a * Math.PI) / 180) * S.glyphR * p.s;
-        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * this.ppu, S.glyph.h * p.s * this.ppu, Math.max(1, S.glyph.stroke * p.s * this.ppu), color(alpha, on));
+        const ca = Math.cos((a * Math.PI) / 180);
+        const sa = Math.sin((a * Math.PI) / 180);
+        // v53 : le dessin recule avec l'arc plus epais, moins a l'horizontale (ses voisins) qu'a la verticale
+        const glyphR = S.glyphR + grow * (V.out * ca * ca + V.outV * sa * sa);
+        const gx = p.x + ca * glyphR * p.s;
+        const gz = p.z - sa * glyphR * p.s;
+        const gh = w === 'FM' ? V.fmSize : V.glyphH;
+        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * V.glyphW * p.s * this.ppu, S.glyph.h * gh * p.s * this.ppu, Math.max(1, S.glyph.stroke * V.glyph * p.s * this.ppu), color(alpha, on), V.fm);
+        if (glow) {
+          ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+          ctx.shadowBlur = 0;
+        }
         ctx.globalAlpha = 1;
       });
     }
@@ -929,7 +972,7 @@ export class VoySilk {
   }
 
   /** Le dessin d'une forme dans une boite w x h centree (px) ; FM ecrit. */
-  private glyph(w: string, cx: number, cy: number, bw: number, bh: number, lw: number, color: string): void {
+  private glyph(w: string, cx: number, cy: number, bw: number, bh: number, lw: number, color: string, fmWeight = 700): void {
     const ctx = this.ctx;
     const X = (u: number): number => cx + (u * bw) / 2;
     const Y = (v: number): number => cy + (v * bh) / 2;
@@ -940,7 +983,7 @@ export class VoySilk {
     ctx.lineCap = 'round';
     if (w === 'FM') {
       const fontPx = bh * 1.5;
-      ctx.font = `700 ${fontPx}px 'SF Pro Display', system-ui, sans-serif`;
+      ctx.font = `${fmWeight} ${fontPx}px 'SF Pro Display', system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('FM', cx, cy);
