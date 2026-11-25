@@ -1,0 +1,5 @@
+#!/bin/sh
+# Aucun attribut de telechargement sur le plugin installe
+P="/Library/Audio/Plug-Ins/VST3/@NAME@.vst3"
+[ -d "$P" ] && xattr -cr "$P" 2>/dev/null
+exit 0

@@ -903,7 +903,7 @@ function contentFor(route) {
         h2('What it does'),
         ul(asArray(pg.features).map(esc)),
         h2('Get it'),
-        p('Free, sent by email from this page. One zip with a folder for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'),
+        p('Free, sent by email from this page. An installer for each system: a .pkg for macOS 11 or later (Apple Silicon and Intel), a .exe for Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'),
         pg.web ? `<p>${a('Play the full plugin in your browser (desktop)', `${SITE}${pg.web}`)}</p>` : '',
         `<p>${a('All the free goodies', `${SITE}/goodies/`)}</p>`,
       ].join('');
@@ -922,7 +922,7 @@ function contentFor(route) {
         VST_LIVE
           ? h2('Free VST3 plugins for macOS and Windows') +
             ul(asArray(VST.plugins).map((v) => `${a(v.name, `${SITE}/mm-${v.id}/`)}, ${esc(v.kind.toLowerCase())} (${esc(asArray(v.platforms).join(', ') || 'macOS')}): ${esc(v.text)}`)) +
-            p('Free, sent by email. One zip per plugin with a folder for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host (Ableton Live, Bitwig, Reaper, Cubase, FL Studio).')
+            p('Free, sent by email. An installer for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host (Ableton Live, Bitwig, Reaper, Cubase, FL Studio).')
           : '',
         ...groups.map(([cat, title]) => {
           const items = GOODIES.filter((g) => g.category === cat);
