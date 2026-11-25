@@ -1,23 +1,19 @@
 /**
- * Le plugin MM-RYTM en entier dans le navigateur (2026-11-25, Mika : "pourquoi tu mettrais pas les plugins en version
- * web aussi ... le plugin en entier, et uniquement en desktop" ; "des dernieres versions des VST") : /mm-rytm/play/.
+ * Les plugins en entier dans le navigateur (2026-11-25, Mika : "pourquoi tu mettrais pas les plugins en version web aussi
+ * ... le plugin en entier, et uniquement en desktop" ; "des dernieres versions des VST") : /mm-rytm/play/
+ * (WebRytmPlugin.tsx) et /mm-arp/play/ (WebArpPlugin.tsx), la face du VST3 et le son du VST3 (son moteur C++ en
+ * WebAssembly). Desktop seulement : au telephone (ou sans souris), un mot et les liens vers la page du plugin.
  *
- * La face est celle du VST3 (PluginFace, mode PLUGIN : la machine seule, vue de dessus, l'ecran a la souris, clic droit
- * = FUNC), mais sans le pont vers le C++ (plugin/bridge.ts n'est jamais demarre) : le son est celui du site (Web Audio),
- * le meme que le plugin au bit pres (plugin/mm-rytm/tests/compare.cpp). Desktop seulement : au telephone (ou sans
- * souris), un mot et les liens vers la page du plugin.
+ * Une bande fine en haut : le nom, "Get the VST3, free" (la page /mm-rytm/ ou /mm-arp/) et le retour au site. On y arrive
+ * par un chargement complet (theme/base.ts PLUGIN_WEB lit l'adresse a l'evaluation des modules).
  *
- * Une bande fine en haut : le nom, "Get the VST3, free" (la page /mm-rytm/) et le retour au site. On y arrive par un
- * chargement complet (theme/base.ts PLUGIN_WEB lit l'adresse a l'evaluation des modules).
- *
- * WebPluginShell (2026-11-25) : la meme page pour /mm-arp/play/ (WebArpPlugin.tsx, le moteur du VST3 en WebAssembly).
+ * WebPluginShell : la page commune aux deux. Avant le moteur (2026-11-25), /mm-rytm/play/ montait ici la face sans le
+ * pont, avec le son du site.
  */
 
-import React, { Suspense, useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { COARSE_QUERY, MOBILE_QUERY } from '../theme';
 import './webplugin.css';
-
-const PluginFace = React.lazy(() => import('./PluginFace'));
 
 export type WebPluginKind = 'rytm' | 'arp';
 
@@ -94,13 +90,3 @@ export const WebPluginShell: React.FC<{ kind: WebPluginKind; children: React.Rea
     </>
   );
 };
-
-const WebPlugin: React.FC = () => (
-  <WebPluginShell kind="rytm">
-    <Suspense fallback={null}>
-      <PluginFace />
-    </Suspense>
-  </WebPluginShell>
-);
-
-export default WebPlugin;

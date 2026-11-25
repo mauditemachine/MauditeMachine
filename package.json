@@ -31,6 +31,7 @@
     "plugin:web": "vite build --config plugin/mm-rytm/web/vite.config.ts",
     "plugin:arp:web": "vite build --config plugin/mm-arp/web/vite.config.ts",
     "plugin:arp:wasm": "bash scripts/build-arp-wasm.sh",
+    "plugin:rytm:wasm": "bash scripts/build-rytm-wasm.sh",
     "plugin:arp:leather": "esbuild plugin/mm-arp/web/leather-gen.ts --bundle --platform=node --log-level=warning | node -",
     "plugin:arp:knobs": "node plugin/mm-arp/web/knob-shots.mjs"
   },

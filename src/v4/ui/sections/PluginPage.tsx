@@ -5,8 +5,8 @@
  *
  * Une image de la machine, ce qu'elle fait, ses systemes (public/data/vst.json, platforms), puis :
  * - Play it online : la machine du site, cadree (le panneau se ferme) ;
- * - Play the full plugin (desktop) : /mm-rytm/play/, la face du VST3 avec le son du site (plugin/WebPlugin.tsx) ; /mm-arp/play/,
- *   la face du VST3 et son moteur en WebAssembly (plugin/WebArpPlugin.tsx) ;
+ * - Play the full plugin (desktop) : /mm-rytm/play/ et /mm-arp/play/, la face du VST3 et son moteur en WebAssembly
+ *   (plugin/WebRytmPlugin.tsx, plugin/WebArpPlugin.tsx) ;
  * - le VST3 gratuit : le formulaire courriel (VstDownload, only) et le don.
  * Le texte lisible sans JavaScript (et par Google) : scripts/prerender-seo.mjs, les memes listes (VST_PAGES).
  */
