@@ -41,33 +41,4 @@ html.mm-webplugin-arp .mm-plugin-error {
   z-index: 40;
 }
 
-/* Le son : cliquer pour le lancer (sans prendre le clic), ou le moteur pas encore en ligne */
-.mm-webplugin-notice {
-  position: fixed;
-  top: 52px;
-  left: 50%;
-  z-index: 21;
-  max-width: calc(100% - 32px);
-  box-sizing: border-box;
-  margin: 0;
-  padding: 8px 16px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: rgba(11, 11, 12, 0.82);
-  border: 1px solid rgba(246, 241, 231, 0.14);
-  color: #f6f1e7;
-  font: 500 12px/1.4 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-  letter-spacing: 0.06em;
-  text-align: center;
-  pointer-events: none;
-  backdrop-filter: blur(6px);
-}
-
-.mm-webplugin-notice[data-warn='1'] {
-  border-color: rgba(242, 194, 48, 0.5);
-  pointer-events: auto;
-}
-
-.mm-webplugin-notice a {
-  color: #f2c230;
-}
+/* La bulle du son (.mm-webplugin-notice) : webplugin.css, commune aux deux pages (2026-11-25) */

@@ -29,8 +29,8 @@ const V4App = React.lazy(() => import('./v4/index'));
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 // Page cachee : inventaire complet des plugins et synthes studio de Mika (chunk lazy)
 const PluginsPage = React.lazy(() => import('./pages/PluginsPage'));
-// Le plugin MM-RYTM en entier dans le navigateur (2026-11-25, /mm-rytm/play/, desktop) : la face du VST3, le son du site
-const WebPlugin = React.lazy(() => import('./v4/plugin/WebPlugin'));
+// Le plugin MM-RYTM en entier dans le navigateur (2026-11-25, /mm-rytm/play/, desktop) : la face du VST3, le moteur du VST3 en WebAssembly
+const WebRytmPlugin = React.lazy(() => import('./v4/plugin/WebRytmPlugin'));
 // Le plugin MM-ARP en entier dans le navigateur (2026-11-25, /mm-arp/play/, desktop) : la face du VST3, le moteur du VST3 en WebAssembly
 const WebArpPlugin = React.lazy(() => import('./v4/plugin/WebArpPlugin'));
 
@@ -101,7 +101,7 @@ export default function App() {
           {/* 2026-11-25 : les pages des plugins (sections de la machine) et les plugins MM-RYTM et MM-ARP en entier dans le navigateur */}
           <Route path="/mm-rytm" element={lazyEl(<V4App />)} />
           <Route path="/mm-arp" element={lazyEl(<V4App />)} />
-          <Route path="/mm-rytm/play" element={lazyEl(<WebPlugin />)} />
+          <Route path="/mm-rytm/play" element={lazyEl(<WebRytmPlugin />)} />
           <Route path="/mm-arp/play" element={lazyEl(<WebArpPlugin />)} />
           {/* Page studio cachee : inventaire et interfaces des plugins de Mika */}
           <Route path="/plugins" element={lazyEl(<PluginsPage />)} />

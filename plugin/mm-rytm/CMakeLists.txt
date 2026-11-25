@@ -31,6 +31,15 @@ if(MSVC)
 endif()
 
 if(NOT MM_BUILD_PLUGIN)
+  # 2026-11-25 : le moteur du navigateur (web-engine/RytmEngine.cpp : le processeur du VST3 sans JUCE, l'API C du wasm
+  # de /mm-rytm/play/) et son banc (la banque de public/samples/rytm, le mode du navigateur contre celui du VST3)
+  add_library(mm_engine_web STATIC web-engine/RytmEngine.cpp)
+  target_include_directories(mm_engine_web PUBLIC web-engine)
+  target_link_libraries(mm_engine_web PUBLIC mm_dsp)
+  add_executable(mm_engine_web_test tests/engine_web_test.cpp)
+  target_link_libraries(mm_engine_web_test PRIVATE mm_engine_web)
+  target_compile_definitions(mm_engine_web_test PRIVATE MM_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../public/samples/rytm")
+  add_test(NAME engine_web COMMAND mm_engine_web_test)
   return()
 endif()
 

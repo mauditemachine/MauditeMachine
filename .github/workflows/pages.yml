@@ -51,6 +51,19 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends clang-18 lld-18 wasi-libc libc++-18-dev-wasm32 libc++abi-18-dev-wasm32 libclang-rt-18-dev-wasm32
           npm run plugin:arp:wasm
+      # 2026-11-25 : le moteur du MM-RYTM pour /mm-rytm/play/ (le processeur du VST3 en WebAssembly,
+      # scripts/build-rytm-wasm.sh, hors de git) ; le meme compilateur que celui du MM-ARP (deja installe a l'etape
+      # d'avant, reinstalle ici si elle a echoue). Sans lui, la page dit que le son n'est pas encore la
+      - name: Moteur MM-RYTM (WebAssembly)
+        continue-on-error: true
+        env:
+          CXX_WASM: clang++-18
+        run: |
+          if ! command -v clang++-18 >/dev/null 2>&1 || [ ! -d /usr/lib/llvm-18/lib/wasm32-wasi ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends clang-18 lld-18 wasi-libc libc++-18-dev-wasm32 libc++abi-18-dev-wasm32 libclang-rt-18-dev-wasm32
+          fi
+          npm run plugin:rytm:wasm
       - run: npm run build
       # 2026-10-21 : scripts/generate-sitemap.mjs ecrit indexnow-urls.txt (hors de dist) ; vide si rien n'a change
       - id: changes

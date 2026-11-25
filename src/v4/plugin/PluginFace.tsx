@@ -3,14 +3,13 @@
  * que le site (la scene three.js, ses touches, ses potards, son ecran, son clavier), seule, vue de dessus, dans la
  * fenetre du VST3. Tout ce qui est du site reste dehors (en-tete, Dock, sections, press kit, SoundCloud, autres
  * machines, intro). Le son du navigateur est coupe : il vient du plugin (plugin/bridge.ts). Dans le navigateur
- * (/mm-rytm/play/, plugin/WebPlugin.tsx, 2026-11-25), la meme face sans le pont : le son du site.
+ * (/mm-rytm/play/, plugin/WebRytmPlugin.tsx, 2026-11-25), la meme face et le meme pont : le son du VST3 en WebAssembly.
  *
  * Monte comme src/v4/index.tsx (V4Shell), en plus court : la racine .v4-root > .v4-stage > .v4-canvas-host, la couche
  * de saisie (HitLayer), les jumeaux (Twins), l'ecran accessible (Lcd), le dialogue des noms de presets.
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
-import { PLUGIN_WEB } from '../theme/base';
 import '../v4.css';
 import { gesture } from '../actions';
 import { clock } from '../audio/clock';
@@ -131,7 +130,7 @@ const PluginFace: React.FC = () => {
       data-v4-gl={error ? 'fallback' : 'webgl'}
       data-v4-layout="desktop"
       data-v4-motion="full"
-      data-v4-muted={PLUGIN_WEB ? '0' : '1'}
+      data-v4-muted="1"
       data-v4-intro="0"
       data-v4-running={running ? '1' : '0'}
       data-v4-theme={look}
