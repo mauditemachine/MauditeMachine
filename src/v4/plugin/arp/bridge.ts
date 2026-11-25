@@ -62,7 +62,8 @@
  * v52 : un indice est un degre de la tonalite choisie (xKey, xScale : key.ts, KeySelect.tsx), des reglages de
  * l'instance que les presets ne portent pas (applyExtra, factoryLoad).
  * mm_keys {on} : la liste des presets du grand ecran s'ouvre (haut, bas et Entree sont a elle : hooks/useKeys.ts) ou se
- * ferme (le C++ rend le clavier a l'hote, PluginEditor.cpp).
+ * ferme (le C++ rend le clavier a l'hote, PluginEditor.cpp). v53 : cette liste ne s'ouvre plus dans le plugin ; c'est le
+ * navigateur de presets (presetPanel.ts, PresetBrowser.tsx) qui prend le clavier tant qu'il est ouvert.
  */
 
 import { arpMod } from './modview';
@@ -93,6 +94,8 @@ import { cpuStore } from './cpu';
 import { arpSteps, stepLive } from './steps';
 import { modAim, modView } from './modRoutes';
 import { modMenu } from './modMenu';
+import { presetPanel } from './presetPanel';
+import { voyPatch } from '../../voyager/patch';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -445,7 +448,10 @@ function applyDiskPreset(name: string, text: string): boolean {
   applyExtra(d.extra);
   // Les pistes du STEP SEQUENCER : celles du preset, sinon leurs valeurs de depart
   arpSteps.load(d.steps);
-  voyMsg.show(`LOADED ${(name || str(top.name) || 'PRESET').toUpperCase()}`, 1800);
+  const label = (name || str(top.name) || 'PRESET').toUpperCase();
+  // v53 : son nom en tete du grand ecran (voyager/patch.ts ; une etoile s'il s'en ecarte)
+  voyPatch.named(label);
+  voyMsg.show(`LOADED ${label}`, 1800);
   return true;
 }
 
@@ -678,15 +684,17 @@ export const arpBridge = {
     // C++ rend le clavier a l'hote (le clavier MIDI d'ordinateur d'Ableton). Pas s'il est ailleurs (la fenetre du plugin
     // n'a pas le clavier : document.hasFocus faux) ni si un champ de texte l'a (le nom d'un preset sur le disque)
     let keysOn = false;
-    // v50 : aussi tant qu'une assignation au viseur attend son clic ou qu'un menu de l'encart est ouvert (Echap les ferme)
+    // v50 : aussi tant qu'une assignation au viseur attend son clic ou qu'un menu de l'encart est ouvert (Echap les ferme) ;
+    // v53 : et tant que le navigateur de presets est ouvert (PresetBrowser.tsx : fleches, Entree, Echap)
     const keysSync = (): void => {
-      const on = presetMode.on('voy') || modAim.on() || modMenu.get() !== null;
+      const on = presetMode.on('voy') || presetPanel.isOpen() || modAim.on() || modMenu.get() !== null;
       if (on === keysOn) return;
       keysOn = on;
       if (!on && (!document.hasFocus() || isTyping())) return;
       send('mm_keys', { on });
     };
     presetMode.subscribe(keysSync);
+    presetPanel.subscribe(keysSync);
     modView.subscribe(keysSync);
     modMenu.subscribe(keysSync);
     // Les gestes : un pointeur enfonce tient le geste des potards qui changent, relache il le ferme

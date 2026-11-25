@@ -39,6 +39,8 @@ import { LearnMarks } from './HoodPanel';
 // v52 : la tonalite (xKey, xScale) suivie des le chargement, et son selecteur sous les pads
 import './key';
 import { KeySelect } from './KeySelect';
+// v53 : PRESET ouvre le navigateur de presets de la banque du VST3 (au lieu de la liste du site sur le grand ecran)
+import { PresetBrowser } from './PresetBrowser';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -162,6 +164,7 @@ const ArpFace: React.FC = () => {
         <FaceLookButton stage={stage} />
         <FaceCpuMeter stage={stage} />
         <KeySelect stage={stage} />
+        <PresetBrowser stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (
