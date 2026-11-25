@@ -38,6 +38,9 @@ export const PORTRAIT: boolean = (() => {
   }
 })();
 
+/** L'adresse du plugin dans le navigateur (PLUGIN_WEB). */
+const PLUGIN_WEB_PATH = /^\/mm-rytm\/play\/?$/i;
+
 /**
  * Le plugin (2026-11-08, Mika : "lance la WebView avec ma vraie face", plugin/mm-rytm) : la face du MM-RYTM seule, dans
  * la fenetre du VST3 (WebView JUCE), vue de dessus, sans le reste du site ; le son vient du plugin (C++), jamais du
@@ -48,7 +51,22 @@ export const PLUGIN: boolean = (() => {
   if (typeof window === 'undefined') return false;
   try {
     if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
+    if (PLUGIN_WEB_PATH.test(window.location.pathname)) return true;
     return new URLSearchParams(window.location.search).get('plugin') === '1';
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Le plugin dans le navigateur (2026-11-25, Mika : "pourquoi tu mettrais pas les plugins en version web aussi ... le
+ * plugin en entier, et uniquement en desktop") : /mm-rytm/play/, la face du VST3 (PLUGIN) mais le son du site (pas de
+ * pont vers le C++, src/v4/plugin/WebPlugin.tsx). Une page a part : on y arrive par un chargement complet.
+ */
+export const PLUGIN_WEB: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ !== true && PLUGIN_WEB_PATH.test(window.location.pathname);
   } catch {
     return false;
   }

@@ -51,6 +51,18 @@
     "/plugins": {
       "title": "Studio Plugins & Synthesizers | Maudite Machine",
       "description": "Virtual instruments and audio plugins in Maudite Machine studio setup: analog synthesizers, dynamic compressors, saturation and spatial modulation."
+    },
+    "/mm-rytm": {
+      "title": "MM-RYTM, Free Drum Machine VST3 Plugin (Mac and Windows) | Maudite Machine",
+      "description": "MM-RYTM is a free drum machine VST3 plugin for Mac and Windows by Maudite Machine: 16 tracks, synth and sample layers, parameter locks, conditional trigs, FX and LFOs. Play it in your browser or get it by email."
+    },
+    "/mm-arp": {
+      "title": "MM-ARP, Free Synth and Arpeggiator VST3 Plugin for Mac | Maudite Machine",
+      "description": "MM-ARP is a free synth and arpeggiator VST3 plugin for Mac by Maudite Machine: two oscillators, a sub, a ladder filter, chord pads, chorus, delay and reverb. Play it online or get it by email."
+    },
+    "/mm-rytm/play": {
+      "title": "MM-RYTM, Play the Plugin in Your Browser | Maudite Machine",
+      "description": "Play the full MM-RYTM drum machine plugin in your browser, with the face and the sound of the VST3. Desktop only."
     }
   },
   "fr": {

@@ -20,7 +20,7 @@ import React, { useEffect, useState } from 'react';
 import { EMAILJS } from '../../../data/emailjs';
 import { track } from '../../state/analytics';
 
-interface VstPlugin {
+export interface VstPlugin {
   id: string;
   name: string;
   kind: string;
@@ -28,7 +28,7 @@ interface VstPlugin {
   platforms?: string[];
 }
 
-interface VstConfig {
+export interface VstConfig {
   emailjsTemplateId: string;
   donateUrl: string;
   plugins: VstPlugin[];
@@ -39,7 +39,8 @@ type Status = 'idle' | 'sending' | 'sent' | 'error';
 const FALLBACK_EMAIL = 'mauditemachine@gmail.com';
 
 let cache: Promise<VstConfig | null> | null = null;
-const loadConfig = (): Promise<VstConfig | null> => {
+/** public/data/vst.json, lu une fois (GOODIES, les pages MM-RYTM et MM-ARP). */
+export const loadConfig = (): Promise<VstConfig | null> => {
   if (!cache) {
     cache = fetch('/data/vst.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? (r.json() as Promise<VstConfig>) : null))
@@ -69,7 +70,11 @@ const Donate: React.FC<{ url: string; tab: number; strong?: boolean }> = ({ url,
   </a>
 );
 
-export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, tab }) => {
+/**
+ * only (2026-11-25) : sur la page d'un plugin (PluginPage.tsx), le formulaire seul, sans la liste des cartes ; le
+ * courriel envoie toujours les deux liens (modele fixe).
+ */
+export const VstDownload: React.FC<{ seen: boolean; tab: number; only?: string }> = ({ seen, tab, only }) => {
   const [cfg, setCfg] = useState<VstConfig | null>(null);
   const [email, setEmail] = useState('');
   const [news, setNews] = useState(false);
@@ -132,7 +137,7 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, ta
       setSentTo(to);
       setStatus('sent');
       setEmail('');
-      track('vst_request', { news });
+      track('vst_request', { news, place: only ?? 'goodies' });
       const w = window as Window & { fbq?: (...args: unknown[]) => void };
       w.fbq?.('track', 'Lead', { content_name: 'VST download' });
     } catch {
@@ -142,8 +147,9 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, ta
 
   const busy = status === 'sending';
   return (
-    <div className="v4-vst">
-      <h3 className="v4-sec-sub">Plugins, VST3</h3>
+    <div className="v4-vst" data-only={only ?? ''}>
+      {!only && <h3 className="v4-sec-sub">Plugins, VST3</h3>}
+      {!only && (
       <ul className="v4-vst-list">
         {cfg.plugins.map((p) => (
           <li key={p.id} className="v4-vst-item">
@@ -154,10 +160,11 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, ta
           </li>
         ))}
       </ul>
+      )}
       <p className="v4-vst-note">
-        Free. Leave your email and the download links land in your inbox. One zip per plugin, with a folder for each
-        system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host:
-        Ableton Live, Bitwig, Reaper, Cubase, FL Studio.
+        {only
+          ? 'Free. Leave your email and the download links for both plugins land in your inbox. Mac, and Windows where listed.'
+          : 'Free. Leave your email and the download links land in your inbox. One zip per plugin, with a folder for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'}
       </p>
       <form className="v4-form v4-vst-form" onSubmit={send} noValidate={false}>
         <label className="v4-field">
@@ -189,7 +196,7 @@ export const VstDownload: React.FC<{ seen: boolean; tab: number }> = ({ seen, ta
         </label>
         <div className="v4-form-foot">
           <button type="submit" className="v4-send" disabled={busy} tabIndex={tab}>
-            {busy ? 'Sending' : 'Get the plugins'}
+            {busy ? 'Sending' : only === 'both' || !only ? 'Get the plugins' : 'Send me the link'}
           </button>
           <p className="v4-form-status" role="status" aria-live="polite" data-status={status}>
             {status === 'sent' && `Sent to ${sentTo}. Check your inbox, and the spam folder just in case.`}

@@ -27,6 +27,7 @@ import { Contact } from './sections/Contact';
 import { Goodies } from './sections/Goodies';
 import { Merch } from './sections/Merch';
 import { Mixtapes } from './sections/Mixtapes';
+import { PluginPage } from './sections/PluginPage';
 import { Press } from './sections/Press';
 import { Shows } from './sections/Shows';
 import { Studio } from './sections/Studio';
@@ -198,6 +199,8 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
         <Press active={active === 'press'} focusable={s === 'press'} />
         <Shows active={active === 'shows'} focusable={s === 'shows'} />
         <Contact active={active === 'contact'} focusable={s === 'contact'} />
+        <PluginPage id="mmrytm" active={active === 'mmrytm'} focusable={s === 'mmrytm'} />
+        <PluginPage id="mmarp" active={active === 'mmarp'} focusable={s === 'mmarp'} />
         <Goodies active={active === 'goodies'} focusable={s === 'goodies'} />
         <Merch active={active === 'merch'} focusable={s === 'merch'} />
         <Studio active={active === 'studio'} focusable={s === 'studio'} />
