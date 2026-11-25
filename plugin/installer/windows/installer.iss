@@ -1,5 +1,5 @@
 ; L'installeur Windows des plugins Maudite Machine (2026-11-25, Inno Setup 6), compile par .github/workflows/plugin-public.yml :
-; iscc /DAppName=MM-RYTM /DAppKind="The drum machine" /DAppVer=... /DAppGuid=... /DSrcDir=... /DOutDir=... /DOutName=... installer.iss
+; iscc /DAppName=MM-RYTM /DAppSlug=mm-rytm /DAppKind="The drum machine" /DAppVer=... /DAppGuid=... /DSrcDir=... /DOutDir=... /DOutName=... installer.iss
 ; Le plugin va dans C:\Program Files\Common Files\VST3 ; la desinstallation (Applications de Windows) dans
 ; C:\Program Files\Maudite Machine\<plugin>, pour ne rien laisser d'autre que le .vst3 dans le dossier VST3.
 
@@ -11,7 +11,7 @@ AppVerName={#AppName} {#AppVer}
 AppPublisher=Maudite Machine
 AppPublisherURL=https://mauditemachine.com
 AppSupportURL=https://mauditemachine.com/contact/
-AppUpdatesURL=https://mauditemachine.com/goodies/
+AppUpdatesURL=https://mauditemachine.com/{#AppSlug}/
 DefaultDirName={commonpf64}\Maudite Machine\{#AppName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes

@@ -81,7 +81,7 @@ jobs:
           tiffutil -cathidpicheck "$I/mac/background.png" "$I/mac/background@2x.png" -out res/background.tiff
           tiffutil -cathidpicheck "$I/mac/background-dark.png" "$I/mac/background-dark@2x.png" -out res/background-dark.tiff
           for f in welcome.html conclusion.html; do sed -e "s/@NAME@/$N/g" -e "s/@KIND@/$KIND/g" "$I/mac/$f" > "res/$f"; done
-          sed "s/@NAME@/$N/g" "$I/license.txt" > res/license.txt
+          sed -e "s/@NAME@/$N/g" -e "s/@SLUG@/mm-$PLUGIN/g" "$I/license.txt" > res/license.txt
           sed -e "s/@NAME@/$N/g" -e "s/@ID@/$ID/g" -e "s/@VER@/$VER/g" "$I/mac/distribution.xml" > distribution.xml
           productbuild --distribution distribution.xml --resources res --package-path . "out/$N-Installer-Mac.pkg"
           # L'essai : installe sur ce Mac, au bon endroit, signature intacte
@@ -140,12 +140,12 @@ jobs:
           if ($env:PLUGIN -eq 'rytm') { $N = 'MM-RYTM'; $KIND = 'The drum machine'; $GUID = '26EB6186-5ABD-49A9-B10C-72C9A75F05DC' }
           else { $N = 'MM-ARP'; $KIND = 'The synth and arpeggiator'; $GUID = 'DD292079-F100-4DF0-9497-23DF849EABA2' }
           $src = (Resolve-Path "work/$N").Path
-          (Get-Content plugin/installer/license.txt -Raw).Replace('@NAME@', $N) | Set-Content -Path "$src/license.txt" -Encoding utf8
+          (Get-Content plugin/installer/license.txt -Raw).Replace('@NAME@', $N).Replace('@SLUG@', "mm-$env:PLUGIN") | Set-Content -Path "$src/license.txt" -Encoding utf8
           New-Item -ItemType Directory -Force -Path out | Out-Null
           $out = (Resolve-Path out).Path
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           Push-Location plugin/installer/windows
-          & $iscc /Q "/DAppName=$N" "/DAppKind=$KIND" "/DAppVer=$env:VER" "/DAppGuid=$GUID" "/DSrcDir=$src" "/DOutDir=$out" "/DOutName=$N-Installer-Windows" installer.iss
+          & $iscc /Q "/DAppName=$N" "/DAppSlug=mm-$env:PLUGIN" "/DAppKind=$KIND" "/DAppVer=$env:VER" "/DAppGuid=$GUID" "/DSrcDir=$src" "/DOutDir=$out" "/DOutName=$N-Installer-Windows" installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC a echoue ($LASTEXITCODE)" }
           Pop-Location
           $exe = "$out\$N-Installer-Windows.exe"
@@ -200,10 +200,10 @@ jobs:
             cp "$WINEXE" "pkg/$N/"
             BUILD="$BUILD
           $(cat art/windows/BUILD-win.txt)"
-            perl -0pe 's/\[\[NOWIN\]\].*?\[\[\/NOWIN\]\]//gs; s/\[\[\/?WIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
+            perl -0pe 's/\[\[NOWIN\]\].*?\[\[\/NOWIN\]\]//gs; s/\[\[\/?WIN\]\]//g; s/\@NAME\@/'"$N"'/g; s/\@SLUG\@/mm-'"$PLUGIN"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
             OS="Mac and Windows (beta)"
           else
-            perl -0pe 's/\[\[WIN\]\].*?\[\[\/WIN\]\]//gs; s/\[\[\/?NOWIN\]\]//g; s/\@NAME\@/'"$N"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
+            perl -0pe 's/\[\[WIN\]\].*?\[\[\/WIN\]\]//gs; s/\[\[\/?NOWIN\]\]//g; s/\@NAME\@/'"$N"'/g; s/\@SLUG\@/mm-'"$PLUGIN"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
             OS="Mac"
           fi
           printf 'version %s\n%s\n' "$VER" "$BUILD" > "pkg/$N/BUILD.txt"
@@ -218,5 +218,5 @@ jobs:
           if [ -f "$WINEXE" ]; then gh release upload "$DST" "$WINEXE" --clobber; else gh release delete-asset "$DST" "$N-Installer-Windows.exe" -y 2>/dev/null || true; fi
           gh release delete-asset "$DST" "$N-VST3-macOS.zip" -y 2>/dev/null || true
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$DST" -f sha="$SHA" -F force=true >/dev/null
-          gh release edit "$DST" --notes "$N $VER, free VST3 by Maudite Machine, for $OS. Installers: $N-Installer-Mac.pkg$([ -f "$WINEXE" ] && echo ", $N-Installer-Windows.exe"), or both in $N-VST3.zip with the README. Install guide: https://mauditemachine.com/download/?p=$PLUGIN . Builds: $BUILD"
+          gh release edit "$DST" --notes "$N $VER, free VST3 by Maudite Machine, for $OS. Installers: $N-Installer-Mac.pkg$([ -f "$WINEXE" ] && echo ", $N-Installer-Windows.exe"), or both in $N-VST3.zip with the README. Page: https://mauditemachine.com/mm-$PLUGIN/ . Install guide: https://mauditemachine.com/download/?p=$PLUGIN . Builds: $BUILD"
           echo "Publie : $N $VER ($OS)"

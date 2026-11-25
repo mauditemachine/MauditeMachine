@@ -185,6 +185,14 @@
 
       .donate[hidden] { display: none; }
 
+      #donate { margin: 28px 0 0; }
+
+      #donate .label { margin: 0 0 8px; }
+
+      .countdown { margin: 14px 0 0; }
+
+      button.btn { font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; }
+
       footer { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); }
     </style>
   </head>
@@ -193,6 +201,16 @@
       <p class="label"><a href="/">Maudite Machine</a> · Free VST3 plugins</p>
       <h1 id="title">Your plugins</h1>
       <p class="intro" id="intro">Pick your system and run the installer. Mac and Windows, VST3.</p>
+
+      <section class="donate" id="donate" hidden>
+        <p class="label">Before it downloads</p>
+        <p id="donate-text">The plugins are free and stay free. If you want to support them, buy me a coffee. Never required.</p>
+        <div class="dl">
+          <a class="btn" id="donate-link" href="/" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+          <button class="btn btn-ghost" id="dl-now" type="button" hidden>Just download</button>
+        </div>
+        <p class="small countdown" id="countdown" hidden></p>
+      </section>
 
       <div class="plugins">
         <div class="plugin" data-id="rytm">
@@ -245,12 +263,8 @@
       </div>
       <p class="small" id="win-soon" hidden></p>
       <p class="small">The installers are not signed by Apple or Microsoft yet, hence the extra click the first time. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio. Logic Pro needs Audio Units, not available yet.</p>
-      <p class="small">Free to use in your music, commercial releases included. Please share the link to <a href="/goodies/">mauditemachine.com/goodies</a> rather than the installer itself. <a id="zip" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3.zip">Both installers in one zip</a>.</p>
+      <p class="small">Free to use in your music, commercial releases included. Please share the plugin page, <a id="share" href="/mm-rytm/">mauditemachine.com/mm-rytm</a>, rather than the installer itself. <a id="zip" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3.zip">Both installers in one zip</a>.</p>
 
-      <section class="donate" id="donate" hidden>
-        <p>The plugins are free and stay free. If they end up in your tracks, you can buy me a coffee. Never required.</p>
-        <a class="btn btn-ghost" id="donate-link" href="/" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
-      </section>
 
       <footer class="small">
         Questions or bugs: <a href="/contact/">mauditemachine.com/contact</a> · <a href="/">Back to the machines</a>
@@ -289,6 +303,9 @@
           for (var j = 0; j < els.length; j++) els[j].textContent = txt;
         };
         put('.pkg', name + '-Installer-Mac.pkg');
+        var share = document.getElementById('share');
+        share.href = '/' + name.toLowerCase() + '/';
+        share.textContent = 'mauditemachine.com/' + name.toLowerCase();
         put('.exe', name + '-Installer-Windows.exe');
 
         // Le systeme du visiteur en bouton plein, l'autre en contour
@@ -312,25 +329,63 @@
           links[m].addEventListener('click', function () { track(this.getAttribute('data-dl'), this.getAttribute('data-sys')); });
         }
 
-        function autoStart() {
+        var started = false;
+        var timer = 0;
+        function go(a) {
+          if (started) return;
+          started = true;
+          clearInterval(timer);
+          var cd = document.getElementById('countdown');
+          cd.textContent = 'Your download has started. Thanks for grabbing it.';
+          cd.hidden = false;
+          document.getElementById('dl-now').hidden = true;
+          track(p, sys);
+          location.href = a.href;
+        }
+
+        function autoStart(withCoffee) {
           // Un seul depart automatique par plugin et par onglet, l'installeur du systeme du visiteur s'il existe
           if (!p || !sys) return;
           var a = document.querySelector('[data-dl="' + p + '"][data-sys="' + sys + '"]');
           if (!a || a.hidden || a.getAttribute('href') === '#') return;
           var key = 'mm.vst.auto.' + p;
           try { if (sessionStorage.getItem(key) === '1') return; sessionStorage.setItem(key, '1'); } catch (e) {}
-          document.getElementById('intro').textContent = 'Your download starts in a moment. If nothing happens, use the button.';
-          setTimeout(function () { track(p, sys); location.href = a.href; }, 900);
+          if (!withCoffee) {
+            document.getElementById('intro').textContent = 'Your download starts in a moment. If nothing happens, use the button.';
+            setTimeout(function () { go(a); }, 900);
+            return;
+          }
+          // 2026-11-25 (Mika : "rien pour un cafe pour donner des sous, je pensais qu'il y avait ce genre de chose avant
+          // de download") : le cafe d'abord, le telechargement part seul apres le compte a rebours (ou tout de suite)
+          var left = 8;
+          var cd = document.getElementById('countdown');
+          var now = document.getElementById('dl-now');
+          var tick = function () {
+            cd.textContent = 'Your download starts in ' + left + ' s.';
+            if (left <= 0) go(a);
+            left -= 1;
+          };
+          now.hidden = false;
+          cd.hidden = false;
+          now.addEventListener('click', function () { go(a); });
+          document.getElementById('donate-link').addEventListener('click', function () {
+            try { if (typeof window.gtag === 'function') window.gtag('event', 'vst_donate_click', { place: 'download', plugin: p }); } catch (e) {}
+            setTimeout(function () { go(a); }, 300);
+          });
+          document.getElementById('intro').textContent = name + ' is on its way.';
+          tick();
+          timer = setInterval(tick, 1000);
         }
 
         // Les adresses, les systemes et le don : public/data/vst.json
         fetch('/data/vst.json', { cache: 'no-cache' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (c) {
-            if (!c) { autoStart(); return; }
+            if (!c) { autoStart(false); return; }
             if (c.donateUrl) {
               document.getElementById('donate-link').href = c.donateUrl;
               document.getElementById('donate').hidden = false;
+              if (p) document.getElementById('donate-text').textContent = name + ' is free and stays free. If you want to support it, buy me a coffee before it downloads. Never required.';
             }
             var withWin = [];
             (c.plugins || []).forEach(function (pl) {
@@ -356,9 +411,9 @@
               soon.hidden = false;
             }
             mark();
-            autoStart();
+            autoStart(Boolean(c.donateUrl));
           })
-          .catch(function () { autoStart(); });
+          .catch(function () { autoStart(false); });
       })();
     </script>
   </body>

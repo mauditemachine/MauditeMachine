@@ -296,7 +296,7 @@ const FOLLOWING = readJson('public/following.json', {});
 const STORE = asArray(readJson('public/store.json', []));
 const GOODIES = loadGoodies();
 const COVERS = GOODIES.filter((g) => g.category === 'cover');
-/** Les plugins VST3 gratuits (public/data/vst.json, docs/vst-download.md) : dans /goodies/ des que le courriel marche. */
+/** Les plugins VST3 gratuits (public/data/vst.json, docs/vst-download.md) : leurs pages /mm-rytm/ et /mm-arp/. */
 const VST = readJson('public/data/vst.json', {});
 const VST_LIVE = Boolean(VST.emailjsTemplateId) && asArray(VST.plugins).length > 0;
 /** Les pages des plugins (2026-11-25, src/data/vstPages.json, les memes textes que PluginPage.tsx). */
@@ -905,7 +905,6 @@ function contentFor(route) {
         h2('Get it'),
         p('Free, sent by email from this page. An installer for each system: a .pkg for macOS 11 or later (Apple Silicon and Intel), a .exe for Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'),
         pg.web ? `<p>${a('Play the full plugin in your browser (desktop)', `${SITE}${pg.web}`)}</p>` : '',
-        `<p>${a('All the free goodies', `${SITE}/goodies/`)}</p>`,
       ].join('');
     }
     case '/mm-rytm/play/':
@@ -917,13 +916,8 @@ function contentFor(route) {
         ['cover', 'Release covers'],
       ];
       return [
-        h1(VST_LIVE ? 'Maudite Machine goodies: free VST3 plugins (Mac and Windows), wallpapers and release covers' : 'Maudite Machine goodies: free wallpapers and release covers'),
+        h1('Maudite Machine goodies: free wallpapers and release covers'),
         p('Free downloads, full resolution.'),
-        VST_LIVE
-          ? h2('Free VST3 plugins for macOS and Windows') +
-            ul(asArray(VST.plugins).map((v) => `${a(v.name, `${SITE}/mm-${v.id}/`)}, ${esc(v.kind.toLowerCase())} (${esc(asArray(v.platforms).join(', ') || 'macOS')}): ${esc(v.text)}`)) +
-            p('Free, sent by email. An installer for each system: macOS 11 or later (Apple Silicon and Intel), Windows 10 or 11 (64-bit) where listed. Any VST3 host (Ableton Live, Bitwig, Reaper, Cubase, FL Studio).')
-          : '',
         ...groups.map(([cat, title]) => {
           const items = GOODIES.filter((g) => g.category === cat);
           return items.length ? h2(title) + ul(items.map((g) => a(g.title, `${SITE}${g.downloadSrc}`))) : '';
