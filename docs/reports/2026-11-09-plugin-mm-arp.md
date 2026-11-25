@@ -1102,3 +1102,20 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   fusionne au niveau 'off' en attendant le choix de Mika (une constante a changer).
 - Tests : tsc 105 ; build.mjs --check (80), presets-check, presets-render x4 / x8 / PRO, random-analog ; CI DSP,
   host_test ; face en Chromium muet : smoke, func, func2, funckey, egtest, funcpb (navigateur) TOUT OK.
+
+## 2026-11-25 (suite) : v54, double clic sur un knob = valeur de depart
+
+- Mika : "quand on double clic sur un knob on reset ce meme knob". Avant : un clic seul sur un potard de la face ouvre
+  OPEN sur sa page (HELL, REVERB, DELAY, DISTO ; 2026-11-16), la remise passe par Alt / Cmd / Ctrl + clic ; un double
+  clic ouvrait la page sans rien remettre. Les potards des pages d'OPEN (PcbKnob) avaient deja le double clic.
+- Face (ui/Hotspots.tsx tapDial et onDown, voyager/faceDbl.ts, plugin/arp/hellKnob.tsx) : le deuxieme appui moins de
+  300 ms (FACE_DBL.ms) apres le premier lacher, sur le meme potard, le remet a sa valeur de depart. Mesure a l'heure
+  des evenements (timeStamp), pas a l'heure du traitement. Un potard qui a sa page l'ouvre 300 ms apres le clic, le
+  temps de voir si un deuxieme appui suit (il annule l'ouverture). Alt / Cmd / Ctrl + clic reste une remise.
+- Ce qui n'est pas un potard garde son geste au clic : levier, touche a crans, segment de POLARITY / VOICE, onglets et
+  fenetres de l'encart, viseur (faceExtras.tsx encartKnob, encart50.ts knob50). Les potards de l'encart (SYNTH, LFO
+  SPEED / SHAPE, AMOUNT de la matrice, SWING, FX MOD) se remettent au double clic.
+- Tests : tsc 105 ; dbl54/dbl.js (clics horodates par CDP : le rendu logiciel du conteneur met des centaines de ms par
+  image) : CUTOFF, RES, REVERB (pas d'OPEN au double clic, OPEN au clic seul), HELL, KEY TRACK, ACCENT, un potard
+  d'OPEN, DRIFT et LFO 1 SPEED de l'encart, levier SYNC (deux bascules), deux clics lents (rien), Alt + clic ;
+  egtest.js mis a jour (il verifiait que le double clic ne faisait rien).

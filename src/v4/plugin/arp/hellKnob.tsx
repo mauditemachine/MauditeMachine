@@ -7,8 +7,8 @@
  * comme les autres ; sa valeur s'ecrit sur l'ecran de la machine.
  *
  * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
- * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
- * Alt / Cmd / Ctrl + clic) :
+ * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre). v54 : un double clic remet le potard a sa
+ * valeur de depart (Alt / Cmd / Ctrl + clic aussi) ; la page s'ouvre donc passe le temps d'un double clic :
  *   HELL -> la page HELL ; REVERB -> la page REVERB ; DISTO -> la page DISTO ; DELAY -> la page DELAY (v27). Les autres :
  *   rien (pageOf). Les pieces de l'encart d'EDIT (v27, faceExtras.tsx) : un levier bascule, une touche passe au cran
  *   suivant.
@@ -29,7 +29,7 @@ import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
 import { hoodPage, type HoodFx, type HoodTab } from './hoodPage';
-import { aimTap, encartTap } from './faceExtras';
+import { aimTap, encartKnob, encartTap } from './faceExtras';
 import { egTap } from './EgColumn';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT } from './vknobFace';
@@ -104,15 +104,18 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     stage.hit.add([def]);
     faceDbl.set((dial) => {
       // v50 : une assignation au viseur en cours (modRoutes.ts) : le potard clique devient la cible
-      if (aimTap(dial)) return true;
+      if (aimTap(dial)) return 'act';
       // v52 : un segment de POLARITY ou de VOICE (la colonne des enveloppes, EgColumn.tsx) : ce cran
-      if (egTap(dial)) return true;
-      if (encartTap(dial)) return true;
+      if (egTap(dial)) return 'act';
+      // l'encart d'EDIT : un levier, une touche, un cran agissent ; un potard ne fait rien (un double clic le remet)
+      if (encartTap(dial)) return encartKnob(dial) ? 'knob' : 'act';
       const pg = pageOf(dial);
-      if (!pg) return false;
-      hoodPage.show(pg.tab, pg.fx, pg.focus);
-      if (voyExplode.get() === 'closed') openToggle(stage, 'voy');
-      return true;
+      if (!pg) return 'knob';
+      // v54 : la page s'ouvre passe le temps d'un double clic (voyager/faceDbl.ts), qui remet le potard a la place
+      return () => {
+        hoodPage.show(pg.tab, pg.fx, pg.focus);
+        if (voyExplode.get() === 'closed') openToggle(stage, 'voy');
+      };
     });
     return () => {
       off();

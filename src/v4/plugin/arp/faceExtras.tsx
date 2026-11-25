@@ -64,7 +64,7 @@ import { arpExtra, extraParam, isExtra } from './extra';
 import { look } from './look';
 import { VKnobSet } from './vknob';
 import { VKNOB_LIFT, attachVKnobs } from './vknobFace';
-import { accent50, aimParamOf50, key50, LED_HALO_50, lfoPage50, sqPage50, sqSources, tabs50, tap50, TABS50, type Key50, type Page50 } from './encart50';
+import { accent50, aimParamOf50, key50, knob50, LED_HALO_50, lfoPage50, sqPage50, sqSources, tabs50, tap50, TABS50, type Key50, type Page50 } from './encart50';
 import { aimSourceName, modAim, modView } from './modRoutes';
 import { modDestCodeOf } from './modTable';
 
@@ -418,6 +418,14 @@ export function encartTap(dial: string): boolean {
   setOf(c.id, ((i + 1) % n) / (n - 1));
   voyMsg.show(`${c.name} ${textOf(c.id)}`, 1800);
   return true;
+}
+
+/** Un potard de l'encart (pas un levier, une touche ni une fenetre) : son clic ne fait rien, un double clic le remet (v54). */
+export function encartKnob(dial: string): boolean {
+  if (!dial.startsWith(ED)) return false;
+  if (knob50(dial)) return true;
+  const id = dial.slice(ED.length);
+  return LFO_CTLS.some((c) => c.id === id && c.k === 'pot') || CTLS.some((c) => c.id === id && c.k === 'knob');
 }
 
 /**

@@ -234,7 +234,7 @@ import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { voyEcho } from '../voyager/echo';
 import { voyInfoIdOf } from '../voyager/infoIds';
-import { faceDbl } from '../voyager/faceDbl';
+import { FACE_DBL, faceDbl } from '../voyager/faceDbl';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { isRytmInfoHotspot } from '../rytm/infoIds';
@@ -821,6 +821,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let hover: string | null = null;
     /** derniere tape par encodeur (double tape = remise a la valeur de depart) */
     const lastTap = new Map<DialId, number>();
+    /** v54 : le potard du MM-ARP dont l'appui en cours est le deuxieme d'un double clic */
+    let dblArm: DialId | null = null;
     /** derniere tape du fond (double tape = vue par defaut) */
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
@@ -992,12 +994,27 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Le plugin MM-ARP (2026-11-16, Mika : "clic simple sur un knob de la face = ouvre tres rapidement OPEN directement sur
       // ses reglages ; le clic ne doit pas gener la rotation") : un clic sans mouvement (moins de FACE_CLICK.px, relache en
       // moins de FACE_CLICK.ms) ouvre le capot sur sa page (voyager/faceDbl.ts) ; la valeur ne bouge pas. Un glisser tourne
-      // le potard et n'arrive jamais ici. Alt / Cmd / Ctrl + clic : la valeur de depart. Plus de double tape, plus de cran
-      // suivant au clic (MODE du filtre se tourne)
+      // le potard et n'arrive jamais ici. Alt / Cmd / Ctrl + clic : la valeur de depart. Plus de cran suivant au clic (MODE
+      // du filtre se tourne). v54 (2026-11-25, Mika : "quand on double clic sur un knob on reset ce meme knob") : le double
+      // clic remet le potard (le deuxieme appui moins de FACE_DBL.ms apres le premier lacher, dblArm a l'appui) ; une page
+      // attend ce temps pour s'ouvrir (voyager/faceDbl.ts), un levier ou une touche agit tout de suite
       if (PLUGIN_ARP && faceDbl.on() && (isVoy(k) || k.startsWith('z:'))) {
-        lastTap.delete(k);
-        if (downMod) anyDial(k, anyDialReset(k));
-        else if (pressMs <= FACE_CLICK.ms && stage.orbit.lastTap.dist < FACE_CLICK.px) faceDbl.open(k);
+        const dbl = dblArm === k;
+        dblArm = null;
+        if (downMod || dbl) {
+          lastTap.delete(k);
+          faceDbl.cancel();
+          if (downMod || (pressMs <= FACE_CLICK.ms && stage.orbit.lastTap.dist < FACE_CLICK.px)) anyDial(k, anyDialReset(k));
+          return;
+        }
+        if (pressMs > FACE_CLICK.ms || stage.orbit.lastTap.dist >= FACE_CLICK.px) {
+          lastTap.delete(k);
+          return;
+        }
+        // l'instant du lacher (l'evenement, pas l'heure du traitement : un fil occupe ne fait pas un double clic lent)
+        const up = (window as { event?: Event }).event?.timeStamp;
+        if (faceDbl.open(k) === 'act') lastTap.delete(k);
+        else lastTap.set(k, typeof up === 'number' && up > 0 ? up : performance.now());
         return;
       }
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
@@ -1463,6 +1480,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const encoder: DialId | null =
         dialOf(h);
+      // v54 : le deuxieme appui d'un double clic sur un potard du MM-ARP (tapDial) ; la page attendue ne s'ouvre pas
+      dblArm = null;
+      if (PLUGIN_ARP && encoder && faceDbl.on() && eventTime(e) - (lastTap.get(encoder) ?? -Infinity) <= FACE_DBL.ms) {
+        dblArm = encoder;
+        faceDbl.cancel();
+      }
       // Le grand ecran du MM-ARP (2026-10-08) : l'echo du potard tenu reste tant qu'on le tient (une prise par pointeur)
       if (encoder && isVoy(encoder)) {
         voyEcho.hold(e.pointerId, encoder.slice(2) as VoyKnobId);

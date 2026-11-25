@@ -1091,6 +1091,13 @@ export function tap50(dial: string): boolean {
   return false;
 }
 
+/** Un potard des pages LFO et SQ (SPEED, SHAPE, AMOUNT d'une ligne de la matrice, SWING) : un double clic le remet (v54). */
+export function knob50(dial: string): boolean {
+  if (!dial.startsWith(ED)) return false;
+  const d = dial.slice(ED.length);
+  return /^lfo:\d:(speed|shape)$/.test(d) || /^mx:amt:\d$/.test(d) || d === 'xSwing';
+}
+
 /** Les reglages que vise une piece de l'encart (le viseur) : la vitesse d'un LFO ; null : aucun. */
 export function aimParamOf50(dial: string): string | null {
   const m = /^z:ed:lfo:(\d):(speed|shape)$/.exec(dial);
