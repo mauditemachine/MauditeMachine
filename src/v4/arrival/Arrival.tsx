@@ -44,6 +44,12 @@ const ENTRANCE_MAX_MS = 9000;
 const START = { READY_MS: 260, CALM: 5, CALM_MS: 34, CALM_MAX_MS: 2200, LATEST_MS: 5000 } as const;
 /** Le geste : ce qu'un cran de molette fait avancer (une position de 1 : un tableau), le seuil qui decide de l'arret d'apres. */
 const WHEEL_K = 1 / 520;
+/**
+ * 2026-11-25 (Mika : "je veux que le site s'ouvre avec l'intro et ensuite le menu !") : le logo pose, le menu vient seul
+ * apres ce temps, sans attendre le defilement ; un geste avant (molette, doigt, fleches) garde la main. La machine, elle,
+ * vient toujours au defilement suivant.
+ */
+const AUTO_MENU_MS = 1100;
 const SNAP = 0.1;
 const IDLE_MS = 170;
 /** Le suivi de la position (s) : vers le menu, vers la machine (le recul suit le geste, sans a-coup entre deux crans). */
@@ -319,6 +325,8 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
 
     let raf = 0;
     let last = -1;
+    let landedAt = s.landed ? 0 : -1;
+    let autoMenu = false;
     const tick = (now: number): void => {
       raf = requestAnimationFrame(tick);
       const dt = last < 0 ? 0 : Math.min(MAX_STEP_MS, Math.max(0, now - last));
@@ -335,11 +343,21 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
         if (logo) logo.frame(s.a, L.heroWord, L.heroMark);
         if (s.a >= 1) {
           s.landed = true;
+          landedAt = now;
           root.dataset.landed = '1';
           // Le DOM prend le relais a l'image d'apres (le canevas montre la meme image a plat)
           window.setTimeout(dropLogo, 120);
         }
       }
+      // 1 bis. Le logo pose depuis AUTO_MENU_MS, personne n'a bouge : le menu (une fois)
+      if (!autoMenu && s.landed && landedAt >= 0 && s.goal === 0 && s.pos === 0 && s.lastInput === 0) {
+        if (landedAt === 0) landedAt = now;
+        if (now - landedAt >= AUTO_MENU_MS) {
+          autoMenu = true;
+          s.goal = 1;
+        }
+      }
+      if (s.goal !== 0 || s.lastInput !== 0) autoMenu = true;
       // 2. La position suit sa cible ; le geste fini, elle rejoint un arret, ou reste ou elle est en plein recul (settle)
       if (s.lastInput > 0 && now - s.lastInput > IDLE_MS) {
         s.goal = settle(s.goal, s.from);

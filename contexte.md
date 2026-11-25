@@ -15,6 +15,7 @@ Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, 
   - `MM-ARP` (`voy`) : **V.2.6** (26 fichiers) - bouton presets accessible et interface mobile epuree.
   - `MM-BASS` (`bass`) : **V.3.0** (24 fichiers) - accessible sous `?bass=1`.
   - `MM-DECKS` (`src/v4/dj/`) : controle du pitch / tempo actif y compris sur les morceaux personnalises (`FILES`) charges par l'utilisateur.
+- **Arrivee du site (25 nov 2026, Mika : "je veux que le site s'ouvre avec l'intro et ensuite le menu !")** : le logo arrive, se pose, et le menu s'ouvre seul 1,1 s apres (`src/v4/arrival/Arrival.tsx`, `AUTO_MENU_MS`) ; un geste avant garde la main ; la machine vient au defilement suivant.
 - **Contact & Mobile (mi-novembre 2026)** :
   - Fenetre de contact directe et epuree (`/contact/`).
   - Version telephone allegée : RYTM et ARP epures, lecteur `TRACKS` avec pochettes Bandcamp, visionneuse Press Kit et contact fluides.
