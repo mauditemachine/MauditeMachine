@@ -799,6 +799,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  /* v53 : la banque a 80 presets (BASS : 42) ; une colonne garde sa place (16 noms visibles) et defile au-dela */
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .mm-plugin-arp .mm-p2-lib-item {

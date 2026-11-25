@@ -806,10 +806,47 @@ int main() {
         const juce::File f = juce::File::getCurrentWorkingDirectory().getChildFile("plugin/mm-arp/presets/factory.json");
         const juce::var bank = juce::JSON::parse(f.loadFileAsString());
         const juce::var* list = bank.getDynamicObject() ? bank.getDynamicObject()->getProperties().getVarPointer("presets") : nullptr;
-        int n = 0, exact = 0;
+        // v53 (2026-11-25, la banque dark disco, 80 presets) : un preset qui pose sa page DELAY lui-meme (un echo cale au
+        // tempo que l'ancien DELAY ne savait pas faire : la double croche, le triolet, sa reinjection) n'a pas d'ancien DELAY
+        // a comparer ; les autres (leur page = l'ancien DELAY converti, la regle de convertDelay) restent au bit pres.
+        const auto legacyPage = [](const juce::var& pr) {
+            const auto num = [&](const char* part, const char* id, double def) {
+                const juce::var v = pr.getProperty(part, juce::var()).getProperty(id, juce::var());
+                return v.isVoid() ? def : static_cast<double>(v);
+            };
+            const auto kn = [&](const char* id) {
+                const int i = mmarp::knobIndex(id);
+                return mmarp::knobClean(i, num("knobs", id, mmarp::kKnobDefs[i].def));
+            };
+            const double delay = kn("delay"), tape = kn("tape");
+            const int dt = std::max(0, std::min(4, mmarp::knobStep(mmarp::knobIndex("dlyTime"), kn("dlyTime"))));
+            const int dm = mmx::exStep(mmx::ex_xDlyMode, num("extra", "xDlyMode", 0));
+            std::map<int, double> want;
+            for (int e = mmx::ex_xDlStyle; e <= mmx::ex_xDlRhythm; ++e) want[e] = mmx::kExtraDefs[e].def;
+            const auto step = [&](int e, int i) { return static_cast<double>(i) / (mmx::kExtraDefs[e].nSteps - 1); };
+            const bool tp = mmarp::ArpFxLaws::fxAmount(tape) > 0;
+            want[mmx::ex_xDlStyle] = step(mmx::ex_xDlStyle, tp ? mmarp::ES_TAPE : mmarp::ES_DIGITAL);
+            want[mmx::ex_xDlWobble] = tp ? tape : 0;
+            want[mmx::ex_xDlMode] = step(mmx::ex_xDlMode, tp || dm == 0 ? mmarp::EM_PINGPONG : dm == 1 ? mmarp::EM_DUAL : mmarp::EM_WIDE);
+            static const int kDiv[5] = {2, 2, 3, 3, 4}, kNote[5] = {0, 1, 0, 1, 0};
+            want[mmx::ex_xDlSync] = step(mmx::ex_xDlSync, 1);
+            want[mmx::ex_xDlDiv] = step(mmx::ex_xDlDiv, kDiv[dt]);
+            want[mmx::ex_xDlNote] = step(mmx::ex_xDlNote, kNote[dt]);
+            want[mmx::ex_xDlFb] = 0.35 + (0.68 - 0.35) * delay;
+            for (const auto& [e, v] : want)
+                if (std::fabs(num("extra", mmx::kExtraDefs[e].id, mmx::kExtraDefs[e].def) - v) > 1e-6) return false;
+            return true;
+        };
+        int n = 0, exact = 0, legacy = 0, native = 0, total = list && list->isArray() ? list->size() : 0;
         std::string bad;
         if (list && list->isArray())
             for (const auto& pr : *list->getArray()) {
+                if (!legacyPage(pr)) {
+                    ++n;
+                    ++native;
+                    continue;
+                }
+                ++legacy;
                 const auto play = [&](bool legacy) {
                     MMArpProcessor::testLegacyDelay = legacy;
                     MMArpProcessor p;
@@ -846,7 +883,10 @@ int main() {
                 if (d <= 0 && a.size() == b.size()) ++exact;
                 else bad += " " + pr.getProperty("name", "?").toString().toStdString();
             }
-        check(n == 40 && exact == n, "DELAY v27 : la banque d'usine, " + std::to_string(exact) + " / " + std::to_string(n) + " presets au bit pres comme avec l'ancien DELAY" + bad);
+        // v53 : la banque n'a plus 40 presets (80) : tous comptes, au moins 64 ; ceux a l'ancien DELAY converti au bit pres
+        check(n == total && n >= 64 && legacy + native == n && legacy > 0 && exact == legacy,
+              "DELAY v27 : la banque d'usine (" + std::to_string(n) + " presets), " + std::to_string(exact) + " / " + std::to_string(legacy) +
+                  " a l'ancien DELAY converti au bit pres comme avec l'ancien DELAY ; " + std::to_string(native) + " avec leur page DELAY (v53)" + bad);
     }
     {
         // v27 : l'analyseur de la page SOUND (seulement page ouverte) : une note jouee, ses bandes au-dessus de -60 dB

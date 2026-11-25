@@ -28,7 +28,7 @@ import { voyMsg } from '../../voyager/msg';
 import { randomVoyOf, voyRandomHook, type VoyRandom, type VoyStyle } from '../../voyager/random';
 import type { VoyKnobId } from '../../voyager/params';
 import { arpExtra } from './extra';
-import { analogRandom, analogTame, analogVoice, ANALOG_FX_OFF_EXTRA, type AnalogFamily } from './analog';
+import { analogRandom, analogRandomFx, analogTame, analogVoice, type AnalogFamily, type AnalogValues } from './analog';
 import { arpSteps, STEPS_N } from './steps';
 
 export type HypnoStyle = 'HYPNOTIC' | 'PULSE' | 'ROLLING';
@@ -184,7 +184,9 @@ export function hypnoNew(style: HypnoStyle = hypnoStyle.get(), rnd: Rnd = Math.r
  * de la famille est tire en entier dans les plages de la banque (analogRandom : oscillateurs, SUB, passe-bas a
  * mi-course, enveloppes, MOD lent, derive), puis borne par analogTame (aucun effet, filtre modere, pas trop aigu) ; les
  * effets du VST3 seul passent a l'arret (ANALOG_FX_OFF_EXTRA : HELL, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, WARMTH,
- * RING, FOLD, HIGH PASS, COMB ; plus de touche de HELL). Le tirage du site (voyager/random.ts randomVoyOf) ne donne plus
+ * RING, FOLD, HIGH PASS, COMB ; plus de touche de HELL). v53 (2026-11-25, Mika : "oui effets doses, pas beaucoup pour
+ * pas trop denaturer le son") : les memes plafonds que la banque (analog.ts ANALOG_FX) ; RANDOM tire parfois un CHORUS,
+ * un echo cale au tempo, une reverbe CLASSIC courte (jamais sur une basse), un peu de WARMTH (analogRandomFx). Le tirage du site (voyager/random.ts randomVoyOf) ne donne plus
  * que le jeu de l'arpege (MODE, NOTES...) ; la suite et les pistes : les cellules hypnotiques du style choisi sur la page
  * SEQ, dans le registre de la famille. Restent a la main de Mika : VOLUME, l'EQ 6 bandes, le MASTER, les LFO du VST3 seul.
  */
@@ -228,21 +230,31 @@ export const SITE_OF: Record<RandomFamily, readonly VoyStyle[]> = {
 let lastFamily: RandomFamily | null = null;
 
 /**
- * Le patch de RANDOM (sans la suite) : le jeu de l'arpege du site et de la page SEQ, puis le son analogique de la
- * famille, borne par les regles. Pur (rnd seul) : plugin/mm-arp/tests/random-analog.mjs le rend hors ligne.
+ * Le son de RANDOM (sans la suite) : le jeu de l'arpege du site et de la page SEQ, puis le son analogique de la
+ * famille et ses effets legers (v53, analog.ts analogRandomFx), bornes par les regles. patch : les potards ; extra : les
+ * reglages du VST3 seul qu'il pose (les effets du VST3 seul a l'arret ou doses, les pages des effets qui sonnent, VOICE
+ * MODE). Pur (rnd seul) : plugin/mm-arp/tests/random-analog.mjs le rend hors ligne.
  */
-export function randomPatch(fam: RandomFamily, site: Partial<Record<VoyKnobId, number>>, arpPart: { rate: number; range: number; gate: number }, rnd: Rnd): Partial<Record<VoyKnobId, number>> {
-  return analogTame({ ...site, ...arpPart, ...analogRandom(fam, rnd) }) as Partial<Record<VoyKnobId, number>>;
+export function randomSound(
+  fam: RandomFamily,
+  site: Partial<Record<VoyKnobId, number>>,
+  arpPart: { rate: number; range: number; gate: number },
+  rnd: Rnd,
+): { patch: Partial<Record<VoyKnobId, number>>; extra: AnalogValues } {
+  const voice = analogRandom(fam, rnd);
+  const fx = analogRandomFx(fam, rnd);
+  const patch = analogTame({ ...site, ...arpPart, ...voice, ...fx.knobs }) as Partial<Record<VoyKnobId, number>>;
+  // v52 (2026-11-24) : VOICE MODE de la famille, comme la banque d'usine (MONO pour les basses, POLY ailleurs : analog.ts
+  // analogVoice), sinon une nappe tiree apres une basse MONO jouerait en MONO
+  return { patch, extra: { ...fx.extra, xVoiceMode: analogVoice(fam) } };
 }
 
 /**
- * Les effets du VST3 seul a l'arret (v43 : RANDOM donne toujours un son sec) ; v52 (2026-11-24) : VOICE MODE de la
- * famille, comme la banque d'usine (MONO pour les basses, POLY ailleurs : analog.ts analogVoice), sinon une nappe tiree
- * apres une basse MONO jouerait en MONO.
+ * Les reglages du VST3 seul de RANDOM (v43 : les effets du VST3 seul a l'arret ; v53 : ou doses dans les plafonds, avec
+ * la page de chaque effet qui sonne ; v52 : VOICE MODE de la famille).
  */
-function fxOff(fam: RandomFamily): void {
-  for (const [k, v] of Object.entries(ANALOG_FX_OFF_EXTRA)) arpExtra.set(k, v);
-  arpExtra.set('xVoiceMode', analogVoice(fam));
+function fxSet(extra: AnalogValues): void {
+  for (const [k, v] of Object.entries(extra)) arpExtra.set(k, v);
 }
 
 /** RANDOM de la face, dans le plugin : une famille, son son analogique, la suite et les pistes hypnotiques du style choisi. */
@@ -256,8 +268,8 @@ voyRandomHook.fn = (_r: VoyRandom): VoyRandom => {
   const h = hypnoSeq(style, rnd);
   const a = hypnoArp(style, rnd);
   arpSteps.load(h.steps);
-  const patch = randomPatch(fam, r.patch, { rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
-  fxOff(fam);
+  const { patch, extra } = randomSound(fam, r.patch, { rate: a.rate, range: a.range, gate: Math.round(a.gate * 1000) / 1000 }, rnd);
+  fxSet(extra);
   return {
     ...r,
     patch,
