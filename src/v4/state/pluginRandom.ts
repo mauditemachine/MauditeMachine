@@ -283,7 +283,7 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
     // destination choisie selon le role, une profondeur qui reste musicale ; le kick presque toujours stable
     const playing = rows[i].some((v) => v > 0);
     if (playing && !q.lfo && chance(r, kick ? 0.08 : hat ? 0.6 : perc ? 0.65 : 0.4)) q.lfo = randomLfo(r, i, q, null);
-    if (playing && q.lfo && !kick && chance(r, 0.3)) q.lfo2 = randomLfo(r, i, q, q.lfo.d);
+    // Un seul LFO (2026-11-25, Mika) : plus de LFO 2 tire
     t[key] = trackEntry(i, pick(r, list), q);
   });
 

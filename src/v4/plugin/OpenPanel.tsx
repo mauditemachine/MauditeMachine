@@ -449,7 +449,7 @@ function Choice<T extends string | boolean>({ label, options, value, onPick }: {
   );
 }
 
-const HELP: readonly [string, string][] = [
+export const HELP: readonly [string, string][] = [
   ['Right click on a step', 'P-LOCK that step: the knobs lock their value on it; again: out'],
   ['Right click on a key', 'FUNC + that key (its orange function printed under it)'],
   ['Arrows under the screen', 'sub-page, list up / down'],

@@ -143,9 +143,24 @@ export function closeSection(): void {
  * seulement ; la musique continue ; le pad OPEN s'enfonce. true si la
  * demande est prise.
  */
+/**
+ * Le plugin (2026-11-25, Mika : "reprend l'interface d'avant [...] ajoute les sous menus") : OPEN, la touche O et le MIDI
+ * ouvrent les sous-pages plein ecran (plugin/v3/Overlay.tsx) au lieu du capot ; null : le capot (le site).
+ */
+let openHook: (() => void) | null = null;
+export function setOpenHook(fn: (() => void) | null): void {
+  openHook = fn;
+}
+
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
   // Le MM-DECKS n'a pas de capot ; le MM-BASS a le sien depuis le 2026-10-08 (sa touche OPEN est sur sa face)
   if (which === 'dj') return false;
+  if (openHook && which === 'mm808') {
+    resume();
+    funcDrop();
+    openHook();
+    return true;
+  }
   resume();
   // Le logo M (V.5.0) : FUNC s'en va (la revue de D1, G2)
   if (which === 'mm808') funcDrop();

@@ -5,6 +5,7 @@
  * Echap et OPEN du MIDI passent par lui ; la face v3 s'y declare et le pose ouvert ou ferme tout de suite (pas d'animation).
  */
 
+import { setFaceScreen } from '../../actions/kit';
 import { explode } from '../../state/explode';
 
 export const TABS = ['SAMPLE', 'SEQ', 'LFO', 'DISTO', 'CHORUS', 'DELAY', 'REVERB', 'HELL', 'MASTER'] as const;
@@ -38,6 +39,8 @@ function lastOf(): Page {
 }
 
 let state: ViewState = { page: null, last: typeof window === 'undefined' ? 'SAMPLE' : lastOf(), menu: false, help: false, learn: false };
+/** Le capot du site suit l'OPEN (la face v3 seule) ; sous la face d'avant, les sous-pages se posent par-dessus sans lui. */
+let hood = false;
 const listeners = new Set<() => void>();
 const set = (p: Partial<ViewState>): void => {
   state = { ...state, ...p };
@@ -60,12 +63,19 @@ export const view = {
       /* pas de stockage : la page vit pour la session */
     }
     set({ page: p, last: p, menu: false });
-    if (explode.get() === 'closed') explode.toggle();
+    if (hood && explode.get() === 'closed') explode.toggle();
   },
   /** Retour a la face (CLOSE, ×, Echap). */
   close(): void {
     set({ page: null, menu: false });
-    if (explode.get() === 'open') explode.toggle();
+    // Les potards A a H de la face reviennent a la page affichee
+    setFaceScreen(null);
+    if (hood && explode.get() === 'open') explode.toggle();
+  },
+  /** OPEN : la derniere page, ou la face. */
+  toggle(): void {
+    if (state.page) view.close();
+    else view.open(state.last);
   },
   menu(on?: boolean): void {
     set({ menu: on ?? !state.menu, help: false });
@@ -83,6 +93,7 @@ export const view = {
  * (aucune animation) et montre la page. Rend de quoi se debrancher.
  */
 export function attachHood(): () => void {
+  hood = true;
   const detach = explode.attach();
   const off = explode.subscribe(() => {
     const s = explode.get();
@@ -97,6 +108,7 @@ export function attachHood(): () => void {
   // Une face rechargee capot ouvert : la page revient
   if (explode.get() === 'open' && !state.page) set({ page: state.last });
   return () => {
+    hood = false;
     off();
     detach();
   };

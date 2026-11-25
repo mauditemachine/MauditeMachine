@@ -29,7 +29,7 @@ import { HitLayer, Twins } from '../ui/Hotspots';
 import { Lcd } from '../ui/Lcd';
 import { NameDialog } from './NameDialog';
 import { bridge } from './bridge';
-import { OpenPanel } from './OpenPanel';
+import { OpenOverlay } from './v3/Overlay';
 import { StepMenu } from './StepMenu';
 import { ScreenMouse } from './ScreenMouse';
 
@@ -169,7 +169,7 @@ const PluginFace: React.FC = () => {
         <ScreenMouse stage={stage} />
         <Lcd />
         <NameDialog stage={stage} />
-        <OpenPanel stage={stage} />
+        <OpenOverlay />
         <StepMenu />
       </Boundary>
       {error && (

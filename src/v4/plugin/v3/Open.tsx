@@ -14,8 +14,8 @@ import { pattern, velocity } from '../../audio/pattern';
 import { trigger } from '../../audio/drums';
 import { samplePcm, samplesOf } from '../../audio/samples';
 import { CONDS } from '../../audio/trig';
-import { TRACK_KEYS, TRACK_NAMES, tracks, typedFamily, type TrackKey } from '../../audio/tracks';
-import { REVERB_PRESETS, DIST_PRESETS, HELL_PRESETS, presetPatch, type LabKnob, type LabPreset } from '../../state/labFx';
+import { TRACK_KEYS, TRACK_NAMES, isLegacyTrack, tracks, typedFamily, type TrackKey } from '../../audio/tracks';
+import { REVERB_PRESETS, DIST_PRESETS, DIST_STYLE_TEXT, HELL_PRESETS, distLowHz, presetPatch, type LabKnob, type LabPreset } from '../../state/labFx';
 import { DIST_DRIVE, DIST_TONE, HELL_ECHO, HELL_LFO, HELL_OUT, HELL_SHIFT } from '../../state/labFx';
 import { lcdMessage } from '../../state/lcdMessage';
 import { perform } from '../../state/perform';
@@ -29,6 +29,8 @@ import { fxCtl, slotCtl, trackCtl, course, setCourse, shown, type Ctl } from './
 import { Foot, Header } from './Chrome';
 import { C, lfoPath, nudge, useTrack } from './parts';
 import { isMuted, isSolo, setStepVel } from './Steps';
+import { TAP_VEL_DEFAULT, rytmPage } from '../../state/rytmPage';
+import { activeTrack } from '../../state/trk';
 import { Choice, HRule, Key, Knob, Lcd, Note, Title, Toggle, VRule, useTick, type KnobKind } from './ui';
 import { Library, MidiPage } from './Library';
 import type { Page } from './view';
@@ -72,13 +74,13 @@ const TrackStrip: React.FC<{ y?: number }> = ({ y = 72 }) => {
 };
 
 /** Une rangee de knobs d'un groupe de reglages fins (state/labFx.ts), de x0 a x1, a la hauteur y. */
-const LabRow: React.FC<{ knobs: readonly LabKnob[]; x0: number; x1: number; y: number; d?: number; kind?: KnobKind; skip?: readonly string[] }> = ({ knobs, x0, x1, y, d = 44, kind = 'k3', skip = [] }) => {
+const LabRow: React.FC<{ knobs: readonly LabKnob[]; x0: number; x1: number; y: number; d?: number; kind?: KnobKind; skip?: readonly string[] }> = ({ knobs, x0, x1, y, d = 44, kind = 'tiny', skip = [] }) => {
   const list = knobs.filter((k) => !skip.includes(k.id));
   const p = (x1 - x0) / list.length;
   return (
     <>
       {list.map((k, i) => (
-        <Knob key={k.id} x={x0 + p * i + p / 2} y={y} d={d} kind={k.steps > 2 && kind === 'k3' ? 'k3' : kind} ctl={fxCtl(k)} label={k.label} title={k.tip} />
+        <Knob key={k.id} x={x0 + p * i + p / 2} y={y} d={d} kind={kind} ctl={fxCtl(k)} label={k.label} title={k.tip} />
       ))}
     </>
   );
@@ -128,20 +130,51 @@ const PresetList: React.FC<{ x: number; y: number; w: number; h: number; title: 
   );
 };
 
-/** Les envois des 16 pistes vers un effet (une rangee de petits knobs) et le retour de l'effet. */
-const SendStrip: React.FC<{ y: number; fx: string; p: 'dist' | 'chorus' | 'delay' | 'reverb' | 'hell'; master: Ctl; mlabel?: string }> = ({ y, fx, p, master, mlabel = 'RETURN' }) => {
+/**
+ * Les envois vers un effet (2026-11-25, Mika : "toutes les voices affichees ca fit pas [...] j'aimais bien le principe de
+ * l'autre interface") : comme la page FX de la machine, on choisit la piste (ses 16 pastilles : leur barre dit leur envoi)
+ * et un seul knob regle l'envoi de la piste choisie ; a droite, le niveau de l'effet.
+ */
+const SEND_TARGET = { dist: 'vdist', chorus: 'vchorus', delay: 'vdelay', reverb: 'vreverb', hell: 'vhell' } as const;
+const SendRow: React.FC<{ y: number; fx: string; p: 'dist' | 'chorus' | 'delay' | 'reverb' | 'hell'; master: Ctl; mlabel?: string }> = ({ y, fx, p, master, mlabel = 'RETURN' }) => {
+  useTick();
+  useSyncExternalStore(voices.subscribe, () => voices.get());
   const t = useTrack();
-  const x0 = 96;
+  const ctl = React.useMemo(() => slotCtl('fxv', SEND_TARGET[p]), [p]);
+  const x0 = 196;
   const pw = (1236 - x0) / 16;
-  const ctls = React.useMemo(() => TRACK_KEYS.map((k) => trackCtl(k, p)), [p]);
   return (
     <>
-      <Title x={52} y={y} w={1296} t={`${fx} · PER TRACK`} small="EACH TRACK SENDS INTO IT" />
-      {TRACK_KEYS.map((k, i) => (
-        <Knob key={k} x={x0 + i * pw + pw / 2 - 6} y={y + 62} d={34} ctl={ctls[i]} label={TRACK_NAMES[i]} acc={k === t} />
-      ))}
-      <VRule x={1252} y={y + 22} h={110} />
-      <Knob x={1300} y={y + 64} d={52} kind="k1" ctl={master} label={mlabel} big />
+      <HRule x={52} y={y - 14} w={1296} />
+      <Title x={52} y={y} w={1296} t={`${fx} · SENDS`} small="PICK A TRACK, TURN ITS SEND" />
+      <Knob x={112} y={y + 56} d={46} kind="k1" ctl={ctl} label={`${TRACK_NAMES[TRACK_KEYS.indexOf(t)]} SEND`} acc />
+      {TRACK_KEYS.map((k, i) => {
+        const v = tracks.vfx(k)[p] as number;
+        return (
+          <div
+            key={k}
+            className={`mm3-trk${k === t ? ' sel' : ''}${isMuted(k) ? ' mute' : ''}`}
+            style={{ left: x0 + i * pw, top: y + 36, width: pw - 6, height: 40 }}
+            role="button"
+            aria-label={`${TRACK_NAMES[i]} ${fx} send ${Math.round(v * 127)}`}
+            title={`${TRACK_NAMES[i]} : ${v > 0.001 ? Math.round(v * 127) : 'OFF'}`}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              trackSelect(k);
+            }}
+          >
+            <div className="n" style={{ top: 7, fontSize: 9 }}>
+              {TRACK_NAMES[i]}
+            </div>
+            <div className="vu" style={{ bottom: 8, height: 4 }}>
+              <b style={{ width: `${Math.round(v * 100)}%`, background: v > 0.001 ? 'linear-gradient(90deg,#8a7400,#ffd900)' : undefined }} />
+            </div>
+          </div>
+        );
+      })}
+      <VRule x={1252} y={y + 22} h={84} />
+      <Knob x={1300} y={y + 56} d={46} kind="k1" ctl={master} label={mlabel} />
     </>
   );
 };
@@ -248,8 +281,8 @@ const SamplePage: React.FC = () => {
       <Knob x={110} y={yk + 92} d={64} kind="k1" ctl={C.start} label="START" big />
       <Knob x={238} y={yk + 92} d={64} kind="k1" ctl={C.len} label="LEN" big />
       <Knob x={366} y={yk + 92} d={64} kind="k1" ctl={C.lev} label="LEVEL" big />
-      <Knob x={110} y={yk + 222} d={46} ctl={C.tune} label="TUNE" />
-      <Knob x={238} y={yk + 222} d={46} ctl={C.fine} label="FINE" />
+      <Knob kind="tiny" x={110} y={yk + 222} d={46} ctl={C.tune} label="TUNE" />
+      <Knob kind="tiny" x={238} y={yk + 222} d={46} ctl={C.fine} label="FINE" />
       <Toggle x={342} y={yk + 206} a="FWD" b="REV" on={pw.rev} label="PLAY" onFlip={() => setCourse(C.rev, pw.rev ? 0 : 1)} />
       <VRule x={470} y={yk + 4} h={330} />
       <Title x={486} y={yk} w={380} t="AMP ENVELOPE" />
@@ -257,17 +290,17 @@ const SamplePage: React.FC = () => {
       <Knob x={530} y={yk + 196} d={50} kind="k1" ctl={C.atk} label="ATK" />
       <Knob x={612} y={yk + 196} d={50} kind="k1" ctl={C.hold} label="HOLD" />
       <Knob x={694} y={yk + 196} d={50} kind="k1" ctl={C.dec} label="DEC" />
-      <Knob x={776} y={yk + 196} d={44} ctl={C.vstart} label="START" />
-      <Knob x={846} y={yk + 196} d={44} ctl={C.pan} label="PAN" />
+      <Knob kind="tiny" x={776} y={yk + 196} d={44} ctl={C.vstart} label="START" />
+      <Knob kind="tiny" x={846} y={yk + 196} d={44} ctl={C.pan} label="PAN" />
       <VRule x={882} y={yk + 4} h={330} />
       <Title x={898} y={yk} w={450} t="FILTER" />
       <FilterLcd x={908} y={yk + 26} w={430} h={84} />
       <Knob x={950} y={yk + 196} d={64} kind="k1" ctl={C.fcut} label="FREQ" big />
-      <Knob x={1040} y={yk + 196} d={44} ctl={C.freso} label="RESO" />
+      <Knob kind="tiny" x={1040} y={yk + 196} d={44} ctl={C.freso} label="RESO" />
       <Knob x={1114} y={yk + 186} d={36} kind="tiny" ctl={C.ftype} label="TYPE" ticks={0} />
-      <Knob x={1186} y={yk + 196} d={40} ctl={C.fenv} label="ENV" />
-      <Knob x={1246} y={yk + 196} d={40} ctl={C.fatk} label="ATK" />
-      <Knob x={1306} y={yk + 196} d={40} ctl={C.fdec} label="DEC" />
+      <Knob kind="tiny" x={1186} y={yk + 196} d={40} ctl={C.fenv} label="ENV" />
+      <Knob kind="tiny" x={1246} y={yk + 196} d={40} ctl={C.fatk} label="ATK" />
+      <Knob kind="tiny" x={1306} y={yk + 196} d={40} ctl={C.fdec} label="DEC" />
     </Frame>
   );
 };
@@ -384,19 +417,33 @@ const SeqLanes: React.FC = () => {
   const pw = gw / 16;
   const top = 148;
   const hh = 340;
-  const drag = useRef<number | null>(null);
+  const drag = useRef<{ id: number; kind: 'trig' | 'val'; on: boolean; last: number } | null>(null);
   const len = pattern.stepCount();
   const tlen = Math.round(p.trigs?.[t]?.tlen ?? 0);
   const end = tlen > 0 && tlen < len ? tlen : len;
-  const setAt = (e: React.PointerEvent): void => {
+  /** Le pas sous la souris, la hauteur dans la voie, la valeur 0 a 1 qu'elle donne. */
+  const at = (e: React.PointerEvent): { i: number; yy: number; x: number } => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const k = r.width / gw;
     const i = Math.floor((e.clientX - r.left) / k / pw);
-    if (i < 0 || i > 15) return;
     const yy = (e.clientY - r.top) / k;
-    const x = Math.max(0, Math.min(1, 1 - (yy - 70) / (hh - 110)));
-    if (velocity(p.steps, t, i) <= 0) return;
-    if (L.id === 'vel') setStepVel(i, Math.max(1, Math.round(1 + x * 8)));
+    return { i, yy, x: Math.max(0, Math.min(1, 1 - (yy - 70) / (hh - 110))) };
+  };
+  /** Le pas pose (on) ou retire, a la velocite des nouveaux pas de la piste. */
+  const trigTo = (i: number, on: boolean): void => {
+    const k = activeTrack.get();
+    if (!k || i < 0 || i > 15) return;
+    const cur = velocity(pattern.get().steps, k, i) > 0;
+    if (on && !cur) pattern.set(k, i, isLegacyTrack(k) ? rytmPage.tapVel(k) : TAP_VEL_DEFAULT);
+    else if (!on && cur) pattern.clearStep(k, i);
+  };
+  /** La valeur de la voie sur le pas (un pas vide recoit d'abord sa note). */
+  const valueAt = (i: number, x: number): void => {
+    const k = activeTrack.get();
+    if (!k || i < 0 || i > 15) return;
+    const vel = Math.max(1, Math.round(1 + x * 8));
+    if (velocity(pattern.get().steps, k, i) <= 0) pattern.set(k, i, L.id === 'vel' ? vel : isLegacyTrack(k) ? rytmPage.tapVel(k) : TAP_VEL_DEFAULT);
+    if (L.id === 'vel') setStepVel(i, vel);
     else if (L.ctl) writeStep(i, L.ctl, x);
   };
   const bars: React.ReactNode[] = [];
@@ -411,7 +458,7 @@ const SeqLanes: React.FC = () => {
         {i + 1}
       </div>
     );
-    bars.push(<div key={`t${i}`} style={{ left: x + 12, width: pw - 24, top: 24, height: 14, borderRadius: 3, background: on ? '#ff3d2e' : '#1a1a1a', boxShadow: on ? '0 0 8px rgba(255,61,46,.5)' : 'inset 0 1px 2px #000', opacity: i >= end ? 0.3 : 1 }} />);
+    bars.push(<div key={`t${i}`} style={{ left: x + 12, width: pw - 24, top: 22, height: 18, borderRadius: 4, background: on ? '#ff3d2e' : '#1a1a1a', boxShadow: on ? '0 0 8px rgba(255,61,46,.5)' : 'inset 0 1px 2px #000', opacity: i >= end ? 0.3 : 1 }} />);
     const cl = l && typeof l.cond === 'number' && l.cond !== 0 ? CONDS[l.cond]?.label : null;
     if (cl) bars.push(<div key={`c${i}`} style={{ left: x, width: pw, top: 46, textAlign: 'center' }}><span className="mm3-chip a" style={{ fontSize: 7 }}>{cl}</span></div>);
     if (!on) {
@@ -462,28 +509,40 @@ const SeqLanes: React.FC = () => {
         y={top}
         w={gw}
         h={hh}
-        style={{ cursor: 'ns-resize', touchAction: 'none' }}
+        style={{ cursor: 'pointer', touchAction: 'none' }}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.preventDefault();
+          const q = at(e);
+          if (q.i < 0 || q.i > 15) return;
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-          drag.current = e.pointerId;
           undo.boundary('mm808', 'step');
-          setAt(e);
+          // La rangee rouge du haut : le pas pose ou retire (un glisser en fait plusieurs) ; dessous : la valeur de la voie
+          if (q.yy < 46) {
+            const on = velocity(pattern.get().steps, t, q.i) <= 0;
+            drag.current = { id: e.pointerId, kind: 'trig', on, last: q.i };
+            trigTo(q.i, on);
+          } else {
+            drag.current = { id: e.pointerId, kind: 'val', on: true, last: q.i };
+            valueAt(q.i, q.x);
+          }
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (!d || d.id !== e.pointerId) return;
+          const q = at(e);
+          if (d.kind === 'trig') {
+            if (q.i !== d.last) trigTo(q.i, d.on);
+          } else valueAt(q.i, q.x);
+          d.last = q.i;
+        }}
+        onPointerUp={() => {
+          drag.current = null;
         }}
       >
-        <div
-          style={{ inset: 0 }}
-          onPointerMove={(e) => {
-            if (drag.current === e.pointerId) setAt(e);
-          }}
-          onPointerUp={() => {
-            drag.current = null;
-          }}
-        />
         {bars}
         <div className="mm3-t8" style={{ left: 10, bottom: 6, fontSize: 7 }}>
-          {L.label} · <span className="mm3-w">{L.tip.toUpperCase()}</span> &nbsp; <span className="mm3-a">YELLOW</span> : SET ON THE STEP &nbsp; GREY : THE TRACK
+          <span className="mm3-a">RED ROW</span> : A STEP ON / OFF (DRAG : SEVERAL) &nbsp; <span className="mm3-a">BARS</span> : {L.label}, CLICK OR DRAG (AN EMPTY STEP GETS ITS NOTE) &nbsp; YELLOW : SET ON THE STEP · GREY : THE TRACK
         </div>
       </Lcd>
     </>
@@ -556,13 +615,13 @@ const SeqPage: React.FC = () => {
           ['SEED', SEQ_C.vsed],
         ] as const
       ).map(([l, c], i) => (
-        <Knob key={l} x={578 + (i % 4) * 110} y={yb + 72 + Math.floor(i / 4) * 112} d={44} ctl={c} label={l} />
+        <Knob kind="tiny" key={l} x={578 + (i % 4) * 110} y={yb + 72 + Math.floor(i / 4) * 112} d={44} ctl={c} label={l} />
       ))}
       <VRule x={1000} y={yb + 4} h={300} />
       <Title x={1016} y={yb} w={332} t="RETRIG · GROOVE" />
-      <Knob x={1066} y={yb + 72} d={44} ctl={SEQ_C.vfad} label="VFAD" />
-      <Knob x={1160} y={yb + 72} d={44} ctl={SEQ_C.rlen} label="RLEN" />
-      <Knob x={1254} y={yb + 72} d={44} ctl={SEQ_C.lfot} label="LFO.T" />
+      <Knob kind="tiny" x={1066} y={yb + 72} d={44} ctl={SEQ_C.vfad} label="VFAD" />
+      <Knob kind="tiny" x={1160} y={yb + 72} d={44} ctl={SEQ_C.rlen} label="RLEN" />
+      <Knob kind="tiny" x={1254} y={yb + 72} d={44} ctl={SEQ_C.lfot} label="LFO.T" />
       <Knob x={1110} y={yb + 190} d={62} kind="k1" ctl={C.swing} label="SWING" big />
       <Key x={1222} y={yb + 170} w={64} h={26} label="RANDOM" led="off" onDown={(e) => faceKeyDown('random', `ptr:${e.pointerId}`, null)} onUp={(e, tap) => faceKeyUp('random', `ptr:${e.pointerId}`, null, performance.now(), tap)} title="A new random beat (Cmd+Z: back)" />
       <Key x={1222} y={yb + 226} w={64} h={26} label="CLEAR" led="off" onTap={() => clearKey(null)} title="Clear the pattern (REC on: the track)" />
@@ -572,69 +631,65 @@ const SeqPage: React.FC = () => {
 
 /* ======================= LFO ======================= */
 
-const LFO_C = [1, 2].map((n) => ({
-  rate: slotCtl('mod', `z:l${n}rate`),
-  dep: slotCtl('mod', `q:l${n}dep`, true),
-  wav: slotCtl('mod', `q:l${n}wav`),
-  dst: slotCtl('mod', `q:l${n}dst`),
-  mod: slotCtl('mod2', `q:l${n}mod`),
-  fad: slotCtl('mod2', `q:l${n}fad`, true),
-  phs: slotCtl('mod2', `q:l${n}phs`),
-}));
-
-const LfoPanel: React.FC<{ x: number; n: 1 | 2 }> = ({ x, n }) => {
-  useTick();
-  const c = LFO_C[n - 1];
-  const w = 638;
-  const dest = c.dst.text();
-  const off = dest === 'OFF' || dest === '--';
-  const color = n === 1 ? '#ffd900' : '#e8e8e8';
-  return (
-    <>
-      <Title x={x} y={110} w={w} t={`LFO ${n}`} small={off ? 'OFF' : `→ ${dest}`} />
-      <Lcd x={x + 10} y={136} w={w - 20} h={168}>
-        {Array.from({ length: 9 }, (_, b) => (
-          <i key={b} style={{ left: (b * (w - 20)) / 8, top: 0, bottom: 0, width: 1, background: b % 4 === 0 ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.05)' }} />
-        ))}
-        <i style={{ left: 0, right: 0, top: 84, height: 1, background: 'rgba(255,255,255,.1)' }} />
-        <svg style={{ left: 0, top: 10 }} width={w - 20} height={148}>
-          <path d={lfoPath(c.wav.get(), off ? 0.3 : c.dep.get() || 0.5, w - 20, 148, 4)} stroke={off ? '#444' : color} strokeWidth={2} fill="none" style={{ filter: off ? undefined : `drop-shadow(0 0 4px ${n === 1 ? 'rgba(255,217,0,.6)' : 'rgba(255,255,255,.35)'})` }} />
-        </svg>
-        <div className="mm3-t8" style={{ left: 10, top: 8 }}>
-          {c.wav.text()} · <span className="mm3-w">{shown(c.rate)}</span> · DEPTH <span className="mm3-a">{shown(c.dep)}</span> · {c.mod.text()}
-        </div>
-      </Lcd>
-      <Note x={x + 10} y={318}>
-        WAVE
-      </Note>
-      <Choice x={x + 52} y={314} ctl={c.wav} words={['TRI', 'SINE', 'SQR', 'SAW', 'EXP', 'RMP', 'RND']} w={44} h={20} gap={8} />
-      <Note x={x + 10} y={350}>
-        DEST
-      </Note>
-      <Choice x={x + 52} y={344} ctl={c.dst} words={['OFF', 'PITCH', 'FREQ', 'RESO', 'VOL', 'PAN', 'DIST', 'DELAY', 'REVERB', 'TONE', 'DECAY']} w={62} h={22} gap={6} cols={6} />
-      <Note x={x + 470} y={318}>
-        MODE
-      </Note>
-      <Choice x={x + 470} y={330} ctl={c.mod} words={['FREE', 'TRIG', 'HOLD', 'ONE', 'HALF']} w={50} h={20} gap={6} cols={3} />
-      <Knob x={x + 80} y={480} d={66} kind="k1" ctl={c.rate} label="RATE" big />
-      <Knob x={x + 220} y={480} d={66} kind="k1" ctl={c.dep} label="DEPTH" big />
-      <Knob x={x + 360} y={480} d={46} ctl={c.fad} label="FADE" />
-      <Knob x={x + 480} y={480} d={46} ctl={c.phs} label="PHASE" />
-    </>
-  );
-};
+/**
+ * Un seul LFO (2026-11-25, Mika : "les lfos, j'en vois pas l'utilite d'en avoir deux et aussi complexes") : sa forme, ce
+ * qu'il fait bouger, sa vitesse (en valeurs musicales) et sa profondeur. Le LFO 2 d'un pattern d'avant : une ligne, son OFF.
+ */
+const LFO1 = { rate: slotCtl('mod', 'z:l1rate'), dep: slotCtl('mod', 'q:l1dep', true), wav: slotCtl('mod', 'q:l1wav'), dst: slotCtl('mod', 'q:l1dst') };
+const LFO2_DST = slotCtl('mod2', 'q:l2dst');
 
 const LfoPage: React.FC = () => {
+  useTick();
   const t = useTrack();
+  const c = LFO1;
+  const dest = c.dst.text();
+  const off = dest === 'OFF' || dest === '--';
+  const d2 = LFO2_DST.text();
+  const lfo2 = d2 !== 'OFF' && d2 !== '--';
+  const W = 1276;
   return (
-    <Frame page="LFO" tracks hint="TWO LFO PER TRACK · RANDOM CHANGES THEM (NEVER THE GATE) · HOLD A STEP ON THE MACHINE : P-LOCK THEM" lcd={`LFO · ${TRACK_NAMES[TRACK_KEYS.indexOf(t)]}`}>
-      <LfoPanel x={52} n={1} />
-      <VRule x={700} y={116} h={440} />
-      <LfoPanel x={710} n={2} />
-      <HRule x={52} y={600} w={1296} />
-      <Note x={700} y={630} center style={{ fontSize: 8.5 }}>
-        <i>LFO 1</i> AND <b>LFO 2</b> MOVE THE TRACK ON ITS OWN · <i>THE FACE</i> : RATE, DEPTH, WAVE, DEST OF BOTH
-      </Note>
+    <Frame page="LFO" tracks hint="ONE LFO PER TRACK · RANDOM DRAWS IT (NEVER THE GATE) · ON THE MACHINE : THE LFO KEY · HOLD A STEP : P-LOCK IT" lcd={`LFO · ${TRACK_NAMES[TRACK_KEYS.indexOf(t)]}`}>
+      <Title x={52} y={110} w={1296} t="LFO" small={off ? 'OFF : PICK WHAT IT MOVES' : `→ ${dest}`} />
+      <Lcd x={62} y={136} w={W} h={250}>
+        {Array.from({ length: 17 }, (_, b) => (
+          <i key={b} style={{ left: (b * W) / 16, top: 0, bottom: 0, width: 1, background: b % 4 === 0 ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.05)' }} />
+        ))}
+        <i style={{ left: 0, right: 0, top: 125, height: 1, background: 'rgba(255,255,255,.1)' }} />
+        <svg style={{ left: 0, top: 14 }} width={W} height={222}>
+          <path d={lfoPath(c.wav.get(), off ? 0.3 : c.dep.get() || 0.5, W, 222, 4)} stroke={off ? '#444' : '#ffd900'} strokeWidth={2.4} fill="none" style={{ filter: off ? undefined : 'drop-shadow(0 0 5px rgba(255,217,0,.6))' }} />
+        </svg>
+        <div style={{ left: 16, top: 12 }}>
+          <div className="mm3-t8">{off ? 'LFO OFF' : `LFO → ${dest}`}</div>
+          <div className="mm3-dots mm3-a" style={{ fontSize: 34, marginTop: 4 }}>
+            {shown(c.rate)}
+          </div>
+        </div>
+        <div className="mm3-t8" style={{ right: 16, top: 14 }}>
+          {c.wav.text()} · DEPTH <span className="mm3-a">{shown(c.dep)}</span>
+        </div>
+      </Lcd>
+      <HRule x={52} y={404} w={1296} />
+      <Title x={52} y={420} w={620} t="WAVE" />
+      <Choice x={86} y={452} ctl={c.wav} words={['TRI', 'SINE', 'SQR', 'SAW', 'EXP', 'RMP', 'RND']} w={72} h={28} gap={8} />
+      <Title x={52} y={510} w={620} t="DEST" small="WHAT IT MOVES" />
+      <Choice x={86} y={542} ctl={c.dst} words={['OFF', 'PITCH', 'FREQ', 'RESO', 'VOL', 'PAN', 'DIST', 'DELAY', 'REVERB', 'TONE', 'DECAY']} w={88} h={28} gap={8} cols={6} />
+      <VRule x={690} y={424} h={250} />
+      <Title x={706} y={420} w={642} t="SPEED · DEPTH" />
+      <Knob x={880} y={540} d={96} kind="k1" ctl={c.rate} label="RATE" big />
+      <Knob x={1150} y={540} d={96} kind="k1" ctl={c.dep} label="DEPTH" big />
+      {lfo2 && (
+        <>
+          <HRule x={52} y={700} w={1296} />
+          <Note x={62} y={724} style={{ fontSize: 8.5 }}>
+            THIS TRACK STILL HAS A <b>SECOND LFO</b> FROM BEFORE (→ <i>{d2}</i>)
+          </Note>
+          <Key x={420} y={718} w={70} h={22} r={8} inner="OFF" title="Turn the second LFO off" onTap={() => {
+            undo.boundary('mm808', 'step');
+            LFO2_DST.begin?.();
+            setCourse(LFO2_DST, 0);
+          }} />
+        </>
+      )}
     </Frame>
   );
 };
@@ -643,113 +698,252 @@ const LfoPage: React.FC = () => {
 
 const DISTO_C = { drive: slotCtl('fxdist', 'dist'), xtone: slotCtl('fxdist', 'xtone') };
 
-/** La courbe du TONE de la DIST (avant la saturation) : LOW CUT, THUMP, TONE, HIGH CUT et sa pente. */
-const DistToneLcd: React.FC = () => {
+/** Les reglages de la DIST (state/labFx.ts), un controle chacun. */
+const DX = {
+  style: fxCtl(lab(DIST_DRIVE, 'xstyle')),
+  punish: fxCtl(lab(DIST_DRIVE, 'xpunish')),
+  auto: fxCtl(lab(DIST_DRIVE, 'xauto')),
+  out: fxCtl(lab(DIST_DRIVE, 'xout')),
+  mix: fxCtl(lab(DIST_DRIVE, 'xmix')),
+  low: fxCtl(lab(DIST_TONE, 'xlow')),
+  thump: fxCtl(lab(DIST_TONE, 'xthump')),
+  tilt: fxCtl(lab(DIST_TONE, 'xtilt')),
+  high: fxCtl(lab(DIST_TONE, 'xtone')),
+  steep: fxCtl(lab(DIST_TONE, 'xsteep')),
+};
+
+/**
+ * L'EQ de la DIST (avant la saturation ; le HIGH CUT apres), comme celui du MM-ARP (Mika : "regarde ce panneau vraiment
+ * cool detaille") : la courbe, et ses trois points qu'on tire. LOW CUT (le rond : a gauche, la coupure ; vers le haut, THUMP),
+ * TONE (le cercle : vers le haut, plus clair ; vers le bas, plus sombre), HIGH CUT (le losange : tout a droite, ouvert).
+ */
+const DistEq: React.FC<{ x: number; y: number; w: number; h: number }> = ({ x, y, w, h }) => {
   useTick();
   const fx = pattern.fx.get();
-  const W = 800;
-  const H = 96;
-  const X = (f: number): number => ((Math.log10(Math.max(20, Math.min(20000, f))) - Math.log10(20)) / 3) * W;
-  const lowHz = fx.xlow > 0.001 ? 30 * Math.pow(500 / 30, fx.xlow) : 0;
+  const W = w - 20;
+  const H = h - 40;
+  const lo = Math.log10(20);
+  const X = (f: number): number => ((Math.log10(Math.max(20, Math.min(20000, f))) - lo) / 3) * W;
+  const F = (px: number): number => Math.pow(10, lo + (Math.max(0, Math.min(W, px)) / W) * 3);
+  const lowHz = distLowHz(fx.xlow);
   const highOn = fx.xtone < 0.999;
-  const highHz = highOn ? 400 * Math.pow(16000 / 400, fx.xtone) : 20000;
+  const highHz = highOn ? 1000 * Math.pow(16, fx.xtone) : 20000;
   const steep = fx.xsteep >= 0.5;
   const tilt = (fx.xtilt - 0.5) * 2;
-  const pts: string[] = [];
-  for (let i = 0; i <= 200; i += 1) {
-    const f = 20 * Math.pow(1000, i / 200);
+  const dbAt = (f: number): number => {
     let db = tilt * 6 * (Math.log10(f / 1000) / 1.3);
     if (lowHz > 0) db -= f < lowHz ? 24 * Math.log2(lowHz / f) : 0;
     if (lowHz > 0 && fx.xthump > 0) db += fx.xthump * 9 * Math.exp(-Math.pow(Math.log2(f / (lowHz * 1.4)), 2) * 2);
     if (highOn && f > highHz) db -= (steep ? 36 : 12) * Math.log2(f / highHz);
-    const y = H / 2 - Math.max(-H / 2 + 2, Math.min(H / 2 - 2, db * 2.2));
-    pts.push(`${i ? 'L' : 'M'}${X(f).toFixed(1)} ${y.toFixed(1)}`);
+    return db;
+  };
+  const Y = (db: number): number => H / 2 - Math.max(-H / 2 + 2, Math.min(H / 2 - 2, db * (H / 30)));
+  let path = '';
+  for (let i = 0; i <= 240; i += 1) {
+    const f = 20 * Math.pow(1000, i / 240);
+    path += `${i ? 'L' : 'M'}${X(f).toFixed(1)} ${Y(dbAt(f)).toFixed(1)}`;
   }
-  const path = pts.join('');
+  const pts = {
+    low: { px: X(lowHz > 0 ? lowHz : 25), py: Y(dbAt(lowHz > 0 ? lowHz * 1.4 : 40)) },
+    tone: { px: X(1000), py: Y(dbAt(1000)) },
+    high: { px: X(highOn ? highHz : 18000), py: Y(dbAt(highOn ? highHz : 12000)) },
+  };
+  const drag = useRef<{ id: number; which: 'low' | 'tone' | 'high'; y0: number; v0: number } | null>(null);
+  const local = (e: React.PointerEvent): { px: number; py: number; k: number } => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const k = r.width / w;
+    return { px: (e.clientX - r.left) / k - 10, py: (e.clientY - r.top) / k - 30, k };
+  };
+  const apply = (e: React.PointerEvent): void => {
+    const d = drag.current;
+    if (!d) return;
+    const q = local(e);
+    if (d.which === 'low') {
+      const f = F(q.px);
+      DX.low.set(f < 28 ? 0 : Math.max(0.006, Math.min(1, Math.log(f / 30) / Math.log(500 / 30))));
+      DX.thump.set(Math.max(0, Math.min(1, d.v0 + (d.y0 - q.py) / 80)));
+    } else if (d.which === 'tone') DX.tilt.set(Math.max(0, Math.min(1, d.v0 + (d.y0 - q.py) / 120)));
+    else {
+      const f = F(q.px);
+      DX.high.set(f >= 16000 ? 1 : Math.max(0, Math.min(0.999, Math.log(f / 1000) / Math.log(16))));
+    }
+  };
   return (
-    <Lcd x={62} y={430} w={820} h={140}>
+    <Lcd
+      x={x}
+      y={y}
+      w={w}
+      h={h}
+      style={{ cursor: 'grab', touchAction: 'none' }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const q = local(e);
+        const near = (Object.keys(pts) as ('low' | 'tone' | 'high')[]).map((k) => ({ k, d: Math.hypot(pts[k].px - q.px, pts[k].py - q.py) })).sort((a, b) => a.d - b.d)[0];
+        if (!near || near.d > 60) return;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        undo.boundary('mm808', 'step');
+        drag.current = { id: e.pointerId, which: near.k, y0: q.py, v0: near.k === 'low' ? fx.xthump : near.k === 'tone' ? fx.xtilt : 0 };
+      }}
+      onPointerMove={(e) => {
+        if (drag.current?.id === e.pointerId) apply(e);
+      }}
+      onPointerUp={() => {
+        drag.current = null;
+      }}
+    >
       {[50, 100, 200, 500, 1000, 2000, 5000, 10000].map((f) => (
         <React.Fragment key={f}>
-          <i style={{ left: 10 + X(f), top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,.05)' }} />
-          <div className="mm3-t8" style={{ left: 13 + X(f), bottom: 5, fontSize: 7 }}>
+          <i style={{ left: 10 + X(f), top: 22, bottom: 18, width: 1, background: 'rgba(255,255,255,.05)' }} />
+          <div className="mm3-t8" style={{ left: 13 + X(f), bottom: 4, fontSize: 7 }}>
             {f >= 1000 ? `${f / 1000}K` : f}
           </div>
         </React.Fragment>
       ))}
-      <svg style={{ left: 10, top: 26 }} width={W} height={H}>
+      {[12, 6, 0, -6, -12].map((db) => (
+        <div key={db} className="mm3-t8" style={{ right: 8, top: 30 + Y(db) - 5, fontSize: 7 }}>
+          {db > 0 ? `+${db}` : db}
+        </div>
+      ))}
+      <svg style={{ left: 10, top: 30 }} width={W} height={H}>
         <line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke="rgba(255,255,255,.1)" />
-        <path d={`${path} L${W} ${H} L0 ${H} Z`} fill="rgba(255,217,0,.08)" />
+        <path d={`${path} L${W} ${H / 2} L0 ${H / 2} Z`} fill="rgba(255,217,0,.08)" />
         <path d={path} stroke="#ffd900" strokeWidth={2} fill="none" style={{ filter: 'drop-shadow(0 0 3px rgba(255,217,0,.6))' }} />
+        <circle cx={pts.low.px} cy={pts.low.py} r={8} fill={lowHz > 0 ? '#ffd900' : '#3a3a3a'} stroke="#111" strokeWidth={2} />
+        <circle cx={pts.tone.px} cy={pts.tone.py} r={7} fill="#111" stroke="#fff" strokeWidth={2} />
+        <rect x={pts.high.px - 7} y={pts.high.py - 7} width={14} height={14} transform={`rotate(45 ${pts.high.px} ${pts.high.py})`} fill={highOn ? '#111' : '#2a2a2a'} stroke="#fff" strokeWidth={2} />
       </svg>
-      <div className="mm3-t8" style={{ left: 10, top: 8 }}>
-        LOW CUT <span className="mm3-w">{shown(fxCtl(lab(DIST_TONE, 'xlow')))}</span> · THUMP <span className="mm3-w">{shown(fxCtl(lab(DIST_TONE, 'xthump')))}</span> · TONE <span className="mm3-w">{shown(fxCtl(lab(DIST_TONE, 'xtilt')))}</span> · HIGH CUT <span className="mm3-a">{shown(DISTO_C.xtone)}{steep ? ' · 36 DB' : ''}</span>
+      <div className="mm3-t8" style={{ left: 12, top: 8 }}>
+        ● LOW CUT + THUMP · ○ TONE · ◇ HIGH CUT · <span className="mm3-w">DRAG A POINT</span>
+      </div>
+      <div className="mm3-t8 mm3-a" style={{ right: 12, top: 8 }}>
+        LOW CUT {DX.low.text()}
+        {lowHz > 0 ? ' HZ' : ''} · THUMP {DX.thump.text()} · TONE {DX.tilt.text()} · HIGH CUT {DX.high.text()}
+        {steep ? ' · 36 DB' : ''}
       </div>
     </Lcd>
+  );
+};
+
+/** Le VU-metre creme (comme celui du MM-ARP) : le niveau de sortie de la machine. */
+const CreamVu: React.FC<{ x: number; y: number; w: number; h: number; label: string }> = ({ x, y, w, h, label }) => {
+  const needle = useRef<SVGLineElement | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    let cur = 0;
+    const loop = (): void => {
+      const m = meters.seen() ? meters.view() : null;
+      const target = m ? Math.max(m.l, m.r) : 0;
+      cur += (target - cur) * 0.18;
+      const a = ((-48 + 96 * cur) * Math.PI) / 180;
+      const cx = w / 2;
+      const cy = h - 18;
+      const r = h * 0.78;
+      if (needle.current) {
+        needle.current.setAttribute('x2', String(cx + Math.sin(a) * r));
+        needle.current.setAttribute('y2', String(cy - Math.cos(a) * r));
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [w, h]);
+  const cx = w / 2;
+  const cy = h - 18;
+  const r0 = h * 0.62;
+  const ticks: React.ReactNode[] = [];
+  for (let i = 0; i <= 12; i += 1) {
+    const a = ((-48 + 8 * i) * Math.PI) / 180;
+    const big = i % 3 === 0;
+    ticks.push(<line key={i} x1={cx + Math.sin(a) * r0} y1={cy - Math.cos(a) * r0} x2={cx + Math.sin(a) * (r0 + (big ? 12 : 7))} y2={cy - Math.cos(a) * (r0 + (big ? 12 : 7))} stroke={i > 9 ? '#c0281c' : '#1a1a1a'} strokeWidth={big ? 1.6 : 1} />);
+  }
+  return (
+    <div style={{ left: x, top: y, width: w, height: h, borderRadius: 12, background: 'linear-gradient(#1a1a1b,#0b0b0c)', boxShadow: '0 0 0 1px #050505, 0 0 0 2px rgba(255,255,255,.06), 0 8px 16px rgba(0,0,0,.6)', padding: 8 }}>
+      <div style={{ position: 'absolute', inset: 8, borderRadius: 8, background: 'radial-gradient(120% 100% at 50% 100%, #f3ecd6, #e3d9bb 60%, #cdbf98)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,.45)' }}>
+        <svg width={w - 16} height={h - 16} style={{ position: 'absolute', left: 0, top: 0 }}>
+          <g transform="translate(-8,-8)">
+            {ticks}
+            <path d={`M${cx + Math.sin((24 * Math.PI) / 180) * (r0 + 4)} ${cy - Math.cos((24 * Math.PI) / 180) * (r0 + 4)} A${r0 + 4} ${r0 + 4} 0 0 1 ${cx + Math.sin((48 * Math.PI) / 180) * (r0 + 4)} ${cy - Math.cos((48 * Math.PI) / 180) * (r0 + 4)}`} stroke="#c0281c" strokeWidth={3} fill="none" />
+            <line ref={needle} x1={cx} y1={cy} x2={cx} y2={cy - h * 0.78} stroke="#141414" strokeWidth={2} strokeLinecap="round" />
+            <circle cx={cx} cy={cy} r={9} fill="#141414" />
+          </g>
+        </svg>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: h * 0.45, textAlign: 'center', font: "800 14px 'SF Pro Display'", letterSpacing: '.18em', color: '#151515' }}>{label}</div>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: h * 0.45 + 18, textAlign: 'center', font: "700 6.5px 'SF Pro Display'", letterSpacing: '.2em', color: '#6b6250' }}>MAUDITE MACHINE</div>
+      </div>
+    </div>
   );
 };
 
 const DistoPage: React.FC = () => {
   useTick();
   const fx = pattern.fx.get();
-  const style = fxCtl(lab(DIST_DRIVE, 'xstyle'));
-  const punish = fxCtl(lab(DIST_DRIVE, 'xpunish'));
-  const auto = fxCtl(lab(DIST_DRIVE, 'xauto'));
-  const steep = fxCtl(lab(DIST_TONE, 'xsteep'));
+  const cur = Math.round(course(DX.style) * 5);
   const y = 66;
+  const flip = (c: Ctl) => () => {
+    undo.boundary('mm808', 'step');
+    setCourse(c, c.get() >= 0.5 ? 0 : 1);
+  };
   return (
-    <Frame page="DISTO" hint="THE DIST OF EVERY TRACK AND OF THE MASTER · STYLES OF THE DECAPITATOR KIND · PUNISH : +20 DB" lcd="FX · DISTO">
-      <Title x={52} y={y} w={270} t="DRIVE" small="MASTER" />
-      <Knob x={124} y={y + 92} d={96} kind="k1" ctl={DISTO_C.drive} label="DIST" big />
-      <Toggle x={222} y={y + 70} a="OFF" b="ON" on={punish.get() >= 0.5} onFlip={() => setCourse(punish, punish.get() >= 0.5 ? 0 : 1)} title="PUNISH: +20 dB into the saturation" />
-      <Note x={244} y={y + 126} center style={{ fontSize: 15, fontWeight: 700, color: punish.get() >= 0.5 ? 'var(--acc)' : '#8a8a8a', letterSpacing: '.18em' }}>
+    <Frame page="DISTO" hint="THE DIST OF EVERY TRACK AND OF THE MASTER · STYLES OF THE DECAPITATOR KIND · DRAG THE POINTS OF THE EQ" lcd="FX · DISTO">
+      <Title x={52} y={y} w={280} t="DRIVE" small="MASTER" />
+      <Knob x={120} y={y + 96} d={100} kind="k1" ctl={DISTO_C.drive} label="DIST" big min="OFF" max="FULL" />
+      <Toggle x={226} y={y + 72} a="OFF" b="ON" on={DX.punish.get() >= 0.5} onFlip={flip(DX.punish)} title="PUNISH: +20 dB into the saturation" />
+      <Note x={248} y={y + 128} center style={{ fontSize: 16, fontWeight: 700, color: DX.punish.get() >= 0.5 ? 'var(--acc)' : '#8a8a8a', letterSpacing: '.18em' }}>
         PUNISH
       </Note>
-      <Note x={244} y={y + 148} center style={{ fontSize: 7.5 }}>
+      <Note x={248} y={y + 150} center style={{ fontSize: 7.5 }}>
         +20 DB
       </Note>
-      <Lcd x={62} y={y + 186} w={250} h={96}>
+      <Lcd x={62} y={y + 200} w={260} h={104}>
         <div className="mm3-t8" style={{ left: 9, top: 6, fontSize: 7, zIndex: 1 }}>
           TRANSFER
         </div>
         <Curve fx={fx} />
       </Lcd>
-      <VRule x={334} y={y + 4} h={290} />
-      <Title x={350} y={y} w={440} t="STYLE" />
-      <Choice x={372} y={y + 34} ctl={style} words={['MM', 'TAPE', 'DESK', 'IRON', 'TUBE', 'PENT']} w={128} h={30} gap={8} cols={3} />
-      <Lcd x={372} y={y + 124} w={400} h={64}>
-        <div className="mm3-t8" style={{ left: 12, top: 9 }}>
-          STYLE {Math.round(course(style) * 5) + 1} / 6
-        </div>
-        <div className="mm3-dots mm3-a" style={{ left: 12, top: 24, fontSize: 24 }}>
-          {style.text()}
-        </div>
-        <div className="mm3-t8" style={{ right: 12, top: 30, maxWidth: 220, whiteSpace: 'normal', textAlign: 'right', lineHeight: 1.5 }}>
-          {style.unit()}
-        </div>
-      </Lcd>
-      <Note x={372} y={y + 206} style={{ whiteSpace: 'normal', width: 400, lineHeight: 1.6, color: '#8e8e8e' }}>
-        A STEP HELD ON THE MACHINE : THE <i>DIST</i> OF ITS TRACK SET ON THAT STEP (P-LOCK). STYLE AND TONE : THE SAME FOR ALL THE TRACKS.
-      </Note>
-      <VRule x={806} y={y + 4} h={290} />
-      <Title x={822} y={y} w={190} t="OUTPUT" />
-      <Knob x={870} y={y + 84} d={46} ctl={fxCtl(lab(DIST_DRIVE, 'xout'))} label="OUTPUT" min="-12" max="+12" />
-      <Knob x={962} y={y + 84} d={58} kind="k1" ctl={fxCtl(lab(DIST_DRIVE, 'xmix'))} label="MIX" min="DRY" max="WET" />
-      <Toggle x={890} y={y + 186} a="OFF" b="ON" on={auto.get() >= 0.5} label="AUTO" onFlip={() => setCourse(auto, auto.get() >= 0.5 ? 0 : 1)} title="AUTO: the output follows the input level" />
-      <VRule x={1026} y={y + 4} h={290} />
-      <Title x={1042} y={y} w={306} t="PRESETS" />
-      <PresetList x={1054} y={y + 26} w={290} h={262} title="DIST" list={DIST_PRESETS} patchOf={(i) => presetPatch(DIST_PRESETS[i], 'dist') as Record<string, number>} />
-      <HRule x={52} y={376} w={1296} />
-      <Title x={52} y={392} w={830} t="TONE" small="BEFORE THE SATURATION" />
-      <DistToneLcd />
-      <Knob x={940} y={470} d={46} ctl={fxCtl(lab(DIST_TONE, 'xlow'))} label="LOW CUT" />
-      <Knob x={1040} y={470} d={46} ctl={fxCtl(lab(DIST_TONE, 'xthump'))} label="THUMP" />
-      <Knob x={1140} y={470} d={46} ctl={fxCtl(lab(DIST_TONE, 'xtilt'))} label="TONE" />
-      <Knob x={1240} y={470} d={46} ctl={DISTO_C.xtone} label="HIGH CUT" />
-      <Toggle x={1306} y={452} a="12" b="36" on={steep.get() >= 0.5} onFlip={() => setCourse(steep, steep.get() >= 0.5 ? 0 : 1)} title="STEEP: the HIGH CUT at 36 dB per octave" />
-      <Note x={1328} y={500} center style={{ fontSize: 8, color: '#dadada' }}>
-        STEEP
-      </Note>
-      <SendStrip y={652} fx="DIST" p="dist" master={DISTO_C.drive} mlabel="MASTER" />
+      <VRule x={340} y={y + 4} h={310} />
+      <Title x={356} y={y} w={440} t="STYLE" small="THE CIRCUIT" />
+      {(['MM', 'TAPE', 'DESK', 'IRON', 'TUBE', 'PENT'] as const).map((n, i) => {
+        const on = i === cur;
+        const yy = y + 30 + i * 46;
+        return (
+          <div
+            key={n}
+            style={{ left: 366, top: yy, width: 420, height: 40, borderRadius: 8, cursor: 'pointer', background: on ? 'linear-gradient(90deg, rgba(255,217,0,.16), rgba(255,217,0,.03))' : 'transparent', boxShadow: on ? 'inset 3px 0 0 #ffd900' : 'inset 0 -1px 0 rgba(255,255,255,.05)' }}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              undo.boundary('mm808', 'step');
+              setCourse(DX.style, i / 5);
+            }}
+          >
+            <div style={{ position: 'absolute', left: 14, top: 7, font: "700 11px 'SF Pro Display'", letterSpacing: '.18em', color: on ? '#fff' : '#d8d8d8' }}>{n}</div>
+            <div style={{ position: 'absolute', left: 14, top: 23, font: "600 7px 'SF Pro Display'", letterSpacing: '.12em', color: on ? 'var(--acc)' : '#7d7d7d' }}>{DIST_STYLE_TEXT[n].replace(/^[A-Z]+: /, '').toUpperCase()}</div>
+            <div className={`mm3-chip${on ? ' fill' : ''}`} style={{ position: 'absolute', right: 12, top: 11 }}>
+              {on ? (n === 'MM' ? 'MM ENGINE' : 'ON') : 'PICK'}
+            </div>
+          </div>
+        );
+      })}
+      <VRule x={804} y={y + 4} h={310} />
+      <Title x={820} y={y} w={200} t="OUTPUT" />
+      <Knob x={864} y={y + 92} d={44} kind="tiny" ctl={DX.mix} label="MIX" min="DRY" max="WET" />
+      <Knob x={966} y={y + 96} d={62} kind="k1" ctl={DX.out} label="OUTPUT" min="-12" max="+12" />
+      <Toggle x={896} y={y + 210} a="OFF" b="ON" on={DX.auto.get() >= 0.5} label="AUTO" onFlip={flip(DX.auto)} title="AUTO: the output follows the input level" />
+      <VRule x={1034} y={y + 4} h={610} />
+      <Title x={1050} y={y} w={298} t="LEVEL" />
+      <CreamVu x={1062} y={y + 26} w={276} h={150} label="OUTPUT" />
+      <Title x={1050} y={y + 196} w={298} t="PRESETS" />
+      <PresetList x={1062} y={y + 222} w={280} h={380} title="DIST" list={DIST_PRESETS} patchOf={(i) => presetPatch(DIST_PRESETS[i], 'dist') as Record<string, number>} />
+      <HRule x={52} y={y + 326} w={970} />
+      <Title x={52} y={y + 338} w={970} t="EQ" small="BEFORE THE DRIVE · HIGH CUT AFTER" />
+      <DistEq x={62} y={y + 362} w={950} h={162} />
+      <Knob x={150} y={y + 560} d={38} kind="tiny" ctl={DX.low} label="LOW CUT" />
+      <Knob x={300} y={y + 560} d={38} kind="tiny" ctl={DX.thump} label="THUMP" />
+      <Knob x={450} y={y + 560} d={38} kind="tiny" ctl={DX.tilt} label="TONE" />
+      <Knob x={600} y={y + 560} d={38} kind="tiny" ctl={DX.high} label="HIGH CUT" />
+      <Toggle x={736} y={y + 546} a="12" b="36" on={DX.steep.get() >= 0.5} label="STEEP" onFlip={flip(DX.steep)} title="STEEP: the HIGH CUT at 36 dB per octave" />
+      <SendRow y={704} fx="DIST" p="dist" master={DISTO_C.drive} mlabel="MASTER" />
     </Frame>
   );
 };
@@ -761,11 +955,11 @@ const CHORUS_C = { amt: slotCtl('fxchorus', 'chorus'), rate: slotCtl('fxchorus',
 const ChorusPage: React.FC = () => {
   useTick();
   const W = 900;
-  const H = 290;
+  const H = 500;
   const rate = course(CHORUS_C.rate);
   const depth = course(CHORUS_C.depth);
   const cyc = 1 + rate * 5;
-  const amp = 20 + depth * 100;
+  const amp = 40 + depth * 180;
   const wave = (ph: number): string => {
     let p = '';
     for (let i = 0; i <= 400; i += 1) {
@@ -775,7 +969,7 @@ const ChorusPage: React.FC = () => {
     return p;
   };
   return (
-    <Frame page="CHORUS" hint="THE STEREO CHORUS OF THE MM-RYTM · EACH TRACK SENDS INTO IT FROM THE FACE (FX SENDS)" lcd="FX · CHORUS">
+    <Frame page="CHORUS" hint="THE STEREO CHORUS OF THE MM-RYTM · EACH TRACK SENDS INTO IT (ITS FX PAGE ON THE MACHINE)" lcd="FX · CHORUS">
       <Lcd x={52} y={74} w={W} h={H}>
         {Array.from({ length: 17 }, (_, b) => (
           <i key={b} style={{ left: (b * W) / 16, top: 0, bottom: 0, width: 1, background: b % 4 === 0 ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.04)' }} />
@@ -794,40 +988,11 @@ const ChorusPage: React.FC = () => {
         </div>
       </Lcd>
       <Title x={972} y={66} w={376} t="CHORUS" small="MASTER" />
-      <Knob x={1056} y={162} d={96} kind="k1" ctl={CHORUS_C.amt} label="AMOUNT" big />
-      <Knob x={1180} y={150} d={66} kind="k1" ctl={CHORUS_C.rate} label="RATE" big />
-      <Knob x={1288} y={150} d={66} kind="k1" ctl={CHORUS_C.depth} label="DEPTH" big />
-      <SendStrip y={420} fx="CHORUS" p="chorus" master={CHORUS_C.amt} mlabel="MASTER" />
-      <StereoView />
+      <Knob x={1160} y={200} d={110} kind="k1" ctl={CHORUS_C.amt} label="AMOUNT" big />
+      <Knob x={1076} y={440} d={76} kind="k1" ctl={CHORUS_C.rate} label="RATE" big />
+      <Knob x={1244} y={440} d={76} kind="k1" ctl={CHORUS_C.depth} label="DEPTH" big />
+      <SendRow y={704} fx="CHORUS" p="chorus" master={CHORUS_C.amt} mlabel="MASTER" />
     </Frame>
-  );
-};
-
-/** Ce que chaque piste envoie au chorus, en largeur. */
-const StereoView: React.FC = () => {
-  useTick();
-  const yb = 640;
-  return (
-    <>
-      <HRule x={52} y={yb - 14} w={1296} />
-      <Title x={52} y={yb} w={1296} t="STEREO" small="WHAT THE CHORUS SPREADS" />
-      <Lcd x={62} y={yb + 26} w={1276} h={120}>
-        {TRACK_KEYS.map((k, i) => {
-          const s = tracks.vfx(k).chorus as number;
-          const x = 20 + i * 78;
-          const w = 10 + s * 52;
-          return (
-            <React.Fragment key={k}>
-              <div className="mm3-t8" style={{ left: x, top: 10, width: 60, textAlign: 'center' }}>
-                {TRACK_NAMES[i]}
-              </div>
-              <div style={{ left: x + 30 - w / 2, top: 52, width: w, height: 30, borderRadius: 15, background: `rgba(255,217,0,${0.12 + s * 0.5})`, boxShadow: `0 0 10px rgba(255,217,0,${s * 0.4})` }} />
-              <i style={{ left: x + 29, top: 44, width: 2, height: 46, background: '#fff' }} />
-            </React.Fragment>
-          );
-        })}
-      </Lcd>
-    </>
   );
 };
 
@@ -853,7 +1018,7 @@ const DelayPage: React.FC = () => {
     a *= 0.98 * fb;
   }
   return (
-    <Frame page="DELAY" hint="THE DELAY OF THE MM-RYTM, ON THE TEMPO · EACH TRACK SENDS INTO IT FROM THE FACE (FX SENDS)" lcd="FX · DELAY">
+    <Frame page="DELAY" hint="THE DELAY OF THE MM-RYTM, ON THE TEMPO · EACH TRACK SENDS INTO IT (ITS FX PAGE ON THE MACHINE)" lcd="FX · DELAY">
       <Lcd x={52} y={70} w={W} h={H}>
         <div style={{ left: 16, top: 16 }}>
           <div className="mm3-t8 mm3-a">TIME</div>
@@ -904,7 +1069,7 @@ const DelayPage: React.FC = () => {
       <VRule x={958} y={354} h={220} />
       <Title x={974} y={350} w={374} t="AMOUNT" small="MASTER" />
       <Knob x={1160} y={448} d={90} kind="k1" ctl={DELAY_C.amt} label="DELAY" big />
-      <SendStrip y={630} fx="DELAY" p="delay" master={DELAY_C.amt} mlabel="MASTER" />
+      <SendRow y={704} fx="DELAY" p="delay" master={DELAY_C.amt} mlabel="MASTER" />
     </Frame>
   );
 };
@@ -968,7 +1133,7 @@ const ReverbPage: React.FC = () => {
       <VRule x={820} y={390} h={200} />
       <Title x={836} y={386} w={512} t="AMOUNT" small="MASTER" />
       <Knob x={1092} y={484} d={90} kind="k1" ctl={REVERB_C.amt} label="REVERB" big />
-      <SendStrip y={640} fx="REVERB" p="reverb" master={REVERB_C.amt} mlabel="MASTER" />
+      <SendRow y={704} fx="REVERB" p="reverb" master={REVERB_C.amt} mlabel="MASTER" />
     </Frame>
   );
 };
@@ -1015,7 +1180,7 @@ const HellPage: React.FC = () => {
           { name: 'HELL PRESETS · A PRESET SETS EVERYTHING BUT MIX', from: 0, to: HELL_PRESETS.length },
         ]}
       />
-      <SendStrip y={666} fx="HELL" p="hell" master={mix} mlabel="RETURN" />
+      <SendRow y={704} fx="HELL" p="hell" master={mix} mlabel="RETURN" />
     </Frame>
   );
 };
@@ -1109,7 +1274,7 @@ const MixerStrip: React.FC = () => {
         const muted = isMuted(k);
         return (
           <React.Fragment key={k}>
-            <Knob x={fx} y={ym + 54} d={30} ctl={pan[i]} label="PAN" value={false} />
+            <Knob kind="tiny" x={fx} y={ym + 54} d={30} ctl={pan[i]} label="PAN" value={false} />
             <div style={{ left: fx - 3, top: ym + 104, width: 6, height: 200, borderRadius: 3, background: '#050505', boxShadow: 'inset 0 1px 3px #000, 0 1px 0 rgba(255,255,255,.07)' }} />
             {Array.from({ length: 11 }, (_, n) => (
               <div key={n} style={{ left: fx - 12, top: ym + 104 + n * 20, width: 5, height: 1, background: 'rgba(255,255,255,.2)' }} />
@@ -1168,24 +1333,24 @@ const MasterPage: React.FC = () => {
     <Frame page="MASTER" hint="THE BUS OF THE MM-RYTM : COMP, BIT, FILTER, SIDECHAIN, THE MIXER OF THE 16 TRACKS" lcd="MASTER">
       <Title x={52} y={y} w={640} t="COMP" small="BUS" />
       <Knob x={110} y={y + 84} d={76} kind="k1" ctl={M_C.comp} label="COMP" big />
-      <Knob x={230} y={y + 84} d={46} ctl={M_C.thr} label="THRESH" />
-      <Knob x={330} y={y + 84} d={46} ctl={M_C.ratio} label="RATIO" />
-      <Knob x={430} y={y + 84} d={46} ctl={M_C.knee} label="KNEE" />
-      <Knob x={530} y={y + 84} d={46} ctl={M_C.atk} label="ATTACK" />
-      <Knob x={630} y={y + 84} d={46} ctl={M_C.rel} label="RELEASE" />
-      <Knob x={230} y={y + 214} d={46} ctl={M_C.make} label="MAKEUP" />
-      <Knob x={330} y={y + 214} d={46} ctl={M_C.hpf} label="HPF" />
+      <Knob kind="tiny" x={230} y={y + 84} d={46} ctl={M_C.thr} label="THRESH" />
+      <Knob kind="tiny" x={330} y={y + 84} d={46} ctl={M_C.ratio} label="RATIO" />
+      <Knob kind="tiny" x={430} y={y + 84} d={46} ctl={M_C.knee} label="KNEE" />
+      <Knob kind="tiny" x={530} y={y + 84} d={46} ctl={M_C.atk} label="ATTACK" />
+      <Knob kind="tiny" x={630} y={y + 84} d={46} ctl={M_C.rel} label="RELEASE" />
+      <Knob kind="tiny" x={230} y={y + 214} d={46} ctl={M_C.make} label="MAKEUP" />
+      <Knob kind="tiny" x={330} y={y + 214} d={46} ctl={M_C.hpf} label="HPF" />
       <VRule x={706} y={y + 4} h={280} />
       <Title x={722} y={y} w={200} t="BIT" />
-      <Knob x={774} y={y + 84} d={50} ctl={M_C.bits} label="BITS" />
-      <Knob x={870} y={y + 84} d={50} ctl={M_C.brate} label="RATE" />
+      <Knob kind="tiny" x={774} y={y + 84} d={50} ctl={M_C.bits} label="BITS" />
+      <Knob kind="tiny" x={870} y={y + 84} d={50} ctl={M_C.brate} label="RATE" />
       <Title x={722} y={y + 160} w={200} t="TIME" />
-      <Knob x={774} y={y + 230} d={50} ctl={C.swing} label="SWING" />
-      <Knob x={870} y={y + 230} d={50} ctl={M_C.stretch} label="STRETCH" />
+      <Knob kind="tiny" x={774} y={y + 230} d={50} ctl={C.swing} label="SWING" />
+      <Knob kind="tiny" x={870} y={y + 230} d={50} ctl={M_C.stretch} label="STRETCH" />
       <VRule x={936} y={y + 4} h={280} />
       <Title x={952} y={y} w={200} t="PERFORM" small="ABLETON" />
       <Knob x={1052} y={y + 96} d={72} kind="k1" ctl={PERF_C.filter} label="FILTER" big min="LP" max="HP" />
-      <Knob x={1052} y={y + 232} d={50} ctl={PERF_C.side} label="SIDECHAIN" />
+      <Knob kind="tiny" x={1052} y={y + 232} d={50} ctl={PERF_C.side} label="SIDECHAIN" />
       <VRule x={1166} y={y + 4} h={280} />
       <Title x={1182} y={y} w={166} t="OUTPUT" />
       <Knob x={1240} y={y + 110} d={80} kind="k1" ctl={C.master} label="VOLUME" big />

@@ -13,10 +13,10 @@
 namespace {
 
 // La face fait 256 x 156 mm : la fenetre garde ces proportions
-// La face v3 (2026-11-25, Mika : "je veux plus d'espace donc fait le plugin plus gros", choix C : 1400 x 896, le format du
-// MM-ARP agrandi ; avant : 1200 x 731)
+// 1400 x 853 (2026-11-25, Mika : "je veux plus d'espace donc fait le plugin plus gros", puis "reprend l'interface d'avant") :
+// la face d'avant (cadree pour 1200 x 731) en plus grand, au meme rapport ; les sous-pages d'OPEN zooment dedans
 constexpr int kW = 1400;
-constexpr int kH = 896;
+constexpr int kH = 853;
 
 // Les fichiers de la face (le zip de plugin/mm-rytm/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {

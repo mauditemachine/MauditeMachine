@@ -602,7 +602,9 @@ const lfoSimple = (n: 1 | 2): PageSlot[] => [
   trigSlot(`L${n} DEPTH`, `l${n}dep`, 'barc', `L${n} DEP`),
   trigSlot(`L${n} WAVE`, `l${n}wav`, 'wave', `L${n} WAVE`),
 ];
-const MOD: readonly PageSlot[] = TYPED_TRACKS ? [...lfoSimple(1), ...lfoSimple(2)] : lfoSlots(1);
+// Un seul LFO dans le plugin (2026-11-25, Mika : "j'en vois pas l'utilite d'en avoir deux et aussi complexes") : A DEST, B RATE,
+// C DEPTH, D WAVE ; le LFO 2 d'un pattern d'avant joue encore (son OFF : la sous-page LFO d'OPEN)
+const MOD: readonly PageSlot[] = TYPED_TRACKS ? lfoSimple(1) : lfoSlots(1);
 const MOD2: readonly PageSlot[] = lfoSlots(2);
 /**
  * MOD 2/2, VAR (le plugin, 2026-11-12, Mika : "quelque chose qui fait varier le son") : chaque coup de la piste tire au sort

@@ -7,14 +7,14 @@ import PluginFace from './PluginFace';
 import { V3Root } from './v3/Root';
 
 /**
- * La face v3 (2026-11-25, Mika : "redesign MM-RYTM [...] go code") est la face du plugin ; la face d'avant (la scene 3D de la
- * DT2) reste derriere ?face=old, pour comparer.
+ * La face du plugin : la machine DT2 (la scene 3D), ses sous-pages d'OPEN par-dessus (plugin/v3/Overlay.tsx). Mika
+ * (2026-11-25) : "reprend l'interface d'avant et complete la". La face a plat du lot 45 reste derriere ?face=v3 (la comparer).
  */
-const OLD_FACE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('face') === 'old';
+const V3_FACE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('face') === 'v3';
 
 export function boot(): void {
   const el = document.getElementById('root');
   if (!el) return;
   bridge.start();
-  createRoot(el).render(<React.StrictMode>{OLD_FACE ? <PluginFace /> : <V3Root />}</React.StrictMode>);
+  createRoot(el).render(<React.StrictMode>{V3_FACE ? <V3Root /> : <PluginFace />}</React.StrictMode>);
 }

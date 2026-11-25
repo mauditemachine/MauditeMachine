@@ -16,6 +16,7 @@ import { presets, type Preset } from '../../state/presets';
 import { undo } from '../../state/undo';
 import { meters } from '../meters';
 import { Key, Lcd, Note, Title, useTick } from './ui';
+import { view } from './view';
 
 let presetRev = 0;
 const subscribePresets = (fn: () => void): (() => void) =>
@@ -96,6 +97,8 @@ export const Library: React.FC = () => {
         led="off"
         title="Its name, then Enter"
         onTap={() => {
+          // Le nom s'ecrit sur l'ecran de la machine : la page se ferme d'abord
+          view.close();
           funcDown('v3save');
           faceKeyTap('settings');
           funcUp('v3save', -1);

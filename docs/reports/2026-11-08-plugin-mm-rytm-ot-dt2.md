@@ -659,8 +659,23 @@ Mika, sur les maquettes du lot 44 : « OPEN C, pas rouges, 1400 x 896, go code �
 - **Build vert** (run 45550232622), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit c4012a2, branche claude/intelligent-ride-56tyeo, 2026-11-25 05:05 UTC.
 - **Les logos du dossier Knobs de Mika** (iCloud, sur son Mac) : pas joignables depuis la session cloud ; a glisser dans le chat pour les integrer.
 
+### Lot 46, la face d'avant revient, les sous-pages restent (2026-11-25)
+
+Mika, sur la face v3 : « tu as tout detruit [...] l'interface est horrible, trop de boutons [...] reprend l'interface d'avant et complete-la, bonifie-la, ajoute les sous-menus, ca doit etre une Octatrack croisee avec une Digitakt 2 » ; puis : « toutes les sous-pages j'aime bien, bien completes » ; SEQ « inutilisable, j'arrive pas a poser des steps » ; LFO « j'en vois pas l'utilite d'en avoir deux et aussi complexes » ; FX « toutes les voices affichees ca fit pas [...] j'aimais bien le principe de l'autre interface » ; « utilise un peu plus ce type de knob (le tiny) surtout dans les sous-pages » ; la page DISTO du MM-ARP : « vraiment cool, detaille, y'a des choses a faire la ».
+
+- **La face d'avant est de retour** (la scene 3D DT2, `plugin/boot.tsx` ; la face a plat derriere `?face=v3`) ; la fenetre a 1400 x 853 (le rapport de 1200 x 731, en plus grand : a 1400 x 896 la face etait rognee).
+- **OPEN ouvre les sous-pages** par-dessus, en plein ecran (`plugin/v3/Overlay.tsx`) : la touche OPEN, la touche O (rendue au plugin), le MIDI (`actions/nav.ts` setOpenHook : le capot 3D ne s'ouvre plus) ; CLOSE, × ou Echap : la machine. Le menu reprend PERSONALIZE (TRK SELECT, LED, BACKLIGHT, SUBPAGE) et l'aide de la machine.
+- **SEQ utilisable** : la rangee rouge pose ou retire les pas (un glisser en fait plusieurs), les barres reglent la voie, un pas vide recoit sa note ; avant, un pas vide ignorait le clic et le glisser ne suivait pas.
+- **Un seul LFO** : la sous-page (forme, destination, RATE, DEPTH en grand) et la page LFO de la machine (A DEST, B RATE, C DEPTH, D WAVE ; `rytm/pages.ts`) ; RANDOM ne tire plus de LFO 2 (`state/pluginRandom.ts`). Un LFO 2 d'un pattern d'avant joue encore : une ligne de la sous-page le dit, avec son OFF.
+- **Les envois, comme avant** : plus de rangee des 16 pistes ; on choisit la piste (16 pastilles, leur barre = leur envoi) et un seul knob regle son envoi, comme la page FX de la machine.
+- **DISTO facon MM-ARP** : les six styles en rangees (nom, ce qu'il imite, le choisi surligne), l'EQ dont on tire les trois points (LOW CUT et THUMP, TONE, HIGH CUT), le VU creme du niveau de sortie, les presets.
+- **Le knob tiny** (le PNG de Mika a repere) pour les petits knobs des sous-pages.
+- **Verifie** : Chromium (sans son) : la face d'avant par defaut, OPEN ouvre SAMPLE, un onglet, le menu, Echap (le menu puis la page), O rouvre, CLOSE, pas de capot ; SEQ : une tape pose le pas 4, un glisser pose 15 et 16, la voie VELOCITY pose le pas 8, une tape retire le pas 4 (le programme les joue) ; DISTO : le point LOW CUT tire regle LOW CUT et THUMP. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
+- **Lot 46 : 1400 x 853** : la face 3D est cadree pour le rapport 1200 x 731 ; a 1400 x 896 elle etait rognee ; le meme rapport, plus grand, garde la face entiere et donne la place demandee ; les sous-pages (dessinees en 1400 x 896) zooment dedans.
+- **Lot 46 : un seul LFO partout** : sur la sous-page seule, la page de la machine aurait encore montre deux LFO ; aucun preset d'usine n'utilise le LFO 2, seul RANDOM le tirait.
 - **Lot 45 : une face en DOM, pas en 3D** : la face v3 est a plat (vue de dessus, comme les maquettes) ; en DOM, chaque knob, touche et page se pose au pixel des maquettes, sans la scene three.js (plus leger, plus net au zoom) ; les PNG de Mika gardent leur relief.
 - **Lot 45 : les knobs passent par les potards de page** (un ecran par knob) plutot que d'ecrire leurs reglages en direct : le P-LOCK, LIVE REC, les scenes et CONTROL ALL suivent sans une ligne de logique en plus, et le site ne change pas (`setFaceScreen` reste vide hors de la face v3).
 - **Lot 45 : les pas s'ecrivent sans REC** : sur la DT2 il faut GRID REC parce que les touches de pas choisissent aussi les pistes ; la face v3 a une rangee de pistes, la tape peut donc toujours ecrire ; REC devient LIVE REC d'un clic.
@@ -791,6 +806,7 @@ Mika, sur les maquettes du lot 44 : « OPEN C, pas rouges, 1400 x 896, go code �
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 46)** : la commande mm-rytm ; la face d'avant, OPEN : les sous-pages ; SEQ (poser des pas), LFO, DISTO (tirer les points de l'EQ), les envois. A venir, en maquette d'abord : la rangee des 16 pistes au-dessus des pas (Mika : « y'a quand meme de bonnes choses, genre ca »), plus de details facon MM-ARP dans les autres pages d'effets, les logos du dossier Knobs (a glisser dans le chat).
 - **Cote Mika (lot 45)** : la commande mm-rytm ; ouvrir MM-RYTM dans Live : la nouvelle face. Essayer les knobs, un pas tenu puis un knob (P-LOCK), le clic droit (conditions), les onglets d'OPEN, REC (LIVE REC d'un clic) ; dire ce qui manque, ce qui gene, et oui ou non pour chaque ajout NEW des maquettes. `?face=old` n'est pas joignable dans Live : si un geste d'avant manque, le dire.
 - **Cote Mika (lot 44)** : regarder les 14 maquettes ; repondre aux 3 choix (bouton OPEN A / B / C, couleur des pas A / B / C, taille A / B / C) ; dire pour chaque etiquette NEW oui ou non ; puis le code (face, pages d'OPEN, editeur JUCE a la nouvelle taille).
 - **Cote Mika (lot 43)** : la commande mm-rytm ; tenir Shift et cliquer les touches (leurs fonctions jaunes) ; dire si Shift + clic sur un pas doit plutot faire autre chose que le mute rapide.

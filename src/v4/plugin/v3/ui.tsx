@@ -326,8 +326,8 @@ export const Note: React.FC<{ x: number; y: number; children: ReactNode; style?:
     {children}
   </div>
 );
-export const Lcd: React.FC<{ x: number; y: number; w: number; h: number; children?: ReactNode; style?: CSSProperties; className?: string; onPointerDown?: (e: React.PointerEvent) => void }> = ({ x, y, w, h, children, style, className, onPointerDown }) => (
-  <div className={`mm3-lcd${className ? ` ${className}` : ''}`} style={{ left: x, top: y, width: w, height: h, ...style }} onPointerDown={onPointerDown}>
+export const Lcd: React.FC<{ x: number; y: number; w: number; h: number; children?: ReactNode; style?: CSSProperties; className?: string; onPointerDown?: (e: React.PointerEvent) => void; onPointerMove?: (e: React.PointerEvent) => void; onPointerUp?: (e: React.PointerEvent) => void }> = ({ x, y, w, h, children, style, className, onPointerDown, onPointerMove, onPointerUp }) => (
+  <div className={`mm3-lcd${className ? ` ${className}` : ''}`} style={{ left: x, top: y, width: w, height: h, ...style }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
     {children}
   </div>
 );
