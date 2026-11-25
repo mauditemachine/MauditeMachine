@@ -1,7 +1,7 @@
 # CONTEXTE : mauditemachine.com
 
 Fichier maitre de l'etat en ligne et des chantiers recents, lu au demarrage par **Claude Code** (`CLAUDE.md`) et **Antigravity / Gemini** (`AGENTS.md`).
-Derniere mise a jour : **24 novembre 2026**.
+Derniere mise a jour : **25 novembre 2026**.
 
 Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, dates, press kit), mettre ce fichier a jour dans la meme PR.
 
@@ -60,9 +60,9 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 
 - **GOODIES** (`src/v4/ui/sections/VstDownload.tsx`) : MM-RYTM (VST3 macOS et Windows beta) et MM-ARP (VST3 macOS), champ courriel, case "nouvelles" facultative, envoi du modele EmailJS **VST download** (Mika en copie cachee), lien de don volontaire.
 - **`/download/?p=rytm|arp`** (`public/download/index.html`, noindex, hors sitemap) : la page des liens du courriel, zip automatique, installation, don.
-- **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : `donateUrl` = `https://ko-fi.com/mauditemachine` (Ko-fi : Stripe branche, PayPal non, CA$, minimum 3) ; `emailjsTemplateId` encore vide, le bloc reste cache en ligne** (apercu `/goodies/?vst=1`). Des qu'ils sont remplis, `/goodies/` mentionne aussi les plugins pour Google (prerendu).
+- **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : `donateUrl` = `https://ko-fi.com/mauditemachine` (Ko-fi : Stripe branche, PayPal non, CA$, minimum 3) ; `emailjsTemplateId` = `template_63bjqgy` (25 nov, modele "VST download" du compte EmailJS Maudite Machine, `service_zeuwh04`) : le bloc PLUGINS est visible dans GOODIES** et `/goodies/` mentionne les plugins pour Google (prerendu).
 - **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
 - MM-ARP (plugin) vit encore sur la branche `claude/nifty-bohr-7ixmpf` ; sa release `mm-arp-latest` existe, c'est elle que `Plugin public` reprend.
 - **Un zip par plugin, un dossier par systeme** (`MM-RYTM-VST3.zip`, `MM-ARP-VST3.zip`, 24 nov, Mika : "dans le meme package, c'est aux gens de faire ce choix") : `macOS/` et `Windows/`. **MM-RYTM Windows (beta)** : job `windows` de `plugin.yml` (MSVC, WebView2), jamais essaye sur un PC avant publication. MM-ARP Windows : a faire quand sa branche sera fusionnee (meme recette : `plugin/mm-rytm/README.md`).
-- **Publie le 24 nov 2026** (accord de Mika) : `mm-rytm-public/MM-RYTM-VST3.zip` = build `c3b06fb` de `main`, Mac universel + Windows x64 beta (26,5 Mo) ; `mm-arp-public/MM-ARP-VST3.zip` = build `79f57a9` de `claude/nifty-bohr-7ixmpf`, Mac universel (10 Mo). README public selon les systemes. Reste a Mika : le modele EmailJS (`docs/vst-download.md`).
+- **Publie le 24 nov 2026** (accord de Mika) : `mm-rytm-public/MM-RYTM-VST3.zip` = build `c3b06fb` de `main`, Mac universel + Windows x64 beta (26,5 Mo) ; `mm-arp-public/MM-ARP-VST3.zip` = build `79f57a9` de `claude/nifty-bohr-7ixmpf`, Mac universel (10 Mo). README public selon les systemes.
 
