@@ -8,8 +8,9 @@
 import bank from '../../../../plugin/mm-arp/presets/factory.json';
 import { arpBridge } from './bridge';
 
-// v52 (2026-11-24, la banque techno) : BASS, ACID, SEQ, CHORD, toujours quatre colonnes (v28 a v51 : BASS, ARP, PAD, DARK)
-export type LibCat = 'BASS' | 'ACID' | 'SEQ' | 'CHORD';
+// v53 (2026-11-25, la banque dark disco, 80 presets) : BASS, SEQ, LEAD, PAD, toujours quatre colonnes (v52 : BASS, ACID,
+// SEQ, CHORD ; v28 a v51 : BASS, ARP, PAD, DARK). Une colonne peut depasser 16 noms (BASS : 42) : elle defile (hood.css)
+export type LibCat = 'BASS' | 'SEQ' | 'LEAD' | 'PAD';
 
 export interface FactoryPreset {
   name: string;
@@ -26,7 +27,7 @@ export interface FactoryPreset {
 }
 
 export const LIB_PRESETS = (bank as unknown as { presets: FactoryPreset[] }).presets;
-export const LIB_CATS: readonly LibCat[] = ['BASS', 'ACID', 'SEQ', 'CHORD'];
+export const LIB_CATS: readonly LibCat[] = ['BASS', 'SEQ', 'LEAD', 'PAD'];
 export const libOfCat = (c: LibCat): FactoryPreset[] => LIB_PRESETS.filter((p) => p.cat === c);
 
 /** Le preset charge depuis l'ouverture de la fenetre (son nom ; null : aucun). */

@@ -3,13 +3,27 @@
  * sans filtre pas trop aigu et que ca sonne putain ! que ca sonne vraiment bon synth analog ! evite les fx sur tous les
  * presets ! ou des filtres, si tu en utilises alors pas trop intense !").
  *
+ * v53 (2026-11-25, Mika, sur la banque dark disco : "oui effets doses, pas beaucoup pour pas trop denaturer le son..
+ * faut que les presets soient des bons sons de base que je peux tweaker pour arriver a ce que j'aime .. souvent c'est
+ * des notes style basslines") : la regle "AUCUN effet" devient "EFFETS LEGERS BORNES". Beaucoup de sons restent secs ;
+ * un effet sert le son (un echo cale au tempo, l'ensemble d'un Juno, un peu de chaleur), il ne le cache jamais.
+ *
  * Les regles, en un seul endroit, pour la banque d'usine (plugin/mm-arp/presets/build.mjs et tests/presets-check.mjs
  * les verifient : un preset hors des regles ne s'ecrit pas) et pour RANDOM de la face (hypno.ts : analogTame borne le
- * tirage, ANALOG_FX_OFF_EXTRA coupe les effets du VST3 seul) :
+ * tirage, analogRandomFx tire ses effets dans les memes plafonds) :
  *
- * - AUCUN effet : OVERDRIVE / DISTO (dist), CHORUS, DELAY, REVERB, TAPE, GLUE, SIDECHAIN a l'arret ; dans le VST3 seul,
- *   WARMTH, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH PASS et COMB a 0. Le son, c'est la voix : les
- *   oscillateurs, le SUB, le desaccord (FINE, STACK), LOAD, le filtre, les enveloppes, la derive.
+ * - LES EFFETS, PLAFONNES (ANALOG_FX) : OVERDRIVE (le potard DISTO, style MM : la saturation du moteur avant le filtre)
+ *   0.25 au plus, la page DISTO a son neutre ; GLUE 0.3 ; CHORUS OFF, I ou II (le Juno du site ; I+II jamais, la page
+ *   CHORUS a son neutre) ; DELAY (le MIX de la page DELAY) 0.3 au plus, cale au tempo (SYNC, 1/16, 1/8 ou 1/4, droit,
+ *   pointe ou en triolet), style TAPE, ANALOG ou DIGITAL, mode SINGLE, DUAL ou PING-PONG, FEEDBACK 0.45 au plus, WOBBLE
+ *   0.35 au plus, LOW CUT et HIGH CUT seulement pour couper davantage, DUCKING 0.6 au plus, le reste de la page a son
+ *   neutre ; REVERB 0.18 au plus, la reverbe CLASSIC seule (la convolution du site), courte (SIZE 0.4 au plus : 1.8 s),
+ *   sombre (TONE 0.5 au plus), PRE DELAY 0.4 au plus (40 ms), sa sortie a son neutre sauf LOW CUT et HIGH CUT (couper),
+ *   jamais sur une basse (le grave de la reverbe n'est pas mono) ; WARMTH (MASTER) 0.3 au plus.
+ * - TOUJOURS A L'ARRET : TAPE (OLD TAPE, masque : la bande passe par le style TAPE du DELAY), SIDECHAIN, PHASER,
+ *   FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH PASS, COMB ; l'EQ 6 bandes, le MASTER (BASS, AIR, WIDTH), la
+ *   matrice, BEND RANGE et AMP a leur neutre. Le son, c'est d'abord la voix : les oscillateurs, le SUB, le desaccord
+ *   (FINE, STACK), LOAD, le filtre, les enveloppes, la derive.
  * - Le filtre : un passe-bas (MOOG, LP12 ou MS-10 ; jamais BP ni HP), ouvert a mi-ouvert (CUTOFF 0.25 a 0.6 : 150 Hz a
  *   1.6 kHz), RES 0.45 au plus, ENV AMT 0.5 au plus, et l'enveloppe ne l'ouvre jamais au-dela de 6 kHz (9.3 CUTOFF +
  *   6 ENV AMT <= 7.6, les lois de params.ts : cutoffHz, envOctaves) ; ACC FILTER 0.6 au plus ; une modulation de la
@@ -46,6 +60,69 @@ export const ANALOG_FX_OFF_EXTRA: Readonly<AnalogValues> = {
   xHpf: 0,
   xComb: 0,
 };
+
+/**
+ * v53 : les plafonds des effets legers (voir en tete). WARMTH est dans ANALOG_FX_OFF_EXTRA (le neutre d'un son sec)
+ * mais seulement plafonnee ; les autres de ANALOG_FX_OFF_EXTRA restent a 0.
+ */
+export const ANALOG_FX = {
+  /** OVERDRIVE (dist), sur le style MM de la page DISTO */
+  driveMax: 0.25,
+  /** GLUE, le compresseur du moteur */
+  glueMax: 0.3,
+  /** DELAY : le MIX de la page DELAY */
+  delayMax: 0.3,
+  /** la page DELAY : FEEDBACK, WOBBLE, DUCKING */
+  dlFbMax: 0.45,
+  dlWobbleMax: 0.35,
+  dlDuckMax: 0.6,
+  /** REVERB : l'envoi ; la reverbe CLASSIC, SIZE (0.4 : 2.4 x 4^-0.2 = 1.8 s), TONE, PRE DELAY */
+  reverbMax: 0.18,
+  revSizeMax: 0.4,
+  revToneMax: 0.5,
+  revPreMax: 0.4,
+  /** WARMTH (MASTER) */
+  warmthMax: 0.3,
+} as const;
+
+/**
+ * Les crans des reglages que lisent les plafonds, dans l'ordre de plugin/mm-arp/extra-params.json (presets/build.mjs
+ * verifie qu'ils n'ont pas bouge).
+ */
+export const ANALOG_STEPS: Readonly<Record<string, readonly string[]>> = {
+  xDlStyle: ['TAPE', 'ANALOG', 'DIGITAL', 'SPACE', 'LO-FI', 'DUB', 'CASSETTE', 'CRYSTAL'],
+  xDlMode: ['SINGLE', 'DUAL', 'PING-PONG', 'WIDE', 'RHYTHM'],
+  xDlSync: ['FREE', 'SYNC'],
+  xDlDiv: ['1/32', '1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR'],
+  xDlNote: ['STRAIGHT', 'DOTTED', 'TRIPLET'],
+  xSkyType: ['CLASSIC', 'ROOM', 'HALL', 'PLATE', 'SPRING', 'SWELL', 'BLOOM', 'CLOUD', 'CHORALE', 'SHIMMER', 'MAGNETO', 'NONLINEAR', 'REFLECTIONS'],
+  xDStyle: ['MM', 'A', 'E', 'N', 'T', 'P', 'TAPE', 'FUZZ', 'DIODE', 'AMP', 'RECT', 'FOLD', 'CRUSH'],
+};
+/** Les crans permis de la page DELAY : cale au tempo, trois styles propres, trois modes simples, 1/16 a 1/4. */
+export const ANALOG_DL_OK = {
+  xDlStyle: ['TAPE', 'ANALOG', 'DIGITAL'],
+  xDlMode: ['SINGLE', 'DUAL', 'PING-PONG'],
+  xDlSync: ['SYNC'],
+  xDlDiv: ['1/16', '1/8', '1/4'],
+} as const;
+/** Le cran d'un reglage (sa valeur 0..1 vers son nom ; '' : absent). */
+export const analogStep = (id: string, v: number | undefined): string => {
+  const s = ANALOG_STEPS[id];
+  return s && typeof v === 'number' ? s[Math.round(clamp(v, 0, 1) * (s.length - 1))] : '';
+};
+/** La valeur 0..1 d'un cran (i / (n - 1)). */
+export const analogStepValue = (id: string, name: string): number => {
+  const s = ANALOG_STEPS[id];
+  const i = s ? s.indexOf(name) : -1;
+  if (i < 0) throw new Error(`${id} : cran inconnu ${name}`);
+  return i / (s.length - 1);
+};
+/** Ce qui reste a son neutre dans la page DELAY quand elle sonne (DELAY au-dessus de 0). */
+export const ANALOG_DL_NEUTRAL: Readonly<AnalogValues> = { xDlSat: 0, xDlDiff: 0, xDlGroove: 0, xDlFeel: 0.5, xDlPrime: 0, xDlLofi: 0, xDlAnalog: 0, xDlOffset: 0.5 };
+/** La sortie de la reverbe a son neutre quand elle sonne (REVERB au-dessus de 0), sauf LOW CUT et HIGH CUT. */
+export const ANALOG_RV_NEUTRAL: Readonly<AnalogValues> = { xSkyMidDb: 0.5, xSkyWidth: 0.5, xSkyDuck: 0, xSkyFreeze: 0 };
+/** La page CHORUS a son neutre quand le CHORUS sonne (I ou II, jamais I+II). */
+export const ANALOG_CH_NEUTRAL: Readonly<AnalogValues> = { xChBoth: 0, xChRate: 0.5, xChDepth: 0.5, xChWidth: 1, xChMix: 0.5 };
 
 /** Les bornes du filtre et du registre (voir en tete). */
 export const ANALOG = {
@@ -91,7 +168,16 @@ const lfoDestIdx = (v: number): number => Math.round(clamp(v, 0, 1) * 4);
 export function analogFaults(knobs: AnalogValues, extra?: AnalogValues, steps?: Readonly<Record<string, readonly string[]>>): string[] {
   const out: string[] = [];
   const has = (id: string): boolean => typeof knobs[id] === 'number';
-  for (const [id, v] of Object.entries(ANALOG_FX_OFF)) if (has(id) && knobs[id] !== v) out.push(`${id} ${knobs[id]} : les effets restent a l'arret`);
+  // v53 : les effets plafonnes (ANALOG_FX) ; TAPE (OLD TAPE) et SIDECHAIN a l'arret ; CHORUS OFF, I ou II (ses trois crans)
+  if (has('tape') && knobs.tape !== 0) out.push(`TAPE ${knobs.tape} : OLD TAPE reste a 0 (la bande : le style TAPE du DELAY)`);
+  if (has('duck') && knobs.duck !== 0) out.push(`SIDECHAIN ${knobs.duck} : reste a l'arret`);
+  const caps: [string, number, string][] = [
+    ['dist', ANALOG_FX.driveMax, 'OVERDRIVE'],
+    ['glue', ANALOG_FX.glueMax, 'GLUE'],
+    ['delay', ANALOG_FX.delayMax, 'DELAY'],
+    ['reverb', ANALOG_FX.reverbMax, 'REVERB'],
+  ];
+  for (const [id, max, label] of caps) if (has(id) && knobs[id] > max + 1e-9) out.push(`${label} ${knobs[id]} > ${max} (effets legers)`);
   if (has('fmode') && knobs.fmode > ANALOG.fmodeMax) out.push(`MODE du filtre ${knobs.fmode} : un passe-bas (MOOG, LP12, MS-10)`);
   if (has('cutoff') && (knobs.cutoff < ANALOG.cutoffMin || knobs.cutoff > ANALOG.cutoffMax)) out.push(`CUTOFF ${knobs.cutoff} hors de ${ANALOG.cutoffMin}..${ANALOG.cutoffMax}`);
   if (has('res') && knobs.res > ANALOG.resMax) out.push(`RES ${knobs.res} > ${ANALOG.resMax}`);
@@ -110,7 +196,43 @@ export function analogFaults(knobs: AnalogValues, extra?: AnalogValues, steps?: 
   if (has('noise') && knobs.noise > ANALOG.noiseMax) out.push(`NOISE ${knobs.noise} > ${ANALOG.noiseMax}`);
   if (has('sync') && knobs.sync >= 0.5 && ((knobs.range2 ?? 0.6) > 0.6 || (knobs.cutoff ?? 0.5) > 0.5)) out.push("SYNC : OSC 2 en 8' au plus et CUTOFF 0.5 au plus");
   if (extra) {
-    for (const [id, v] of Object.entries(ANALOG_FX_OFF_EXTRA)) if (typeof extra[id] === 'number' && extra[id] !== v) out.push(`${id} ${extra[id]} : les effets restent a l'arret`);
+    const num = (id: string): boolean => typeof extra[id] === 'number';
+    for (const [id, v] of Object.entries(ANALOG_FX_OFF_EXTRA))
+      if (id !== 'xWarmth' && num(id) && extra[id] !== v) out.push(`${id} ${extra[id]} : cet effet reste a l'arret`);
+    if (num('xWarmth') && extra.xWarmth > ANALOG_FX.warmthMax + 1e-9) out.push(`WARMTH ${extra.xWarmth} > ${ANALOG_FX.warmthMax} (effets legers)`);
+    const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-6;
+    const neutral = (o: Readonly<AnalogValues>, what: string): void => {
+      for (const [id, v] of Object.entries(o)) if (num(id) && !near(extra[id], v)) out.push(`${what} : ${id} ${extra[id]} reste a son neutre (${v})`);
+    };
+    // v53 : la page DELAY quand elle sonne (DELAY, son MIX, au-dessus de 0) : calee au tempo, propre, peu de reinjection
+    if ((knobs.delay ?? 0) > 0) {
+      for (const [id, ok] of Object.entries(ANALOG_DL_OK)) {
+        const n = analogStep(id, extra[id]);
+        if (n && !(ok as readonly string[]).includes(n)) out.push(`DELAY : ${id} ${n} (${ok.join(', ')})`);
+      }
+      if (num('xDlFb') && extra.xDlFb > ANALOG_FX.dlFbMax + 1e-9) out.push(`DELAY FEEDBACK ${extra.xDlFb} > ${ANALOG_FX.dlFbMax}`);
+      if (num('xDlWobble') && extra.xDlWobble > ANALOG_FX.dlWobbleMax + 1e-9) out.push(`DELAY WOBBLE ${extra.xDlWobble} > ${ANALOG_FX.dlWobbleMax}`);
+      if (num('xDlDuck') && extra.xDlDuck > ANALOG_FX.dlDuckMax + 1e-9) out.push(`DELAY DUCKING ${extra.xDlDuck} > ${ANALOG_FX.dlDuckMax}`);
+      if (num('xDlLow') && extra.xDlLow < 0.5 - 1e-9) out.push(`DELAY LOW CUT ${extra.xDlLow} : 0.5 au moins (couper, jamais ouvrir)`);
+      if (num('xDlHigh') && extra.xDlHigh > 0.5 + 1e-9) out.push(`DELAY HIGH CUT ${extra.xDlHigh} : 0.5 au plus (couper, jamais ouvrir)`);
+      neutral(ANALOG_DL_NEUTRAL, 'DELAY');
+    }
+    // v53 : la reverbe quand elle sonne : CLASSIC, courte, sombre ; sa sortie a son neutre sauf LOW CUT et HIGH CUT
+    if ((knobs.reverb ?? 0) > 0) {
+      const t = analogStep('xSkyType', extra.xSkyType);
+      if (t && t !== 'CLASSIC') out.push(`REVERB : ${t}, la reverbe CLASSIC seule`);
+      if (num('xRevSize') && extra.xRevSize > ANALOG_FX.revSizeMax + 1e-9) out.push(`REVERB SIZE ${extra.xRevSize} > ${ANALOG_FX.revSizeMax}`);
+      if (num('xRevTone') && extra.xRevTone > ANALOG_FX.revToneMax + 1e-9) out.push(`REVERB TONE ${extra.xRevTone} > ${ANALOG_FX.revToneMax}`);
+      if (num('xRevPre') && extra.xRevPre > ANALOG_FX.revPreMax + 1e-9) out.push(`REVERB PRE DELAY ${extra.xRevPre} > ${ANALOG_FX.revPreMax}`);
+      neutral(ANALOG_RV_NEUTRAL, 'REVERB');
+    }
+    // v53 : le CHORUS du site (I ou II) avec la page CHORUS a son neutre ; OVERDRIVE sur le style MM de la page DISTO
+    if ((knobs.chorus ?? 0) > 0) neutral(ANALOG_CH_NEUTRAL, 'CHORUS');
+    if ((knobs.dist ?? 0) > 0) {
+      const d = analogStep('xDStyle', extra.xDStyle);
+      if (d && d !== 'MM') out.push(`OVERDRIVE : la page DISTO sur ${d}, le style MM seul (la saturation du moteur)`);
+      neutral({ xDOut: 0.5 }, 'OVERDRIVE');
+    }
     // le LFO 2 et la seconde cible du LFO 1 (leurs crans, extra-params.json) : la coupure et la resonance tenues
     const name = (id: string): string => {
       const s = steps?.[id];
@@ -178,7 +300,8 @@ function slowMod(rnd: Rnd, p: number, wave: boolean): AnalogValues {
 /**
  * RANDOM du plugin (v43) : le son d'une famille, tire dans les plages de la banque d'usine (presets/build.mjs). Tout ce
  * qui fait le son est pose (aucun reglage ne reste du son d'avant) : oscillateurs, melangeur, SUB, filtre, enveloppes,
- * MOD, derive et largeur ; les effets a l'arret ; analogTame borne le tout. Ne touche ni au tempo de l'arpege, ni a la
+ * MOD, derive et largeur ; les effets a l'arret ici (v53 : analogRandomFx tire ensuite les effets legers) ; analogTame
+ * borne le tout. Ne touche ni au tempo de l'arpege, ni a la
  * suite, ni au VOLUME (RANDOM ne fait jamais sauter le niveau) ; GATE pour les basses et les nappes seulement.
  * - BASS : OCTAVE -1, une scie, un carre ou une impulsion, souvent un second oscillateur a l'octave dessous et un SUB,
  *   un passe-bas a mi-course qui claque, des enveloppes courtes, au centre ;
@@ -342,11 +465,77 @@ export function analogRandom(fam: AnalogFamily, rnd: Rnd): AnalogValues {
 }
 
 /**
- * Un tirage ramene dans les regles (RANDOM de la face) : les effets a l'arret, le filtre passe-bas et modere, le
- * registre tenu. Les potards absents restent absents, sauf les effets (toujours poses).
+ * v53 : les effets legers de RANDOM, dans les plafonds de la banque (ANALOG_FX). Beaucoup de tirages restent secs ; un
+ * effet tire est dose bas. RANDOM ne pose jamais OVERDRIVE ni GLUE (la page DISTO de l'instance peut etre sur un autre
+ * style que MM), jamais de reverbe sur une basse. Quand un effet sonne, sa page entiere est posee (la page DELAY :
+ * style, mode, temps cale au tempo, reinjection, coupes ; la reverbe CLASSIC et sa sortie ; la page CHORUS a son
+ * neutre) : rien ne reste du reglage d'avant. Un effet a l'arret garde sa page telle quelle (elle ne sonne pas).
+ * WARMTH : tiree ou remise a 0, comme les effets du VST3 seul a l'arret (ANALOG_FX_OFF_EXTRA).
+ */
+export function analogRandomFx(fam: AnalogFamily, rnd: Rnd): { knobs: AnalogValues; extra: AnalogValues } {
+  const P = {
+    BASS: { ch: 0.25, dl: 0.2, rv: 0, wm: 0.35 },
+    ARP: { ch: 0.3, dl: 0.45, rv: 0.3, wm: 0.25 },
+    PAD: { ch: 0.6, dl: 0.3, rv: 0.55, wm: 0.2 },
+    DARK: { ch: 0.2, dl: 0.4, rv: 0.3, wm: 0.3 },
+  }[fam];
+  const knobs: AnalogValues = { ...ANALOG_FX_OFF };
+  const extra: AnalogValues = { ...ANALOG_FX_OFF_EXTRA };
+  if (chance(rnd, P.ch)) {
+    knobs.chorus = fam === 'PAD' && chance(rnd, 0.5) ? 1 : 0.5;
+    Object.assign(extra, ANALOG_CH_NEUTRAL);
+    // une basse sous le chorus : BASS MONO a 243 Hz (0.9), comme la banque, le grave reste mono
+    if (fam === 'BASS') knobs.monoLow = 0.9;
+  }
+  if (chance(rnd, P.wm)) extra.xWarmth = between(rnd, 0.08, 0.25);
+  if (chance(rnd, P.dl)) {
+    const bass = fam === 'BASS';
+    knobs.delay = between(rnd, bass ? 0.1 : 0.12, bass ? 0.22 : 0.26);
+    const [div, note] = bass
+      ? pick(rnd, [['1/16', 'STRAIGHT'], ['1/8', 'DOTTED'], ['1/8', 'STRAIGHT']] as const)
+      : pick(rnd, [['1/8', 'DOTTED'], ['1/8', 'DOTTED'], ['1/4', 'STRAIGHT'], ['1/8', 'STRAIGHT'], ['1/4', 'DOTTED'], ['1/8', 'TRIPLET']] as const);
+    const style = pick(rnd, ['TAPE', 'ANALOG', 'DIGITAL'] as const);
+    Object.assign(extra, ANALOG_DL_NEUTRAL, {
+      xDlStyle: analogStepValue('xDlStyle', style),
+      xDlMode: analogStepValue('xDlMode', bass ? pick(rnd, ['SINGLE', 'PING-PONG'] as const) : pick(rnd, ['DUAL', 'PING-PONG', 'PING-PONG'] as const)),
+      xDlSync: 1,
+      xDlDiv: analogStepValue('xDlDiv', div),
+      xDlNote: analogStepValue('xDlNote', note),
+      xDlFb: between(rnd, bass ? 0 : 0.15, bass ? 0.25 : 0.42),
+      xDlWobble: style === 'TAPE' ? between(rnd, 0.1, 0.3) : 0,
+      xDlWidth: 1,
+      xDlLow: between(rnd, 0.5, 0.65),
+      xDlHigh: between(rnd, 0.3, 0.5),
+      xDlDuck: chance(rnd, 0.4) ? between(rnd, 0.2, 0.5) : 0,
+      xDlDuckRel: 0.35,
+    });
+  }
+  if (chance(rnd, P.rv)) {
+    knobs.reverb = between(rnd, 0.06, fam === 'PAD' ? 0.18 : 0.14);
+    Object.assign(extra, ANALOG_RV_NEUTRAL, {
+      xSkyType: 0,
+      xRevSize: between(rnd, 0.15, 0.4),
+      xRevTone: between(rnd, 0.25, 0.5),
+      xRevPre: between(rnd, 0.1, 0.3),
+      xSkyLoCut: between(rnd, 0.15, 0.3),
+      xSkyHiCut: 1,
+    });
+  }
+  return { knobs, extra };
+}
+
+/**
+ * Un tirage ramene dans les regles (RANDOM de la face) : les effets sous leurs plafonds (v53 ; TAPE et SIDECHAIN a
+ * l'arret, un effet absent a l'arret), le filtre passe-bas et modere, le registre tenu. Les potards absents restent
+ * absents, sauf les effets (toujours poses).
  */
 export function analogTame(p: AnalogValues): AnalogValues {
-  const o: AnalogValues = { ...p, ...ANALOG_FX_OFF };
+  const o: AnalogValues = { ...ANALOG_FX_OFF, ...p, tape: 0, duck: 0 };
+  o.dist = r3(clamp(o.dist, 0, ANALOG_FX.driveMax));
+  o.glue = r3(clamp(o.glue, 0, ANALOG_FX.glueMax));
+  o.delay = r3(clamp(o.delay, 0, ANALOG_FX.delayMax));
+  o.reverb = r3(clamp(o.reverb, 0, ANALOG_FX.reverbMax));
+  o.chorus = clamp(Math.round(o.chorus * 2) / 2, 0, 1);
   if (typeof o.fmode === 'number' && o.fmode > ANALOG.fmodeMax) o.fmode = 0;
   if (typeof o.cutoff === 'number') o.cutoff = r3(clamp(o.cutoff, ANALOG.cutoffMin, ANALOG.cutoffMax));
   if (typeof o.res === 'number') o.res = r3(Math.min(o.res, ANALOG.resMax));

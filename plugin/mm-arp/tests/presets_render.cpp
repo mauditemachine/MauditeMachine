@@ -49,6 +49,9 @@
 // NaN ; aucune paire trop proche ; v52 : le timbre de la famille, centroide BASS 150 a 500 Hz, ACID et DARK 150 a 700, SEQ
 // / ARP / PAD 350 a 1000, CHORD 200 a 1000, au-dessus de 6 kHz sous 0.5 %, bas-medium 30 % au moins, BASS / ACID mono sous
 // 120 Hz : LG<120 sous 5 % des qu'il y a du grave, SUB100 5 % au moins).
+// v53 (2026-11-25, la banque dark disco aux effets doses) : la chaine suit buildFx du plugin jusqu'au bout (la page DELAY,
+// celle de l'ancien DELAY converti ou celle que pose le preset ; la reverbe BigSky et sa sortie ; le rack enrichi : la
+// page CHORUS) ; les familles LEAD (centroide 250 a 1100 Hz) et PAD (200 a 1000 Hz, sonie -24).
 #include "Params.h"
 #include "../src/ExtraParams.h"
 
@@ -359,7 +362,75 @@ Render render(const Preset& p, int osWanted) {
   fs.crushRate = p.extra[mmx::ex_xCrushRate];
   fs.dlyMode = mmx::exStep(mmx::ex_xDlyMode, p.extra[mmx::ex_xDlyMode]);
   fs.shimmer = p.extra[mmx::ex_xShimmer];
-  fs.delaySeconds = std::min(2.0, dly16 * 60.0 / p.bpm / 4.0);
+  // v53 (2026-11-25, la banque dark disco aux effets doses) : la suite de buildFx du plugin, au reglage pres. La reverbe
+  // facon BigSky (CLASSIC : la convolution d'avant) et sa sortie (v46), la page DELAY (v27 : l'ancien DELAY du preset
+  // converti par build.mjs, ou la page posee par le preset, cale au tempo), le rack enrichi (le CHORUS de la page). A
+  // leurs neutres : la chaine d'avant au bit pres (tests/sky_test.cpp, echo_test.cpp, host_test.cpp DELAY v27).
+  {
+    const auto st = [&](int e) { return mmx::exStep(e, p.extra[e]); };
+    fs.skyType = st(mmx::ex_xSkyType);
+    fs.sky.decay = p.extra[mmx::ex_xSkyDecay];
+    fs.sky.pre = p.extra[mmx::ex_xSkyPre];
+    fs.sky.tone = p.extra[mmx::ex_xSkyTone];
+    fs.sky.mod = p.extra[mmx::ex_xSkyMod];
+    fs.sky.lowEnd = p.extra[mmx::ex_xSkyLow];
+    fs.sky.p = {{p.extra[mmx::ex_xSkyP1], p.extra[mmx::ex_xSkyP2], p.extra[mmx::ex_xSkyP3], p.extra[mmx::ex_xSkyP4], p.extra[mmx::ex_xSkyP5]}};
+    fs.rvLoCut = p.extra[mmx::ex_xSkyLoCut];
+    fs.rvLoSlope = st(mmx::ex_xSkyLoSlope);
+    fs.rvMidHz = p.extra[mmx::ex_xSkyMidHz];
+    fs.rvMidDb = p.extra[mmx::ex_xSkyMidDb];
+    fs.rvMidQ = p.extra[mmx::ex_xSkyMidQ];
+    fs.rvHiCut = p.extra[mmx::ex_xSkyHiCut];
+    fs.rvHiSlope = st(mmx::ex_xSkyHiSlope);
+    fs.rvWidth = p.extra[mmx::ex_xSkyWidth];
+    fs.rvDuck = p.extra[mmx::ex_xSkyDuck];
+    fs.rvFreeze = st(mmx::ex_xSkyFreeze) == 1;
+    EchoSettings& e = fs.echo;
+    e.style = st(mmx::ex_xDlStyle);
+    e.mode = st(mmx::ex_xDlMode);
+    e.fb = p.extra[mmx::ex_xDlFb];
+    e.width = p.extra[mmx::ex_xDlWidth];
+    e.offset = p.extra[mmx::ex_xDlOffset];
+    e.sat = p.extra[mmx::ex_xDlSat];
+    e.wobble = p.extra[mmx::ex_xDlWobble];
+    e.diff = p.extra[mmx::ex_xDlDiff];
+    e.low = p.extra[mmx::ex_xDlLow];
+    e.high = p.extra[mmx::ex_xDlHigh];
+    e.groove = p.extra[mmx::ex_xDlGroove];
+    e.feel = p.extra[mmx::ex_xDlFeel];
+    e.prime = st(mmx::ex_xDlPrime) == 1;
+    e.lofi = st(mmx::ex_xDlLofi) == 1;
+    e.analog = p.extra[mmx::ex_xDlAnalog];
+    e.duck = p.extra[mmx::ex_xDlDuck];
+    e.duckRel = p.extra[mmx::ex_xDlDuckRel];
+    e.rhythm = st(mmx::ex_xDlRhythm);
+    fs.tape = 0;
+    fs.dlyMode = 0;
+    double dlyFree = 0;
+    if (st(mmx::ex_xDlSync) == 1) dly16 = EchoLaws::divSixteenths(st(mmx::ex_xDlDiv)) * EchoLaws::noteMul(st(mmx::ex_xDlNote));
+    else dlyFree = EchoLaws::msOf(p.extra[mmx::ex_xDlMs]) / 1000;
+    static const int kStages[4] = {4, 6, 8, 12};
+    static const double kBeats[7] = {16, 8, 4, 2, 1, 0.5, 0.25};
+    const auto syncHz = [&](double v) { return p.bpm / 60.0 / kBeats[std::max(0, std::min(6, static_cast<int>(std::lround(v * 6))))]; };
+    fs.phStages = kStages[st(mmx::ex_xPhStages)];
+    fs.phCenter = p.extra[mmx::ex_xPhCenter];
+    fs.phSpread = p.extra[mmx::ex_xPhSpread];
+    fs.phSyncHz = st(mmx::ex_xPhSync) == 1 ? syncHz(p.extra[mmx::ex_xPhRate]) : 0;
+    fs.flDelay = p.extra[mmx::ex_xFlDelay];
+    fs.flSpread = p.extra[mmx::ex_xFlSpread];
+    fs.flSyncHz = st(mmx::ex_xFlSync) == 1 ? syncHz(p.extra[mmx::ex_xFlRate]) : 0;
+    fs.flThru = st(mmx::ex_xFlThru) == 1;
+    fs.chBoth = st(mmx::ex_xChBoth) == 1;
+    fs.chRate = p.extra[mmx::ex_xChRate];
+    fs.chDepth = p.extra[mmx::ex_xChDepth];
+    fs.chWidth = p.extra[mmx::ex_xChWidth];
+    fs.chMix = p.extra[mmx::ex_xChMix];
+    fs.crTone = p.extra[mmx::ex_xCrTone];
+    fs.crMix = p.extra[mmx::ex_xCrMix];
+    fs.puAttack = p.extra[mmx::ex_xPuAttack];
+    fs.puCurve = p.extra[mmx::ex_xPuCurve];
+    fs.delaySeconds = dlyFree > 0 ? std::min(2.0, dlyFree) : std::min(2.0, dly16 * 60.0 / p.bpm / 4.0);
+  }
   ArpFx fx;
   fx.set(fs, true);  // prepare calcule la reverb des reglages en cours (SIZE, TONE, PRE)
   fx.prepare(SR, 128);
@@ -888,6 +959,8 @@ int main(int argc, char** argv) {
       if (c == "BASS") cLo = 150, cHi = 500;
       else if (c == "DARK" || c == "ACID") cLo = 150, cHi = 700;
       else if (c == "CHORD") cLo = 200, cHi = 1000;
+      else if (c == "LEAD") cLo = 250, cHi = 1100;  // v53 : les lignes et les stabs de la banque dark disco
+      else if (c == "PAD") cLo = 200, cHi = 1000;   // v53 : les nappes et les drones (les CHORD de la v52)
       if (s.centroid < cLo || s.centroid > cHi) why += " CENTROIDE";
       if (s.hf6 >= 0.5) why += " AIGU";
       if (s.lowMid < 30) why += " BAS-MEDIUM";

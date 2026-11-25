@@ -13,14 +13,18 @@
  * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, bpm ; desc : une
  *   phrase en anglais (ASCII, sans tiret cadratin) ;
  * - chaque .mmarp : NN NOM.mmarp, format mm-arp-preset v1, le meme contenu que factory.json ;
- * - la repartition demandee : v52 (2026-11-24, la banque techno) BASS 12, ACID 8, SEQ 12, CHORD 8 (40 presets ; v28 a v51 :
- *   BASS 16, ARP 12, PAD 6, DARK 6 ; avant, 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE) ; BPM 124 a 132 (sous un kick 4/4) ;
- * - v43 (2026-11-20) : le son analogique a sec (src/v4/plugin/arp/analog.ts analogFaults) : aucun effet (OVERDRIVE,
- *   CHORUS, DELAY, REVERB, TAPE, GLUE, SIDECHAIN, WARMTH, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH
- *   PASS, COMB), un passe-bas modere (CUTOFF 0.25 a 0.6, RES 0.45, ENV AMT 0.5, ouvert a 6 kHz au plus), pas trop aigu
- *   (OCTAVE 0, RANGE 4', FM 0.2, NOISE 0.12) ; HELL, la DISTO, l'EQ 6 bandes et la reverbe BigSky (CLASSIC) au neutre ;
- * - v52 : VOICE MODE POLY ou MONO (jamais LEGATO, analog.ts) ; BASS et ACID en MONO, au centre (WIDTH 0) et mono dans le
- *   grave (BASS MONO 0.62 au moins : 135 Hz).
+ * - la repartition demandee : v53 (2026-11-25, la banque dark disco) BASS 42, SEQ 20, LEAD 10, PAD 8 (80 presets, au
+ *   moins 64 ; v52 : BASS 12, ACID 8, SEQ 12, CHORD 8 ; v28 a v51 : BASS 16, ARP 12, PAD 6, DARK 6 ; avant, 12 DISCO, 12
+ *   HYPNOTIC, 8 DARK, 8 TEXTURE) ; BPM 105 a 124 (le dark disco, l'italo, la new beat) ;
+ * - v43 (2026-11-20) puis v53 (2026-11-25, Mika : "oui effets doses, pas beaucoup pour pas trop denaturer le son") : le
+ *   son analogique aux effets legers bornes (src/v4/plugin/arp/analog.ts analogFaults, ANALOG_FX : OVERDRIVE 0.25, GLUE
+ *   0.3, CHORUS I ou II, WARMTH 0.3, DELAY 0.3 cale au tempo et sa page bornee, REVERB 0.18 CLASSIC courte ; TAPE,
+ *   SIDECHAIN, PHASER, FLANGER, PUMP, CRUSH, SHIMMER, HELL, RING, FOLD, HIGH PASS, COMB a 0), un passe-bas modere
+ *   (CUTOFF 0.25 a 0.6, RES 0.45, ENV AMT 0.5, ouvert a 6 kHz au plus), pas trop aigu (OCTAVE 0, RANGE 4', FM 0.2, NOISE
+ *   0.12) ; HELL, la DISTO (style MM), l'EQ 6 bandes, la page CHORUS, le MASTER (sauf WARMTH) et la reverbe BigSky
+ *   (CLASSIC ; sa taille, son ton, son pre-delai, LOW CUT et HIGH CUT de sa sortie permis) au neutre ;
+ * - v52 : VOICE MODE POLY ou MONO (jamais LEGATO, analog.ts) ; BASS en MONO, au centre (WIDTH 0) et mono dans le grave
+ *   (BASS MONO 0.62 au moins : 135 Hz) ; v53 : aucune reverbe sur une basse.
  *
  *   node plugin/mm-arp/tests/presets-check.mjs
  */
@@ -53,20 +57,24 @@ const cats = {};
 const heavy = [];
 const STEP_OK = { acc: [0, 1, 2], slide: [0, 1], gate: [0, 1, 2, 3], rat: [1, 2, 3, 4], prob: [100, 75, 50, 25, 0] };
 const EXTRA_STEPS = Object.fromEntries(EXTRA.filter((e) => e.steps).map((e) => [e.id, e.steps]));
-// v43 : ces sections restent exactement a leur neutre dans la banque (la reverbe BigSky a CLASSIC : xSkyType 0)
+// v43 : ces sections restent exactement a leur neutre dans la banque (la reverbe BigSky a CLASSIC : xSkyType 0) ; v53 :
+// sauf les effets doses (WARMTH, la taille, le ton et le pre-delai de la reverbe CLASSIC, LOW CUT et HIGH CUT de sa
+// sortie), bornes par analogFaults
 const NEUTRAL = new Set(['hell', 'disto', 'eq', 'chorus', 'sky', 'phaser', 'flanger', 'pump', 'crush', 'space', 'matrix', 'amp', 'dist', 'master', 'reverb']);
+const BANK_FX = new Set(['xWarmth', 'xRevSize', 'xRevTone', 'xRevPre', 'xSkyLoCut', 'xSkyHiCut']);
+const CATS = ['BASS', 'SEQ', 'LEAD', 'PAD'];
 const stepClean = (e, v) => (e.steps ? stepped(e.steps, v) : Math.round(v * 1000) / 1000);
 for (const p of bank.presets ?? []) {
   const who = p.name ?? '?';
   if (typeof p.name !== 'string' || !/^[A-Z0-9-][A-Z0-9 -]{0,23}$/.test(p.name) || p.name.endsWith(' ') || p.name.includes('  ')) err(who, 'nom invalide');
   if (names.has(p.name)) err(who, 'nom en double');
   names.add(p.name);
-  if (!['BASS', 'ACID', 'SEQ', 'CHORD'].includes(p.cat)) err(who, `cat ${p.cat}`);
+  if (!CATS.includes(p.cat)) err(who, `cat ${p.cat}`);
   cats[p.cat] = (cats[p.cat] ?? 0) + 1;
   if (typeof p.desc !== 'string' || p.desc.length < 20) err(who, 'desc manquante');
   if (/[^\x20-\x7e]/.test(p.desc ?? '')) err(who, 'desc : accent, tiret cadratin ou caractere hors ASCII');
   if (/\b(le|la|les|des|une|qui|sur|dans|avec)\b/i.test(p.desc ?? '')) err(who, 'desc : en anglais');
-  if (!(p.bpm >= 124 && p.bpm <= 132)) err(who, `bpm ${p.bpm} : 124 a 132 (v52, sous un kick 4/4)`);
+  if (!(p.bpm >= 105 && p.bpm <= 124)) err(who, `bpm ${p.bpm} : 105 a 124 (v53, le dark disco)`);
   const kn = p.knobs ?? {};
   for (const k of VOY_KNOBS) {
     const v = kn[k.id];
@@ -87,15 +95,17 @@ for (const p of bank.presets ?? []) {
   }
   for (const id of Object.keys(ex)) if (!EXTRA.some((e) => e.id === id)) err(who, `reglage inconnu ${id}`);
   if (ex.xQuality !== 1) err(who, 'QUALITY doit rester a HQ');
-  for (const f of analogFaults(kn, ex, EXTRA_STEPS)) err(who, `v43 : ${f}`);
+  for (const f of analogFaults(kn, ex, EXTRA_STEPS)) err(who, `v43 / v53 : ${f}`);
   for (const e of EXTRA)
-    if (NEUTRAL.has(e.section) && e.id !== 'xSkyType' && okNum(ex[e.id]) && ex[e.id] !== stepClean(e, e.def)) err(who, `v43 : ${e.id} ${ex[e.id]} au lieu de son neutre ${e.def}`);
+    if (NEUTRAL.has(e.section) && e.id !== 'xSkyType' && !BANK_FX.has(e.id) && okNum(ex[e.id]) && ex[e.id] !== stepClean(e, e.def))
+      err(who, `v43 : ${e.id} ${ex[e.id]} au lieu de son neutre ${e.def}`);
   if (ex.xSkyType !== 0) err(who, 'v43 : la reverbe reste CLASSIC (xSkyType 0)');
-  // v52 : les basses et les lignes acides en MONO, au centre, mono dans le grave ; les autres en POLY ou MONO
-  if (p.cat === 'BASS' || p.cat === 'ACID') {
-    if (ex.xVoiceMode !== 0.5) err(who, 'v52 : BASS et ACID en VOICE MODE MONO');
-    if (kn.width !== 0) err(who, `v52 : BASS et ACID au centre (WIDTH ${kn.width})`);
+  // v52 : les basses en MONO, au centre, mono dans le grave ; les autres en POLY ou MONO ; v53 : aucune reverbe sur une basse
+  if (p.cat === 'BASS') {
+    if (ex.xVoiceMode !== 0.5) err(who, 'v52 : BASS en VOICE MODE MONO');
+    if (kn.width !== 0) err(who, `v52 : BASS au centre (WIDTH ${kn.width})`);
     if (!(kn.monoLow >= 0.62)) err(who, `v52 : BASS MONO ${kn.monoLow} (0.62 au moins : 135 Hz)`);
+    if (kn.reverb !== 0) err(who, `v53 : aucune reverbe sur une basse (REVERB ${kn.reverb})`);
   }
   if (ex.xUnison === 1 && (kn.wide ?? 0) >= 0.02) heavy.push(who);
   const st = p.steps ?? {};
@@ -112,8 +122,11 @@ for (const p of bank.presets ?? []) {
   if (s.edit && !s.has) err(who, 'EDIT sans has');
   if (!Array.isArray(p.prog) || p.prog.length < 1 || p.prog.length > 8 || !p.prog.every((c) => Number.isInteger(c) && c >= 0 && c <= 7)) err(who, 'prog');
 }
-// v52 : BASS 12, ACID 8 (la moitie de la banque dans le grave), SEQ 12, CHORD 8 (v28 a v51 : BASS 16, ARP 12, PAD 6, DARK 6)
-const want = { BASS: 12, ACID: 8, SEQ: 12, CHORD: 8 };
+// v53 : BASS 42 (la majorite : des basslines), SEQ 20, LEAD 10, PAD 8 ; 80 presets (64 au moins). v52 : BASS 12, ACID 8,
+// SEQ 12, CHORD 8 ; v28 a v51 : BASS 16, ARP 12, PAD 6, DARK 6
+const want = { BASS: 42, SEQ: 20, LEAD: 10, PAD: 8 };
+if ((bank.presets ?? []).length < 64) err('banque', `${(bank.presets ?? []).length} presets (64 au moins)`);
+if (!((cats.BASS ?? 0) * 2 > (bank.presets ?? []).length)) err('repartition', 'BASS doit rester la majorite de la banque');
 if (heavy.length > 3) err('CPU', `UNISON 7 avec WIDE dans ${heavy.length} presets (3 au plus) : ${heavy.join(', ')}`);
 for (const [c, n] of Object.entries(want)) if (cats[c] !== n) err('repartition', `${c} : ${cats[c] ?? 0} au lieu de ${n}`);
 
