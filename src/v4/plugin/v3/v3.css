@@ -1,0 +1,932 @@
+/* La face v3 du plugin MM-RYTM (2026-11-25) : alu brosse noir, les knobs PNG de Mika, l'accent #FFD900, les pas rouges.
+   Tout est en pixels de la fenetre de depart (1400 x 896) ; la scene entiere est zoomee a la taille de la fenetre. */
+
+.mm3-root {
+  --acc: #ffd900;
+  --acc-glow: rgba(255, 217, 0, 0.55);
+  --red: #ff3d2e;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0c0c0d;
+  font-family: 'SF Pro Display', -apple-system, sans-serif;
+  color: #e6e6e6;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mm3-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1400px;
+  height: 896px;
+  transform-origin: 0 0;
+}
+.mm3-stage * {
+  box-sizing: border-box;
+}
+.mm3-stage > div,
+.mm3-page > div {
+  position: absolute;
+}
+.mm3-panel {
+  left: 26px;
+  right: 26px;
+  top: 0;
+  bottom: 0;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 0 rgba(0, 0, 0, 0.6), inset 1px 0 0 rgba(255, 255, 255, 0.05), inset -1px 0 0 rgba(0, 0, 0, 0.5);
+}
+.mm3-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, 0.07), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 30%, rgba(0, 0, 0, 0.18));
+}
+.mm3-cheek {
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  background-size: cover;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.8), inset 2px 0 0 rgba(255, 255, 255, 0.06), inset -2px 0 0 rgba(0, 0, 0, 0.5);
+}
+.mm3-cheek.l {
+  left: 0;
+}
+.mm3-cheek.r {
+  right: 0;
+}
+.mm3-screw {
+  position: absolute;
+  left: 7.5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8a8a8e, #3b3b3e 55%, #161617);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.mm3-screw::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 5px;
+  height: 5px;
+  background: #121213;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+
+/* l'en-tete */
+.mm3-wordmark {
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 27px;
+  letter-spacing: 0.02em;
+  color: #f1f1f1;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+  line-height: 1;
+  white-space: nowrap;
+}
+.mm3-model {
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  color: #d6d6d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  line-height: 1;
+}
+.mm3-cpu {
+  height: 20px;
+  border-radius: 3px;
+  background: #050505;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  color: #9a9a9a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mm3-cpu i {
+  display: block;
+  width: 46px;
+  height: 4px;
+  border-radius: 2px;
+  background: #1b1b1b;
+  position: relative;
+  overflow: hidden;
+}
+.mm3-cpu i b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--acc);
+  box-shadow: 0 0 6px var(--acc-glow);
+}
+.mm3-btn {
+  width: 30px;
+  height: 24px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3.5px;
+  color: #cfcfcf;
+  font-size: 15px;
+  cursor: pointer;
+  background: linear-gradient(#2b2b2d, #1a1a1b);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 2px 3px rgba(0, 0, 0, 0.6), 0 0 0 1px #0a0a0a;
+}
+.mm3-btn i {
+  display: block;
+  width: 13px;
+  height: 1.6px;
+  background: #d8d8d8;
+  border-radius: 1px;
+}
+.mm3-btn.on {
+  box-shadow: 0 0 0 1px var(--acc), 0 0 8px var(--acc-glow);
+}
+
+/* titres, filets, notes */
+.mm3-title {
+  height: 14px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #e3e3e3;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+.mm3-title small {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--acc);
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.mm3-vrule {
+  width: 2px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 50%, rgba(255, 255, 255, 0.07) 50%);
+}
+.mm3-hrule {
+  height: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 50%, rgba(255, 255, 255, 0.07) 50%);
+}
+.mm3-bracket {
+  height: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-top: 0;
+}
+.mm3-bracket span {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 2px);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #dedede;
+  white-space: nowrap;
+}
+.mm3-note {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #8e8e8e;
+  white-space: nowrap;
+}
+.mm3-note b {
+  color: #e8e8e8;
+  font-weight: 700;
+}
+.mm3-note i {
+  font-style: normal;
+  color: var(--acc);
+}
+
+/* les knobs */
+.mm3-knob {
+  width: 0;
+  height: 0;
+}
+.mm3-knob > * {
+  position: absolute;
+}
+.mm3-kshadow {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.35) 60%, transparent);
+  pointer-events: none;
+}
+.mm3-ticks {
+  overflow: visible;
+  pointer-events: none;
+}
+.mm3-kgrab {
+  border-radius: 50%;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.mm3-krot {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+.mm3-knob.is-dead .mm3-kgrab {
+  opacity: 0.45;
+  cursor: default;
+}
+.mm3-klab {
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  color: #dadada;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  text-align: center;
+  pointer-events: none;
+}
+.mm3-klab.big {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+}
+.mm3-klab.acc {
+  color: var(--acc);
+}
+.mm3-kval {
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--acc);
+  text-align: center;
+  pointer-events: none;
+}
+.mm3-kmm {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #a0a0a0;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.mm3-kmm.on {
+  color: var(--acc);
+}
+
+/* les touches */
+.mm3-key {
+  cursor: pointer;
+  touch-action: none;
+}
+.mm3-key > * {
+  position: absolute;
+}
+.mm3-cap {
+  inset: 0;
+  background: linear-gradient(180deg, #2d2d30 0%, #1d1d1f 55%, #151516 100%);
+  box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 3px rgba(0, 0, 0, 0.45), 0 3px 5px rgba(0, 0, 0, 0.55), 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.mm3-key:active .mm3-cap {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 2px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.mm3-cap.lit {
+  background: linear-gradient(180deg, #ffe85a 0%, #ffd900 55%, #d9b500 100%);
+  box-shadow: 0 0 0 1px #5a4a00, inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 14px rgba(255, 217, 0, 0.45), 0 3px 5px rgba(0, 0, 0, 0.5);
+}
+.mm3-cap.red {
+  background: linear-gradient(180deg, #ff6a5c 0%, #ff3d2e 55%, #d32a1e 100%);
+  box-shadow: 0 0 0 1px #4a0c08, inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 14px rgba(255, 61, 46, 0.45), 0 3px 5px rgba(0, 0, 0, 0.5);
+}
+.mm3-led {
+  position: absolute;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5d5d60, #2a2a2c 60%, #121213);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.mm3-led.in {
+  position: static;
+  margin: 0;
+  display: inline-block;
+  flex: none;
+}
+.mm3-led.on {
+  background: radial-gradient(circle at 40% 35%, #fff7c0, var(--acc) 45%, #b39800);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 7px 1px var(--acc-glow);
+}
+.mm3-led.red {
+  background: radial-gradient(circle at 40% 35%, #ffd1cc, var(--red) 45%, #a01d12);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 7px 1px rgba(255, 61, 46, 0.6);
+}
+.mm3-in {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #dcdcdc;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.mm3-in.dark {
+  color: #1f1a00;
+}
+.mm3-klab.key {
+  top: calc(100% + 7px);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: #d6d6d6;
+}
+.mm3-klab.key.acc {
+  color: var(--acc);
+}
+
+/* les bascules */
+.mm3-tog {
+  width: 44px;
+  height: 18px;
+  cursor: pointer;
+}
+.mm3-tog > * {
+  position: absolute;
+}
+.mm3-togbody {
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 18px;
+  border-radius: 9px;
+  background: linear-gradient(#0d0d0e, #1d1d1f);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mm3-lever {
+  top: 3px;
+  width: 19px;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(#d7d7d7, #8d8d8f 50%, #5b5b5d);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: left 0.08s;
+}
+.mm3-tog .mm3-led {
+  margin: 0;
+}
+.mm3-togo {
+  top: 23px;
+  transform: translateX(-50%);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #8a8a8a;
+  white-space: nowrap;
+}
+.mm3-togo.on {
+  color: #f0f0f0;
+}
+.mm3-togo.lab {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: #dadada;
+}
+
+/* les ecrans */
+.mm3-lcd {
+  border-radius: 8px;
+  background: #030303;
+  box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3px rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.04), inset 0 2px 10px rgba(0, 0, 0, 0.9), 0 4px 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.mm3-lcd::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.045), transparent 40%);
+}
+.mm3-lcd > * {
+  position: absolute;
+}
+.mm3-dots {
+  font-family: 'MM Dots', 'SF Pro Display', sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.mm3-t8 {
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  color: #9b9b9b;
+  white-space: nowrap;
+}
+.mm3-w {
+  color: #f3f3f3;
+}
+.mm3-a {
+  color: var(--acc);
+}
+.mm3-chip {
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 9px;
+  padding: 2px 8px 1px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #f0f0f0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mm3-chip.a {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.mm3-chip.fill {
+  background: var(--acc);
+  color: #111;
+  border-color: var(--acc);
+}
+
+/* les pistes et les pas */
+.mm3-trk {
+  border-radius: 7px;
+  cursor: pointer;
+  background: linear-gradient(#252527, #19191a);
+  box-shadow: 0 0 0 1px #080808, inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 3px rgba(0, 0, 0, 0.55);
+}
+.mm3-trk > * {
+  position: absolute;
+  pointer-events: none;
+}
+.mm3-trk .n {
+  left: 0;
+  right: 0;
+  top: 8px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #d8d8d8;
+}
+.mm3-trk .no {
+  left: 6px;
+  top: 4px;
+  font-size: 6.5px;
+  font-weight: 700;
+  color: #747474;
+}
+.mm3-trk .vu {
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 2px;
+  background: #0b0b0b;
+  overflow: hidden;
+}
+.mm3-trk .vu b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #5c5c5c, #cfcfcf);
+}
+.mm3-trk .m {
+  right: 6px;
+  top: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #303032;
+}
+.mm3-trk .m.on {
+  background: var(--red);
+  box-shadow: 0 0 5px rgba(255, 61, 46, 0.8);
+}
+.mm3-trk .m.solo {
+  background: var(--acc);
+  box-shadow: 0 0 5px var(--acc-glow);
+}
+.mm3-trk.sel {
+  background: linear-gradient(#3a3214, #251f08);
+  box-shadow: 0 0 0 1px var(--acc), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 10px rgba(255, 217, 0, 0.25);
+}
+.mm3-trk.sel .n {
+  color: var(--acc);
+}
+.mm3-trk.mute .n {
+  color: #5c5c5c;
+  text-decoration: line-through;
+}
+.mm3-step {
+  border-radius: 9px;
+  cursor: pointer;
+  touch-action: none;
+  background: linear-gradient(180deg, #2a2a2c 0%, #1b1b1c 60%, #141415 100%);
+  box-shadow: 0 0 0 1px #060606, inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -3px 4px rgba(0, 0, 0, 0.45), 0 4px 6px rgba(0, 0, 0, 0.6);
+}
+.mm3-step > * {
+  position: absolute;
+  pointer-events: none;
+}
+.mm3-step .win {
+  left: 10px;
+  right: 10px;
+  top: 9px;
+  height: 5px;
+  border-radius: 3px;
+  background: #0a0a0a;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.mm3-step.on {
+  background: linear-gradient(180deg, #ff6b5d 0%, #f2382a 55%, #c9261b 100%);
+  box-shadow: 0 0 0 1px #3e0a06, inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -3px 5px rgba(120, 10, 0, 0.4), 0 0 18px rgba(255, 61, 46, 0.35), 0 4px 6px rgba(0, 0, 0, 0.55);
+}
+.mm3-step.on .win {
+  background: rgba(90, 0, 0, 0.35);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+.mm3-step.ph .win {
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--acc-glow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.mm3-step.lock {
+  box-shadow: 0 0 0 2px var(--acc), 0 0 16px rgba(255, 217, 0, 0.35), 0 4px 6px rgba(0, 0, 0, 0.55);
+}
+.mm3-step.out {
+  opacity: 0.32;
+}
+.mm3-step.perf {
+  background: linear-gradient(180deg, #34301c 0%, #232013 60%, #19170d 100%);
+}
+.mm3-step.perf.down {
+  background: linear-gradient(180deg, #ffe85a 0%, #ffd900 55%, #d9b500 100%);
+}
+.mm3-step .num {
+  left: 0;
+  right: 0;
+  bottom: 9px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #bdbdbd;
+}
+.mm3-step.on .num {
+  color: #fff3f1;
+  text-shadow: 0 1px 0 rgba(120, 0, 0, 0.5);
+}
+.mm3-step .plab {
+  left: 2px;
+  right: 2px;
+  top: 30px;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--acc);
+  line-height: 1.2;
+}
+.mm3-step.perf.down .plab,
+.mm3-step.perf.down .num {
+  color: #1f1a00;
+}
+.mm3-step .cond {
+  right: 7px;
+  top: 19px;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--acc);
+}
+.mm3-step.on .cond {
+  color: #fff6a8;
+}
+.mm3-step .lockdot {
+  left: 8px;
+  top: 20px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 5px var(--acc-glow);
+}
+.mm3-step.on .lockdot {
+  background: #fff6a8;
+}
+.mm3-step .vel {
+  left: 10px;
+  right: 10px;
+  bottom: 28px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.mm3-step .vel b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+/* le crossfader */
+.mm3-xf {
+  cursor: ew-resize;
+  touch-action: none;
+}
+.mm3-xf > * {
+  position: absolute;
+  pointer-events: none;
+}
+.mm3-xf .slot {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 4px;
+  background: #050505;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 1), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mm3-xf .cap {
+  top: 50%;
+  width: 30px;
+  height: 40px;
+  margin: -20px 0 0 -15px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #1b1b1c, #3a3a3d 45%, #1b1b1c);
+  box-shadow: 0 0 0 1px #050505, 0 5px 8px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.mm3-xf .cap::after {
+  content: '';
+  position: absolute;
+  left: 13.5px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: #f0f0f0;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+}
+.mm3-xf .tick {
+  top: calc(50% + 14px);
+  width: 1px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* OPEN : les onglets en pilule */
+.mm3-tabs {
+  display: flex;
+  gap: 4px;
+}
+.mm3-tab {
+  height: 25px;
+  border-radius: 13px;
+  padding: 0 10px 0 18px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #cfcfcf;
+  cursor: pointer;
+  white-space: nowrap;
+  background: linear-gradient(#2a2a2c, #19191a);
+  box-shadow: 0 0 0 1px #070707, inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.mm3-tab::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5d5d60, #222224);
+}
+.mm3-tab:hover {
+  color: #fff;
+}
+.mm3-tab.on {
+  color: #fff;
+  background: linear-gradient(#3a3214, #231d07);
+  box-shadow: 0 0 0 1px rgba(255, 217, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 12px rgba(255, 217, 0, 0.22);
+}
+.mm3-tab.on::before {
+  background: radial-gradient(circle at 40% 35%, #fff7c0, var(--acc) 45%, #b39800);
+  box-shadow: 0 0 6px var(--acc-glow);
+}
+.mm3-foot {
+  left: 26px;
+  right: 26px;
+  bottom: 0;
+  height: 64px;
+  background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.15));
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.7), inset 0 2px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* listes (samples, presets) */
+.mm3-list {
+  border-radius: 8px;
+  background: #050505;
+  box-shadow: 0 0 0 2px #0d0d0e, 0 0 0 3px rgba(255, 255, 255, 0.06), inset 0 2px 8px rgba(0, 0, 0, 0.9);
+  padding: 10px 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+.mm3-list .h {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #8e8e8e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 0 5px;
+  margin: 6px 0 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.mm3-list .h:first-child {
+  margin-top: 0;
+}
+.mm3-list .r {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 15.5px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #dcdcdc;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mm3-list .r:hover {
+  color: #fff;
+}
+.mm3-list .r em {
+  font-style: normal;
+  color: #5f5f5f;
+  font-size: 8px;
+  width: 20px;
+  display: inline-block;
+}
+.mm3-list .r.on {
+  color: var(--acc);
+}
+.mm3-list .r .d {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 5px var(--acc-glow);
+  flex: none;
+}
+
+/* le menu */
+.mm3-menu {
+  border-radius: 10px;
+  background: linear-gradient(#1d1d1f, #141415);
+  box-shadow: 0 0 0 1px #050505, 0 0 0 2px rgba(255, 255, 255, 0.05), 0 18px 40px rgba(0, 0, 0, 0.75);
+  padding: 14px 16px;
+  z-index: 30;
+}
+.mm3-menu h4 {
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: #eee;
+  display: flex;
+  justify-content: space-between;
+}
+.mm3-menu .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+  color: #bdbdbd;
+  flex-wrap: wrap;
+}
+.mm3-menu .row > span:first-child {
+  width: 100%;
+}
+.mm3-menu .div {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 12px 0;
+}
+.mm3-menu .item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #e4e4e4;
+  border-radius: 5px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  cursor: pointer;
+}
+.mm3-menu .item:hover {
+  background: rgba(255, 217, 0, 0.1);
+  color: var(--acc);
+}
+.mm3-menu .item em {
+  font-style: normal;
+  font-size: 8px;
+  color: #8d8d90;
+  letter-spacing: 0.12em;
+}
+.mm3-help {
+  font-size: 8.5px;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  color: #c9c9c9;
+  white-space: normal;
+}
+.mm3-help b {
+  color: var(--acc);
+  font-weight: 700;
+}
+.mm3-error {
+  left: 40px;
+  bottom: 70px;
+  color: #ff6a13;
+  font: 12px ui-monospace, Menlo, monospace;
+  z-index: 40;
+}
+
+/* les dessins repris de l'OPEN d'avant (la forme d'onde, la spirale de HELL, la courbe de la DIST) : la place de leur ecran */
+.mm3-root .mm-open-wave {
+  position: absolute;
+  inset: 0;
+}
+.mm3-root .mm-fx-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mm3-drag > * {
+  position: absolute;
+}
+
+/* chaque piece se pose elle-meme (dans la scene, dans un ecran, dans le menu) */
+.mm3-knob,
+.mm3-key,
+.mm3-tog,
+.mm3-title,
+.mm3-vrule,
+.mm3-hrule,
+.mm3-note,
+.mm3-lcd,
+.mm3-trk,
+.mm3-step,
+.mm3-xf,
+.mm3-tabs,
+.mm3-btn,
+.mm3-list,
+.mm3-menu,
+.mm3-bracket,
+.mm3-wordmark,
+.mm3-model,
+.mm3-panel,
+.mm3-cheek,
+.mm3-foot,
+.mm3-drag {
+  position: absolute;
+}

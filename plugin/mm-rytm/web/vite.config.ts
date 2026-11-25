@@ -16,6 +16,9 @@ const SAMPLE_DIR = resolve(REPO, 'public/samples/rytm');
 const PLUGIN_SAMPLE_DIR = resolve(__dirname, '../samples');
 const SAMPLE_EXT = /\.(wav|mp3|ogg|flac|aiff?|m4a)$/i;
 const SAMPLE_ID = 'virtual:rytm-samples';
+// L'afficheur a points des ecrans de la face v3 (2026-11-25, comme le MM-ARP : Doto, SIL OFL 1.1, fonts/Doto-OFL.txt) : au
+// plugin seul, pas dans public/ (le site)
+const PLUGIN_FONTS = ['Doto-800.woff2', 'Doto-900.woff2', 'Doto-OFL.txt'];
 const FONTS = ['RobotRadicals.woff2', 'SF-Pro-Display-Regular.woff2', 'SF-Pro-Display-Medium.woff2', 'SF-Pro-Display-Semibold.woff2', 'SF-Pro-Display-Bold.woff2', 'SF-Pro-Display-Black.woff2'];
 
 function listDir(dir: string): { family: string; file: string }[] {
@@ -52,6 +55,7 @@ export default defineConfig({
         }
         mkdirSync(resolve(OUT, 'fonts'), { recursive: true });
         for (const f of FONTS) copyFileSync(resolve(REPO, 'public/fonts', f), resolve(OUT, 'fonts', f));
+        for (const f of PLUGIN_FONTS) copyFileSync(resolve(__dirname, 'fonts', f), resolve(OUT, 'fonts', f));
         // Le logotype serigraphie sur la machine (V.6.4)
         mkdirSync(resolve(OUT, 'logo'), { recursive: true });
         copyFileSync(resolve(REPO, 'public/logo/mauditemachine-logotype.svg'), resolve(OUT, 'logo/mauditemachine-logotype.svg'));

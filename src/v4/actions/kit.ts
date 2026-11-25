@@ -160,9 +160,30 @@ export function kitLayerDial(f: KitFamily, p: LayerTarget, v: number): void {
 /** Le rang (0 a 7) d'un potard de page, -1 pour un autre potard. */
 export const pageKnobOf = (id: DialId): number => (id.startsWith('p:') ? Number(id.slice(2)) : -1);
 
+/**
+ * La face v3 du plugin (2026-11-25, Mika : "redesign MM-RYTM [...] les open de page doivent se faire de la meme maniere que
+ * ARP") : plus de touches de page, chaque potard de la face porte son reglage. Le dernier potard touche pose son ecran ici ;
+ * les potards de page (le P-LOCK, LIVE REC, les scenes, CONTROL ALL, le MIDI A a H) passent par lui comme par la page
+ * affichee, menus de l'ecran compris. null : la page affichee (le site, la face d'avant).
+ */
+let faceScreen: RytmScreenId | null = null;
+export function setFaceScreen(s: RytmScreenId | null): void {
+  faceScreen = s;
+}
+/** Un calcul sur l'ecran s (la face v3 : la valeur d'un potard d'un autre ecran), puis l'ecran d'avant revient. */
+export function withFaceScreen<T>(s: RytmScreenId, fn: () => T): T {
+  const prev = faceScreen;
+  faceScreen = s;
+  try {
+    return fn();
+  } finally {
+    faceScreen = prev;
+  }
+}
+
 /** L'ecran affiche (2026-10-09 : la page et son onglet) pour la voix choisie. */
 export function curScreen(): RytmScreenId {
-  return rytmPage.screen(pattern.get().instrument);
+  return faceScreen ?? rytmPage.screen(pattern.get().instrument);
 }
 
 /**
@@ -171,6 +192,7 @@ export function curScreen(): RytmScreenId {
  * vient de rytm/pages.ts pageSlots.
  */
 export function curSlots(): readonly PageSlot[] {
+  if (faceScreen) return pageSlots(faceScreen, pattern.get().instrument);
   if (DT2_FACE) {
     const ms = openMenu()?.slots?.();
     if (ms) return ms;

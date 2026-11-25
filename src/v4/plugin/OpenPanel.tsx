@@ -120,17 +120,17 @@ const KnobGroup: React.FC<{ title: string; slots: readonly PageSlot[]; k: string
   );
 
 /** La course 0 a 1 d'un reglage (sa valeur dans ses bornes) et son ecriture depuis une course. */
-const course = (id: string): number => {
+export const course = (id: string): number => {
   const [lo, hi] = dialRange(id as DialId);
   return hi > lo ? Math.max(0, Math.min(1, (dialShown(id as DialId) - lo) / (hi - lo))) : 0;
 };
-const setCourse = (id: string, c: number): void => {
+export const setCourse = (id: string, c: number): void => {
   const [lo, hi] = dialRange(id as DialId);
   anyDial(id as DialId, Math.round((lo + Math.max(0, Math.min(1, c)) * (hi - lo)) * 10000) / 10000);
 };
 
 /** Le nom d'un sample comme l'ecran le dit : BD 1 pour ceux de la banque, son fichier pour les tiens. */
-const smpLabel = (s: KitSample): string => (s.key.includes('/~') ? s.file.replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : `${s.family.toUpperCase()} ${s.label}`);
+export const smpLabel = (s: KitSample): string => (s.key.includes('/~') ? s.file.replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : `${s.family.toUpperCase()} ${s.label}`);
 
 /* ---------------- la forme d'onde ---------------- */
 
@@ -143,7 +143,7 @@ interface View {
  * Ce que joue la piste, en part du fichier : START (sa part sautee), la fin (LEN), le sens ; et la hauteur (pour l'echelle
  * de temps de l'enveloppe).
  */
-function playWindow(): { s: number; e: number; rev: boolean; ratio: number } {
+export function playWindow(): { s: number; e: number; rev: boolean; ratio: number } {
   const st = course('t:sstart');
   const ln = course('t:slen');
   const s = Math.min(1, st) * SAMPLE_START_MAX;
@@ -153,7 +153,7 @@ function playWindow(): { s: number; e: number; rev: boolean; ratio: number } {
   return { s, e, rev: dialShown('t:srev' as DialId) >= 0.5, ratio: Math.pow(2, semis / 12) };
 }
 
-const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, skey, rev: changes }) => {
+export const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, skey, rev: changes }) => {
   const cv = useRef<HTMLCanvasElement>(null);
   const [{ w, h: H }, setSize] = useState({ w: 800, h: 180 });
   const [view, setView] = useState<View>({ a: 0, b: 1 });

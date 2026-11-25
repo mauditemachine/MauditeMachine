@@ -134,14 +134,14 @@ const Presets: React.FC<{ list: readonly LabPreset[]; which: 'hell' | 'dist'; fx
 const revPatch = (p: RevPreset): Partial<Record<keyof Fx, number>> => ({ ...p.set });
 
 /** La forme de la REVERB en clair (ses potards : la page REVERB de la machine, SEND FX puis une tape sur REVERB). */
-const revText = (fx: Readonly<Fx>): string => {
+export const revText = (fx: Readonly<Fx>): string => {
   const g = rgateSeconds(fx.rgate ?? 0);
   const hz = fxLaw.rtone(fx.rtone);
   return `SIZE ${fxLaw.rsize(fx.rsize).toFixed(1)} S · TONE ${hz >= 1000 ? `${(hz / 1000).toFixed(1)} KHZ` : `${Math.round(hz)} HZ`} · PRE ${Math.round(fxLaw.rpre(fx.rpre) * 1000)} MS · GATE ${g > 0 ? `${Math.round(g * 1000)} MS` : 'OFF'}`;
 };
 
 /** La spirale de HELL : une note de 1 kHz et ses echos, chacun decale et plus faible (log en frequence, temps en echos). */
-const Spiral: React.FC<{ fx: Readonly<Fx> }> = ({ fx }) => {
+export const Spiral: React.FC<{ fx: Readonly<Fx> }> = ({ fx }) => {
   const cv = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = cv.current;
@@ -203,7 +203,7 @@ const Spiral: React.FC<{ fx: Readonly<Fx> }> = ({ fx }) => {
 };
 
 /** La courbe de la DIST : l'entree en x, la sortie en y (la diagonale : rien ne change). */
-const Curve: React.FC<{ fx: Readonly<Fx> }> = ({ fx }) => {
+export const Curve: React.FC<{ fx: Readonly<Fx> }> = ({ fx }) => {
   const cv = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = cv.current;

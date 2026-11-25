@@ -13,8 +13,10 @@
 namespace {
 
 // La face fait 256 x 156 mm : la fenetre garde ces proportions
-constexpr int kW = 1200;
-constexpr int kH = 731;
+// La face v3 (2026-11-25, Mika : "je veux plus d'espace donc fait le plugin plus gros", choix C : 1400 x 896, le format du
+// MM-ARP agrandi ; avant : 1200 x 731)
+constexpr int kW = 1400;
+constexpr int kH = 896;
 
 // Les fichiers de la face (le zip de plugin/mm-rytm/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {
@@ -191,11 +193,20 @@ MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_
     setResizable(true, true);
     setResizeLimits(kW * 7 / 10, kH * 7 / 10, kW * 2, kH * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio(static_cast<double>(kW) / static_cast<double>(kH));
-    if (saved >= kW * 7 / 10 && saved <= kW * 2) setSize(saved, juce::roundToInt(saved * static_cast<double>(kH) / kW));
-    else setSize(kW, kH);
-    // A partir d'ici seulement, une taille de la fenetre est un choix (le coin tire) et se garde
+    const bool keep = saved >= kW * 7 / 10 && saved <= kW * 2;
+    int w = keep ? saved : kW;
+    // Un ecran plus petit que la face (un MacBook en 1440 x 900, la barre de titre de Live comprise) : la fenetre entre dedans,
+    // a la plus grande taille qui tient (le contenu zoome avec elle)
+    if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()) {
+        const auto a = d->userArea;
+        const int fit = juce::jmin(a.getWidth() - 40, juce::roundToInt((a.getHeight() - 90) * static_cast<double>(kW) / kH));
+        if (fit > 0 && w > fit) w = juce::jmax(kW * 7 / 10, fit);
+    }
+    setSize(w, juce::roundToInt(w * static_cast<double>(kH) / kW));
+    // A partir d'ici seulement, une taille de la fenetre est un choix (le coin tire) et se garde ; une taille de depart
+    // reduite a l'ecran n'en est pas un (un plus grand ecran rouvrira la face entiere)
     sizeReady_ = true;
-    proc_.setUiWidth(getWidth() == kW ? 0 : getWidth());
+    proc_.setUiWidth(keep ? getWidth() : 0);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
