@@ -1,0 +1,31 @@
+{
+  "_doc": "Plugins VST3 gratuits (docs/vst-download.md). emailjsTemplateId : le modele EmailJS 'VST download' (vide = le bloc PLUGINS reste cache dans GOODIES, sauf avec ?vst=1). donateUrl : le lien de don volontaire (vide = pas de bouton). platforms : les systemes ; mac et win : les installeurs (.pkg, .exe) ; zip : les deux avec le README (workflow Plugin public). Changer ce fichier ne touche pas src/v4 : pas de firmware:stamp.",
+  "emailjsTemplateId": "template_63bjqgy",
+  "donateUrl": "https://ko-fi.com/mauditemachine",
+  "plugins": [
+    {
+      "id": "rytm",
+      "name": "MM-RYTM",
+      "kind": "Drum machine",
+      "text": "16 tracks, synth and sample layers, parameter locks, conditional trigs, per-track FX and two LFOs per voice. Same sound as the web machine.",
+      "platforms": [
+        "macOS",
+        "Windows (beta)"
+      ],
+      "mac": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-Installer-Mac.pkg",
+      "win": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-Installer-Windows.exe",
+      "zip": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-VST3.zip"
+    },
+    {
+      "id": "arp",
+      "name": "MM-ARP",
+      "kind": "Synth and arpeggiator",
+      "text": "Two oscillators, sub, ladder filter, arpeggiator, chord pads, Juno-style chorus, tape delay and reverb.",
+      "platforms": [
+        "macOS"
+      ],
+      "mac": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-Installer-Mac.pkg",
+      "zip": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-VST3.zip"
+    }
+  ]
+}

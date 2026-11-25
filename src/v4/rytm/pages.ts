@@ -75,6 +75,7 @@ import type { ShotId } from '../audio/shotsdsp';
 import { normTrackKey, tracks } from '../audio/tracks';
 import { activeTrack } from '../state/trk';
 import { DT2_FACE, DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
+import { PAD_FACE } from '../theme/base';
 
 /**
  * V.5.0 (2026-10-29, la face facon Digitakt du desktop) : les pages de FUNC + une touche de page, TEMPO (FUNC + TRIG),
@@ -146,8 +147,15 @@ export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'str
  * Les pages (les touches de page ; les listes des verrous les parcourent dans cet ordre). Au desktop depuis V.5.0 : SRC FLTR
  * AMP FX d'abord (les verrous se lisent comme avant), puis TRIG, MOD et les pages de FUNC.
  */
+/**
+ * Les noms des touches de la face (2026-11-10, la V.7.0 du site) : le telephone et les faces a pads du desktop (V.1.0 a
+ * V.3.0, V.7.0) ont VOICE, ENV et GLOBAL FX sur leurs touches, l'ecran dit les memes mots (il disait SRC, AMP et SEND FX,
+ * ceux de la face facon Digitakt) ; les pages, leurs onglets et leurs ids ne changent pas.
+ */
+const KEY_NAMES: boolean = PORTRAIT || PAD_FACE;
+const PAD_LABEL: Readonly<Partial<Record<RytmPageId, string>>> = { voice: 'VOICE', env: 'ENV' };
 const DT_PAGES: readonly { id: RytmPageId; label: string }[] = [
-  ...DT_PAGE_KEYS.filter((p) => p.id !== 'trig' && p.id !== 'mod').map((p) => ({ id: p.id, label: p.label })),
+  ...DT_PAGE_KEYS.filter((p) => p.id !== 'trig' && p.id !== 'mod').map((p) => ({ id: p.id, label: PAD_FACE ? (PAD_LABEL[p.id] ?? p.label) : p.label })),
   { id: 'trig', label: 'TRIG' },
   { id: 'mod', label: 'MOD' },
   ...DT_FUNC_PAGES,
@@ -164,7 +172,7 @@ const PAGE_CYCLE: readonly { id: RytmPageId }[] = PORTRAIT ? RYTM_PAGE_KEYS : DT
 export const HOME_MENU = ['sound', 'voice', 'fltr', 'env', 'fx'] as const;
 export type HomeMenuId = (typeof HOME_MENU)[number];
 // Les noms de la face V.5.0 au desktop (SRC, AMP) ; le telephone garde les siens
-export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = PORTRAIT ? { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' } : { sound: 'SOUND', voice: 'SRC', fltr: 'FLTR', env: 'AMP', fx: 'FX' };
+export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = KEY_NAMES ? { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' } : { sound: 'SOUND', voice: 'SRC', fltr: 'FLTR', env: 'AMP', fx: 'FX' };
 
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
 // FX au desktop (2026-10-27, decision P2-05, a revenir seule) : GLOBAL FX d'abord, le jeu des huit potards de la face
@@ -245,12 +253,12 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
 };
 /** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX, GLOBAL FX · DELAY, VOICE FX · DELAY. */
 // V.5.0 (2026-10-29) : au desktop les noms de la face facon Digitakt (SRC, AMP, SEND FX, MIXER) ; le telephone garde les siens
-const GFX = PORTRAIT ? 'GLOBAL FX' : 'SEND FX';
+const GFX = KEY_NAMES ? 'GLOBAL FX' : 'SEND FX';
 export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
-  voice: PORTRAIT ? 'VOICE' : 'SRC',
-  synth: PORTRAIT ? 'VOICE SYNTH' : 'SRC SYNTH',
+  voice: KEY_NAMES ? 'VOICE' : 'SRC',
+  synth: KEY_NAMES ? 'VOICE SYNTH' : 'SRC SYNTH',
   fltr: 'FLTR',
-  env: PORTRAIT ? 'ENV' : 'AMP',
+  env: KEY_NAMES ? 'ENV' : 'AMP',
   fxv: 'VOICE FX',
   fxg: GFX,
   fxdist: `${GFX} · DIST`,
@@ -286,7 +294,7 @@ export const tabWord = (t: RytmScreenId, inst: string | null): string =>
     : t === 'fxg'
       ? GFX
       : isFxDetail(t)
-        ? `${PORTRAIT ? 'GLOBAL' : 'SEND'} ${SCREEN_LABEL[t]}`
+        ? `${KEY_NAMES ? 'GLOBAL' : 'SEND'} ${SCREEN_LABEL[t]}`
         : isFxVoiceDetail(t)
           ? `${inst ?? 'VOICE'} ${SCREEN_LABEL[t]}`
           : SCREEN_LABEL[t];

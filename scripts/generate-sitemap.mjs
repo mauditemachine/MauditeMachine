@@ -45,7 +45,7 @@
 import { writeFileSync, readdirSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { ROOT, SITE, OG_IMAGE, loadDisco, loadGoodies, coverOf, inPublic } from './seo-shared.mjs';
+import { ROOT, SITE, OG_IMAGE, OG_STUDIO_IMAGE, BIO_SHORT, BIO_LONG, readJson, loadDisco, loadGoodies, coverOf, inPublic } from './seo-shared.mjs';
 import { MM_STUDIO_PAGES, MM_STUDIO_SHOTS, clusterOf } from './mm-studio-content.mjs';
 import { PATTERN_PAGES } from './mm-studio-patterns.mjs';
 
@@ -74,6 +74,9 @@ const ROUTES = [
   { path: '/mixtapes/', changefreq: 'monthly' },
   { path: '/contact/', changefreq: 'yearly' },
   { path: '/goodies/', changefreq: 'monthly' },
+  // les pages des plugins (2026-11-25) ; /mm-rytm/play/ et /mm-arp/play/ (noindex) n'y sont pas
+  { path: '/mm-rytm/', changefreq: 'monthly' },
+  { path: '/mm-arp/', changefreq: 'monthly' },
   { path: '/merch/', changefreq: 'monthly' },
   { path: '/studio/', changefreq: 'yearly' },
   // la page Radar de la v2
@@ -122,7 +125,7 @@ for (const t of loadDisco()) {
 /* ---------- images ---------- */
 
 const homeRoute = ROUTES.find((r) => r.path === '/');
-homeRoute.images = [OG_IMAGE.url];
+homeRoute.images = [OG_IMAGE.url, ...(inPublic('/press/mm-studio/og-mm-studio-card.jpg') ? [OG_STUDIO_IMAGE.url] : [])];
 const pressRoute = ROUTES.find((r) => r.path === '/press/');
 try {
   pressRoute.images = readdirSync(join(ROOT, 'public', 'press'))
@@ -214,18 +217,16 @@ writeFileSync(join(ROOT, 'public', 'sitemap.xml'), xml, 'utf8');
 
 /* ---------- llms.txt dynamique (2026-11-03) ---------- */
 const disco = loadDisco();
+const upcomingEvents = (Array.isArray(readJson('public/events.json', [])) ? readJson('public/events.json', []) : [])
+  .filter((e) => e && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && e.date >= TODAY)
+  .sort((a, b) => a.date.localeCompare(b.date));
 const patternEn = PATTERN_PAGES.filter((p) => p.lang === 'en' && p.path !== '/mm-studio/drum-patterns/');
 const llmsLines = [
   '# Maudite Machine',
   '',
-  '> Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
+  `> ${BIO_SHORT.en}`,
   '',
-  'Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
-  '',
-  'He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.',
-  '',
-  'He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).',
-  '',
+  ...BIO_LONG.en.flatMap((para) => [para, '']),
   'The home page of the website is MM-STUDIO, a 3D studio played in the browser; every section of the site also has a plain HTML page.',
   '',
   '## MM-STUDIO',
@@ -237,6 +238,7 @@ const llmsLines = [
   '- [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck',
   '- MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed',
   '- UNDO and REDO, presets saved in the browser, Dark and Light appearances',
+  '- Free VST3 plugins: [MM-RYTM](https://mauditemachine.com/mm-rytm/) (Mac and Windows, playable in the browser at https://mauditemachine.com/mm-rytm/play/) and [MM-ARP](https://mauditemachine.com/mm-arp/) (Mac, playable in the browser at https://mauditemachine.com/mm-arp/play/), sent by email',
   '- SHARE: the MM-RYTM beat as a link (https://mauditemachine.com/?m=rytm&b=...) that opens it, steps, sounds and effects included',
   '- [Drum patterns](https://mauditemachine.com/mm-studio/drum-patterns/): ten styles (acid house, dark disco, indie dance, minimal, rolling techno, techno, house, electro, EBM, italo disco), each with its 16-step grid and velocities, a MIDI file and a link that plays it on MM-RYTM; also in [French](https://mauditemachine.com/fr/mm-studio/rythmes/) and [Spanish](https://mauditemachine.com/es/mm-studio/ritmos/)',
   ...patternEn.map((p) => {
@@ -271,14 +273,17 @@ const llmsLines = [
     return `- [${t.title}](${SITE}/tracks/${t.id}/)${proj}${year ? ` - ${year}` : ''}${label}`;
   }),
   '',
+  ...(upcomingEvents.length
+    ? ['## Upcoming shows', '', ...upcomingEvents.map((e) => `- ${e.date}: ${e.title} (${e.location || 'TBA'})`), '']
+    : []),
   '## Facts',
   '',
   '- Genre: indie dance and dark disco with a psychedelic edge (short: Indie Dance, Dark Disco)',
-  '- Based in: Montpellier, south of France, after fifteen years in the Montréal underground',
+  '- Territory: International (worldwide club and festival bookings; Canadian and French EU passports)',
   '- Formats: DJ set (90 minutes to 4 hours) and hybrid live (60 to 75 minutes)',
   '- Label: VRSTL Records (founder and A&R)',
-  '- Collective: member of 8day, Montréal',
-  '- Available for: club and festival dates across France, Spain and the rest of Europe, and still playing Canada',
+  '- Collective: member of 8day',
+  '- Available for: club and festival dates worldwide',
   '- Latest album: Limbos, VRSTL Records, October 2025 (9 tracks)',
   '- Latest single: Voodoo, VRSTL Records, February 2026',
   '- Played: Techno Parade Paris, OKAMI Festival, Piknic Électronik, SAT, Igloofest afters, Groove and Bass',

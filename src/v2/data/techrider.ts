@@ -137,7 +137,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Departure',
-            text: 'Canada, France or Spain.',
+            text: 'International (Worldwide).',
           },
           {
             term: 'Flights',
@@ -286,7 +286,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Départ',
-            text: 'Canada, France ou Espagne.',
+            text: 'International (Monde entier).',
           },
           {
             term: 'Vols',

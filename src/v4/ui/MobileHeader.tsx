@@ -12,20 +12,26 @@ import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { ShareButton, UndoButton, goHome, initialMenuOpen } from './Header';
 import { MenuSheet } from './MenuSheet';
+import { arrival } from '../state/arrival';
+import { GoodiesButton, useArrivalMenu } from './Header';
 
 interface Props {
   getStage: () => Stage | null;
 }
 
 export const MobileHeader: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(initialMenuOpen);
+  const [menu, setMenuRaw] = useState(() => initialMenuOpen() && !arrival.active());
+  const setMenu = useArrivalMenu(setMenuRaw);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const burgerRef = useRef<HTMLButtonElement>(null);
 
-  const close = useCallback((refocus: boolean): void => {
-    setMenu(false);
-    if (refocus) burgerRef.current?.focus({ preventScroll: true });
-  }, []);
+  const close = useCallback(
+    (refocus: boolean): void => {
+      setMenu(false);
+      if (refocus) burgerRef.current?.focus({ preventScroll: true });
+    },
+    [setMenu]
+  );
 
   return (
     <>
@@ -44,6 +50,7 @@ export const MobileHeader: React.FC<Props> = ({ getStage }) => {
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={104} height={23} />
         </a>
         {/* SHARE (2026-10-21, state/share.ts) et UNDO (2026-10-11, state/undo.ts) : a cote du menu, l'icone seule */}
+        <GoodiesButton compact onPick={() => setMenu(false)} />
         <ShareButton compact />
         <UndoButton compact />
         <button

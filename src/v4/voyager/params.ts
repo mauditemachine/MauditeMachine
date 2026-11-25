@@ -76,10 +76,12 @@
 
 // v50 : la meme lecture que PLUGIN_ARP (theme/base.ts), sans l'importer : ce fichier est lu tel quel par Node
 // (plugin/mm-arp/presets/build.mjs, tests/fx-ref.mjs, tests/params-ref.mjs), ou theme/base ne se resout pas.
+// 2026-11-25 : /mm-arp/play/ aussi (le plugin dans le navigateur, theme/base.ts PLUGIN_WEB_PATH).
 const PLUGIN_ARP: boolean = (() => {
   if (typeof window === 'undefined') return false;
   try {
     if ((window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__ === 'arp') return true;
+    if ((window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__ === undefined && /^\/mm-arp\/play\/?$/i.test(window.location.pathname)) return true;
     return new URLSearchParams(window.location.search).get('plugin') === 'arp';
   } catch {
     return false;

@@ -1,10 +1,13 @@
 /** Les INFOS du MM-RYTM : les mots partages par les cartes (desktop et telephone, phrases de verrou, espaces du francais). Deplaces de rytm/infos.ts en P0. */
 
 import { BLOCKS_ARE_KNOBS, GLOBAL_ENCODERS } from '../../theme';
+import { PAD_FACE } from '../../theme/base';
 import type { RytmLockable } from './types';
 
 /** Le telephone : pas d'encodeurs sur la face, les blocs de l'ecran se glissent au doigt. */
-export const PHONE = BLOCKS_ARE_KNOBS;
+// 2026-11-10 (la V.7.0 du site) : les faces a pads du desktop ont les touches du telephone (VOICE, ENV, RUN/STOP, CLEAR, EDIT),
+// leurs cartes en gardent les mots
+export const PHONE = BLOCKS_ARE_KNOBS || PAD_FACE;
 /** La tape qui ouvre la page d'un FX (V.4.2, 2026-10-27) : au desktop l'ecran ne se touche plus, c'est celle de son potard. */
 export const TAP_KNOB = PHONE ? '' : ' ; au desktop, sur son potard';
 

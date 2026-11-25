@@ -1,0 +1,146 @@
+/* Le plugin MM-RYTM dans le navigateur (2026-11-25, WebPlugin.tsx) : la page entiere pour la face, une bande fine en haut */
+
+html.mm-webplugin-page,
+html.mm-webplugin-page body,
+html.mm-webplugin-page #root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0b0c;
+}
+
+.mm-webplugin-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+  padding: 0 16px;
+  background: rgba(11, 11, 12, 0.82);
+  border-bottom: 1px solid rgba(246, 241, 231, 0.1);
+  color: #f6f1e7;
+  font: 500 12px/1 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(6px);
+}
+
+.mm-webplugin-bar a {
+  color: #f6f1e7;
+  text-decoration: none;
+}
+
+.mm-webplugin-bar a:hover,
+.mm-webplugin-bar a:focus-visible {
+  color: #f2c230;
+}
+
+.mm-webplugin-home {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.mm-webplugin-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(246, 241, 231, 0.62);
+}
+
+.mm-webplugin-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mm-webplugin-bar .mm-webplugin-get,
+.mm-webplugin-phone .mm-webplugin-get {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #f2c230;
+  color: #0b0b0c;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.mm-webplugin-bar .mm-webplugin-get:hover,
+.mm-webplugin-bar .mm-webplugin-get:focus-visible {
+  background: #ff6a13;
+  color: #fff;
+}
+
+.mm-webplugin-phone {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 12vh 16px;
+  color: #f6f1e7;
+  font: 400 17px/1.5 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  overflow: auto;
+}
+
+.mm-webplugin-phone h1 {
+  margin: 8px 0 16px;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.mm-webplugin-phone a {
+  color: #f6f1e7;
+}
+
+.mm-webplugin-phone .mm-webplugin-get {
+  height: 44px;
+  padding: 0 20px;
+  text-decoration: none;
+}
+
+.mm-webplugin-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(246, 241, 231, 0.62);
+}
+
+/* Le son (WebArpPlugin.tsx, WebRytmPlugin.tsx) : cliquer pour le lancer (sans prendre le clic), ou le moteur pas encore en
+   ligne. Venu de arp/web/webarp.css (2026-11-25) : les deux pages s'en servent */
+.mm-webplugin-notice {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  z-index: 21;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 16px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(11, 11, 12, 0.82);
+  border: 1px solid rgba(246, 241, 231, 0.14);
+  color: #f6f1e7;
+  font: 500 12px/1.4 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: 0.06em;
+  text-align: center;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.mm-webplugin-notice[data-warn='1'] {
+  border-color: rgba(242, 194, 48, 0.5);
+  pointer-events: auto;
+}
+
+.mm-webplugin-notice a {
+  color: #f2c230;
+}

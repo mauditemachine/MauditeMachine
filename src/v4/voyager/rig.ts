@@ -170,8 +170,8 @@ export class VoyagerRig {
     this.lid.add(this.deckSilk.mesh);
     this.panel.add(this.panelSilk.mesh);
 
-    this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
-    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
+    this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile, anisotropy: opts.anisotropy });
+    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed, ...this.keys.labelMeshes());
     if (this.keys.btnHalos) this.lid.add(this.keys.btnHalos);
     // v43 (le plugin) : une touche allumee : sa LED et son nom (en accent) suivent, sur la serigraphie du plateau
     if (PLUGIN_ARP)
@@ -671,6 +671,7 @@ export class VoyagerRig {
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     this.deckSilk.draw();
+    this.keys.drawLabels();
     this.panelSilk.draw();
     this.back.draw();
     this.pcb.redraw();

@@ -2,7 +2,8 @@
  * La face du plugin MM-RYTM (2026-11-08, Mika : "lance la WebView avec ma vraie face", plugin/mm-rytm) : la meme machine
  * que le site (la scene three.js, ses touches, ses potards, son ecran, son clavier), seule, vue de dessus, dans la
  * fenetre du VST3. Tout ce qui est du site reste dehors (en-tete, Dock, sections, press kit, SoundCloud, autres
- * machines, intro). Le son du navigateur est coupe : il vient du plugin (plugin/bridge.ts).
+ * machines, intro). Le son du navigateur est coupe : il vient du plugin (plugin/bridge.ts). Dans le navigateur
+ * (/mm-rytm/play/, plugin/WebRytmPlugin.tsx, 2026-11-25), la meme face et le meme pont : le son du VST3 en WebAssembly.
  *
  * Monte comme src/v4/index.tsx (V4Shell), en plus court : la racine .v4-root > .v4-stage > .v4-canvas-host, la couche
  * de saisie (HitLayer), les jumeaux (Twins), l'ecran accessible (Lcd), le dialogue des noms de presets.

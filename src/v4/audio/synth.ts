@@ -345,6 +345,24 @@ export const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume 
 const engineMsg = (v: Readonly<VoyValues>, bpm: number = pattern.get().bpm): Record<string, number> => ({ ...engineParams(v), bpm, outLevel: volGain(v) });
 
 /**
+ * Les reglages vers le moteur. Au telephone (2026-11-16, Mika sur iPhone : "quand j'utilise Rytm et Arp le son bogue",
+ * surtout quand il touche) : au plus un message toutes les PARAMS_GAP_MS, le dernier toujours envoye (une minuterie de
+ * queue), comme RATE et DEPTH du chorus (chorus.ts). Un potard au doigt postait l'objet entier (une cinquantaine de
+ * reglages) a chaque evenement tactile, 60 a 120 fois par seconde, lu sur le fil audio ; le moteur glisse d'un message
+ * a l'autre (ramps, de 2 a 50 ms d'ecart), le son ne saute pas. Les effets (applyFx) suivent le geste a chaque
+ * evenement ; l'ordi ne change pas.
+ */
+const PARAMS_GAP_MS = 33;
+let paramsAt = -Infinity;
+let paramsTimer: ReturnType<typeof setTimeout> | undefined;
+const postParams = (): void => {
+  paramsTimer = undefined;
+  if (!sg) return;
+  paramsAt = performance.now();
+  sg.node.port.postMessage({ type: 'params', params: engineMsg(voyParams.get()) });
+};
+
+/**
  * Les reglages du moteur tels que engineMsg les envoie, sans le tempo (2026-11-09, le plugin MM-ARP : plugin/arp/bridge.ts
  * les met dans son programme ; le C++ prend le tempo d'Ableton ou celui du programme).
  */
@@ -353,7 +371,14 @@ export const engineState = (v: Readonly<VoyValues>): Record<string, number> => (
 voyParams.subscribe(() => {
   if (!sg) return;
   applyFx(sg, voyParams.get());
-  sg.node.port.postMessage({ type: 'params', params: engineMsg(voyParams.get()) });
+  if (!coarse()) {
+    postParams();
+    return;
+  }
+  if (paramsTimer !== undefined) return;
+  const wait = paramsAt + PARAMS_GAP_MS - performance.now();
+  if (wait <= 0) postParams();
+  else paramsTimer = setTimeout(postParams, wait);
 });
 
 /* SIDECHAIN (2026-10-04) : la prise du MM-ARP baisse a chaque kick du MM-RYTM (audio/duck.ts) */

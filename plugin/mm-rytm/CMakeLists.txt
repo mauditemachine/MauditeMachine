@@ -6,6 +6,9 @@ project(MM_RYTM VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
+# Windows : le runtime C++ de MSVC lie dans le plugin (/MT), sinon un PC sans le "Visual C++ Redistributable" ne le
+# charge pas (MSVCP140.dll, VCRUNTIME140.dll). Pour toutes les cibles, JUCE et le DSP compris.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 
@@ -20,8 +23,23 @@ target_link_libraries(mm_compare PRIVATE mm_dsp)
 add_executable(mm_engine_test tests/engine_test.cpp)
 target_link_libraries(mm_engine_test PRIVATE mm_dsp)
 add_test(NAME engine COMMAND mm_engine_test)
+# Les tests posent un mm::Engine (1,6 Mo) sur la pile : MSVC n'en donne que 1 Mo par defaut (Linux et macOS 8 Mo).
+# Le plugin, lui, le garde dans le processeur, sur le tas.
+if(MSVC)
+  target_link_options(mm_engine_test PRIVATE /STACK:16777216)
+  target_link_options(mm_compare PRIVATE /STACK:16777216)
+endif()
 
 if(NOT MM_BUILD_PLUGIN)
+  # 2026-11-25 : le moteur du navigateur (web-engine/RytmEngine.cpp : le processeur du VST3 sans JUCE, l'API C du wasm
+  # de /mm-rytm/play/) et son banc (la banque de public/samples/rytm, le mode du navigateur contre celui du VST3)
+  add_library(mm_engine_web STATIC web-engine/RytmEngine.cpp)
+  target_include_directories(mm_engine_web PUBLIC web-engine)
+  target_link_libraries(mm_engine_web PUBLIC mm_dsp)
+  add_executable(mm_engine_web_test tests/engine_web_test.cpp)
+  target_link_libraries(mm_engine_web_test PRIVATE mm_engine_web)
+  target_compile_definitions(mm_engine_web_test PRIVATE MM_SAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../public/samples/rytm")
+  add_test(NAME engine_web COMMAND mm_engine_web_test)
   return()
 endif()
 
@@ -48,6 +66,8 @@ juce_add_plugin(MM_RYTM
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS TRUE
   VST3_CATEGORIES Instrument Drum
+  # Windows (2026-11-24) : la face passe par WebView2, lie en statique (pas de WebView2Loader.dll a cote du .vst3)
+  NEEDS_WEBVIEW2 TRUE
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Les samples de Mika (public/samples/rytm), embarques dans le binaire
@@ -74,7 +94,8 @@ target_compile_definitions(MM_RYTM PUBLIC
   JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
-  JUCE_DISPLAY_SPLASH_SCREEN=0)
+  JUCE_DISPLAY_SPLASH_SCREEN=0
+  JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 
 target_link_libraries(MM_RYTM
   PRIVATE mm_dsp mm_samples mm_web

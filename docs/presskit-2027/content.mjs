@@ -27,7 +27,7 @@ export const C = {
   folio: 'Maudite Machine · Press kit 2027',
 
   /* 1. couverture et identite */
-  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
+  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.',
   stats: [
     ['15+', 'Years active'],
     ['21', 'EPs on VRSTL'],
@@ -38,13 +38,12 @@ export const C = {
     ['Artist', 'Maudite Machine (Michael “Mika” Sanchez)'],
     ['Genre', 'Indie Dance, Dark Disco'],
     ['Formats', 'DJ set (CDJ) · Hybrid live (synths and grooveboxes)'],
-    ['Base', 'Montpellier, France'],
-    ['Roots', 'Montréal, Canada'],
-    ['Languages', 'French · English · Spanish'],
+    ['Territory', 'International'],
     ['Passports', 'Canada · France (EU)'],
+    ['Languages', 'French · English · Spanish'],
     ['Students taught', '70+'],
     ['Label', 'VRSTL Records, founder and A&R'],
-    ['Collective', '8day, Montréal'],
+    ['Collective', '8day'],
     ['Latest album', 'Limbos, VRSTL Records, Oct. 2025'],
     ['Latest single', 'Voodoo, VRSTL Records, Feb. 2026'],
     ['Featured mix', 'Mixtape 39, Groove & Bass 2026 (1 h 29)'],
@@ -52,9 +51,9 @@ export const C = {
 
   /* 2. parcours et preuves */
   bioTitle: 'Background',
-  bioLead: 'Fifteen years in the Montréal underground',
+  bioLead: 'Fifteen years in the underground',
   bioLong: [
-    'Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
+    'Maudite Machine is an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
     'He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.',
     'He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).',
   ],
@@ -95,7 +94,7 @@ export const C = {
     'Akufen', 'D-Nox', 'Perfect Stranger', 'Riva Starr', 'Alle Farben', 'FM Radio Gods', 'Tom Baker', 'Kassian', 'Mateo Murphy',
   ],
   labelTitle: 'VRSTL Records',
-  labelText: 'Independent label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. Montréal, Canada.',
+  labelText: 'Independent label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.',
   rosterTitle: 'Roster',
   roster: ['Julian Rocci', 'Alex Decker', 'Lealtica', 'Jabba2.3', 'Manüman', 'COACH', 'Maudite Machine'],
 
@@ -214,7 +213,7 @@ export const C = {
     [
       'Travel',
       [
-        'Departure: Canada, France or Spain.',
+        'Departure: International (Worldwide).',
         'Flights: economy class, booked by the promoter and confirmed at least 3 weeks before the show. The artist travels alone.',
         'Ground transport: airport to hotel, hotel to venue and back, arranged by the promoter.',
         'Hotel: 3 stars minimum, single room, non smoking, quiet floor. Late check-out when the set ends after 4 am.',

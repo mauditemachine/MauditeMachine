@@ -22,8 +22,7 @@ import { bassExplode, explode, voyExplode, type ExplodeState } from '../state/ex
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
-  // L'ensemble a un nom (2026-10-05, Mika : "MM-STUDIO pour Maudite Machine Studio, juste pour donner un nom a tout ca")
-  { id: 'all', title: 'MM-STUDIO', sub: 'ALL THE MACHINES' },
+  // Plus de MM-STUDIO / ALL THE MACHINES (2026-11-09, Mika : "enlève aussi les autres studio") : la vue d'ensemble reste au logo
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   ...(BASS ? [{ id: 'bass' as const, title: 'MM-BASS', sub: 'BASSLINE GENERATOR' }] : []),
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
@@ -130,13 +129,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
                 }}
               >
                 <span className="v4-mdrawer-thumb" data-kind={it.id}>
-                  {it.id === 'all' ? (
-                    <>
-                      {MACHINES.map((id) => thumbs[id] && <img key={id} src={thumbs[id]} alt="" />)}
-                    </>
-                  ) : (
-                    thumbs[it.id] && <img src={thumbs[it.id]} alt="" />
-                  )}
+                  {it.id !== 'all' && thumbs[it.id] && <img src={thumbs[it.id]} alt="" />}
                 </span>
                 <span className="v4-mdrawer-name">{it.title}</span>
                 <span className="v4-mdrawer-sub">{it.sub}</span>

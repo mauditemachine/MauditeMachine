@@ -1,0 +1,7 @@
+@NAME@, by Maudite Machine (mauditemachine.com)
+
+Free to use in your music, commercial releases included.
+
+Please do not sell the plugin or put it up for download somewhere else. Share its page instead: https://mauditemachine.com/@SLUG@/
+
+The plugin is provided as is, without warranty of any kind. Maudite Machine is not liable for any damage or data loss that comes from using it.

@@ -1,8 +1,8 @@
 # Maudite Machine
 
-> Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.
+> Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.
 
-Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.
+Maudite Machine is an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.
 
 He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.
 
@@ -19,6 +19,7 @@ MM-STUDIO by Maudite Machine is free in the browser, with no account and nothing
 - [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck
 - MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed
 - UNDO and REDO, presets saved in the browser, Dark and Light appearances
+- Free VST3 plugins: [MM-RYTM](https://mauditemachine.com/mm-rytm/) (Mac and Windows, playable in the browser at https://mauditemachine.com/mm-rytm/play/) and [MM-ARP](https://mauditemachine.com/mm-arp/) (Mac, playable in the browser at https://mauditemachine.com/mm-arp/play/), sent by email
 - SHARE: the MM-RYTM beat as a link (https://mauditemachine.com/?m=rytm&b=...) that opens it, steps, sounds and effects included
 - [Drum patterns](https://mauditemachine.com/mm-studio/drum-patterns/): ten styles (acid house, dark disco, indie dance, minimal, rolling techno, techno, house, electro, EBM, italo disco), each with its 16-step grid and velocities, a MIDI file and a link that plays it on MM-RYTM; also in [French](https://mauditemachine.com/fr/mm-studio/rythmes/) and [Spanish](https://mauditemachine.com/es/mm-studio/ritmos/)
   - [Acid house drum pattern](https://mauditemachine.com/mm-studio/drum-patterns/acid-house/) · [FR](https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/) · [ES](https://mauditemachine.com/es/mm-studio/ritmos/acid-house/)
@@ -89,14 +90,18 @@ MM-STUDIO by Maudite Machine is free in the browser, with no account and nothing
 - [Fuck That](https://mauditemachine.com/tracks/fuck-that/) (Single / EP) - 2012
 - [Strange Effect](https://mauditemachine.com/tracks/strange-effect/) (Single / EP) - 2012
 
+## Upcoming shows
+
+- 2026-12-19: PRISM (Québec, QC)
+
 ## Facts
 
 - Genre: indie dance and dark disco with a psychedelic edge (short: Indie Dance, Dark Disco)
-- Based in: Montpellier, south of France, after fifteen years in the Montréal underground
+- Territory: International (worldwide club and festival bookings; Canadian and French EU passports)
 - Formats: DJ set (90 minutes to 4 hours) and hybrid live (60 to 75 minutes)
 - Label: VRSTL Records (founder and A&R)
-- Collective: member of 8day, Montréal
-- Available for: club and festival dates across France, Spain and the rest of Europe, and still playing Canada
+- Collective: member of 8day
+- Available for: club and festival dates worldwide
 - Latest album: Limbos, VRSTL Records, October 2025 (9 tracks)
 - Latest single: Voodoo, VRSTL Records, February 2026
 - Played: Techno Parade Paris, OKAMI Festival, Piknic Électronik, SAT, Igloofest afters, Groove and Bass

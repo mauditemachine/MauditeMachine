@@ -188,7 +188,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Who made it',
         paragraphs: [
-          'MM-STUDIO was designed and built by Mika, who records and plays as Maudite Machine: a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge and runs the label VRSTL Records.',
+          'MM-STUDIO was designed and built by Mika, who records and plays as Maudite Machine: an international DJ and producer. He plays indie dance and dark disco with a psychedelic edge and runs the label VRSTL Records.',
         ],
         items: ['[Press assets](/press/)', '[Contact and booking](/contact/)'],
       },
@@ -256,7 +256,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: "Qui l'a fait",
         paragraphs: [
-          "MM-STUDIO a été dessiné et construit par Mika, qui produit et joue sous le nom de Maudite Machine : DJ et producteur installé à Montpellier, dans le Sud de la France, après quinze ans dans l'underground montréalais. Il joue de l'indie dance et de la dark disco à tendance psychédélique et dirige le label VRSTL Records.",
+          "MM-STUDIO a été dessiné et construit par Mika, qui produit et joue sous le nom de Maudite Machine : DJ et producteur international. Il joue de l'indie dance et de la dark disco à tendance psychédélique et dirige le label VRSTL Records.",
         ],
         items: ['[Éléments presse](/press/)', '[Contact et booking](/contact/)'],
       },
@@ -324,7 +324,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Quién lo hizo',
         paragraphs: [
-          'MM-STUDIO lo diseñó y construyó Mika, que produce y pincha como Maudite Machine: DJ y productor con base en Montpellier, en el sur de Francia, tras quince años en el underground de Montreal. Pincha indie dance y dark disco con un toque psicodélico y dirige el sello VRSTL Records.',
+          'MM-STUDIO lo diseñó y construyó Mika, que produce y pincha como Maudite Machine: DJ y productor internacional. Pincha indie dance y dark disco con un toque psicodélico y dirige el sello VRSTL Records.',
         ],
         items: ['[Material de prensa](/press/)', '[Contacto y booking](/contact/)'],
       },
@@ -392,7 +392,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Who made it',
         paragraphs: [
-          'Mika designed and built MM-RYTM and the rest of MM-STUDIO. As Maudite Machine, he is a DJ and producer based in Montpellier and the founder of VRSTL Records.',
+          'Mika designed and built MM-RYTM and the rest of MM-STUDIO. As Maudite Machine, he is an international DJ and producer and the founder of VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO overview](/mm-studio/)',
@@ -460,7 +460,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: "Qui l'a fait",
         paragraphs: [
-          'Mika a dessiné et construit MM-RYTM et tout MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur à Montpellier et fondateur de VRSTL Records.',
+          'Mika a dessiné et construit MM-RYTM et tout MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur international et fondateur de VRSTL Records.',
         ],
         items: [
           "[MM-STUDIO, la vue d'ensemble](/fr/mm-studio/)",
@@ -528,7 +528,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Quién lo hizo',
         paragraphs: [
-          'Mika diseñó y construyó MM-RYTM y todo MM-STUDIO. Como Maudite Machine es DJ y productor en Montpellier y fundador de VRSTL Records.',
+          'Mika diseñó y construyó MM-RYTM y todo MM-STUDIO. Como Maudite Machine es DJ y productor internacional y fundador de VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO, vista general](/es/mm-studio/)',
@@ -597,7 +597,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Who made it',
         paragraphs: [
-          'Mika designed and built MM-ARP and the rest of MM-STUDIO. As Maudite Machine, he is a DJ and producer based in Montpellier and runs VRSTL Records.',
+          'Mika designed and built MM-ARP and the rest of MM-STUDIO. As Maudite Machine, he is an international DJ and producer and runs VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO overview](/mm-studio/)',
@@ -664,7 +664,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: "Qui l'a fait",
         paragraphs: [
-          'Mika a dessiné et construit MM-ARP et le reste de MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur, installé à Montpellier, et dirige VRSTL Records.',
+          'Mika a dessiné et construit MM-ARP et le reste de MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur international et dirige VRSTL Records.',
         ],
         items: [
           "[MM-STUDIO, la vue d'ensemble](/fr/mm-studio/)",
@@ -731,7 +731,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Quién lo hizo',
         paragraphs: [
-          'Mika diseñó y construyó MM-ARP y el resto de MM-STUDIO. Como Maudite Machine es DJ y productor, con base en Montpellier, y dirige VRSTL Records.',
+          'Mika diseñó y construyó MM-ARP y el resto de MM-STUDIO. Como Maudite Machine es DJ y productor internacional y dirige VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO, vista general](/es/mm-studio/)',
@@ -800,7 +800,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Who made it',
         paragraphs: [
-          'Mika designed and built MM-DECKS and the rest of MM-STUDIO. As Maudite Machine, he is a DJ and producer based in Montpellier, playing DJ sets on CDJs or hybrid live sets, and runs VRSTL Records.',
+          'Mika designed and built MM-DECKS and the rest of MM-STUDIO. As Maudite Machine, he is an international DJ and producer, playing DJ sets on CDJs or hybrid live sets, and runs VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO overview](/mm-studio/)',
@@ -867,7 +867,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: "Qui l'a fait",
         paragraphs: [
-          'Mika a dessiné et construit MM-DECKS et tout MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur à Montpellier, en DJ set sur CDJ ou en live hybride, et dirige VRSTL Records.',
+          'Mika a dessiné et construit MM-DECKS et tout MM-STUDIO. Sous le nom de Maudite Machine, il est DJ et producteur international, en DJ set sur CDJ ou en live hybride, et dirige VRSTL Records.',
         ],
         items: [
           "[MM-STUDIO, la vue d'ensemble](/fr/mm-studio/)",
@@ -934,7 +934,7 @@ export const MM_STUDIO_PAGES = [
       {
         h2: 'Quién lo hizo',
         paragraphs: [
-          'Mika diseñó y construyó MM-DECKS y todo MM-STUDIO. Como Maudite Machine es DJ y productor en Montpellier, pincha en DJ set con CDJ o en live híbrido, y dirige VRSTL Records.',
+          'Mika diseñó y construyó MM-DECKS y todo MM-STUDIO. Como Maudite Machine es DJ y productor internacional, pincha en DJ set con CDJ o en live híbrido, y dirige VRSTL Records.',
         ],
         items: [
           '[MM-STUDIO, vista general](/es/mm-studio/)',

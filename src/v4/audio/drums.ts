@@ -59,7 +59,7 @@ import { FLAGS } from '../state/flags';
 import { SWING, XFADE_UI, type Inst } from '../theme';
 import { LEGACY_KEYS, LEGACY_POLY_MAX, TRACK_KEYS, isLegacyTrack, tracks, type TrackKey, type TracksChange } from './tracks';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
-import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
+import { DIST_OPEN_HZ, DIST_TRIM, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
 import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, type Steps, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import type { KitKnob, KitKnobs, KitModel, KitOverride, Layer } from './kit';
 import { loadSample, sampleByKey, samplePcm, sampleStats, sampleStatus, samplesOf, samplesVersion } from './samples';
@@ -576,7 +576,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     pads.connect(lvl);
     kickTone = buildTone(c, lvl, o.tone ?? tone);
   }
-  const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive, fxValue(fs, 'xtone'));
+  // 2026-11-10 (la DIST du gros hardcore, fx.ts DIST_TRIM) : le bus des voix baisse plus que la voie du kick
+  const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive, fxValue(fs, 'xtone'), DIST_TRIM.pads);
   // Le DIST global passe aussi sur le kick depuis le 2026-10-18 (Mika : "le dist global doit fonctionner aussi pour le
   // kick") : le meme etage parallele sur sa voie, avant son TONE ; CHORUS, DELAY et REVERB globaux restent hors du kick
   // (le kick double du 2026-10-08). A DIST 0 l'etage est en bypass reel : le chemin et le niveau d'avant.

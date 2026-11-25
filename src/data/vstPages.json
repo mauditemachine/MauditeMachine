@@ -1,0 +1,36 @@
+{
+  "_doc": "Les pages des plugins (2026-11-25) : /mm-rytm/ et /mm-arp/. Lu par src/v4/ui/sections/PluginPage.tsx et scripts/prerender-seo.mjs. Les systemes et les zips : public/data/vst.json.",
+  "mmrytm": {
+    "section": "mmrytm",
+    "plugin": "rytm",
+    "machine": "mm808",
+    "image": "/images/vst/mm-rytm.webp",
+    "alt": "MM-RYTM, the drum machine by Maudite Machine",
+    "lead": "The drum machine of this site, as a free VST3 plugin, with the same face and the same sound. Build your beats in Ableton Live or any VST3 host, sequenced by your DAW or by its own clock.",
+    "features": [
+      "16 tracks, up to 64 steps, swing and velocities",
+      "Nine synth engines (909, 808 and MM kits) and a sample layer on every track",
+      "Parameter locks, conditional trigs, probability, micro timing and retrigs",
+      "Filter, envelope, tone, distortion and chorus per track; delay, reverb, glue and limiter on the master",
+      "Two LFOs per voice and a crossfader between scenes A and B",
+      "Follows your DAW transport, plays GM MIDI notes, saves everything in your project"
+    ],
+    "web": "/mm-rytm/play/"
+  },
+  "mmarp": {
+    "section": "mmarp",
+    "plugin": "arp",
+    "machine": "voy",
+    "image": "/images/vst/mm-arp.webp",
+    "alt": "MM-ARP, the synthesizer and arpeggiator by Maudite Machine",
+    "lead": "The synth and arpeggiator of this site, as a free VST3 plugin, with the same face. Chords, arpeggios and basslines that lock to your DAW tempo.",
+    "features": [
+      "Two oscillators, a sub and a ladder filter, ported line by line from the web synth",
+      "Arpeggiator and chord pads, timed to your DAW position",
+      "Juno style chorus, ping-pong and tape delay, reverb",
+      "Factory presets for bass, acid, sequences and chords; save your own",
+      "Every knob is a host parameter: automate it, map it to your controller"
+    ],
+    "web": "/mm-arp/play/"
+  }
+}

@@ -14,6 +14,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { BOOKING_CONTACTS, type BookingContact } from '../v2/data/contacts';
 import { BEADS, fmtTime, type Bead } from '../v3/data/beads';
 import { GOODIES, type GoodieCategory, type GoodieItem } from '../data/goodies';
+import TRACK_COVERS from './data/covers.json';
 import { LABEL_URL } from './theme';
 
 export { SOCIALS, type Social, type SocialId } from './data/socials';
@@ -35,6 +36,11 @@ export interface PlayItem {
    */
   buy: string | null;
   track: V2Track;
+  /**
+   * La pochette (2026-11-13, le lecteur du telephone) : celle de la sortie Bandcamp du morceau (public/images/covers,
+   * npm run covers:tracks), l'artwork d'une mixtape ; null sans image.
+   */
+  cover: string | null;
 }
 
 /**
@@ -59,6 +65,7 @@ const item = (b: Bead, meta: string): PlayItem => ({
   link: b.track.link,
   buy: b.kind === 'track' ? buyUrl(b.track.link) : null,
   track: b.track,
+  cover: b.kind === 'track' ? ((TRACK_COVERS as Record<string, string>)[b.track.id] ?? null) : b.mixtape?.artwork ? encodeURI(b.mixtape.artwork) : null,
 });
 
 /** Melange de Fisher-Yates (une nouvelle copie). */
@@ -309,7 +316,7 @@ export const FEATURED_MERCH = {
  */
 export const MENU_ABOUT = {
   kicker: 'Behind the machines',
-  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
+  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.',
   note: 'I built this website and every machine on it myself. If you like playing with them, you can support me: grab a tee or the new hoodie in the shop, or pick up some music on Bandcamp. Thank you!',
   sign: 'Mika',
 } as const;

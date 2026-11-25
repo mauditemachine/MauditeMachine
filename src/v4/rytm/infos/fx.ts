@@ -10,8 +10,8 @@ export const RAW_FX = {
     section: 'GLOBAL FX',
     title: 'DIST',
     lock: 'global',
-    text: `La saturation parallèle de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En montant, le sec et le saturé baissent ensemble : le kick et la caisse claire gardent leur niveau, les sons plus doux gagnent de la densité. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).`,
-    tip: "15 à 25 % pour souder le kick, les charleys, le clap et les toms en indie dance ; plus haut, le kick grogne.",
+    text: `La distorsion de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix, sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En bas de course, une saturation mêlée au son sec. En montant, le gain grimpe jusqu'à 40 dB (100 fois) dans un écrêtage dur, le son sec s'efface (plus rien de sec à fond) et un mordant vers 2,5 kHz s'ajoute : le kick tient comme une onde carrée jusqu'au bout de sa queue, le reste du kit racle. À fond tout sort plus fort : le corps du kick 2 dB au-dessus, les charleys et le clap 6 à 8 dB. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).`,
+    tip: "15 à 25 % pour souder le kick, les charleys, le clap et les toms en indie dance ; vers 50 %, le kick grogne ; à fond, le gros kick de hardcore, sale et tenu. TONE vers 4 kHz si ça racle trop.",
   },
   chorus: {
     section: 'GLOBAL FX',
@@ -77,8 +77,8 @@ export const RAW_FX = {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: `Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc${TAP_KNOB}) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. À fond avec MAKEUP AUTO, le niveau moyen reste celui du son sec, mais les attaques qui passent avant ATTACK sortent environ 1 dB plus haut : le limiteur de sortie les tient.`,
-    tip: "Pour coller un kit dark disco : RATIO 4:1, ATTACK 10 à 30 ms, RELEASE AUTO, THRESH descendu jusqu'à 3 à 6 dB sur l'aiguille, puis COMP vers 60 % : le corps se serre, la frappe reste devant.",
+    text: `Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP dit combien il serre : à 0 (OFF) le son passe tel quel, au bit près ; en montant, il pousse le son dans le compresseur (jusqu'à 14 dB de plus à fond : le seuil est atteint plus tôt), rend ce gain à la sortie et mêle le son compressé au son sec (les trois quarts à mi-course, tout à fond). Le corps garde son niveau, tout ce qui est plus bas monte (les queues, la REVERB, les charleys) : le kit se densifie et pompe. Sa page (une tape sur son bloc${TAP_KNOB}) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. Le son compressé est plafonné à 0 dB : aucune crête au-dessus de celles du son sec. À fond aux réglages de départ, le niveau moyen monte d'environ 5 dB.`,
+    tip: "Pour coller un kit dark disco : RATIO 4:1, ATTACK 10 à 30 ms, RELEASE AUTO, puis COMP vers 40 à 60 % : le corps se serre, la frappe reste devant ; à fond, le kit pompe franchement.",
   },
 
   /* ---------- les pages des FX globaux (2026-10-10) : leurs reglages ---------- */

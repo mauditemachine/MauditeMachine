@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>@NAME@</title>
+    <background file="background.tiff" mime-type="image/tiff" alignment="bottomleft" scaling="none"/>
+    <background-darkAqua file="background-dark.tiff" mime-type="image/tiff" alignment="bottomleft" scaling="none"/>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <license file="license.txt" mime-type="text/plain"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <options customize="never" require-scripts="false" hostArchitectures="x86_64,arm64"/>
+    <domains enable_localSystem="true" enable_anywhere="false" enable_currentUserHome="false"/>
+    <allowed-os-versions>
+        <os-version min="11.0"/>
+    </allowed-os-versions>
+    <choices-outline>
+        <line choice="default">
+            <line choice="@ID@"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="@ID@" visible="false">
+        <pkg-ref id="@ID@"/>
+    </choice>
+    <pkg-ref id="@ID@" version="@VER@" onConclusion="none">component.pkg</pkg-ref>
+</installer-gui-script>

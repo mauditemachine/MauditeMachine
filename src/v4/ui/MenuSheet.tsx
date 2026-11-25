@@ -33,7 +33,9 @@ import { section } from '../state/section';
 import { AMark } from './AMark';
 import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
-import { HOOD_LINKS, PAGE_LINKS, goHome, openHood } from './Header';
+import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
+import { arrival } from '../state/arrival';
+import type { PageId, SectionId } from '../theme';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { boot } from '../state/boot';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
@@ -56,9 +58,6 @@ const SITES: readonly { id: string; label: string; href: string; icon: string; c
 ];
 
 const BANDCAMP = SOCIALS.find((x) => x.id === 'bandcamp');
-
-/** La page statique de MM-STUDIO (2026-10-11) : un vrai chargement, elle est hors de la machine. */
-const MM_STUDIO_PAGE = '/mm-studio/';
 
 /** Le store.json du hoodie se lit quand la page respire, pour que l'encart soit la a la premiere ouverture. */
 const PREFETCH_MS = 2500;
@@ -128,7 +127,8 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
     const first = !didMount.current;
     didMount.current = true;
     if (!open) return undefined;
-    if (!first) ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
+    // 2026-11-11 : ouvert par l'arrivee du site (state/arrival.ts), pas de focus non plus (le meme cadre jaune)
+    if (!first && !arrival.active()) ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
@@ -146,7 +146,8 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
 
   /** SHOP et l'encart : MERCH, ouverte (jamais refermee comme le fait sa pastille deja allumee). */
   const shop = pick(() => openSection('merch'));
-  const n = PAGE_LINKS.length;
+  const links = PAGE_LINKS;
+  const n = links.length;
 
   return (
     <nav ref={ref} id="v4-mmenu" className="v4-mmenu" data-variant={variant} aria-label="Main" hidden={!open}>
@@ -154,23 +155,31 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
         <AppearanceToggle />
       </div>
       <ol className="v4-mm-pages">
-        {PAGE_LINKS.map((l, i) => {
-          const isStudio = l.id === 'mmstudio';
+        {links.map((l, i) => {
+          const inner = (
+            <>
+              <span className="v4-mm-num" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span className="v4-mm-label">
+                {l.label}
+                {l.badge && <span className="v4-mm-badge">{l.badge}</span>}
+              </span>
+              <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
+            </>
+          );
+          const isPage = l.id !== 'mmrytm' && l.id !== 'mmarp' && l.id !== 'goodies';
           return (
-            <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties}>
+            <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties} data-badge={l.badge ? '1' : undefined}>
               <button
                 type="button"
                 className="v4-mm-page"
-                data-active={!isStudio && opened === l.id ? '1' : '0'}
-                aria-expanded={!isStudio ? opened === l.id : undefined}
-                aria-controls={!isStudio ? `v4-section-${l.id}` : undefined}
-                onClick={pick(() => (l.id === 'mmstudio' ? goHome(getStage()) : page(l.id, getStage())))}
+                data-active={opened === l.id ? '1' : '0'}
+                aria-expanded={opened === l.id}
+                aria-controls={`v4-section-${l.id}`}
+                onClick={pick(() => (isPage ? page(l.id as PageId, getStage()) : openSection(l.id as SectionId)))}
               >
-                <span className="v4-mm-num" aria-hidden="true">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="v4-mm-label">{l.label}</span>
-                <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
+                {inner}
               </button>
             </li>
           );
@@ -257,12 +266,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
               <Icon name="fa-solid fa-arrows-rotate" />
               <span>Reset view</span>
             </button>
-            {/* 2026-10-11 (referencement) : la page qui explique MM-STUDIO, au pied a cote de RESET VIEW,
-                hors du mot signe de Mika ; meme ligne, rien d'autre ne bouge dans le menu */}
-            <a className="v4-mmenu-reset v4-mmenu-howto" href={MM_STUDIO_PAGE}>
-              <Icon name="fa-solid fa-circle-info" />
-              <span>How MM-STUDIO works</span>
-            </a>
+            {/* Plus de "How MM-STUDIO works" (2026-11-09, Mika : "enlève aussi les autres studio") ; /mm-studio/ reste en ligne */}
           </div>
         </div>
       </div>

@@ -101,7 +101,7 @@ export const RAW_SOUND = {
     section: 'VOICE FX',
     title: 'DIST',
     lock: 'yes',
-    text: "La saturation de la voix choisie, en parallèle : une copie saturée (tanh, de 1 à 13 fois le gain) se mélange au son sec, qui baisse d'autant ; à fond, 85 % de saturé pour 15 % de sec. En montant, le sec et le saturé baissent ensemble : un kick ou une caisse claire garde son niveau, un son plus doux (charleys, cymbale) gagne surtout de la densité. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé. Verrouillée sur un pas, elle tient jusqu'au coup suivant de la voix. Sa page (une tape sur ce bloc) montre aussi TONE, le passe-bas après la saturation : il est commun à toutes les DIST du MM-RYTM, celle de la machine et celles des voix.",
+    text: "La distorsion de la voix choisie : en bas de course, une saturation mêlée au son sec ; en montant, le gain grimpe jusqu'à 40 dB (100 fois) dans un écrêtage dur, le son sec s'efface (plus rien de sec à fond) et un mordant vers 2,5 kHz s'ajoute. Un kick tient comme une onde carrée jusqu'au bout de sa queue, un son bref (charleys, clap) racle et sort nettement plus fort. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé. Verrouillée sur un pas, elle tient jusqu'au coup suivant de la voix. Sa page (une tape sur ce bloc) montre aussi TONE, le passe-bas après la saturation : il est commun à toutes les DIST du MM-RYTM, celle de la machine et celles des voix.",
     tip: 'Un peu de DIST sur la caisse claire et le clap (20 à 30 %) : du mordant indie dance sans toucher au kick.',
     voice: {
       bd: { tip: 'Sur BD, c’est la seule DIST qui touche le kick (la globale ne le voit pas). Avec DRIVE (VOICE SYNTH), dose-la peu.' },

@@ -283,7 +283,8 @@ export class KeyLabelAtlas {
             const capAlt = (s.cap ?? KEY_LABEL.cap) * u * k0 * kAlt;
             const wAlt = trackedWidth(ctx, s.altText, sizeAlt, weight, s.tracking);
             const baseAlt = ca.y + ca.h / 2 + capAlt / 2;
-            ctx.fillStyle = lit ? DARK_INK : altOrange;
+            // Le nom secondaire d'un pad (CLOSE sur OPEN, 2026-11-13) : l'encre du nom, pas l'orange de FUNC
+            ctx.fillStyle = lit ? DARK_INK : s.group === 'pad' || s.group === 'vbtn' ? this.ink(s, false) : altOrange;
             drawTracked(ctx, s.altText, ca.x + (ca.w - wAlt) / 2, baseAlt, sizeAlt, weight, s.tracking);
           }
         }

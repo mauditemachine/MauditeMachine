@@ -49,6 +49,7 @@ import { func } from '../state/func';
 import { dtFace } from '../state/dtFace';
 import { patterns } from '../state/patterns';
 import { clock, clockDebug, type ClockDebug } from '../audio/clock';
+import { tracks } from '../audio/tracks';
 import { audioDebug, type AudioDebug } from '../audio/drums';
 import { pattern, type StoredPattern } from '../audio/pattern';
 import { scDebug, type ScDebug, type ScState } from '../audio/soundcloud';
@@ -188,6 +189,8 @@ export interface V4Debug extends AudioLaneDebug, FaceLaneDebug, InputLaneDebug, 
   readonly clock: ClockDebug;
   /** le store du motif (select, toggle, clear, setBpm, flush), pour les tests */
   readonly pattern: typeof pattern;
+  /** le store des pistes (2026-11-16 : un reglage de voix pose par les tests de charge, tracks.set) */
+  readonly tracks: typeof tracks;
   readonly pads: PadsInfo | null;
   /** la face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B ; null au telephone */
   readonly face: RytmFaceKeysInfo | null;
@@ -415,6 +418,7 @@ export function installDebug(src: DebugSource): () => void {
     },
     clock: clockDebug,
     pattern,
+    tracks,
     get pads() {
       return src.stage()?.pads?.info() ?? null;
     },

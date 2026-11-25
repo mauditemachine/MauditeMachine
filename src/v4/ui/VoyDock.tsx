@@ -116,6 +116,9 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
         onClick={() => setShown((o) => !o)}
       >
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
+        {/* 2026-11-10 (Mika : "quelque chose d'ergonomique et de facile a utiliser en mobile") : repliee, la languette dit ce
+            qu'elle ouvre (les grandes touches et les potards au doigt) ; avant, une fleche seule, que personne ne voyait */}
+        {!shown && <span className="v4-dock-tab-label">Touch controls</span>}
       </button>
       <div ref={ref} id="v4-vdock" className="v4-dock v4-vdock" data-open={shown ? '1' : '0'} data-page={page}>
         <DockPages page={page} onPage={setPage} first="PLAY" />

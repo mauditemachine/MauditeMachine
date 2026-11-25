@@ -24,20 +24,37 @@ import { UNDO_MACHINE_NAME, undo } from '../state/undo';
 import { shareBeat } from '../state/share';
 import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
+import { arrival } from '../state/arrival';
 import { MidiButton } from './MidiPanel';
+import { FaIcon } from './uiIcons';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
-export type PageLinkId = PageId | 'mmstudio';
+export type PageLinkId = PageId | 'mmrytm' | 'mmarp' | 'goodies';
 
-/** Les liens du menu, partages avec l'en-tete mobile (ui/MobileHeader.tsx). */
-export const PAGE_LINKS: readonly { id: PageLinkId; label: string }[] = [
+/**
+ * Les liens du menu (ui/MenuSheet.tsx). 2026-11-09, Mika : "au lieu de studio yé marqué MM-RYTM et MM-ARP dans le
+ * menu ! avec des liens directs.. je veux pas voir studio" : l'entree Studio (la vue d'ensemble) laisse la place aux
+ * deux machines. 2026-11-25 (Mika : "Goodies est trop petit dans le menu on le voit pas" ; "laisse MM-RYTM et MM-ARP
+ * dans le menu mais cette fois pour les telechargements et les presentations") : MM-RYTM et MM-ARP ouvrent la page de
+ * leur plugin (PluginPage.tsx) ; GOODIES (tout ce qui est gratuit, les machines a jouer comprises) passe en grand
+ * titre, avec son badge FREE. Les machines a jouer : les pastilles RYTM / ARP / DECKS de l'en-tete et GOODIES.
+ */
+export const PAGE_LINKS: readonly { id: PageLinkId; label: string; badge?: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
-  { id: 'mmstudio', label: 'Studio' },
+  { id: 'mmrytm', label: 'MM-RYTM' },
+  { id: 'mmarp', label: 'MM-ARP' },
+  { id: 'goodies', label: 'Goodies', badge: 'Free' },
   { id: 'shows', label: 'Shows' },
   { id: 'press', label: 'Press' },
   { id: 'contact', label: 'Contact' },
 ];
+
+/** Une machine du menu : les sections fermees, la machine cadree. */
+export function goMachine(m: MachineId): void {
+  closeSection();
+  focusMachine(m);
+}
 
 /**
  * Menu ouvert a l'arrivee sur le site (2026-11-02, Mika : "Quand on arrive sur le site je veux qu'on arrive avec le
@@ -55,10 +72,31 @@ export function initialMenuOpen(): boolean {
   return true;
 }
 
+/** Under the hood. Plus de Studio (2026-11-09, Mika : "enlève aussi les autres studio") : la section reste sur /studio. */
+/**
+ * Le menu et l'arrivee du site (2026-11-11, state/arrival.ts) : l'arrivee l'ouvre a son deuxieme tableau et le referme
+ * quand le MM-RYTM arrive ; un geste de la personne sur le menu pendant ce tableau (une page choisie, MENU, CLOSE, le
+ * logo) finit l'arrivee. Rend le setMenu a utiliser a la place du brut : il previent l'arrivee.
+ */
+export function useArrivalMenu(setMenuRaw: React.Dispatch<React.SetStateAction<boolean>>): (v: boolean | ((m: boolean) => boolean)) => void {
+  const phase = useSyncExternalStore(arrival.subscribe, arrival.get, arrival.get);
+  useEffect(() => {
+    if (phase === 'menu') setMenuRaw(true);
+    else if (phase === 'machine' || phase === 'logo') setMenuRaw(false);
+  }, [phase, setMenuRaw]);
+  return useCallback(
+    (v) => {
+      // Un geste sur le menu pendant l'arrivee : elle s'arrete la, le site reprend la main
+      if (arrival.active()) arrival.set('done');
+      setMenuRaw(v);
+    },
+    [setMenuRaw]
+  );
+}
+
+// GOODIES a quitte les pastilles (2026-11-25) : c'est un grand titre du menu et un bouton de l'en-tete
 export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
-  { id: 'goodies', label: 'Goodies' },
   { id: 'merch', label: 'Merch' },
-  { id: 'studio', label: 'Studio' },
 ];
 
 /**
@@ -89,6 +127,37 @@ export function openHood(id: HoodId, _stage: Stage | null): void {
 interface Props {
   getStage: () => Stage | null;
 }
+
+/**
+ * GOODIES dans l'en-tete (2026-11-25, Mika : "que ce bouton soit quand meme un peu plus voyant") : jaune, le cadeau et
+ * le badge FREE ; au telephone (compact), le cadeau seul dans une pastille jaune. Ferme le menu, ouvre GOODIES.
+ */
+export const GoodiesButton: React.FC<{ compact?: boolean; onPick?: () => void }> = ({ compact = false, onPick }) => {
+  const opened = useSyncExternalStore(section.subscribe, section.get, section.get);
+  return (
+    <button
+      type="button"
+      className={compact ? 'v4-goodies-btn v4-goodies-btn--compact' : 'v4-goodies-btn'}
+      data-active={opened === 'goodies' ? '1' : '0'}
+      aria-controls="v4-section-goodies"
+      aria-expanded={opened === 'goodies'}
+      aria-label="Goodies: machines to play online, wallpapers and covers"
+      data-press-button=""
+      onClick={() => {
+        onPick?.();
+        openSection('goodies');
+      }}
+    >
+      <FaIcon name="fa-solid fa-gift" className="v4-goodies-ico" />
+      {!compact && (
+        <>
+          <span className="v4-goodies-word">Goodies</span>
+          <span className="v4-goodies-badge">Free</span>
+        </>
+      )}
+    </button>
+  );
+};
 
 /** Cmd sur un Mac (et l'iPad au clavier), Ctrl ailleurs : le titre du bouton UNDO. */
 const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent) ? 'Cmd' : 'Ctrl';
@@ -181,7 +250,8 @@ const SHORT: Record<MachineId, { label: string; aria: string }> = {
 
 const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'STUDIO', aria: 'MM-STUDIO, all the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
+  // Plus de bouton STUDIO (2026-11-09, Mika) : la vue d'ensemble reste au logo et aux fleches
+  const items: readonly { id: Focus; label: string; aria: string }[] = MACHINES.map((id) => ({ id, ...SHORT[id] }));
   return (
     <nav className="v4-hmachines" aria-label="Machines">
       {items.map((it) => (
@@ -205,14 +275,18 @@ const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
 };
 
 export const Header: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(initialMenuOpen);
+  const [menu, setMenuRaw] = useState(() => initialMenuOpen() && !arrival.active());
+  const setMenu = useArrivalMenu(setMenuRaw);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const close = useCallback((refocus: boolean): void => {
-    setMenu(false);
-    if (refocus) btnRef.current?.focus({ preventScroll: true });
-  }, []);
+  const close = useCallback(
+    (refocus: boolean): void => {
+      setMenu(false);
+      if (refocus) btnRef.current?.focus({ preventScroll: true });
+    },
+    [setMenu]
+  );
 
   const onHome = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -232,6 +306,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
         <UndoButton />
         <MidiButton />
         {VOYAGER && <HeaderMachines onPick={() => setMenu(false)} />}
+        <GoodiesButton onPick={() => setMenu(false)} />
         <button
           ref={btnRef}
           type="button"

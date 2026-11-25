@@ -3,10 +3,12 @@ node_modules/
 *.log
 OLD/
 .claude/
+.worktrees/
 api/.env
 /public/images/hero/_old/
-*\ 2.*
-*\ 3.*
+*\ [2-9].*
+*\ [1-9][0-9].*
+node_modules\ [0-9]*
 
 # Secrets : aucun .env ne doit etre suivi par git.
 # Deux exceptions, qui ne contiennent AUCUN secret :
@@ -46,3 +48,10 @@ scripts/output/
 
 # IndexNow (2026-10-21) : la liste des adresses changees au dernier build (scripts/generate-sitemap.mjs)
 indexnow-urls.txt
+
+# Le moteur du MM-ARP pour le navigateur (2026-11-25, /mm-arp/play/) : refait par la CI (scripts/build-arp-wasm.sh,
+# npm run plugin:arp:wasm), jamais suivi par git
+/public/mm-arp/mm-arp-engine.wasm
+# Le moteur du MM-RYTM pour le navigateur (2026-11-25, /mm-rytm/play/) : refait par la CI (scripts/build-rytm-wasm.sh,
+# npm run plugin:rytm:wasm), jamais suivi par git
+/public/mm-rytm/mm-rytm-engine.wasm

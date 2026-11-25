@@ -104,7 +104,7 @@ const STATIC_LANG = 'en';
 // (src/v4/state/sectionRoute.ts) et sa page statique, avec son contenu en
 // HTML lisible sans JavaScript (moteurs, reseaux sociaux, assistants IA).
 // 2026-10-04 : /radar/ (la page Radar de la v2), meme principe que /techrider/.
-const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/', '/plugins/'];
+const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/', '/plugins/', '/mm-rytm/', '/mm-arp/', '/mm-rytm/play/', '/mm-arp/play/'];
 
 /**
  * Les pages React de la v2 (fiche technique, Radar) rendent leur propre
@@ -112,7 +112,7 @@ const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/'
  * montage. Toutes les autres adresses sont la machine (v4), dont le DOM
  * rendu est le meme partout : leur texte reste a cote de #root.
  */
-const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/']);
+const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/', '/mm-rytm/play/', '/mm-arp/play/']);
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
@@ -296,6 +296,13 @@ const FOLLOWING = readJson('public/following.json', {});
 const STORE = asArray(readJson('public/store.json', []));
 const GOODIES = loadGoodies();
 const COVERS = GOODIES.filter((g) => g.category === 'cover');
+/** Les plugins VST3 gratuits (public/data/vst.json, docs/vst-download.md) : leurs pages /mm-rytm/ et /mm-arp/. */
+const VST = readJson('public/data/vst.json', {});
+const VST_LIVE = Boolean(VST.emailjsTemplateId) && asArray(VST.plugins).length > 0;
+/** Les pages des plugins (2026-11-25, src/data/vstPages.json, les memes textes que PluginPage.tsx). */
+const VST_PAGES = readJson('src/data/vstPages.json', {});
+const VST_ROUTE = { '/mm-rytm/': 'mmrytm', '/mm-arp/': 'mmarp' };
+const vstOf = (id) => asArray(VST.plugins).find((v) => v.id === id) ?? {};
 const SOCIALS = loadSocials();
 /** Les profils officiels (src/v4/data/socials.ts), sinon les liens du press kit. */
 const PROFILES = SOCIALS.length ? SOCIALS.map((s) => [s.label, s.href]) : C.links.filter(([n]) => n !== 'mauditemachine.com');
@@ -321,8 +328,8 @@ const STUDIO = (() => {
  * du press kit gardent leurs valeurs, sauf un genre ou une base de l'ancien
  * positionnement.
  */
-const LEAD = `${POSITIONING.en} · DJ and hybrid live · Montpellier, south of France`;
-const FACTS = { Genre: POSITIONING_SHORT, Base: 'Montpellier, south of France' };
+const LEAD = `${POSITIONING.en} · DJ and hybrid live · International`;
+const FACTS = { Genre: POSITIONING_SHORT, Base: 'International' };
 const STALE_FACT = /psy ?-?prog|Canada · France · Spain/i;
 const factOf = (k, v) => (STALE_FACT.test(v) ? FACTS[k] ?? v : v);
 /** Les en-tetes de format de la fiche technique (brief A3). */
@@ -784,6 +791,10 @@ const PAGE_NAMES = {
   '/merch/': 'Merch',
   '/studio/': 'Studio',
   '/radar/': 'Radar',
+  '/mm-rytm/': 'MM-RYTM plugin',
+  '/mm-arp/': 'MM-ARP plugin',
+  '/mm-rytm/play/': 'Play MM-RYTM',
+  '/mm-arp/play/': 'Play MM-ARP',
 };
 
 /** Le contenu lisible de chaque adresse : ce que la machine montre, en HTML simple. */
@@ -881,6 +892,26 @@ function contentFor(route) {
         p(C.techIntro),
         ...C.tech.map(([t, items]) => h2(t) + (RIDER_FORMATS[t] ? p(RIDER_FORMATS[t]) : '') + ul(items.filter((x) => x !== RIDER_FORMATS[t]).map(esc))),
       ].join('');
+    case '/mm-rytm/':
+    case '/mm-arp/': {
+      const pg = VST_PAGES[VST_ROUTE[route]] ?? {};
+      const v = vstOf(pg.plugin);
+      const os = asArray(v.platforms).length ? asArray(v.platforms) : ['macOS'];
+      return [
+        h1(`${v.name ?? ''}, free ${String(v.kind ?? 'plugin').toLowerCase()} VST3 plugin by Maudite Machine`),
+        p(`Free VST3 plugin for ${os.join(' and ')}.`),
+        p(pg.lead ?? ''),
+        h2('What it does'),
+        ul(asArray(pg.features).map(esc)),
+        h2('Get it'),
+        p('Free, sent by email from this page. An installer for each system: a .pkg for macOS 11 or later (Apple Silicon and Intel), a .exe for Windows 10 or 11 (64-bit) where listed. Any VST3 host: Ableton Live, Bitwig, Reaper, Cubase, FL Studio.'),
+        pg.web ? `<p>${a('Play the full plugin in your browser (desktop)', `${SITE}${pg.web}`)}</p>` : '',
+      ].join('');
+    }
+    case '/mm-rytm/play/':
+      return [h1('MM-RYTM, the plugin in your browser'), p('The full MM-RYTM drum machine plugin, with the face and the sound of the VST3. Desktop only.'), `<p>${a('Get the VST3, free', `${SITE}/mm-rytm/`)}</p>`].join('');
+    case '/mm-arp/play/':
+      return [h1('MM-ARP, the plugin in your browser'), p('The full MM-ARP synth and arpeggiator plugin, with the face and the sound of the VST3. Desktop only.'), `<p>${a('Get the VST3, free', `${SITE}/mm-arp/`)}</p>`].join('');
     case '/goodies/': {
       const groups = [
         ['wallpaper-desktop', 'Desktop wallpapers'],
@@ -1163,7 +1194,7 @@ const T = {
   fr: {
     htmlLang: 'fr',
     dateLocale: 'fr-FR',
-    lead: `${POSITIONING.fr} · DJ et live hybride · Montpellier, Sud de la France`,
+    lead: `${POSITIONING.fr} · DJ et live hybride · International`,
     bio: BIO_LONG.fr,
     soundTitle: 'Le son',
     sound: [
@@ -1187,7 +1218,7 @@ const T = {
   es: {
     htmlLang: 'es',
     dateLocale: 'es-ES',
-    lead: `${POSITIONING.es} · DJ y live híbrido · Montpellier, sur de Francia`,
+    lead: `${POSITIONING.es} · DJ y live híbrido · Internacional`,
     bio: BIO_LONG.es,
     soundTitle: 'El sonido',
     sound: [
@@ -1623,6 +1654,27 @@ const writePage = (dirRel, html) => {
   count += 1;
 };
 
+/** Les plugins (2026-11-25) : un SoftwareApplication gratuit (offre a 0), ses systemes, l'auteur. */
+function vstJsonLd(route, url, description) {
+  const pg = VST_PAGES[VST_ROUTE[route]] ?? {};
+  const v = vstOf(pg.plugin);
+  const os = asArray(v.platforms).length ? asArray(v.platforms).map((x) => String(x).replace(/ \(beta\)$/, '')) : ['macOS'];
+  return ld({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: v.name,
+    applicationCategory: 'MultimediaApplication',
+    applicationSubCategory: 'VST3 plugin',
+    operatingSystem: os.join(', '),
+    description,
+    url,
+    image: `${SITE}${pg.image ?? ''}`,
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    author: { '@type': 'MusicGroup', name: 'Maudite Machine', url: `${SITE}/` },
+  });
+}
+
 for (const route of ROUTES) {
   const meta = SEO_META[STATIC_LANG][route] ?? SEO_META[STATIC_LANG][route.replace(/\/$/, '')];
   if (!meta) {
@@ -1635,6 +1687,11 @@ for (const route of ROUTES) {
 
   // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
   let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
+  // Page cachee (/plugins/) : servie en 200 mais non indexee par les moteurs ; le plugin dans le navigateur aussi (un outil)
+  if (route === '/plugins/' || route === '/mm-rytm/play/' || route === '/mm-arp/play/') {
+    html = upsertMeta(html, 'name', 'robots', 'noindex, nofollow');
+    html = upsertMeta(html, 'name', 'googlebot', 'noindex, nofollow');
+  }
   html = withContent(html, route);
   // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
   if (!REACT_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
@@ -1644,6 +1701,7 @@ for (const route of ROUTES) {
   if (route === '/mixtapes/') html = toHead(html, mixtapesJsonLd());
   if (route === '/contact/') html = toHead(html, contactJsonLd(url, title, description));
   if (route === '/radar/') html = toHead(html, radarJsonLd(url, title, description));
+  if (VST_ROUTE[route]) html = toHead(html, vstJsonLd(route, url, description));
 
   writePage(route.replace(/^\//, ''), html);
 }

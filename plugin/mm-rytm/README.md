@@ -1,6 +1,8 @@
 # MM-RYTM, le plugin
 
-La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vraie face du site. Usage perso.
+La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS et Windows (beta, 2026-11-24), avec la vraie face du site. Donnee au public depuis le 2026-11-24 (`docs/vst-download.md`).
+
+Windows : la face passe par WebView2 (`Backend::webview2`, dossier de donnees dans `%APPDATA%/Maudite Machine/MM-RYTM/WebView2`, lie en statique : `NEEDS_WEBVIEW2` et `JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING`) ; sans runtime WebView2, la fenetre affiche un message et le plugin joue quand meme. Le job `windows` de `plugin.yml` compile avec MSVC (paquet NuGet `Microsoft.Web.WebView2` 1.0.1901.177), lance `mm_engine_test` et publie `MM-RYTM-Windows.zip` dans `mm-rytm-latest`.
 
 ## Architecture (2026-11-08)
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+# L'ancienne version d'abord (un paquet ne retire pas les fichiers qui n'existent plus) : notre bundle seulement
+rm -rf "/Library/Audio/Plug-Ins/VST3/@NAME@.vst3"
+exit 0

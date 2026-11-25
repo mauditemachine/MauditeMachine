@@ -18,6 +18,7 @@
  * debug. Tout est rendu tel quel au demontage.
  */
 
+import { IOS_FLOATING_BAR } from './state/iosBar';
 import React, {
   Component,
   Suspense,
@@ -57,6 +58,8 @@ import { VoyInfosKey } from './ui/VoyInfosKey';
 import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
+import { arrival as arrivalSeq } from './state/arrival';
+import { Arrival } from './arrival/Arrival';
 import { lcd } from './state/lcd';
 import { appearance } from './state/appearance';
 import { djDecks } from './dj/theme';
@@ -573,6 +576,8 @@ const V4Shell: React.FC = () => {
         skipIntro: builtOnce.current,
         // Arrivee par /tracks/, /shows/... (2026-10-11) : le premier Stage sans intro, le panneau tout de suite
         noIntro: !builtOnce.current && arrival.current !== null,
+        // L'arrivee du site (2026-11-11, state/arrival.ts) : la scene attend, vue de tres pres, que l'arrivee mene sa camera
+        arrival: arrivalSeq.active(),
         host,
         input,
         // Palier de qualite par classe d'appareil, pas par largeur : un
@@ -795,6 +800,8 @@ const V4Shell: React.FC = () => {
       <PresskitHost getStage={getStage} />
       {/* L'ecran d'accueil (2026-10-04, Mika : "Il est important de proposer d'avoir mauditemachine.com en icone sur iPhone.. par defaut") : repli compris */}
       <InstallPrompt stage={gl === 'webgl' ? stage : null} mobile={mobile} />
+      {/* L'arrivee du site (2026-11-11) : le logo en relief, le menu, puis le MM-RYTM qui arrive de tres pres */}
+      {arrivalSeq.played() && <Arrival stage={gl === 'webgl' ? stage : null} getStage={getStage} ok={gl === 'webgl'} />}
       {gl === 'fallback' && <NoWebGL />}
       {IS_DEV && devErrors.length > 0 && (
         <ul className="v4-devlog" aria-hidden="true">
@@ -812,20 +819,7 @@ const V4Shell: React.FC = () => {
  * EngineBridge le consomme, le reste lit le pont (audio/soundcloud.ts) :
  * aucun re-render de la page a chaque progression du widget.
  */
-/**
- * Safari 26 et plus sur iPhone, hors ecran d'accueil (2026-10-01) : sa
- * barre d'onglets flotte par-dessus le bas de la page, sans zone sure
- * annoncee ; le Dock se pose au-dessus (v4.css, --ios-bar). Les autres
- * navigateurs iOS (CriOS, FxiOS, EdgiOS) ont leur propre barre.
- */
-const IOS_FLOATING_BAR = ((): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  if (!/iPhone|iPod/.test(ua) || /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return false;
-  if ((navigator as Navigator & { standalone?: boolean }).standalone) return false;
-  const m = /Version\/(\d+)/.exec(ua);
-  return m !== null && Number(m[1]) >= 26;
-})();
+// IOS_FLOATING_BAR : state/iosBar.ts (2026-11-10, la scene le lit aussi pour son cadrage)
 
 const V4App: React.FC = () => {
   // Drapeaux relus a chaque montage (navigation SPA comprise)

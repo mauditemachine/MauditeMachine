@@ -197,7 +197,8 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
     case 'bits':
       return v <= 0 ? 'OFF' : `${Math.round(16 - 12 * Math.min(1, v))} BIT`;
     case 'comp':
-      return v <= 0 ? 'OFF' : `${Math.round(Math.min(1, v) * 100)}% MIX`;
+      // 2026-11-10 (COMP pousse, audio/glue.worklet.js) : COMP n'est plus seulement le MIX, il dit combien le compresseur serre
+      return v <= 0 ? 'OFF' : `${Math.round(Math.min(1, v) * 100)}%`;
     // Les reglages des FX globaux (2026-10-10, leurs pages ; les lois de audio/pattern.ts fxLaw, celles du son)
     case 'dtone':
     case 'rtone':

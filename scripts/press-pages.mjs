@@ -104,7 +104,7 @@ const DESC_EN = 'Maudite Machine press assets: high resolution press photos, log
 /** [anglais, francais, espagnol] ; les plus longs d'abord quand l'un contient l'autre. */
 const PAGE = [
   [TITLE_EN, 'Photos presse, logos et pochettes | Maudite Machine', 'Fotos de prensa, logos y portadas | Maudite Machine'],
-  [DESC_EN, "Éléments presse de Maudite Machine : photos presse en haute résolution, logos, pochettes et captures de MM-STUDIO, libres d'utilisation pour les articles, affiches et festivals.", 'Material de prensa de Maudite Machine: fotos de prensa en alta resolución, logos, portadas y capturas de MM-STUDIO, de uso libre para artículos, carteles y festivales.'],
+  [DESC_EN, "Éléments presse de Maudite Machine : photos presse en haute résolution, logos, pochettes et captures de MM-STUDIO, libres d'utilisation pour les articles, affiches et festivals.", 'Material de prensa de Maudite Machine: fotos en alta resolución, logos, portadas y capturas de MM-STUDIO, de uso libre para prensa, carteles y festivales.'],
   ['Maudite Machine in the booth under a blue spotlight', 'Maudite Machine en cabine sous un projecteur bleu', 'Maudite Machine en la cabina bajo un foco azul'],
   ['"name": "Maudite Machine - Press assets"', '"name": "Maudite Machine - Éléments presse"', '"name": "Maudite Machine - Material de prensa"'],
   ['"description": "Press photos, logo, artwork, press kit and tech rider for Maudite Machine. Free to use for press and promoters."', "\"description\": \"Photos presse, logo, pochettes, press kit et fiche technique de Maudite Machine. Libres d'utilisation pour la presse et les organisateurs.\"", '"description": "Fotos de prensa, logo, portadas, press kit y rider técnico de Maudite Machine. De uso libre para prensa y promotores."'],

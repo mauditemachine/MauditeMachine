@@ -1143,3 +1143,13 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Tests : tsc 105 ; INFOS allume dans Chromium muet, survol de PRESET et de la pastille PRESETS : les deux fiches
   du navigateur, captures, console sans erreur.
 
+- Publication : a72cdb5, zip pret a 18:36 UTC. Ecrase a 20:18 UTC par un build de main (ea86661, v53) : le workflow
+  publie le dernier build de n'importe quelle branche. Republie par la fusion de main ci-dessous.
+
+## 2026-11-25 (soir) : main refusionnee dans la branche, contexte.md a jour
+
+- Mika : "pourrais tu update le contexte.md totale". contexte.md vit sur main (PR #13) : main fusionnee dans
+  claude/nifty-bohr-7ixmpf (seul conflit : CLAUDE.md, version courte de main gardee, l'etat du plugin est dans la
+  section 6 de contexte.md) ; firmware:stamp (sources de src/v4 changees en v54 a v56, versions inchangees, le site ne
+  bouge pas) ; contexte.md : etat v56, piege de mm-arp-latest, releases publiques verifiees, attentes de Mika.
+- Tests apres fusion : tsc 105 ; firmware:check OK ; npm run plugin:arp:web ; dbl54 (double clic) TOUT OK.

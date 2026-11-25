@@ -44,6 +44,7 @@ import {
   type CanvasTexture,
   type InstancedMesh,
   type Mesh,
+  type Object3D,
   type Texture,
 } from 'three';
 import { clock } from '../audio/clock';
@@ -103,6 +104,7 @@ import {
   FRAME_MOBILE,
   FRONT_W,
   INTRO,
+  ARRIVAL_CAM,
   OLED,
   OLED_BAR,
   OLED_BAR_PAGE,
@@ -163,7 +165,8 @@ import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
 import { muteLeds, soloLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
-import { PAD_FACE } from '../theme/base';
+import { PAD_FACE, SIDE_FACE } from '../theme/base';
+import { IOS_BAR_LIFT, IOS_FLOATING_BAR } from '../state/iosBar';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -288,6 +291,20 @@ const HOT_MS = 250;
  */
 export type Animator = (now: number, dt: number) => boolean | 'paint' | 'poll';
 
+/**
+ * Les animateurs d'une machine cachee (2026-11-16, Mika sur iPhone : "quand j'utilise Rytm et Arp le son bogue") : au
+ * telephone, la machine qu'on n'utilise pas a son root invisible (setShown) ; ses animateurs tournent toujours (son
+ * etat suit la musique) mais ne demandent plus d'image, invisible ne laisse aucun pixel : true et 'paint' deviennent
+ * 'poll'. setShown la remontre avec invalidate, l'image repart a jour. Avant : le MM-ARP cache faisait rendre le
+ * MM-RYTM a chaque note de l'arpege (et l'inverse), le GPU du telephone chauffait pour rien a cote du son.
+ */
+const hidden =
+  (root: Object3D, fn: Animator): Animator =>
+  (now, dt) => {
+    const r = fn(now, dt);
+    return r === false || r === 'poll' || root.visible ? r : 'poll';
+  };
+
 export interface StageOpts {
   /** conteneur du canvas : taille, visibilite */
   host: HTMLElement;
@@ -309,6 +326,12 @@ export interface StageOpts {
    * telephone, ?m= respecte), a la difference de skipIntro qui garde la machine en cours.
    */
   noIntro?: boolean;
+  /**
+   * L'arrivee du site (2026-11-11, state/arrival.ts) : pas d'assemblage ; le MM-RYTM, ferme, attend vu de tres pres que
+   * l'arrivee mene la camera (arrivalCamera), puis la rende (finishArrival). Vrai tant que l'arrivee est en cours, meme
+   * a une reconstruction (un changement d'apparence depuis le menu).
+   */
+  arrival?: boolean;
 }
 
 export interface StageStats {
@@ -604,6 +627,8 @@ export class Stage {
   private introSign = 1;
   /** la machine de la visite d'avant sans capot (MM-BASS, MM-DECKS) : on y va a la fin de l'intro (2026-10-18) */
   private introLand: MachineId | null = null;
+  /** l'arrivee du site (2026-11-11) : la camera est menee de dehors (arrivalCamera), l'intro ne compte pas le temps */
+  private arrivalOn = false;
   /** le MM-DECKS arrive pendant l'intro : pose a sa fin (pas de saccade, pas de saut de cadrage) */
   private pendingDj: typeof DjRig | null = null;
   private pendingBass: typeof BassRig | null = null;
@@ -787,6 +812,10 @@ export class Stage {
 
     // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
     // aussi ; leur lumiere seule ne refait pas la carte d'ombre) ; plus de pads au desktop depuis la face V.4.0 (2026-10-27)
+    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
+    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi ; au
+    // telephone depuis le 2026-11-13, les numeros des pas et les noms des pads (avant les pads, qui les portent)
+    this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     this.pads = PORTRAIT || PAD_FACE
       ? new Pads({
           tweens: this.tweens,
@@ -794,18 +823,17 @@ export class Stage {
           repaint: () => this.repaint(),
           castShadow: true,
           mobile,
+          atlas: this.keyAtlas,
         })
       : null;
-    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
-    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi
-    this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
     this.faceKeys = PORTRAIT || PAD_FACE ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
     // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs.
     // Le transport au telephone seulement depuis V.5.0 (2026-10-29 : au desktop, PLAY et STOP sont dans la rangee de faceKeys)
     this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas, transport: PORTRAIT || PAD_FACE });
     // L'anneau de valeur de chaque potard (2026-10-27, la face V.4.0 du desktop)
-    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT && !PAD_FACE });
+    // V.7.0 (SIDE_FACE) : les potards de la V.4 a droite de l'ecran, avec leur anneau de valeur
+    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT && (!PAD_FACE || SIDE_FACE) });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09 ; au telephone
     // seulement depuis V.5.0 (2026-10-29 : au desktop, TRIG SRC FLTR AMP FX MOD sont dans la rangee de faceKeys)
     this.pageKeys = PORTRAIT || PAD_FACE ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
@@ -813,7 +841,7 @@ export class Stage {
     this.sideKnobs = DT2_FACE ? new SideKnobs({ mobile, castShadow: !mobile }) : null;
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
-      ...(this.pads ? [this.pads.mesh, this.pads.halos] : []),
+      ...(this.pads ? [this.pads.mesh, this.pads.halos, ...(this.pads.labels ? [this.pads.labels.mesh] : [])] : []),
       ...this.seq.objects(),
       ...this.encoders.objects(),
       ...(this.pageKeys?.objects() ?? []),
@@ -826,7 +854,8 @@ export class Stage {
       aniso,
       () => {
         this.syncScreenTabs();
-        this.repaint();
+        // Machine cachee (le telephone sur le MM-ARP) : pas d'image pour rien (2026-11-16, voir hidden)
+        if (this.machine.root.visible) this.repaint();
       },
       mobile
     );
@@ -1069,8 +1098,13 @@ export class Stage {
         tweens: this.tweens,
         paintTweens: this.paintTweens,
         reduced: motion.reduced,
-        repaint: () => this.repaint(),
-        invalidate: () => this.invalidate(),
+        // Le MM-ARP cache (le telephone sur le MM-RYTM) : son etat suit, sans image (2026-11-16, voir hidden)
+        repaint: () => {
+          if (this.voy?.root.visible !== false) this.repaint();
+        },
+        invalidate: () => {
+          if (this.voy?.root.visible !== false) this.invalidate();
+        },
       });
       this.voy = voy;
       this.scene.add(voy.root);
@@ -1103,19 +1137,20 @@ export class Stage {
     this.orbit.apply();
     renderer.clear();
 
+    const rytmRoot = this.machine.root;
     this.animators.push(
       this.stepIntro,
       (now) => this.tweens.update(now),
       (now) => (this.paintTweens.update(now) ? 'paint' : false),
       this.stepExplode,
-      (now) => this.pads?.update(now) ?? false,
-      this.pollPlayhead,
+      hidden(rytmRoot, (now) => this.pads?.update(now) ?? false),
+      hidden(rytmRoot, this.pollPlayhead),
       this.stepBreathe,
-      this.stepLockBlink,
-      this.modeBlink,
-      this.faceBlink,
-      this.stepTrkFlash,
-      this.ptnBlink
+      hidden(rytmRoot, this.stepLockBlink),
+      hidden(rytmRoot, this.modeBlink),
+      hidden(rytmRoot, this.faceBlink),
+      hidden(rytmRoot, this.stepTrkFlash),
+      hidden(rytmRoot, this.ptnBlink)
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1125,9 +1160,9 @@ export class Stage {
           this.updateCamera();
           return true;
         },
-        voyRig.stepKeys,
-        voyRig.stepArp,
-        voyRig.stepSeq
+        hidden(voyRig.root, voyRig.stepKeys),
+        hidden(voyRig.root, voyRig.stepArp),
+        hidden(voyRig.root, voyRig.stepSeq)
       );
       // v33 (maquette, le plugin) : les potards glissent vers leur angle (sans passe d'ombre : leur ombre est ronde)
       if (PLUGIN_ARP)
@@ -1151,7 +1186,22 @@ export class Stage {
     const st = startMachine.take();
     const last = st === null && focus.changes === 0 ? startMachine.remembered() : null;
     const hood: readonly MachineId[] = this.voy ? ['mm808', 'voy'] : ['mm808'];
-    if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
+    if (opts.arrival && !motion.reduced()) {
+      // L'arrivee du site (2026-11-11, arrival/Arrival.tsx) : le MM-RYTM ferme, vu de tres pres ; la camera attend
+      // d'etre menee (arrivalCamera), l'intro reste "en cours" pour tout ce qui l'attend (intro 'pending')
+      this.introOn = true;
+      this.arrivalOn = true;
+      this.introPick = 'mm808';
+      this.introLand = null;
+      startMachine.remember('mm808');
+      if (this.voy) {
+        focus.set('mm808');
+        this.snapFocus();
+      }
+      this.arrivalCamera(0);
+      this.syncCasters();
+      intro.set('pending');
+    } else if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
       this.introOn = true;
       this.introPick = st ?? (last && hood.includes(last) ? last : hood[Math.floor(Math.random() * hood.length)]);
       this.introLand = last && !hood.includes(last) && this.voy ? last : null;
@@ -1732,8 +1782,10 @@ export class Stage {
       insetPx += this.insets[id].cur * w;
       headPx += this.insets[id].top * w;
     }
-    const inset = Math.min(this.height * 0.7, insetPx);
-    const head = Math.min(this.height * 0.2, headPx);
+    // Safari 26 sur iPhone (2026-11-10, state/iosBar.ts) : au repos, la machine tient entre le selecteur et la languette du Dock
+    const rest = this.layoutMobile && IOS_FLOATING_BAR;
+    const inset = Math.min(this.height * 0.7, Math.max(insetPx, rest ? IOS_BAR_LIFT.bottom : 0));
+    const head = Math.min(this.height * 0.2, Math.max(headPx, rest ? IOS_BAR_LIFT.top : 0));
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
     if (PLUGIN_ARP) this.faceDpu = (W / (2 * hwBase)) * this.renderer.getPixelRatio();
@@ -2465,6 +2517,8 @@ export class Stage {
    */
   private stepIntro = (now: number): boolean => {
     if (!this.introOn) return false;
+    // L'arrivee du site : sa camera est menee de dehors, rien ne s'anime ici
+    if (this.arrivalOn) return false;
     this.introClock += this.introLast < 0 ? 0 : Math.min(INTRO.maxStepMs, Math.max(0, now - this.introLast));
     this.introLast = now;
     const t = this.introClock;
@@ -2506,9 +2560,44 @@ export class Stage {
     this.orbit.apply();
   }
 
+  /**
+   * La camera de l'arrivee du site (2026-11-11, Mika : "RYTM qui arrive de super zoome a directement la fenetre") : u de 0
+   * (tres pres : ARRIVAL_CAM.zoomFrom fois le cadrage, basse et tournee, la face en gros plan) a 1 (la vue par defaut).
+   * Le zoom s'interpole en log (un recul regulier a l'oeil) ; l'appelant adoucit u. Posee directement, comme introCamera.
+   */
+  arrivalCamera(u: number): void {
+    if (!this.arrivalOn || this.disposed) return;
+    const k = Math.min(1, Math.max(0, u));
+    const deg = Math.PI / 180;
+    const A = ARRIVAL_CAM;
+    // L'angle rejoint la vue par defaut un peu avant le zoom (angleEnd) : la fin du recul se fait de face, sans roulis
+    const ka = Math.min(1, k / A.angleEnd);
+    const sa = ka * ka * (3 - 2 * ka);
+    const az = (ORBIT.azDeg + A.azFromDeg * (1 - sa)) * deg;
+    this.orbit.elevation = (A.elFromDeg + (ORBIT.elDeg - A.elFromDeg) * sa) * deg;
+    this.orbit.azimuth = ((az % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    this.orbit.zoom = ORBIT.zoom * Math.exp(Math.log(A.zoomFrom) * (1 - k));
+    this.orbit.apply();
+    this.updateCamera();
+    this.syncCasters();
+    this.shadowDirty = true;
+    this.invalidate();
+  }
+
+  /** La fin de l'arrivee du site : la vue par defaut, l'intro finie (tout ce qui l'attendait part). */
+  finishArrival(): void {
+    if (!this.arrivalOn) return;
+    this.arrivalOn = false;
+    this.finishIntro();
+    this.invalidate();
+  }
+
   /** Fin de l'intro, tout de suite (premier geste, fin du temps, reduced motion, demontage). */
   finishIntro(): void {
     if (!this.introOn) return;
+    // L'arrivee du site (2026-11-11) : un premier geste (un clic, un doigt, une touche) ne la finit pas, elle seule rend
+    // la camera (finishArrival)
+    if (this.arrivalOn) return;
     this.introOn = false;
     // Assemblee d'un coup (premier geste, fin du temps, demontage), a la vue par defaut
     this.explode.snap(explodeState.get() === 'open');
@@ -3804,7 +3893,9 @@ export class Stage {
     this.animators.length = 0;
     this.stats.loopActive = false;
     this.introOn = false;
-    intro.set('done');
+    // L'arrivee du site en cours (une reconstruction depuis le menu) : la scene suivante la reprend, l'intro reste en attente
+    if (!this.arrivalOn) intro.set('done');
+    this.arrivalOn = false;
     this.ro.disconnect();
     this.io?.disconnect();
     this.unsubMotion();

@@ -165,12 +165,15 @@ function panelTexts(): Text[] {
 type Lit = Partial<Record<string, boolean>>;
 function deckTexts(open: boolean, lit: Lit = {}): Text[] {
   const out: Text[] = [];
-  CHORDS.forEach((c, i) => {
-    const p = voyPadAt(i);
-    out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: 0.1 * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
-  });
+  // Au telephone (2026-11-13) : les noms des accords et des boutons sont imprimes sur eux (voyager/pads.ts), plus dessous
+  if (!PORTRAIT) {
+    CHORDS.forEach((c, i) => {
+      const p = voyPadAt(i);
+      out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: 0.1 * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
+    });
+  }
   out.push(...knobTexts('deck'), ...groupTexts('deck'));
-  for (const b of VOY_BUTTONS) {
+  for (const b of PORTRAIT ? [] : VOY_BUTTONS) {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
     const nav = b.id === 'open' || b.id === 'preset';
     // v43 (le plugin, Mika : la rangee STYLE des pages d'OPEN, 73.webp) : le nom en accent tant que sa touche est
@@ -600,11 +603,13 @@ export class VoySilk {
         ctx.stroke();
       }
     }
-    this.brackets();
+    // Au telephone (2026-11-13, Mika : "Arp enleve les choses superflues !") : plus de crochets sous les groupes (leur nom
+    // reste), plus de graduations autour des gros potards ni d'echelles autour de RANGE, SEMI et FINE (l'ecran dit la valeur)
+    if (!PORTRAIT) this.brackets();
     // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
     ctx.strokeStyle = silkA(0.6);
     for (const k of VOY_FACE_KNOBS) {
-      if (!isBigKnob(k.id)) continue;
+      if (PORTRAIT || !isBigKnob(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + 0.05;
@@ -643,7 +648,7 @@ export class VoySilk {
     // (v42, le plugin : sur leurs encarts, plus bas)
     if (!PATCHES) this.selectors();
     // Les rangees d'oscillateurs facon Mini V : echelles, numeros ; les LED des boutons poussoirs
-    this.oscScales();
+    if (!PORTRAIT) this.oscScales();
     this.badges();
     this.leds();
     if (this.kind === 'panel') {
