@@ -671,6 +671,7 @@ Mika, sur la face v3 : « tu as tout detruit [...] l'interface est horrible, tro
 - **DISTO facon MM-ARP** : les six styles en rangees (nom, ce qu'il imite, le choisi surligne), l'EQ dont on tire les trois points (LOW CUT et THUMP, TONE, HIGH CUT), le VU creme du niveau de sortie, les presets.
 - **Le knob tiny** (le PNG de Mika a repere) pour les petits knobs des sous-pages.
 - **Verifie** : Chromium (sans son) : la face d'avant par defaut, OPEN ouvre SAMPLE, un onglet, le menu, Echap (le menu puis la page), O rouvre, CLOSE, pas de capot ; SEQ : une tape pose le pas 4, un glisser pose 15 et 16, la voie VELOCITY pose le pas 8, une tape retire le pas 4 (le programme les joue) ; DISTO : le point LOW CUT tire regle LOW CUT et THUMP. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 45555698514), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 25bfa5c, branche claude/intelligent-ride-56tyeo, 2026-11-25 05:54 UTC.
 
 ## 2. Decisions prises et pourquoi
 
