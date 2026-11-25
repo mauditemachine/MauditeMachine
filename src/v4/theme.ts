@@ -799,8 +799,12 @@ export const xfadeCapX = (x: number): number => XFADE.x + (Math.max(0, Math.min(
  * signe de CLEAR et RANDOM, boutons a un coup.
  */
 export const BTN_LED = { w: 0.46, d: 0.05, back: 0.13, y: 0.002, flashMs: 520, hold: 0.5 } as const;
-/** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
-export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
+/**
+ * Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee) ; les pages des plugins
+ * MM-RYTM et MM-ARP (2026-11-25, Mika : "laisse MM-RYTM et MM-ARP dans le menu mais cette fois pour les telechargements
+ * et les presentations").
+ */
+export type SectionId = PageId | 'goodies' | 'merch' | 'studio' | 'mmrytm' | 'mmarp';
 export type PadId = Inst | PageId | 'open' | 'edit';
 
 /** Les cinq pages, dans l'ordre du site (onglets de la feuille, touches 1 a 5). */
@@ -1325,6 +1329,8 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
   goodies: 'GOODIES',
   merch: 'MERCH',
   studio: 'STUDIO',
+  mmrytm: 'MM-RYTM',
+  mmarp: 'MM-ARP',
 };
 
 /**

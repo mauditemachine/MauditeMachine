@@ -23,6 +23,9 @@ export const SECTION_ROUTES: Readonly<Partial<Record<SectionId, string>>> = {
   goodies: '/goodies/',
   merch: '/merch/',
   studio: '/studio/',
+  // Les pages des plugins (2026-11-25) : presentation, VST3 gratuit, la machine en ligne
+  mmrytm: '/mm-rytm/',
+  mmarp: '/mm-arp/',
 };
 
 /** Les sections que l'on ouvre en ouvrant d'abord la machine (puces du PCB). */

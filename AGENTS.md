@@ -62,7 +62,8 @@ Le depot vit sur **iCloud Drive** (`~/Library/Mobile Documents/com~apple~CloudDo
   - `MM-ARP` (`?m=arp`) : synthe 2 oscillateurs + sub + filtre ladder, arpegiateur, 8 pads d'accords en fa# mineur, sidechain sur le kick du RYTM.
   - `MM-DECKS` (`?m=decks`) : 2 a 4 platines DJ (tracks Maudite Machine, SoundCloud, fichiers perso avec pitch reglable, playlists), table de mixage recevant aussi RYTM et ARP, sampler WAV par platine.
   - `MM-BASS` (`?bass=1`) : synthe bassline cache (hors pages SEO publiques).
-- **Routes de sections v4** (`src/v4/state/sectionRoute.ts`) : `/tracks/`, `/tracks/:track/`, `/mixtapes/`, `/shows/`, `/contact/`, `/presskit/`, `/goodies/`, `/merch/`, `/studio/`.
+- **Routes de sections v4** (`src/v4/state/sectionRoute.ts`) : `/tracks/`, `/tracks/:track/`, `/mixtapes/`, `/shows/`, `/contact/`, `/presskit/`, `/goodies/`, `/merch/`, `/studio/`, `/mm-rytm/` et `/mm-arp/` (pages des plugins VST3, `src/v4/ui/sections/PluginPage.tsx`).
+- **`/mm-rytm/play/`** (`src/v4/plugin/WebPlugin.tsx`, noindex) : le plugin MM-RYTM entier dans le navigateur (la face du VST3, mode `PLUGIN`, sans le pont C++ : le son du site), desktop seulement.
 - **Pages autonomes** : `/techrider/` (`src/v2/pages/TechRiderPage.tsx`), `/radar/` (`src/v2/pages/RadarPage.tsx`), `/press/` (`public/press/index.html` + declinaisons `/fr/press/` et `/es/press/` via `scripts/press-pages.mjs`), `/plugins/` (cachee).
 - **SEO et prerendu (`npm run build` -> `postbuild`)** :
   1. `scripts/prerender-seo.mjs` : genere 99+ pages HTML statiques dans `dist/` (`/`, `/fr/`, `/es/`, sections, 37 morceaux, 45 pages `MM-STUDIO` et rythmes avec fichiers MIDI et grilles SVG/JPEG, redirections), injecte la coquille `#mm-boot`, `#seo-static` et les 260 blocs JSON-LD (`MusicGroup`, `MusicEvent`, `MusicAlbum`, `MusicRecording`, `WebApplication`, `FAQPage`, `BreadcrumbList`).

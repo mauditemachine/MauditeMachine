@@ -26,33 +26,29 @@ import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId } from '../them
 import { MenuSheet } from './MenuSheet';
 import { arrival } from '../state/arrival';
 import { MidiButton } from './MidiPanel';
+import { FaIcon } from './uiIcons';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
-export type PageLinkId = PageId | 'rytm' | 'arp';
+export type PageLinkId = PageId | 'mmrytm' | 'mmarp' | 'goodies';
 
 /**
  * Les liens du menu (ui/MenuSheet.tsx). 2026-11-09, Mika : "au lieu de studio yé marqué MM-RYTM et MM-ARP dans le
  * menu ! avec des liens directs.. je veux pas voir studio" : l'entree Studio (la vue d'ensemble) laisse la place aux
- * deux machines, chacune un vrai lien (MACHINE_LINKS).
+ * deux machines. 2026-11-25 (Mika : "Goodies est trop petit dans le menu on le voit pas" ; "laisse MM-RYTM et MM-ARP
+ * dans le menu mais cette fois pour les telechargements et les presentations") : MM-RYTM et MM-ARP ouvrent la page de
+ * leur plugin (PluginPage.tsx) ; GOODIES (tout ce qui est gratuit, les machines a jouer comprises) passe en grand
+ * titre, avec son badge FREE. Les machines a jouer : les pastilles RYTM / ARP / DECKS de l'en-tete et GOODIES.
  */
-export const PAGE_LINKS: readonly { id: PageLinkId; label: string }[] = [
+export const PAGE_LINKS: readonly { id: PageLinkId; label: string; badge?: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
-  { id: 'rytm', label: 'MM-RYTM' },
-  { id: 'arp', label: 'MM-ARP' },
+  { id: 'mmrytm', label: 'MM-RYTM' },
+  { id: 'mmarp', label: 'MM-ARP' },
+  { id: 'goodies', label: 'Goodies', badge: 'Free' },
   { id: 'shows', label: 'Shows' },
   { id: 'press', label: 'Press' },
   { id: 'contact', label: 'Contact' },
 ];
-
-/**
- * Les machines du menu : l'adresse directe (?m=, state/focus.ts : le site arrive sur la machine, menu ferme), et au
- * clic la machine cadree sans recharger. Le MM-ARP n'existe qu'avec VOYAGER (?voyager=0 : la 808 seule).
- */
-export const MACHINE_LINKS: Readonly<Partial<Record<PageLinkId, { machine: MachineId; href: string }>>> = {
-  rytm: { machine: 'mm808', href: '/?m=mm-rytm' },
-  arp: { machine: 'voy', href: '/?m=mm-arp' },
-};
 
 /** Une machine du menu : les sections fermees, la machine cadree. */
 export function goMachine(m: MachineId): void {
@@ -98,8 +94,8 @@ export function useArrivalMenu(setMenuRaw: React.Dispatch<React.SetStateAction<b
   );
 }
 
+// GOODIES a quitte les pastilles (2026-11-25) : c'est un grand titre du menu et un bouton de l'en-tete
 export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
-  { id: 'goodies', label: 'Goodies' },
   { id: 'merch', label: 'Merch' },
 ];
 
@@ -131,6 +127,37 @@ export function openHood(id: HoodId, _stage: Stage | null): void {
 interface Props {
   getStage: () => Stage | null;
 }
+
+/**
+ * GOODIES dans l'en-tete (2026-11-25, Mika : "que ce bouton soit quand meme un peu plus voyant") : jaune, le cadeau et
+ * le badge FREE ; au telephone (compact), le cadeau seul dans une pastille jaune. Ferme le menu, ouvre GOODIES.
+ */
+export const GoodiesButton: React.FC<{ compact?: boolean; onPick?: () => void }> = ({ compact = false, onPick }) => {
+  const opened = useSyncExternalStore(section.subscribe, section.get, section.get);
+  return (
+    <button
+      type="button"
+      className={compact ? 'v4-goodies-btn v4-goodies-btn--compact' : 'v4-goodies-btn'}
+      data-active={opened === 'goodies' ? '1' : '0'}
+      aria-controls="v4-section-goodies"
+      aria-expanded={opened === 'goodies'}
+      aria-label="Goodies: free plugins, machines to play and wallpapers"
+      data-press-button=""
+      onClick={() => {
+        onPick?.();
+        openSection('goodies');
+      }}
+    >
+      <FaIcon name="fa-solid fa-gift" className="v4-goodies-ico" />
+      {!compact && (
+        <>
+          <span className="v4-goodies-word">Goodies</span>
+          <span className="v4-goodies-badge">Free</span>
+        </>
+      )}
+    </button>
+  );
+};
 
 /** Cmd sur un Mac (et l'iPad au clavier), Ctrl ailleurs : le titre du bouton UNDO. */
 const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent) ? 'Cmd' : 'Ctrl';
@@ -279,6 +306,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
         <UndoButton />
         <MidiButton />
         {VOYAGER && <HeaderMachines onPick={() => setMenu(false)} />}
+        <GoodiesButton onPick={() => setMenu(false)} />
         <button
           ref={btnRef}
           type="button"

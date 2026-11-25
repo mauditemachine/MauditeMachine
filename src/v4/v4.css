@@ -1405,6 +1405,22 @@ html:has(body.v4-active) {
   transform: translateX(3px);
 }
 
+/* GOODIES (2026-11-25) : le badge FREE, jaune, au bout du titre */
+.v4-mm-badge {
+  display: inline-block;
+  margin-left: 0.35em;
+  padding: 0.32em 0.6em;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: #0c0b09;
+  font-size: max(11px, 0.22em);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  vertical-align: middle;
+  transform: translateY(-0.15em);
+}
+
 /* La page ouverte : son titre, son numero et sa fleche en orange */
 .v4-root .v4-mm-page[data-active='1'],
 .v4-root .v4-mm-page[data-active='1'] .v4-mm-num,
@@ -1602,7 +1618,7 @@ html:has(body.v4-active) {
 }
 
 .v4-mmenu[data-variant='desk'] .v4-mm-label {
-  font-size: clamp(40px, min(6.2vw, 10.5vh), 96px);
+  font-size: clamp(36px, min(5.4vw, 9.1vh), 84px);
   letter-spacing: -0.02em;
   transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), color 160ms ease;
 }
@@ -3385,6 +3401,268 @@ html:has(body.v4-active) {
 
 @media (max-width: 480px) {
   .v4-vst-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- GOODIES dans l'en-tete (2026-11-25, Header.tsx GoodiesButton) : jaune, le cadeau, le badge FREE ---------- */
+
+.v4-root .v4-goodies-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: #0c0b09;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.v4-root .v4-goodies-btn:hover,
+.v4-root .v4-goodies-btn[data-active='1'] {
+  background: var(--orange);
+  color: #fff;
+}
+
+.v4-root .v4-goodies-btn:focus-visible {
+  outline: 2px solid var(--bone);
+  outline-offset: 2px;
+}
+
+.v4-root .v4-goodies-ico {
+  font-size: 14px;
+}
+
+.v4-root .v4-goodies-badge {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #0c0b09;
+  color: var(--yellow);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+/* Desktop etroit : le cadeau et FREE, puis le cadeau seul */
+@media (max-width: 1279px) {
+  .v4-root .v4-goodies-word {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .v4-root .v4-header .v4-goodies-btn {
+    justify-content: center;
+    width: 38px;
+    padding: 0;
+  }
+  .v4-root .v4-header .v4-goodies-badge {
+    display: none;
+  }
+}
+
+/* Au telephone : le cadeau dans une pastille jaune, avant SHARE et UNDO */
+.v4-root .v4-mhead .v4-goodies-btn--compact {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  margin-right: 2px;
+  padding: 0;
+}
+
+.v4-root .v4-mhead .v4-goodies-btn--compact .v4-goodies-ico {
+  font-size: 17px;
+}
+
+.v4-root .v4-mhead .v4-goodies-btn + .v4-share-btn[data-compact='1'] {
+  margin-left: 2px;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-goodies-btn {
+  transition: none;
+}
+
+/* ---------- Les pages des plugins (2026-11-25, PluginPage.tsx) ---------- */
+
+.v4-plug-kicker {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.v4-plug-shot {
+  display: block;
+  aspect-ratio: 16 / 10;
+  margin: 0 0 14px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--graphite-hi);
+}
+
+.v4-plug-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.v4-plug-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+
+.v4-root .v4-plug-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--bone);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.v4-root .v4-plug-btn:hover,
+.v4-root .v4-plug-btn:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-root .v4-plug-btn--main {
+  background: var(--orange);
+  box-shadow: none;
+  color: #fff;
+}
+
+.v4-root .v4-plug-btn--main:hover,
+.v4-root .v4-plug-btn--main:focus-visible {
+  background: var(--yellow);
+  color: #0c0b09;
+  box-shadow: none;
+}
+
+.v4-plug-features {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--bone-70);
+}
+
+.v4-plug-features li {
+  margin: 0 0 4px;
+}
+
+/* ---------- GOODIES : jouer en ligne, les cartes des plugins (2026-11-25) ---------- */
+
+.v4-gd-play,
+.v4-gd-vst {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.v4-gd-play {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.v4-gd-vst {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.v4-root .v4-gd-tile,
+.v4-root .v4-gd-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--graphite-hi);
+  color: var(--bone);
+  text-align: left;
+  cursor: pointer;
+}
+
+.v4-root .v4-gd-tile:hover,
+.v4-root .v4-gd-tile:focus-visible,
+.v4-root .v4-gd-card:hover,
+.v4-root .v4-gd-card:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-gd-tile-name,
+.v4-gd-card-name {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.v4-gd-tile-kind {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--bone-60);
+}
+
+.v4-gd-tile-go,
+.v4-gd-card-go {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.v4-root .v4-gd-card {
+  padding: 0 0 12px;
+  overflow: hidden;
+}
+
+.v4-gd-card-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 6px;
+  background: #0c0b09;
+}
+
+.v4-gd-card-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.v4-gd-card-name,
+.v4-gd-card-go {
+  padding: 0 12px;
+}
+
+@media (max-width: 480px) {
+  .v4-gd-play {
     grid-template-columns: minmax(0, 1fr);
   }
 }

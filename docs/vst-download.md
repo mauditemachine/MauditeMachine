@@ -4,6 +4,8 @@
 
 ## Le circuit
 
+Depuis le 2026-11-25 : les pages **`/mm-rytm/`** et **`/mm-arp/`** (`src/v4/ui/sections/PluginPage.tsx`, menu MM-RYTM et MM-ARP) presentent chaque plugin avec le formulaire ; **GOODIES** (menu, bouton jaune de l'en-tete) a les machines a jouer, les cartes des plugins et le meme formulaire ; **`/mm-rytm/play/`** (`src/v4/plugin/WebPlugin.tsx`) fait tourner le plugin MM-RYTM entier dans le navigateur (desktop).
+
 1. **GOODIES** (`/goodies/`, `src/v4/ui/sections/VstDownload.tsx`) : les deux plugins (avec leurs systemes), un champ courriel, une case facultative "nouvelles" (decochee), le bouton GET THE PLUGINS.
 2. **EmailJS** (le compte deja utilise par CONTACT, `src/data/emailjs.ts`) envoie au visiteur le modele **VST download** : un contenu fixe avec les deux liens. Toi, tu es en copie cachee : chaque demande arrive dans ta boite (c'est ta liste).
 3. Case "nouvelles" cochee : un second courriel, a toi seulement, par le modele de CONTACT (objet `Newsletter opt-in (VST download)`). Seuls ceux-la ont dit oui aux nouvelles (loi canadienne anti-pourriel : ne pas ecrire aux autres pour autre chose que les plugins).

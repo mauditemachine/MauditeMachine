@@ -33,10 +33,9 @@ import { section } from '../state/section';
 import { AMark } from './AMark';
 import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
-import { HOOD_LINKS, MACHINE_LINKS, PAGE_LINKS, goMachine, openHood } from './Header';
-import { VOYAGER } from '../state/focus';
+import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
 import { arrival } from '../state/arrival';
-import type { PageId } from '../theme';
+import type { PageId, SectionId } from '../theme';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { boot } from '../state/boot';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
@@ -147,8 +146,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
 
   /** SHOP et l'encart : MERCH, ouverte (jamais refermee comme le fait sa pastille deja allumee). */
   const shop = pick(() => openSection('merch'));
-  // Le MM-ARP n'est sur la table qu'avec VOYAGER
-  const links = VOYAGER ? PAGE_LINKS : PAGE_LINKS.filter((l) => l.id !== 'arp');
+  const links = PAGE_LINKS;
   const n = links.length;
 
   return (
@@ -163,40 +161,26 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
               <span className="v4-mm-num" aria-hidden="true">
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span className="v4-mm-label">{l.label}</span>
+              <span className="v4-mm-label">
+                {l.label}
+                {l.badge && <span className="v4-mm-badge">{l.badge}</span>}
+              </span>
               <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
             </>
           );
-          const m = MACHINE_LINKS[l.id];
+          const isPage = l.id !== 'mmrytm' && l.id !== 'mmarp' && l.id !== 'goodies';
           return (
-            <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties}>
-              {m ? (
-                // Un vrai lien (nouvel onglet, copier l'adresse) ; un clic simple cadre la machine sans recharger
-                <a
-                  className="v4-mm-page"
-                  href={m.href}
-                  data-active="0"
-                  onClick={(e) => {
-                    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                    e.preventDefault();
-                    onClose(false);
-                    goMachine(m.machine);
-                  }}
-                >
-                  {inner}
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  className="v4-mm-page"
-                  data-active={opened === l.id ? '1' : '0'}
-                  aria-expanded={opened === l.id}
-                  aria-controls={`v4-section-${l.id}`}
-                  onClick={pick(() => page(l.id as PageId, getStage()))}
-                >
-                  {inner}
-                </button>
-              )}
+            <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties} data-badge={l.badge ? '1' : undefined}>
+              <button
+                type="button"
+                className="v4-mm-page"
+                data-active={opened === l.id ? '1' : '0'}
+                aria-expanded={opened === l.id}
+                aria-controls={`v4-section-${l.id}`}
+                onClick={pick(() => (isPage ? page(l.id as PageId, getStage()) : openSection(l.id as SectionId)))}
+              >
+                {inner}
+              </button>
             </li>
           );
         })}
