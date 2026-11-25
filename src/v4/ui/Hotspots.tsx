@@ -106,6 +106,7 @@ import {
   soundFamily,
   editToggle,
   presetKey,
+  voyPresetRow,
   presetFaceKnob,
   focusMachine,
   gesture,
@@ -233,6 +234,7 @@ import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { voyEcho } from '../voyager/echo';
 import { voyInfoIdOf } from '../voyager/infoIds';
+import { faceDbl } from '../voyager/faceDbl';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { isRytmInfoHotspot } from '../rytm/infoIds';
@@ -257,6 +259,7 @@ import {
   FACE_INERT,
   SCREEN_TOUCH,
   PLUGIN,
+  PLUGIN_ARP,
   FACE_KNOBS,
   FACE_TITLE,
   GLOBAL_ENCODERS,
@@ -509,6 +512,10 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
   else twinEls.delete(id);
 }
 
+/** Alt, Cmd ou Ctrl tenu au dernier appui (le plugin MM-ARP : la remise d'un potard, voyager/faceDbl.ts). */
+let downMod = false;
+/** Le clic d'un potard de la face du plugin MM-ARP qui ouvre sa page : immobile a 3 px pres, relache en 250 ms. */
+const FACE_CLICK = { px: 3.5, ms: 250 } as const;
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
 /** Un TWEAK du MM-RYTM (audio/kit.ts, 2026-10-04) : ses potards de 0 a 1, ses choix de son a trois crans. */
 const isKit = (k: DialId): boolean => k.startsWith('r:');
@@ -982,6 +989,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
     const tapDial = (k: DialId, pressMs = 0, penc = -1, screenDial = false): void => {
+      // Le plugin MM-ARP (2026-11-16, Mika : "clic simple sur un knob de la face = ouvre tres rapidement OPEN directement sur
+      // ses reglages ; le clic ne doit pas gener la rotation") : un clic sans mouvement (moins de FACE_CLICK.px, relache en
+      // moins de FACE_CLICK.ms) ouvre le capot sur sa page (voyager/faceDbl.ts) ; la valeur ne bouge pas. Un glisser tourne
+      // le potard et n'arrive jamais ici. Alt / Cmd / Ctrl + clic : la valeur de depart. Plus de double tape, plus de cran
+      // suivant au clic (MODE du filtre se tourne)
+      if (PLUGIN_ARP && faceDbl.on() && (isVoy(k) || k.startsWith('z:'))) {
+        lastTap.delete(k);
+        if (downMod) anyDial(k, anyDialReset(k));
+        else if (pressMs <= FACE_CLICK.ms && stage.orbit.lastTap.dist < FACE_CLICK.px) faceDbl.open(k);
+        return;
+      }
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
       if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
@@ -1167,6 +1185,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Le plugin MM-ARP (v43) : une ligne de la liste des presets, choisie (un second clic la charge)
+      else if (PLUGIN_ARP && d.kind === 'vlcd' && d.index !== undefined) voyPresetRow(d.index, stage);
       // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face est
       // prise et ne fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets) ; les actions passent par
       // les touches VOICE FLTR ENV FX EDIT (rytm/presetKeys.ts), tourner un potard fait defiler (actions.ts presetFaceKnob)
@@ -1376,7 +1396,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
         // TRK engagee (2026-10-27) : un clic droit sur un pas 1 a 8 coupe sa voix ou la rend, sans la choisir
         else if (hm && hm.kind === 'step' && hm.index !== undefined) trkStepMute(hm.index, stage, e.timeStamp || performance.now());
-        else if (PLUGIN && hm && hm.enabled !== false) {
+        // (le MM-RYTM seulement : le MM-ARP n'a pas de FUNC)
+        else if (PLUGIN && !PLUGIN_ARP && hm && hm.enabled !== false) {
           // Le plugin (2026-11-08, Mika : "touche Function ... un peu trop difficile a gerer avec un plugin") : un clic droit
           // sur une touche fait FUNC + la touche (sa fonction orange), d'un seul geste : FUNC gardee pour une touche (une
           // tape), puis le clic de la touche elle-meme
@@ -1391,6 +1412,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       gesture();
+      // Le plugin MM-ARP (2026-11-13) : Alt / Cmd / Ctrl tenu a l'appui, la tape d'un potard le remet a son depart
+      downMod = e.altKey || e.metaKey || e.ctrlKey;
       // Le clavier reprend la ou il en etait, mais Espace redevient RUN/STOP
       const a = document.activeElement;
       if (a instanceof HTMLElement && a.classList.contains('v4-twin')) a.blur();

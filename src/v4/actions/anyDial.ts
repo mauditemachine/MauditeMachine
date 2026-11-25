@@ -14,7 +14,7 @@ import type { ShotId } from '../audio/shotsdsp';
 import { rytmPage } from '../state/rytmPage';
 import { type SlotTarget } from '../rytm/pages';
 import { encText, encUnit, kitUnit, layerText, v127Text, velTo127, velWord } from '../rytm/values';
-import { DT2_FACE, isBipolar, isVoiceEnc, potCourse, potMin, type EncId } from '../theme';
+import { DT2_FACE, PLUGIN_ARP, isBipolar, isVoiceEnc, potCourse, potMin, type EncId } from '../theme';
 import { activeTrack } from '../state/trk';
 import { voyKnob, voyParams, voyReadout, voyValueText } from '../voyager/params';
 import { two } from './shared';
@@ -345,7 +345,8 @@ export function dialReadout(id: DialId): string {
     return f ? layerReadout(lp, inst, f) : `${inst} HAS ONE SOUND`;
   }
   const k = voyId(id);
-  if (k) return voyReadout(k, voyParams.of(k));
+  // Le VST3 (2026-11-17) : OVERDRIVE s'appelle DISTO (le site garde OVERDRIVE)
+  if (k) return PLUGIN_ARP && k === 'dist' ? voyReadout(k, voyParams.of(k)).replace(/^OVERDRIVE/, 'DISTO') : voyReadout(k, voyParams.of(k));
   const mi = mixerInst(id);
   if (mi) return `${mi} VOLUME ${dialValueText(id)}, ${dialUnit(id).toLowerCase()}`;
   const sd = seqDialOf(id);

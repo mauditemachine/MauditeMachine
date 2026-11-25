@@ -148,6 +148,7 @@ import {
   DT_HEX,
   DT2_FACE,
   PLUGIN,
+  PLUGIN_ARP,
   PLUGIN_FACE,
 } from '../theme';
 import { Encoders } from './encoders';
@@ -180,7 +181,7 @@ import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { BezelDecal, PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_PLUGIN_FACE, VOY_PLUGIN_OPEN, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_DECK_ONLY, DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -273,7 +274,10 @@ const DJ_UNIT_MS = 420;
  * plus d'images pour rien pendant qu'une machine joue. Sous 16.7 ms : a
  * 60 Hz chaque rAF passe, a 120 Hz un sur deux.
  */
-const FRAME_MIN_MS = 12;
+// v31 (Mika : "je viens de freez mon cpu") : le plugin plafonne a 30 images par seconde (33 ms), le site garde 12 ms
+const FRAME_MIN_MS = PLUGIN_ARP ? 33 : 12;
+/** v33 (maquette) : apres un mouvement, le plugin reste a 60 images/s ce temps (ms) */
+const HOT_MS = 250;
 
 /* ---------------- Stage ---------------- */
 
@@ -346,6 +350,8 @@ export interface StageStats {
   lastRenderAt: number;
   loopActive: boolean;
   dpr: number;
+  /** v31 (le compteur CPU du plugin) : le temps JS cumule des rendus (ms, l'appel de dessin compris, le GPU non) */
+  renderMs: number;
   /** remet a zero les maxima et le compte des passes d'ombre (tests) */
   reset: () => void;
 }
@@ -484,6 +490,7 @@ export class Stage {
     lastRenderAt: 0,
     loopActive: false,
     dpr: 1,
+    renderMs: 0,
     reset: () => {
       this.stats.maxDrawCalls = 0;
       this.stats.maxTriangles = 0;
@@ -515,6 +522,9 @@ export class Stage {
   private height = 1;
   private hw = 1;
   private ppu = 1;
+  /** v42 (le plugin MM-ARP) : pixels de l'ecran (DPR compris) par unite, face fermee ; la serigraphie s'y regle */
+  private faceDpu = 0;
+  private silkTimer = 0;
   private layoutMobile: boolean;
   private raf = 0;
   private resizeRaf = 0;
@@ -525,6 +535,8 @@ export class Stage {
   private contextLost = false;
   private docHidden = false;
   private offscreen = false;
+  /** v49 (le plugin MM-ARP) : la carte d'OPEN, opaque, couvre toute la fenetre : plus aucune image (setCovered) */
+  private covered = false;
   private paused = false;
   private ro: ResizeObserver;
   private io: IntersectionObserver | null = null;
@@ -1120,6 +1132,8 @@ export class Stage {
     renderer.setSize(this.width, this.height, false);
     this.stats.dpr = renderer.getPixelRatio();
     this.updateCamera();
+    // v42 (le plugin MM-ARP) : la serigraphie tout de suite a la definition de l'ecran
+    if (PLUGIN_ARP && this.voy) this.voy.fitSilk(this.faceDpu, renderer.capabilities.maxTextureSize);
     this.orbit.apply();
     renderer.clear();
 
@@ -1150,6 +1164,13 @@ export class Stage {
         hidden(voyRig.root, voyRig.stepArp),
         hidden(voyRig.root, voyRig.stepSeq)
       );
+      // v33 (maquette, le plugin) : les potards glissent vers leur angle (sans passe d'ombre : leur ombre est ronde)
+      if (PLUGIN_ARP)
+        this.animators.push((now) => {
+          if (!voyRig.knobs.step(now)) return false;
+          this.hotUntil = performance.now() + HOT_MS;
+          return 'paint';
+        });
     }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro).
@@ -1219,7 +1240,9 @@ export class Stage {
 
     // Plus rien ne touche au GL d'ici la fin du constructeur : un echec plus
     // haut ne laisse donc aucun ecouteur accroche
-    this.screen.listen();
+    // v49 (le plugin MM-ARP, Mika : "soulager au max le CPU") : l'ecran de la 808 n'y est jamais montre (le MM-ARP seul) ;
+    // sans ses abonnements il ne se redessine plus (5 images par seconde au repos avant : sa vague et ses minuteurs)
+    if (!PLUGIN_ARP) this.screen.listen();
     this.orbit.listen();
     this.syncMotion();
     this.unsubMotion = motion.subscribe(this.syncMotion);
@@ -1418,6 +1441,8 @@ export class Stage {
   invalidate(): void {
     this.dirty = true;
     this.shadowDirty = true;
+    // v33 (maquette) : un reglage bouge (un potard, une automation) : 60 images/s un instant
+    if (PLUGIN_ARP) this.hotUntil = performance.now() + HOT_MS;
     this.kick();
   }
 
@@ -1763,10 +1788,16 @@ export class Stage {
     const head = Math.min(this.height * 0.2, Math.max(headPx, rest ? IOS_BAR_LIFT.top : 0));
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
+    if (PLUGIN_ARP) this.faceDpu = (W / (2 * hwBase)) * this.renderer.getPixelRatio();
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
-    const hwOpen = inner ? Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free)) : Math.max(hwBase, F.fitHalfH * aspect);
+    // Le plugin MM-ARP (2026-11-09) : la carte seule, au plus pres, au-dessus du panneau du capot (voyager/theme.ts VOY_PLUGIN_OPEN)
+    const hwOpen = !inner
+      ? Math.max(hwBase, F.fitHalfH * aspect)
+      : PLUGIN_ARP
+        ? Math.max(VOY_PLUGIN_OPEN.w / 2, (VOY_PLUGIN_OPEN.h / 2) * (W / free))
+        : Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free));
     let hw = hwBase + (hwOpen - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
@@ -1967,6 +1998,9 @@ export class Stage {
       openY: VOY_OPEN_FRAME.y,
       openZ: VOY_OPEN_FRAME.z,
     };
+    // Le plugin MM-ARP (2026-11-09) : sa face vue de dessus remplit la fenetre, bord a bord (voyager/theme.ts VOY_PLUGIN_FACE) ;
+    // ouvert, la carte et ses TWEAKS, comme au site (VOY_OPEN_FRAME)
+    if (PLUGIN_ARP) return { ...voy, hw0: VOY_PLUGIN_FACE.w / 2, h: VOY_PLUGIN_FACE.h, ty: VOY_PLUGIN_FACE.ty, openZ: VOY_PLUGIN_OPEN.z };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois. Tenu droit
     // (2026-10-18, la table seule) : un seul bloc, 'mix', centre sur DJ_X (son ombre, unitW / 2 + 3, couvre ses 11 de profondeur)
@@ -2072,7 +2106,8 @@ export class Stage {
     if (!voy) return;
     // Desktop, vue par defaut : la voisine reste, au bord (le bout qui depasse) ;
     // la vue tournee, elle se cache (elle passerait devant)
-    const peek = !this.layoutMobile && !view.get();
+    // (jamais dans le plugin : la machine seule)
+    const peek = !PLUGIN && !this.layoutMobile && !view.get();
     const dj = this.dj;
     const bs = this.bass;
     // Les voisines immediates seulement, dans l'ordre de la scene (state/focus.ts MACHINES :
@@ -2206,6 +2241,13 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     this.stats.dpr = dpr;
     this.updateCamera();
+    // v42 (le plugin MM-ARP) : la serigraphie suit la taille de la fenetre, une fois le geste fini
+    if (PLUGIN_ARP && this.voy) {
+      window.clearTimeout(this.silkTimer);
+      this.silkTimer = window.setTimeout(() => {
+        if (!this.disposed && this.voy?.fitSilk(this.faceDpu, this.renderer.capabilities.maxTextureSize)) this.repaint();
+      }, 400);
+    }
     this.dirty = true;
     this.render(performance.now());
     if (this.dirty) this.kick();
@@ -2610,14 +2652,51 @@ export class Stage {
     this.capMs = Math.max(0, ms);
   }
 
+  /** v31 : le plugin attend la prochaine image sous un minuteur (raf -1), plus de rAF a vide a la cadence de l'ecran */
+  private capTimer = 0;
+  /** v33 (maquette, Mika : "des knobs qui tournent bien") : jusqu'a quand le plugin rend a 60 images/s (un potard tourne,
+   *  une automation, la bascule du capot) ; au repos, le plafond de 30 */
+  private hotUntil = -1;
+  private capNow(now: number): number {
+    return PLUGIN_ARP && now < this.hotUntil ? 16 : Math.max(this.capMs, FRAME_MIN_MS);
+  }
+
+  /** La boucle continue : tout de suite (le site), ou au plafond suivant sous un minuteur (le plugin, 30 images/s). */
+  private kickNext(): void {
+    if (!PLUGIN_ARP) {
+      this.kick();
+      return;
+    }
+    if (this.raf !== 0 || this.disposed || this.paused || this.contextLost || !this.started) return;
+    const wait = this.capNow(performance.now()) - (performance.now() - this.lastFrameAt) - 4;
+    if (wait <= 1) {
+      this.kick();
+      return;
+    }
+    this.raf = -1;
+    this.capTimer = window.setTimeout(() => {
+      this.capTimer = 0;
+      if (this.raf !== -1) return;
+      this.raf = 0;
+      this.kick();
+    }, wait);
+  }
+
   private frame = (now: number): void => {
     this.raf = 0;
     if (this.disposed) return;
-    if (now - this.lastFrameAt < Math.max(this.capMs, FRAME_MIN_MS)) {
+    // (le plugin : l'horloge reelle, l'heure du rAF est celle du debut de l'image d'avant quand le minuteur l'a demande ;
+    // 6 ms de tolerance, le minuteur part 4 ms avant)
+    const clock = PLUGIN_ARP ? performance.now() : now;
+    if (clock - this.lastFrameAt < this.capNow(clock) - (PLUGIN_ARP ? 6 : 0)) {
+      if (PLUGIN_ARP) {
+        this.kickNext();
+        return;
+      }
       this.raf = requestAnimationFrame(this.frame);
       return;
     }
-    this.lastFrameAt = now;
+    this.lastFrameAt = clock;
     this.stats.rafs += 1;
     // Reveil apres un repos : un pas de 16.7 ms, pas l'ecart depuis la derniere frame
     const dt = this.last < 0 ? 16.667 : Math.min(50, now - this.last);
@@ -2642,6 +2721,7 @@ export class Stage {
         this.dirty = true;
         this.shadowDirty = true;
       }
+      if (PLUGIN_ARP && (moved || viewMoved)) this.hotUntil = performance.now() + HOT_MS;
       if (viewMoved || painted) this.dirty = true;
       if (this.dirty) this.render(now);
     } catch (e) {
@@ -2650,7 +2730,7 @@ export class Stage {
       return;
     }
     if (viewMoved || moved || painted || poll) {
-      this.kick();
+      this.kickNext();
     } else {
       this.last = -1;
       this.stats.loopActive = false;
@@ -2712,7 +2792,9 @@ export class Stage {
     const shadow = this.shadowDirty;
     this.renderer.shadowMap.needsUpdate = shadow;
     this.shadowDirty = false;
+    const t0 = performance.now();
     if (!this.skipDraw) this.renderer.render(this.scene, this.camera);
+    this.stats.renderMs += performance.now() - t0;
     this.dirty = false;
     const r = this.renderer.info.render;
     const s = this.stats;
@@ -3720,8 +3802,19 @@ export class Stage {
     if (motion.reduced()) this.finishIntro();
   };
 
+  /**
+   * v49 (le plugin MM-ARP) : la carte d'OPEN couvre toute la fenetre (HoodBoard.tsx, phase open) : la scene, cachee
+   * dessous, ne rend plus rien (avant : 15 images par seconde pour la touche OPEN qui respire sous la carte) ; decouverte,
+   * elle se redessine aussitot. Sans effet hors du plugin MM-ARP.
+   */
+  setCovered(on: boolean): void {
+    if (!PLUGIN_ARP || on === this.covered) return;
+    this.covered = on;
+    this.setPaused();
+  }
+
   private setPaused(): void {
-    const paused = this.docHidden || this.offscreen;
+    const paused = this.docHidden || this.offscreen || this.covered;
     if (paused === this.paused) return;
     this.paused = paused;
     this.opts.onVisibility?.(!paused);
@@ -3786,11 +3879,13 @@ export class Stage {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    window.clearTimeout(this.silkTimer);
     // L'intro demontee avant sa fin (2026-10-18) : la machine qu'elle devait rejoindre passe a la scene suivante
     if (this.introOn && this.introLand) startMachine.defer(this.introLand);
     this.introLand = null;
     cancelAnimationFrame(this.raf);
     cancelAnimationFrame(this.resizeRaf);
+    window.clearTimeout(this.capTimer);
     this.raf = 0;
     this.resizeRaf = 0;
     for (const t of this.timers) window.clearTimeout(t);

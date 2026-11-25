@@ -74,6 +74,18 @@
  * (lfoShapeStep, foldLegacyKnobs).
  */
 
+// v50 : la meme lecture que PLUGIN_ARP (theme/base.ts), sans l'importer : ce fichier est lu tel quel par Node
+// (plugin/mm-arp/presets/build.mjs, tests/fx-ref.mjs, tests/params-ref.mjs), ou theme/base ne se resout pas.
+const PLUGIN_ARP: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__ === 'arp') return true;
+    return new URLSearchParams(window.location.search).get('plugin') === 'arp';
+  } catch {
+    return false;
+  }
+})();
+
 export type VoyKnobId =
   | 'rate'
   | 'mode'
@@ -376,7 +388,10 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
-export const VOY_FACE_KNOBS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section !== 'tweak');
+// v50 (le plugin MM-ARP seul, Mika : "C et SQ ok, go") : la section MOD quitte la face, ses reglages vont a l'encart d'EDIT
+// (LFO 1 et la MOD MATRIX : plugin/arp/encart50.ts) ; le site ne change pas
+const ARP_OFF_FACE: ReadonlySet<string> = new Set(PLUGIN_ARP ? ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'] : []);
+export const VOY_FACE_KNOBS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section !== 'tweak' && !ARP_OFF_FACE.has(k.id));
 export const VOY_TWEAKS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section === 'tweak');
 
 /** PHASE : sous ce seuil, FREE ; au-dessus, la phase de depart (0 a 1 cycle). */

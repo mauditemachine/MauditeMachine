@@ -15,10 +15,11 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PORTRAIT, RYTM_FACE_VER, SIDE_FACE, SIDE_PADS, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
+import { PLUGIN_ACCENT } from './theme/base';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PLUGIN_ARP, PORTRAIT, RYTM_FACE_VER, SIDE_FACE, SIDE_PADS, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
-export { PLUGIN, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
+export { PLUGIN, PLUGIN_ARP, PLUGIN_KIND, type PluginKind, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
 export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadSpec, PageKnobId, FaceKnobId, EncPlace, KeyLabelSpec, SilkText, SilkLogoId } from './theme/base';
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
@@ -34,7 +35,7 @@ export const HEX = {
   yellowHi: '#FFD75E',
   red: '#C8442F',
   /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) */
-  orange: '#FF6A13',
+  orange: PLUGIN_ARP ? PLUGIN_ACCENT : '#FF6A13',
   /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis (velocite forte) */
   ledSet: '#FF6A13',
   /** velocite moyenne : l'orange a 68 % */
@@ -181,6 +182,8 @@ export const FONT_LOADS = [
   '600 40px "SF Pro Display"',
   '700 40px "SF Pro Display"',
   '400 40px "Robot Radicals"',
+  // v52 (plugin MM-ARP seul, Mika choix 4A) : l'afficheur a points des grands noms et chiffres de l'ecran (voyager/screen.ts)
+  ...(PLUGIN_ARP ? (['800 40px "MM Dots"', '900 40px "MM Dots"'] as const) : []),
 ] as const;
 export const FONT_TIMEOUT_MS = 3000;
 
@@ -840,9 +843,10 @@ export const PAD_FX = {
  * vif (yellowHi #FFD75E) pour la page ouverte, une seule a la fois ;
  * OPEN : jaune faible, yellowHi pendant l'ouverture et vue ouverte.
  */
+// v30 (plugin MM-ARP) : les lueurs des pads au rose d'accent #FF0066 (lineaire 1, 0, 0.13), le site garde le jaune
 export const PAD_GLOW = {
   /** dessus 241,193,74 (#F2C230 : 242,194,48, le bleu hors gamut sous l'ACES) */
-  flash: [1.2, 0.42, 0],
+  flash: PLUGIN_ARP ? [1.2, 0.02, 0.16] : [1.2, 0.42, 0],
   /**
    * la voix choisie, blanc chaud. 2026-10-22 (audit SB-04) : dessus vers 78,74,66 (le caoutchouc 18,17,16 plus 60
    * niveaux) ; avant [0.011, 0.0105, 0.0085], 29 contre 17 sur les autres pads : on ne voyait pas quelle voix l'ecran,
@@ -850,15 +854,15 @@ export const PAD_GLOW = {
    */
   selected: [0.062, 0.057, 0.046],
   /** dessus 40,34,18 : environ 10 % de jaune sur le caoutchouc */
-  faint: [0.022, 0.016, 0.001],
+  faint: PLUGIN_ARP ? [0.022, 0.0008, 0.003] : [0.022, 0.016, 0.001],
   /** dessus 86,71,24 : environ 30 % */
-  hover: [0.085, 0.06, 0.003],
+  hover: PLUGIN_ARP ? [0.085, 0.003, 0.011] : [0.085, 0.06, 0.003],
   /** dessus 246,223,124 (#FFD75E : 255,215,94, meme limite de gamut) */
-  active: [1.8, 0.85, 0.02],
-  /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page */
-  orange: [1.6, 0.2, 0.004],
+  active: PLUGIN_ARP ? [1.8, 0.03, 0.24] : [1.8, 0.85, 0.02],
+  /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page ; le plugin (v27) : le jaune d'accent */
+  orange: PLUGIN_ARP ? [1.6, 0.025, 0.21] : [1.6, 0.2, 0.004],
   /** OPEN devenu CLOSE, machine ouverte : orange faible */
-  orangeDim: [0.16, 0.024, 0],
+  orangeDim: PLUGIN_ARP ? [0.16, 0.002, 0.021] : [0.16, 0.024, 0],
   /** voix coupee (2026-10-07, Mika : "Mute en rouge, type LED a travers un caoutchouc") : une LED rouge allumee sous le pad */
   muted: [0.62, 0.025, 0.012],
 } as const;
@@ -1560,7 +1564,9 @@ export const ORBIT = {
    */
   azDeg: 0,
   // Le plugin (2026-11-08) : la camera perpendiculaire au panneau (incline de TILT), la face vue comme une photo
-  elDeg: PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
+  // Le plugin MM-ARP (2026-11-09) : son plateau (plat) et son panneau (pente de VOY_PANEL.angle, 26.5 deg) vus d'aussi pres
+  // de la perpendiculaire l'un que l'autre, la camera a mi-pente (voyager/theme.ts VOY_PLUGIN_EL, le meme calcul)
+  elDeg: PLUGIN_ARP ? 90 - (Math.atan2(3.36 - 1.32, 0.15 + 3.95) * 90) / Math.PI : PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
   zoom: 1,
   elMinDeg: 18,
   elMaxDeg: PLUGIN ? 90 : 78,
@@ -2193,6 +2199,38 @@ const DARK = {
   silk: [...INK.silk],
   voiceTint: { ...VOICE_TINT },
 };
+
+/** La progression en attente (pads de l'arpege) : la couleur d'accent du plugin, reglable (setPluginAccent). */
+export const PAD_QUEUED: number[] = PLUGIN_ARP ? [0.46, 0, 0.061] : [0.3, 0.07, 0];
+
+/** Les lueurs des pads du plugin, en multiples de la couleur d'accent lineaire (son canal le plus fort a 1). */
+const ACCENT_GLOW = { flash: 1.2, faint: 0.022, hover: 0.085, active: 1.8, orange: 1.6, orangeDim: 0.16 } as const;
+
+/**
+ * v31 (2026-11-18, Mika : "un crossfader dans les settings avec des couleurs de cette tranche de luminosite") : pose la
+ * couleur d'accent du plugin MM-ARP en direct (plugin/arp/accent.ts, le curseur ACCENT COLOR des reglages) : HEX.orange
+ * et COLOR.orange (la serigraphie : PRESET, OPEN, les couronnes WAVEFORM), les lueurs des pads (memes tableaux, modifies
+ * en place) et l'etat sombre d'origine. Rien hors du plugin.
+ */
+export function setPluginAccent(hex: string): void {
+  if (!PLUGIN_ARP || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  const n = parseInt(hex.slice(1), 16);
+  const lin = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const top = Math.max(lin[0], lin[1], lin[2], 1e-6);
+  const c = lin.map((v) => v / top);
+  (HEX as Record<Tone, string>).orange = hex;
+  (DARK.hex as Record<Tone, string>).orange = hex;
+  (COLOR as Record<Tone, number>).orange = n;
+  for (const [k, g] of Object.entries(ACCENT_GLOW) as [keyof typeof ACCENT_GLOW, number][]) {
+    const v = c.map((x) => x * g);
+    Object.assign(PAD_GLOW[k] as unknown as number[], v);
+    if (DARK.glow[k]) DARK.glow[k] = [...v];
+  }
+  Object.assign(PAD_QUEUED, c.map((x) => x * 0.46));
+}
 
 /**
  * Pose une apparence sur les constantes de la scene, AVANT la creation du

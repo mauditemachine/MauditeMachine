@@ -1,0 +1,70 @@
+/* =====================================================================================================================
+   v52 (2026-11-24, Mika : "la police de ca c'est un peu intense et trop basique" ; choix 4A de la maquette) : les
+   ecrans parlent en afficheur a points (Doto, 'MM Dots', embarquee par plugin/mm-arp/web : index.html, fonts/). Seuls
+   les noms et les valeurs en grand passent aux points ; les petites etiquettes restent en SF Pro (lisibles). Un fichier
+   a part, selecteurs un cran plus precis que ceux qu'ils remplacent (fx2.css, hood.css, hell2.css) : l'ordre des
+   feuilles ne compte pas. Plugin seul (.mm-plugin-arp).
+   ===================================================================================================================== */
+
+.mm-plugin-arp {
+  --mm-dots: 'MM Dots', 'SF Pro Display', system-ui, sans-serif;
+}
+
+/* REVERB : la machine en grand, la valeur touchee */
+.mm-plugin-arp .mm-fx2-wf text.name {
+  font-family: var(--mm-dots);
+  font-weight: 900;
+  font-size: 33px;
+  letter-spacing: 0.05em;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 45%, transparent));
+}
+.mm-plugin-arp .mm-fx2-wf text.v {
+  font-family: var(--mm-dots);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+/* DELAY : les temps L / R du graphe des echos */
+.mm-plugin-arp .mm-fx2-echo text.lr-big {
+  font-family: var(--mm-dots);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+/* l'ecran des pages d'effet (fx2Lcd.tsx) : le titre, le tempo, la valeur en grand */
+.mm-plugin-arp .mm-fx2-lcd .mm-fx2-lcd-hd b,
+.mm-plugin-arp .mm-fx2-lcd .mm-fx2-lcd-hd em {
+  font-family: var(--mm-dots);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.mm-plugin-arp .mm-fx2-lcd .mm-fx2-lcd-hd em small {
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+}
+.mm-plugin-arp .mm-fx2-lcd .mm-fx2-lcd-bv {
+  font-family: var(--mm-dots);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+/* HELL : le nom du preset dans sa fenetre */
+.mm-plugin-arp .mm-hell-pwin b.mm-hell-pname,
+.mm-plugin-arp button.mm-hell-pwin b {
+  font-family: var(--mm-dots);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+/* l'ecran du bas du capot : la page ou le reglage touche */
+.mm-plugin-arp .mm-p2-lcd span.mm-p2-lcd-b {
+  font-family: var(--mm-dots);
+  font-weight: 900;
+  letter-spacing: 0.07em;
+}
+
+/* l'ancienne page REVERB (SkyPage.tsx) */
+.mm-plugin-arp div.mm-sky-name {
+  font-family: var(--mm-dots);
+  font-weight: 900;
+}

@@ -1,0 +1,139 @@
+{
+  "_doc": [
+    "Les cas du banc de comparaison JS / C++ du moteur MM-ARP (tests/voyager-ref.mjs les rend avec le vrai worklet).",
+    "Chaque cas : knobs (potards 0..1 de voyager/params.ts, par-dessus les defauts ou ceux de preset), engine (reglages",
+    "moteur imposes apres engineParams), notes ('arp' : l'arpegiateur du banc scripts/arp-bench.mjs, ou une liste",
+    "{midi,time,gate,accent,from}, gate 'inf' = sans fin), bars, bpm, swing, prog, seconds, timeline (messages a leur",
+    "instant : params par knobs ou engine, beat, note, noteOff, stop, cancel ; sweep = une rafale de params engine",
+    "toutes les dt s, comme un potard MIDI), os, voices, stack, wideVoices, seed. 'expand':'factory' = chaque preset d'usine."
+  ],
+  "defaults": { "os": 4, "voices": 12, "stack": 3, "wideVoices": 8, "seed": 808, "bars": 4 },
+  "cases": [
+    { "name": "INIT" },
+    { "expand": "factory" },
+
+    { "name": "MODE MOOG", "knobs": { "fmode": 0, "res": 0.6, "cutoff": 0.45 } },
+    { "name": "MODE LP12", "knobs": { "fmode": 0.25, "res": 0.6, "cutoff": 0.45 } },
+    { "name": "MODE MS10", "knobs": { "fmode": 0.5, "res": 0.6, "cutoff": 0.45 } },
+    { "name": "MODE BP", "knobs": { "fmode": 0.75, "res": 0.6, "cutoff": 0.45 } },
+    { "name": "MODE HP", "knobs": { "fmode": 1, "res": 0.6, "cutoff": 0.45 } },
+    { "name": "MODE SWITCH", "knobs": { "res": 0.5 }, "timeline": [
+      { "at": 0.4, "type": "params", "knobs": { "fmode": 0.25 } },
+      { "at": 0.8, "type": "params", "knobs": { "fmode": 0.5 } },
+      { "at": 1.2, "type": "params", "knobs": { "fmode": 0.75 } },
+      { "at": 1.6, "type": "params", "knobs": { "fmode": 1 } },
+      { "at": 2.0, "type": "params", "knobs": { "fmode": 0 } } ] },
+    { "name": "MS10 SCREAM", "knobs": { "fmode": 0.5, "cutoff": 0.3, "res": 0.98, "envAmt": 0.6, "load": 0.5, "accFlt": 1, "accent": 1 } },
+
+    { "name": "STACK WIDE GLUE", "knobs": { "stack": 1, "wide": 1, "glue": 1, "sync": 1, "fm": 0.4 } },
+    { "name": "STACK ONLY", "knobs": { "stack": 0.6, "wide": 0, "glue": 0 } },
+    { "name": "WIDE ONLY", "knobs": { "stack": 0, "wide": 1, "glue": 0, "osc2": 0.4, "wave2": 0.75 } },
+    { "name": "STACK CHANGE", "knobs": { "stack": 0, "wide": 0.5 }, "timeline": [
+      { "at": 0.5, "type": "params", "knobs": { "stack": 0.8 } },
+      { "at": 1.3, "type": "params", "knobs": { "stack": 0.3 } },
+      { "at": 1.9, "type": "params", "knobs": { "stack": 0, "wide": 0 } } ] },
+    { "name": "WIDE PHONE VOICES", "wideVoices": 2, "knobs": { "wide": 0.8, "chord": 0.75, "aR": 0.8 } },
+    { "name": "GLUE HARD", "knobs": { "glue": 1, "volume": 1, "osc1": 1, "osc2": 1, "dist": 0.3 } },
+
+    { "name": "SUB SINE", "knobs": { "sub": 0.8, "subWave": 0, "subOct": 0 } },
+    { "name": "SUB TRI 2OCT", "knobs": { "sub": 0.8, "subWave": 0.5, "subOct": 1 } },
+    { "name": "SUB SQUARE", "knobs": { "sub": 0.8, "subWave": 1, "subOct": 0, "osc1": 0.3, "osc2": 0 } },
+
+    { "name": "FM", "knobs": { "fm": 0.6, "ratio": 0.375 } },
+    { "name": "FM WAVE", "knobs": { "wave1": 1, "fm": 0.3, "ratio": 0.5 } },
+    { "name": "FM SYNC", "knobs": { "fm": 0.5, "sync": 1, "range2": 0.8 } },
+
+    { "name": "SYNC GRID", "knobs": { "sync": 1, "range2": 0.6, "semi2": 0.5 }, "timeline": [
+      { "at": 0.4, "type": "params", "knobs": { "range2": 0.8 } },
+      { "at": 0.9, "type": "params", "knobs": { "range2": 0.8, "semi2": 1 } },
+      { "at": 1.4, "type": "params", "knobs": { "range2": 1, "semi2": 0.5 } } ] },
+    { "name": "SYNC SQUARE PWM", "knobs": { "sync": 1, "wave2": 0.85, "range2": 0.8, "semi2": 0.8 } },
+    { "name": "SYNC TRI MORPH", "knobs": { "sync": 1, "wave2": 0.375, "range2": 0.8 } },
+
+    { "name": "NOISE", "knobs": { "noise": 0.8, "osc2": 0.3 } },
+    { "name": "OVERDRIVE FULL", "knobs": { "dist": 1, "volume": 1 } },
+    { "name": "OD06 C7", "knobs": { "dist": 0.6, "octave": 0.75, "range1": 1, "range2": 0.8, "cutoff": 1, "envAmt": 0 } },
+    { "name": "TRI C8", "knobs": { "wave1": 0.2, "wave2": 0.25, "octave": 1, "range1": 1, "range2": 1, "cutoff": 1, "envAmt": 0, "res": 0 } },
+    { "name": "PWM", "knobs": { "wave1": 0.7, "wave2": 0.875, "lfoDest": 0, "lfoAmt": 0.4, "lfoShape": 0 } },
+
+    { "name": "HIGH RES", "knobs": { "res": 1, "cutoff": 1, "envAmt": 0 }, "notes": [
+      { "midi": 54, "time": 0.05, "gate": 3 }, { "midi": 61, "time": 0.05, "gate": 3 }, { "midi": 66, "time": 0.05, "gate": 3 } ], "seconds": 3.6 },
+    { "name": "SELF OSC", "knobs": { "res": 0.95, "cutoff": 0.55, "envAmt": 0.2, "osc1": 0.2, "osc2": 0 }, "notes": [
+      { "midi": 45, "time": 0.05, "gate": 2 }, { "midi": 57, "time": 1.0, "gate": 1.5 } ], "seconds": 3.0 },
+
+    { "name": "GLIDE", "knobs": { "glide": 0.5, "gate": 0.9 } },
+    { "name": "HELD 14 VOICES", "knobs": { "aR": 0.9, "chord": 1 }, "notes": [
+      { "midi": 42, "time": 0.05, "gate": 2.5 }, { "midi": 45, "time": 0.1, "gate": 2.5 }, { "midi": 49, "time": 0.15, "gate": 2.5 },
+      { "midi": 52, "time": 0.2, "gate": 2.5 }, { "midi": 54, "time": 0.25, "gate": 0.3 }, { "midi": 57, "time": 0.3, "gate": 2.5 },
+      { "midi": 61, "time": 0.35, "gate": 2.5 }, { "midi": 64, "time": 0.4, "gate": 2.5 }, { "midi": 66, "time": 0.45, "gate": 2.5 },
+      { "midi": 69, "time": 0.5, "gate": 2.5 }, { "midi": 73, "time": 0.55, "gate": 2.5 }, { "midi": 76, "time": 0.6, "gate": 2.5 },
+      { "midi": 78, "time": 0.65, "gate": 2.5 }, { "midi": 81, "time": 0.7, "gate": 2.5 }, { "midi": 85, "time": 0.75, "gate": 2.5, "accent": 1.6 },
+      { "midi": 47, "time": 1.2, "gate": 1 } ], "seconds": 4.0 },
+
+    { "name": "HELD NOTE OFF", "notes": [
+      { "midi": 54, "time": 0.05, "gate": "inf" }, { "midi": 57, "time": 0.05, "gate": "inf" }, { "midi": 61, "time": 0.05, "gate": "inf" },
+      { "midi": 66, "time": 1.6, "gate": "inf" } ], "seconds": 3.5, "timeline": [
+      { "at": 0.6, "type": "noteOff", "midi": 54, "time": 0.62 }, { "at": 0.9, "type": "noteOff", "midi": 57 },
+      { "at": 1.0, "type": "noteOff", "midi": 66, "time": 2.0 }, { "at": 1.2, "type": "noteOff", "midi": 61, "time": 1.25 } ] },
+    { "name": "LIVE NOTES", "knobs": { "aR": 0.5 }, "notes": [], "seconds": 2.5, "timeline": [
+      { "at": 0.1, "type": "note", "midi": 50, "time": 0.1, "gate": "inf", "accent": 1.2 },
+      { "at": 0.3, "type": "note", "midi": 57, "time": 0.31, "gate": "inf" },
+      { "at": 0.5, "type": "noteOff", "midi": 50 },
+      { "at": 0.7, "type": "note", "midi": 62, "time": 0.7, "gate": "inf", "from": 57 },
+      { "at": 1.4, "type": "noteOff", "midi": 57, "time": 1.45 },
+      { "at": 1.6, "type": "noteOff", "midi": 62 } ] },
+    { "name": "STOP", "knobs": { "aR": 0.8 }, "timeline": [ { "at": 1.0, "type": "stop", "time": 1.0 } ] },
+    { "name": "CANCEL", "timeline": [ { "at": 0.8, "type": "cancel", "time": 1.1 } ] },
+    { "name": "CANCEL REPLAN", "timeline": [
+      { "at": 0.8, "type": "cancel", "time": 0.9 },
+      { "at": 0.85, "type": "note", "midi": 66, "time": 0.95, "gate": 0.2, "accent": 1.3 },
+      { "at": 0.85, "type": "beat", "time": 0.95, "beat": 1.5, "bpm": 140, "run": false } ] },
+
+    { "name": "RAMP CUTOFF", "knobs": { "res": 0.7 }, "timeline": [
+      { "type": "sweep", "key": "cutoff", "from": 300, "to": 6000, "t0": 0.3, "t1": 1.2, "dt": 0.0156 },
+      { "type": "sweep", "key": "cutoff", "from": 6000, "to": 500, "t0": 1.5, "t1": 1.9, "dt": 0.008 } ] },
+    { "name": "RAMP RES ENV", "timeline": [
+      { "type": "sweep", "key": "res", "from": 0.2, "to": 0.92, "t0": 0.2, "t1": 1.4, "dt": 0.011 },
+      { "type": "sweep", "key": "envOct", "from": 1, "to": 6, "t0": 0.5, "t1": 1.6, "dt": 0.02 } ] },
+    { "name": "PARAMS LIVE", "timeline": [
+      { "at": 0.3, "type": "params", "knobs": { "wave1": 0.6, "osc2": 0.5, "fine2": 0.7 } },
+      { "at": 0.7, "type": "params", "knobs": { "dist": 0.5, "load": 0.6, "noise": 0.3 } },
+      { "at": 1.1, "type": "params", "knobs": { "space": 0.7, "wide": 0.5, "glue": 0.8 } },
+      { "at": 1.5, "type": "params", "knobs": { "wave1": 0.4, "dist": 0, "load": 0, "noise": 0, "space": 0, "wide": 0, "glue": 0 } },
+      { "at": 1.8, "type": "params", "engine": { "bpm": 150, "cutoff": "NaN", "unknownKey": 3, "res": 7 } } ] },
+
+    { "name": "LFO TRI CUT", "knobs": { "lfoShape": 0, "lfoDest": 0.25, "lfoAmt": 0.7, "lfoRate": 0.5 } },
+    { "name": "LFO SAW WAVE", "knobs": { "lfoShape": 0.25, "lfoDest": 0, "lfoAmt": 0.6, "lfoRate": 0.3333333333333333 } },
+    { "name": "LFO RND FM", "knobs": { "lfoShape": 0.5, "lfoDest": 0.5, "lfoAmt": 0.8, "lfoRate": 0.6666666666666666, "fm": 0.2 } },
+    { "name": "LFO SQR PITCH", "knobs": { "lfoShape": 0.75, "lfoDest": 0.75, "lfoAmt": 0.5, "lfoRate": 0.16666666666666666 } },
+    { "name": "LFO SH WCUT", "knobs": { "lfoShape": 1, "lfoDest": 1, "lfoAmt": 0.9, "lfoRate": 0 } },
+    { "name": "LFO TEMPO CHANGE", "knobs": { "lfoShape": 0.5, "lfoDest": 0.25, "lfoAmt": 0.7, "lfoRate": 0.5 }, "timeline": [
+      { "at": 1.0, "type": "params", "engine": { "bpm": 96 } },
+      { "at": 1.4, "type": "stop", "time": 1.4 },
+      { "at": 1.6, "type": "params", "engine": { "bpm": 170 } },
+      { "at": 1.7, "type": "note", "midi": 54, "time": 1.75, "gate": 1.0 } ] },
+
+    { "name": "ACCENT ACCFLT", "knobs": { "accent": 1, "accFlt": 1, "load": 0.5 } },
+    { "name": "ACCENT MS10", "knobs": { "accent": 1, "accFlt": 1, "fmode": 0.5, "res": 0.8 } },
+    { "name": "PHASE", "knobs": { "phase": 0.6, "stack": 0.5 } },
+    { "name": "DRIFT FULL", "knobs": { "drift": 1, "width": 1 } },
+    { "name": "DRIFT ZERO", "knobs": { "drift": 0, "width": 0 } },
+    { "name": "LOAD FULL", "knobs": { "load": 1, "res": 0.8, "cutoff": 0.35 } },
+    { "name": "LOAD WIDE", "knobs": { "load": 0.7, "wide": 0.6, "stack": 0.4 } },
+    { "name": "SPACE", "knobs": { "space": 0.6, "res": 0.7 } },
+    { "name": "SPACE MS10", "knobs": { "space": 1, "res": 0.8, "fmode": 0.5, "wide": 0.4 } },
+    { "name": "SPACE LOAD", "knobs": { "space": 0.5, "load": 0.4 } },
+    { "name": "NEG", "knobs": { "fpol": 1, "cutoff": 0.62, "envAmt": 0.7, "res": 0.55 } },
+    { "name": "KEYTRACK HIGH", "knobs": { "keyTrack": 1, "octave": 1, "range": 1 } },
+
+    { "name": "OS2 INIT", "os": 2, "voices": 8, "stack": 2, "wideVoices": 4 },
+    { "name": "OS2 ALL FULL", "os": 2, "voices": 8, "stack": 2, "wideVoices": 4, "knobs": { "stack": 1, "wide": 1, "glue": 1, "sync": 1, "fm": 0.4 } },
+    { "name": "OS2 MS10 SCREAM", "os": 2, "voices": 8, "stack": 2, "wideVoices": 4, "knobs": { "fmode": 0.5, "cutoff": 0.4, "res": 0.97, "envAmt": 0.5, "space": 0.3 } },
+    { "name": "OS2 OVERDRIVE", "os": 2, "voices": 8, "stack": 2, "wideVoices": 4, "knobs": { "dist": 0.8, "res": 0.9, "cutoff": 0.85 } },
+    { "name": "OS2 HIGH RES", "os": 2, "voices": 8, "stack": 2, "wideVoices": 4, "knobs": { "res": 1, "cutoff": 1, "envAmt": 0 }, "notes": [
+      { "midi": 54, "time": 0.05, "gate": 2 }, { "midi": 66, "time": 0.05, "gate": 2 } ], "seconds": 2.5 },
+    { "name": "OS1 INIT", "os": 1 },
+    { "name": "CPU STACK WIDE GLUE", "knobs": { "stack": 0.5, "wide": 0.6, "glue": 0.5 }, "bars": 2 },
+    { "name": "SEED 1234", "seed": 1234, "knobs": { "drift": 1, "lfoShape": 0.5, "lfoDest": 0.25, "lfoAmt": 0.5 } }
+  ]
+}

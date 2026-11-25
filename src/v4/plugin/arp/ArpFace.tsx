@@ -1,0 +1,179 @@
+/**
+ * La face du plugin MM-ARP (2026-11-09, plugin/mm-arp) : la meme machine que le site (la scene three.js, ses pads
+ * d'accords, ses potards, son grand ecran, RUN, EDIT et la suite, les presets), seule, vue de dessus, dans la fenetre du
+ * VST3. Comme la face du MM-RYTM (plugin/PluginFace.tsx) : rien du site (en-tete, Dock, sections, autres machines, intro,
+ * capot). Le son vient du plugin (plugin/arp/bridge.ts).
+ *
+ * OPEN leve le capot du site (2026-11-09) ; depuis le 2026-11-13 (Mika : "je veux avoir qu'une seule page"), une seule
+ * carte dessous, la noire (HoodBoard.tsx) : pleine page depuis le 2026-11-13 (plus de decoupe), trois pages SOUND, FX
+ * (et HELL), SEQ, la banque, DISK, DRAG MIDI et MIDI LEARN dans deux volets. Le potard HELL de la face : hellKnob.tsx. OPEN, CLOSE, Echap ou O le
+ * referment, comme au site.
+ */
+
+import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
+import '../../v4.css';
+import './face.css';
+import { gesture } from '../../actions';
+import { resume } from '../../audio/drums';
+import { useKeys } from '../../hooks/useKeys';
+import { Stage } from '../../scene/renderer';
+import { appearance } from '../../state/appearance';
+import { applyAppearance } from '../../theme';
+import { HitLayer } from '../../ui/Hotspots';
+import { PresetNameDialog } from '../../ui/PresetNameDialog';
+import { VoyTwins } from '../../ui/VoyTwins';
+import { VoyInfosCard } from '../../voyager/InfosCard';
+import { arp } from '../../voyager/arp';
+import { arpBridge } from './bridge';
+import { DiskNameDialog } from './DiskPresets';
+import { HoodBoard } from './HoodBoard';
+import { HellKnob } from './hellKnob';
+import { FaceExtras } from './faceExtras';
+import { EgColumn } from './EgColumn';
+import { FaceModArcs } from './FaceModArcs';
+import { Encart50Overlay } from './Encart50Overlay';
+import { FaceLook, FaceLookButton } from './LookPanel';
+import { FaceCpuMeter } from './CpuMeter';
+import './hypno';
+import { LearnMarks } from './HoodPanel';
+// v52 : la tonalite (xKey, xScale) suivie des le chargement, et son selecteur sous les pads
+import './key';
+import { KeySelect } from './KeySelect';
+// v53 : PRESET ouvre le navigateur de presets de la banque du VST3 (au lieu de la liste du site sur le grand ecran)
+import { PresetBrowser } from './PresetBrowser';
+
+class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    this.props.onError(`${error.message} ${info.componentStack?.split('\n')[1] ?? ''}`.trim());
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+const ArpFace: React.FC = () => {
+  const stageRef = useRef<Stage | null>(null);
+  const getStage = useCallback(() => stageRef.current, []);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
+  const [stage, setStage] = useState<Stage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
+  const running = useSyncExternalStore(arp.subscribe, () => arp.get().running);
+
+  const onError = useCallback((m: string) => {
+    setError(m);
+    arpBridge.log('face', m);
+  }, []);
+
+  useLayoutEffect(() => {
+    document.body.classList.add('v4-active');
+    return () => document.body.classList.remove('v4-active');
+  }, []);
+
+  // Le premier geste cree le contexte audio du site (muet : FLAGS.mute ; le moteur du synthe ne se charge pas)
+  useEffect(() => {
+    const opts = { capture: true, passive: true } as const;
+    const onGesture = (): void => gesture();
+    window.addEventListener('pointerdown', onGesture, opts);
+    window.addEventListener('keydown', onGesture, opts);
+    window.addEventListener('pointerup', resume, opts);
+    return () => {
+      window.removeEventListener('pointerdown', onGesture, opts);
+      window.removeEventListener('keydown', onGesture, opts);
+      window.removeEventListener('pointerup', resume, opts);
+    };
+  }, []);
+
+  useKeys(getStage, true);
+
+  // La scene : le MM-ARP seul (state/focus.ts), sans intro, la camera fixe
+  useEffect(() => {
+    applyAppearance(look);
+    const host = hostRef.current;
+    const input = inputRef.current;
+    if (!host || !input) return undefined;
+    const built = Stage.create({
+      noIntro: true,
+      host,
+      input,
+      mobile: false,
+      dev: import.meta.env.DEV,
+      onError: (where, message) => onError(`${where}: ${message}`),
+      onContextLost: () => onError('webgl: contexte perdu'),
+      onContextRestored: () => setError(null),
+    });
+    if (!built) {
+      onError('webgl: la scene ne se construit pas');
+      return undefined;
+    }
+    built.orbit.lock = () => true;
+    stageRef.current = built;
+    setStage(built);
+    return () => {
+      stageRef.current = null;
+      setStage(null);
+      built.dispose();
+    };
+  }, [look, onError]);
+
+  return (
+    <div
+      className="v4-root mm-plugin mm-plugin-arp"
+      style={{ position: 'fixed' }}
+      data-v4-state={running ? 'running' : 'idle'}
+      data-v4-gl={error ? 'fallback' : 'webgl'}
+      data-v4-layout="desktop"
+      data-v4-motion="full"
+      data-v4-muted="1"
+      data-v4-intro="0"
+      data-v4-running={running ? '1' : '0'}
+      data-v4-theme={look}
+      data-v4-focus="voy"
+      data-mm-plugin="arp"
+    >
+      <div ref={inputRef} className="v4-stage">
+        <Boundary onError={onError}>
+          <div ref={hostRef} className="v4-canvas-host" aria-hidden="true" />
+        </Boundary>
+        <Boundary onError={onError}>
+          <HitLayer getStage={getStage} stage={stage} />
+          <section id="v4-controls" aria-label="MM-ARP controls">
+            <VoyTwins stage={stage} />
+          </section>
+        </Boundary>
+      </div>
+      <Boundary onError={onError}>
+        <VoyInfosCard stage={stage} />
+        <PresetNameDialog mobile={false} />
+        <DiskNameDialog />
+        <HoodBoard stage={stage} />
+        <HellKnob stage={stage} />
+        <FaceExtras stage={stage} />
+        <EgColumn stage={stage} />
+        <FaceModArcs stage={stage} />
+        <Encart50Overlay stage={stage} />
+        <FaceLook stage={stage} />
+        <FaceLookButton stage={stage} />
+        <FaceCpuMeter stage={stage} />
+        <KeySelect stage={stage} />
+        <PresetBrowser stage={stage} />
+        <LearnMarks />
+      </Boundary>
+      {error && (
+        <p className="mm-plugin-error" role="alert">
+          MM-ARP : {error}
+        </p>
+      )}
+    </div>
+  );
+};
+
+export default ArpFace;

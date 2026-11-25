@@ -17,6 +17,7 @@
 
 import type { VoyInfoId } from './diagrams';
 import { VOY_INFO_SECTION } from './infoIds';
+import { PLUGIN_ARP } from '../theme/base';
 
 export interface VoyInfo {
   /** la section du panneau (OSCILLATORS, FILTER...), en petites capitales sur la carte */
@@ -202,7 +203,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   lfoAmt: { title: 'DEPTH', text: "La profondeur du LFO sur sa cible. À 0, MOD ne fait rien.", tip: "Commence bas (15 %) : sur la coupure, un peu suffit." },
 
   /* ---------- EFFECTS / OUTPUT ---------- */
-  dist: { title: 'OVERDRIVE', text: "Un overdrive doux et asymétrique dans le filtre et à sa sortie : il ajoute des harmoniques et tasse les crêtes, le volume est rattrapé.", tip: "20 à 35 % pour la chaleur d'une console ; au-delà pour un arpège qui grogne." },
+  // le VST3 (2026-11-17) : DISTO
+  dist: { title: PLUGIN_ARP ? 'DISTO' : 'OVERDRIVE', text: "Un overdrive doux et asymétrique dans le filtre et à sa sortie : il ajoute des harmoniques et tasse les crêtes, le volume est rattrapé.", tip: "20 à 35 % pour la chaleur d'une console ; au-delà pour un arpège qui grogne." },
   // Le CHORUS du Juno-106, un bouton poussoir a trois modes (2026-10-12)
   chorus: {
     title: 'CHORUS',
@@ -268,7 +270,10 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
 
   /* ---------- les touches et l'ecran ---------- */
-  pad: { title: 'CHORD PADS', text: "Huit accords de fa dièse mineur, la tonalité de Mika : un pad touché entre dans la progression (un accord par mesure, dans l'ordre des tapes, huit au plus), retouché il en sort. Le premier lance l'arpège. Toutes les notes sont dans la gamme. Touches A à K.", tip: "F#m, D, A, E : la progression qui marche à tous les coups en indie dance." },
+  pad: PLUGIN_ARP
+    ? // v43 : la banque du plugin (voyager/chords.ts ARP_CHORDS), sans touches du clavier (v38)
+      { title: 'CHORD PADS', text: "Les sept degrés de la tonalité dans l'ordre, puis l'accord de tonique à quatre sons. La tonalité se choisit sous les pads (CHORDS : les 12 notes, MINOR, MAJOR, DORIAN, PHRYGIAN) ; au départ F# MINOR : F#m G#ø A Bm C#m D E F#m7. Un pad touché entre dans la progression (un accord par mesure, dans l'ordre des tapes, huit au plus), retouché il en sort. Le premier lance l'arpège. Toutes les notes sont dans la gamme.", tip: "F#m, D, A, E : la progression qui marche à tous les coups en indie dance ; G#ø avant C#m pour une tension sombre qui se résout. La tonalité reste celle du morceau : les presets ne la changent pas." }
+    : { title: 'CHORD PADS', text: "Huit accords de fa dièse mineur, la tonalité de Mika : un pad touché entre dans la progression (un accord par mesure, dans l'ordre des tapes, huit au plus), retouché il en sort. Le premier lance l'arpège. Toutes les notes sont dans la gamme. Touches A à K.", tip: "F#m, D, A, E : la progression qui marche à tous les coups en indie dance." },
   run: { title: 'RUN/STOP', text: "Lance ou arrête l'arpège sans toucher à la progression (vide, il part sur F#m). Il se cale sur la grille du MM-RYTM s'il joue ; sinon c'est le MM-RYTM qui le rejoindra. Espace.", tip: "Lance l'arpège sur le premier temps du MM-RYTM : tout reste en phase." },
   clear: { title: 'CLEAR', text: "Vide la progression, arrête l'arpège et met les effets à 0 (OVERDRIVE, CHORUS, DELAY, REVERB) : le son repart à sec, VOLUME et le son du synthé restent. Avec EDIT ouvert, il rend la suite des potards (tes notes restent en mémoire, les effets ne bougent pas).", tip: "CLEAR puis un seul pad : le drop sur un accord, à sec." },
   random: { title: 'RANDOM', text: "Un style au hasard (BASSLINE, ACID, PLUCK, LEAD, DARK, ARP ; jamais le même deux fois de suite) et tout le patch qui lui ressemble, VOLUME gardé ; une progression toute faite.", tip: "Appuie jusqu'à ce qu'un son t'accroche, puis garde-le en preset (touche l'écran, SAVE)." },
@@ -276,7 +281,10 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   open: { title: 'OPEN', text: "Soulève le capot : sous lui, les TWEAKS soudés sur la carte (PHASE, DRIFT, STACK, SYNC, WIDTH, WIDE, BASS MONO, GLUE, SIDECHAIN, KEY TRACK, ACCENT, ACC FILTER, CHORD, DLY TIME, TAPE) et la touche SCOPE. Touche O.", tip: "Les TWEAKS se règlent une fois pour toutes : SIDECHAIN et BASS MONO d'abord, puis GLUE." },
   preset: { title: 'PRESET', text: "Ouvre ou ferme la liste des presets sur l'écran : consulte la liste complète, charge les sons d'usine ou enregistre tes propres réglages.", tip: "Tourne un potard ou utilise la molette pour faire défiler la liste, puis appuie sur LOAD." },
   screen: { title: 'MM-ARP', text: "L'écran montre l'arpège : la lecture, l'accord qui joue et sa clé Camelot, le tempo, l'échelle des notes (la tête de lecture, la durée de chaque note), la progression des huit pads, et le dernier potard touché avec sa valeur de 0 à 127. Le toucher ouvre les presets.", tip: "Garde un œil sur la bande des accords : l'accord en négatif est celui qui sonne." },
-  presets: { title: 'PRESETS', text: "Le mode presets sur l'écran : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine ; à gauche le précédent, à droite le suivant, rien ne se charge avant LOAD. En bas LOAD, SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME, DEL (puis YES) et EXIT. Une étoile en tête de l'écran : le preset chargé a bougé.", tip: "SAVE avant d'expérimenter : LOAD te ramène au preset d'une tape." },
+  presets: PLUGIN_ARP
+    ? // v43 : la liste a la souris et au clavier (voyager/rig.ts vlcd-row, hooks/useKeys.ts)
+      { title: 'PRESETS', text: "Le mode presets sur l'écran : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine. Un clic choisit un preset, Entrée ou un double clic le charge ; flèches haut et bas pour parcourir, Échap pour fermer (liste fermée, le clavier reste à Ableton). En bas LOAD, SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME, DEL (puis YES) et EXIT. Une étoile en tête de l'écran : le preset chargé a bougé.", tip: "SAVE avant d'expérimenter : LOAD te ramène au preset d'une tape." }
+    : { title: 'PRESETS', text: "Le mode presets sur l'écran : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine ; à gauche le précédent, à droite le suivant, rien ne se charge avant LOAD. En bas LOAD, SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME, DEL (puis YES) et EXIT. Une étoile en tête de l'écran : le preset chargé a bougé.", tip: "SAVE avant d'expérimenter : LOAD te ramène au preset d'une tape." },
   seq: { title: 'SEQUENCE', text: "La suite de l'arpège, une colonne par pas (1 à 16) : glisse pour dessiner les notes (les pas traversés suivent la ligne), touche un nom pour un silence, STEPS - et + pour la longueur. Les filets marquent les notes de l'accord.", tip: "Garde les notes sur les filets : la suite suit chaque accord de la progression sans sonner faux." },
   infos: { title: 'INFOS', text: "Allume l'aide : survole une commande du MM-ARP (au téléphone, touche-la) pour lire ce qu'elle fait, avec son dessin en direct. Le i se remplit tant que l'aide est allumée. I, ou Échap pour l'éteindre.", tip: "Au téléphone, un glisser sur un potard le tourne toujours, la carte suit." },
 };

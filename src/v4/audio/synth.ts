@@ -33,6 +33,7 @@ import { glide } from './glide';
 import { pattern } from './pattern';
 import type { Send } from './sends';
 import { voyMsg } from '../voyager/msg';
+import { PLUGIN_ARP } from '../theme/base';
 
 /**
  * Surechantillonnage du moteur (2026-10-03, qualite) : 4 sur ordinateur,
@@ -335,7 +336,7 @@ function retimeAll(g: SynthGraph, t: number): void {
 }
 
 /** Le gain de VOLUME apres le moteur (le sec et le bas de BASS MONO), DELAY et REVERB repris. */
-const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
+export const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
 
 /**
  * Les reglages du moteur, et le tempo (le LFO de MOD est cale dessus, 2026-10-04) ; outLevel (2026-10-21) : le gain de
@@ -360,6 +361,13 @@ const postParams = (): void => {
   paramsAt = performance.now();
   sg.node.port.postMessage({ type: 'params', params: engineMsg(voyParams.get()) });
 };
+
+/**
+ * Les reglages du moteur tels que engineMsg les envoie, sans le tempo (2026-11-09, le plugin MM-ARP : plugin/arp/bridge.ts
+ * les met dans son programme ; le C++ prend le tempo d'Ableton ou celui du programme).
+ */
+export const engineState = (v: Readonly<VoyValues>): Record<string, number> => ({ ...engineParams(v), outLevel: volGain(v) });
+
 voyParams.subscribe(() => {
   if (!sg) return;
   applyFx(sg, voyParams.get());
@@ -421,6 +429,8 @@ function engineTrouble(): void {
  * une note apres RETRY_MS.
  */
 export function prepareSynth(user = true): void {
+  // Le plugin MM-ARP (2026-11-09) : le son vient du C++, le moteur du navigateur ne se charge jamais
+  if (PLUGIN_ARP) return;
   if (sg || loading) return;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
   if (failures > 0 && (user ? now - lastTry < RETRY_TAP_MS : now < retryAt)) return;

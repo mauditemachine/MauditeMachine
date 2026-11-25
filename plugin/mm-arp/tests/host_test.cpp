@@ -1,0 +1,1471 @@
+// Le banc du processeur MM-ARP sans fenetre (2026-11-09) : le vrai MMArpProcessor (src/PluginProcessor.cpp, compile
+// avec MMARP_HEADLESS=1) joue comme sous Ableton : un faux transport (ppq, tempo, lecture), un programme de la face,
+// des notes MIDI, l'etat sauve puis recharge. Rien ne sort des enceintes : tout se verifie dans les buffers.
+//   cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON && cmake --build build-host -j && ./build-host/mmarp_host_test
+#include "PluginProcessor.h"
+#include "Hell.h"
+#include "Hell2.h"
+
+#include <cmath>
+#include <map>
+#include <set>
+#include <tuple>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+namespace {
+
+int failures = 0;
+void check(bool ok, const std::string& what) {
+    std::printf("%s %s\n", ok ? "ok  " : "FAIL", what.c_str());
+    if (!ok) ++failures;
+}
+
+struct Head final : juce::AudioPlayHead {
+    bool playing = false;
+    double ppq = 0, bpm = 120;
+    juce::Optional<PositionInfo> getPosition() const override {
+        PositionInfo p;
+        p.setIsPlaying(playing);
+        p.setBpm(bpm);
+        p.setPpqPosition(ppq);
+        return p;
+    }
+};
+
+// Le programme v2 de la face (src/v4/plugin/arp/bridge.ts) : la suite AUTO, une progression F#m D, les potards du site
+// par defaut (seulement pris par une instance neuve)
+juce::String program(const char* prog = "[0,5]", const char* knobs = "{}") {
+    return juce::String(R"({"v":2,"kind":"arp","bpm":123,"swing":0,"seq":{"edit":false,"len":8,"buf":[0,2,4,null,7,4,2,0,0,0,0,0,0,0,0,0]},"prog":)") + prog +
+           R"(,"knobs":)" + knobs + "}";
+}
+
+struct Stats {
+    double peak = 0, rms = 0;
+    bool finite = true;
+};
+
+// n echantillons par blocs de block ; le transport avance si playing
+Stats run(MMArpProcessor& p, Head& h, int n, int block, juce::MidiBuffer* first = nullptr, std::vector<float>* keepL = nullptr, std::vector<float>* keepR = nullptr) {
+    Stats s;
+    juce::AudioBuffer<float> buf(2, block);
+    double sum = 0;
+    int done = 0;
+    while (done < n) {
+        const int m = std::min(block, n - done);
+        buf.setSize(2, m, false, false, true);
+        juce::MidiBuffer midi;
+        if (first && done == 0) midi = *first;
+        p.processBlock(buf, midi);
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < m; ++i) {
+                const float v = buf.getSample(c, i);
+                if (!std::isfinite(v)) s.finite = false;
+                s.peak = std::max(s.peak, static_cast<double>(std::fabs(v)));
+                sum += static_cast<double>(v) * v;
+                if (keepL && c == 0) keepL->push_back(v);
+                if (keepR && c == 1) keepR->push_back(v);
+            }
+        if (h.playing) h.ppq += m * h.bpm / 60.0 / 48000.0;
+        done += m;
+    }
+    s.rms = std::sqrt(sum / std::max(1, 2 * n));
+    return s;
+}
+
+double db(double x) { return 20 * std::log10(std::max(x, 1e-12)); }
+
+// v43 : les classes de hauteur (0 do .. 11 si) des notes du clip DRAG MIDI de la progression (une fois)
+std::set<int> clipPitches(const MMArpProcessor& p) {
+    int bars = 0;
+    std::set<int> out;
+    const juce::MidiFile mf = p.arpMidi(1, bars);
+    if (mf.getNumTracks() > 0)
+        for (const auto* ev : *mf.getTrack(0))
+            if (ev->message.isNoteOn()) out.insert(ev->message.getNoteNumber() % 12);
+    return out;
+}
+
+} // namespace
+
+int main() {
+    juce::ScopedJuceInitialiser_GUI init;
+    {
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 512);
+        // v49 : une instance neuve est en LATENCY ZERO : rien a declarer (EXACT, les decimateurs du site : 16 a 21)
+        check(p.getLatencySamples() == 0, "v49 : instance neuve en LATENCY ZERO, latence declaree " + juce::String(p.getLatencySamples()).toStdString());
+        // Sans programme, transport arrete : silence
+        Stats s = run(p, h, 48000, 512);
+        check(s.finite && s.peak <= 0, "sans programme : silence");
+        p.faceProgram(program("[0,5]", R"({"cutoff":0.5,"delay":0.3,"reverb":0.25,"chorus":0.5})"));
+        check(p.knobsKnown() && std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.5f) < 1e-6f, "instance neuve : les potards de la face deviennent les parametres");
+        s = run(p, h, 24000, 512);
+        check(s.finite && s.peak <= 0, "programme, Ableton arrete : silence (pas de RUN)");
+        // Ableton joue : l'arpege
+        h.playing = true;
+        h.ppq = 0;
+        s = run(p, h, 48000 * 4, 512);
+        check(s.finite && s.peak > 0.01 && s.peak < 1.0, "Ableton joue : l'arpege sonne (crete " + juce::String(db(s.peak), 1).toStdString() + " dBFS, rms " + juce::String(db(s.rms), 1).toStdString() + " dBFS)");
+        const auto fb = p.feedback();
+        check(fb.playing && fb.chord >= 0 && fb.len > 0 && fb.seq > 0, "la face recoit la note jouee (accord " + juce::String(fb.chord).toStdString() + ", pas " + juce::String(fb.pos).toStdString() + "/" + juce::String(fb.len).toStdString() + ")");
+        // L'automation d'un potard (fenetre fermee) change le son : CUTOFF ferme
+        {
+            auto* cut = p.knobParam(mmarp::knobIndex("cutoff"));
+            const Stats open = run(p, h, 48000, 512);
+            cut->setValueNotifyingHost(0.05f);
+            const Stats shut = run(p, h, 48000, 512);
+            cut->setValueNotifyingHost(0.5f);
+            check(shut.rms < open.rms * 0.7, "automation de CUTOFF sans la face : le son se ferme (" + juce::String(db(open.rms), 1).toStdString() + " -> " + juce::String(db(shut.rms), 1).toStdString() + " dBFS)");
+            char txt[64];
+            mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
+            check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
+            check(p.getParameters().size() == mmx::kAll + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
+        }
+        // L'arc lumineux de la face (2026-11-16) : LFO 1 sur CUTOFF, la valeur modulee de CUTOFF part ; profondeur 0 : plus rien
+        {
+            auto* dst = p.knobParam(mmarp::knobIndex("lfoDest"));
+            auto* amt = p.knobParam(mmarp::knobIndex("lfoAmt"));
+            const float d0 = dst->getValue(), a0 = amt->getValue();
+            dst->setValueNotifyingHost(0.25f);
+            amt->setValueNotifyingHost(0.6f);
+            float lo = 2, hi = -1;
+            bool others = false;
+            for (int k = 0; k < 40; ++k) {
+                run(p, h, 1200, 512);
+                const float v = p.modValue(3);
+                if (v == v) {
+                    lo = std::min(lo, v);
+                    hi = std::max(hi, v);
+                }
+                for (int i = 0; i < MMArpProcessor::kModN; ++i)
+                    if (i != 3 && p.modValue(i) == p.modValue(i)) others = true;
+            }
+            check(hi > lo + 0.05 && hi <= 1 && lo >= 0 && !others && juce::String(MMArpProcessor::kModIds[3]) == "cutoff", "LFO 1 sur CUTOFF : la face recoit la coupure modulee (" + juce::String(lo, 2).toStdString() + " a " + juce::String(hi, 2).toStdString() + "), rien d'autre");
+            amt->setValueNotifyingHost(0.f);
+            run(p, h, 9600, 512);
+            bool none = true;
+            for (int i = 0; i < MMArpProcessor::kModN; ++i) none = none && p.modValue(i) != p.modValue(i);
+            check(none, "profondeur 0 : plus aucun reglage module");
+            dst->setValueNotifyingHost(d0);
+            amt->setValueNotifyingHost(a0);
+            run(p, h, 4800, 512);
+        }
+        // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
+        {
+            int bars = 0;
+            const juce::MidiFile mf = p.arpMidi(1, bars);
+            const auto* tr = mf.getNumTracks() > 0 ? mf.getTrack(0) : nullptr;
+            int ons = 0, offs = 0, maxEnd = 0, firstNote = -1;
+            bool velOk = true;
+            if (tr)
+                for (const auto* ev : *tr) {
+                    if (ev->message.isNoteOn()) {
+                        if (firstNote < 0) firstNote = ev->message.getNoteNumber();
+                        ++ons;
+                        velOk = velOk && ev->message.getVelocity() >= 1;
+                    }
+                    if (ev->message.isNoteOff()) {
+                        ++offs;
+                        maxEnd = std::max(maxEnd, static_cast<int>(ev->message.getTimeStamp()));
+                    }
+                }
+            check(bars == 2 && ons > 20 && ons == offs && velOk && maxEnd <= 2 * 4 * 960, "DRAG MIDI : " + juce::String(ons).toStdString() + " notes sur " + juce::String(bars).toStdString() + " mesures, dans le clip");
+            int bars4 = 0;
+            const juce::MidiFile m4 = p.arpMidi(4, bars4);
+            check(bars4 == 8 && m4.getNumTracks() == 1 && m4.getTrack(0)->getNumEvents() > tr->getNumEvents() * 3, "DRAG MIDI x4 : la progression 4 fois");
+            const juce::File f = p.arpMidiFile(1);
+            check(f.existsAsFile() && f.getSize() > 100, "le fichier MIDI a glisser : " + f.getFileName().toStdString());
+            f.deleteFile();
+        }
+        // SOUND+ (le VST3 seul) : QUALITY STD / HQ, le LFO 2, le master
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            // v32 : trois crans, ECO (0, x2), STD (0.5, x4, le depart), HQ (1, x8)
+            X("xQuality")->setValueNotifyingHost(1.f);
+            run(p, h, 24000, 512);
+            const Stats hq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.5f);
+            run(p, h, 24000, 512);
+            const Stats stdq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.f);
+            run(p, h, 24000, 512);
+            const Stats eco = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(1.f);
+            run(p, h, 24000, 512);
+            check(hq.finite && stdq.finite && eco.finite && std::fabs(db(hq.rms) - db(stdq.rms)) < 1.5 && std::fabs(db(eco.rms) - db(stdq.rms)) < 1.5,
+                  "QUALITY : HQ (x8), STD (x4) et ECO (x2) au meme niveau (" + juce::String(db(hq.rms), 1).toStdString() + " / " + juce::String(db(stdq.rms), 1).toStdString() + " / " +
+                      juce::String(db(eco.rms), 1).toStdString() + " dBFS)");
+            // LFO 2 sur AMP, plein : le niveau baisse (tremolo)
+            X("xLfo2Dest")->setValueNotifyingHost(6.f / 14.f);
+            X("xLfo2Depth")->setValueNotifyingHost(1.f);
+            run(p, h, 4800, 512);
+            const Stats trem = run(p, h, 48000, 512);
+            X("xLfo2Dest")->setValueNotifyingHost(0.f);
+            run(p, h, 4800, 512);
+            check(trem.finite && trem.rms < hq.rms * 0.9, "LFO 2 sur AMP : tremolo (" + juce::String(db(hq.rms), 1).toStdString() + " -> " + juce::String(db(trem.rms), 1).toStdString() + " dBFS)");
+            // WIDTH a 0 : mono
+            X("xWidth")->setValueNotifyingHost(0.f);
+            run(p, h, 9600, 512);
+            juce::AudioBuffer<float> b(2, 512);
+            juce::MidiBuffer mb;
+            double diff = 0;
+            for (int k = 0; k < 40; ++k) {
+                p.processBlock(b, mb);
+                h.ppq += 512 * h.bpm / 60.0 / 48000.0;
+                for (int i = 0; i < 512; ++i) diff = std::max(diff, static_cast<double>(std::fabs(b.getSample(0, i) - b.getSample(1, i))));
+            }
+            X("xWidth")->setValueNotifyingHost(0.5f);
+            X("xWarmth")->setValueNotifyingHost(1.f);
+            X("xBass")->setValueNotifyingHost(1.f);
+            X("xAir")->setValueNotifyingHost(1.f);
+            const Stats m = run(p, h, 48000, 512);
+            X("xWarmth")->setValueNotifyingHost(0.f);
+            X("xBass")->setValueNotifyingHost(0.5f);
+            X("xAir")->setValueNotifyingHost(0.5f);
+            run(p, h, 9600, 512);
+            check(diff < 1e-5 && m.finite && m.peak < 1.5, "MASTER : WIDTH 0 = mono, WARMTH + BASS + AIR sans debordement");
+            check(X("xRevSize")->getText(0.5f, 32) == "2.4 s" && X("xLfo2Rate")->getText(8.f / 13.f, 32) == "1/4", "le texte des reglages SOUND+");
+        }
+        // Le module avant : sequenceur par pas (RATCHET x4 = plus de notes dans le clip), FX RACK, OSC / FILTER +
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            int bars = 0;
+            const int base = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            p.faceProgram(juce::String(R"({"v":2,"kind":"arp","bpm":123,"swing":0,"seq":{"edit":false,"len":8,"buf":[0,2,4,null,7,4,2,0,0,0,0,0,0,0,0,0]},"prog":[0,5],"knobs":{},)") +
+                          R"("steps":{"acc":[2,1,1,1,2,1,1,1,2,1,1,1,2,1,1,1],"slide":[0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0],"gate":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"rat":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],"prob":[100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]}})");
+            const int rat = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            check(rat > base * 3, "STEP SEQUENCER : RATCHET x4 (" + juce::String(base).toStdString() + " -> " + juce::String(rat).toStdString() + " evenements dans le clip)");
+            const char* on[] = {"xPhMix", "xFlMix", "xPumpDepth", "xCrushBits", "xCrushRate", "xShimmer", "xRing", "xFold", "xComb", "xHpf"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.8f);
+            X("xUnison")->setValueNotifyingHost(1.f);
+            X("xDlyMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000 * 2, 512);
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.f);
+            X("xUnison")->setValueNotifyingHost(0.f);
+            X("xDlyMode")->setValueNotifyingHost(0.f);
+            p.faceProgram(program("[0,5]"));
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 2.0, "FX RACK + OSC / FILTER + tous engages : fini, sans debordement (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(X("xHpf")->getText(0.f, 32) == "OFF" && X("xPumpRate")->getText(0.5f, 32) == "1/4", "le texte des reglages du module avant");
+        }
+        // La matrice : MOD WHEEL -> CUTOFF (la molette ouvre le filtre), le pitch bend, MONO
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            X("xM1Src")->setValueNotifyingHost(2.f / 11.f);
+            X("xM1Dst")->setValueNotifyingHost(10.f / 19.f);
+            X("xM1Amt")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.15f);
+            run(p, h, 24000, 512);
+            const Stats shut = run(p, h, 48000, 512);
+            juce::MidiBuffer mw;
+            mw.addEvent(juce::MidiMessage::controllerEvent(1, 1, 127), 0);
+            mw.addEvent(juce::MidiMessage::pitchWheel(1, 16383), 1);
+            mw.addEvent(juce::MidiMessage::channelPressureChange(1, 100), 2);
+            run(p, h, 4800, 512, &mw);
+            const Stats open = run(p, h, 48000, 512);
+            juce::MidiBuffer mw0;
+            mw0.addEvent(juce::MidiMessage::controllerEvent(1, 1, 0), 0);
+            mw0.addEvent(juce::MidiMessage::pitchWheel(1, 8192), 1);
+            mw0.addEvent(juce::MidiMessage::channelPressureChange(1, 0), 2);
+            run(p, h, 4800, 512, &mw0);
+            X("xM1Src")->setValueNotifyingHost(0.f);
+            X("xM1Dst")->setValueNotifyingHost(0.f);
+            X("xM1Amt")->setValueNotifyingHost(0.5f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
+            check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
+            const char* on[] = {"xFeedback", "xEqLow", "xEqHigh", "xEqAir"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
+            // DISTO (2026-11-17, v25) : style P, PUNISH, DRIVE a fond, trois bandes, FEEDBACK, MORPH vers FOLD, BOX
+            X("xDStyle")->setValueNotifyingHost(5.f / 12);
+            X("xDPunish")->setValueNotifyingHost(1.f);
+            X("xDPunish2")->setValueNotifyingHost(1.f); // v46 : PUNISH v2 (l'emporte sur l'ancien)
+            X("xDBands")->setValueNotifyingHost(1.f);
+            X("xDFb")->setValueNotifyingHost(1.f);
+            X("xDMorph")->setValueNotifyingHost(0.5f);
+            X("xDMorphTo")->setValueNotifyingHost(10.f / 11);
+            X("xDBox")->setValueNotifyingHost(0.75f);
+            X("xDLfoAmt")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(1.f);
+            X("xVoiceMode")->setValueNotifyingHost(1.f);
+            X("xAmpMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000, 512);
+            X("xFeedback")->setValueNotifyingHost(0.f);
+            for (int e = 0; e < mmx::kExtra; ++e)
+                if (std::strcmp(mmx::kExtraDefs[e].section, "disto") == 0) X(mmx::kExtraDefs[e].id)->setValueNotifyingHost(static_cast<float>(mmx::kExtraDefs[e].def));
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(0.f);
+            for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
+            X("xVoiceMode")->setValueNotifyingHost(0.f);
+            X("xAmpMode")->setValueNotifyingHost(0.f);
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTO P PUNISH 3 bandes FEEDBACK MORPH BOX + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+        }
+        // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
+        {
+            p.learn("cutoff");
+            juce::MidiBuffer cc;
+            cc.addEvent(juce::MidiMessage::controllerEvent(2, 74, 0), 0);
+            run(p, h, 512, 512, &cc);
+            const juce::var map = p.midiMap();
+            const juce::var list = map.getProperty("items", juce::var());
+            const auto* items = list.getArray();
+            const bool mapped = items && items->size() == 1 && static_cast<int>((*items)[0].getProperty("cc", -1)) == 74 && static_cast<int>((*items)[0].getProperty("ch", -1)) == 2;
+            juce::MidiBuffer cc2;
+            cc2.addEvent(juce::MidiMessage::controllerEvent(2, 74, 127), 0);
+            run(p, h, 512, 512, &cc2);
+            check(mapped && std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 1.f) < 1e-6f && p.midiMap().getProperty("learn", "x").toString().isEmpty(), "MIDI LEARN : CC 74 canal 2 -> CUTOFF");
+            p.unmapAll();
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
+        }
+        // Le clip a le dessus : une note MIDI fait taire l'arpege, il reprend une mesure apres la derniere note
+        {
+            juce::MidiBuffer on1;
+            on1.addEvent(juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(100)), 0);
+            run(p, h, 512, 512, &on1);
+            const bool quiet = p.clipActive();
+            juce::MidiBuffer off1;
+            off1.addEvent(juce::MidiMessage::noteOff(1, 60), 0);
+            run(p, h, 512, 512, &off1);
+            run(p, h, 48000 * 3, 512);
+            check(quiet && !p.clipActive(), "Clip Priority : l'arpege se tait pendant le clip, reprend apres une mesure");
+        }
+        // STOP : la queue s'eteint (reverb comprise) sous -80 dB en 4 s
+        h.playing = false;
+        run(p, h, 48000 * 4, 512);
+        s = run(p, h, 4800, 512);
+        check(s.finite && s.peak < 1e-4, "STOP : silence apres la queue (" + juce::String(db(s.peak), 1).toStdString() + " dBFS)");
+        // RUN de la face, Ableton arrete : horloge interne
+        p.faceRun(true);
+        s = run(p, h, 48000 * 2, 512);
+        check(s.peak > 0.01 && p.feedback().internal, "RUN de la face : l'horloge interne joue");
+        p.faceRun(false);
+        run(p, h, 48000 * 4, 512);
+        // MIDI : une note tenue joue le synthe, sans l'arpege (progression vide)
+        p.faceProgram(program("[]"));
+        run(p, h, 4800, 512);
+        juce::MidiBuffer on;
+        on.addEvent(juce::MidiMessage::noteOn(1, 57, static_cast<juce::uint8>(100)), 10);
+        s = run(p, h, 48000, 512, &on);
+        check(s.finite && s.peak > 0.01, "une note MIDI tenue sonne (" + juce::String(db(s.peak), 1).toStdString() + " dBFS)");
+        juce::MidiBuffer off;
+        off.addEvent(juce::MidiMessage::noteOff(1, 57), 0);
+        run(p, h, 48000 * 4, 512, &off);
+        s = run(p, h, 4800, 512);
+        check(s.peak < 1e-4, "note-off : la note s'eteint");
+        // L'etat du projet : sauve puis recharge dans un autre processeur, il joue sans fenetre
+        p.faceProgram(program());
+        p.faceState(R"({"mm.v4.voyager.1":"{}"})");
+        juce::MemoryBlock mb;
+        run(p, h, 512, 512);
+        p.getStateInformation(mb);
+        MMArpProcessor q;
+        Head h2;
+        q.setPlayHead(&h2);
+        q.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        q.prepareToPlay(48000, 256);
+        check(q.faceInitState().contains("mm.v4.voyager.1"), "l'etat de la face revient a la face");
+        check(q.knobsKnown() && std::fabs(q.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.5f) < 1e-6f, "les parametres reviennent avec le projet");
+        h2.playing = true;
+        s = run(q, h2, 48000 * 2, 256);
+        check(s.peak > 0.01, "projet recharge : il joue fenetre fermee");
+        // La reverbe facon BigSky (2026-11-16) : HALL par defaut ; le projet garde la sienne ; un projet d'avant (sans
+        // REVERB TYPE) revient a CLASSIC (la reverbe d'avant)
+        {
+            const int ti = mmx::allIndex("xSkyType");
+            check(std::fabs(p.knobParam(ti)->getValue() - 2.f / 12.f) < 1e-6f && std::fabs(q.knobParam(ti)->getValue() - 2.f / 12.f) < 1e-6f, "REVERB TYPE : HALL par defaut, et il revient avec le projet");
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            bool removed = false;
+            if (xml)
+                for (auto* e : xml->getChildIterator())
+                    for (auto* c : e->getChildIterator())
+                        if (c->getStringAttribute("id") == "xSkyType") {
+                            e->removeChildElement(c, true);
+                            removed = true;
+                            break;
+                        }
+            juce::MemoryBlock old;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, old);
+            MMArpProcessor r;
+            Head h3;
+            r.setPlayHead(&h3);
+            r.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+            r.prepareToPlay(48000, 256);
+            check(removed && r.knobParam(ti)->getValue() == 0.f, "un projet d'avant (sans REVERB TYPE) : la reverbe d'avant (CLASSIC) " + std::string(removed ? "" : "[cle non trouvee] ") + juce::String(r.knobParam(ti)->getValue()).toStdString());
+            // chaque machine joue, finie et bornee, et le passage d'une machine a l'autre ne saute pas
+            h3.playing = true;
+            run(r, h3, 4800, 256);
+            bool ok = true;
+            double pk = 0;
+            for (int m = 0; m <= 12; ++m) {
+                r.knobParam(ti)->setValueNotifyingHost(m / 12.f);
+                const Stats st = run(r, h3, 24000, 256);
+                ok = ok && st.finite;
+                pk = std::max(pk, st.peak);
+            }
+            check(ok && pk < 2, "les 13 reverbes l'une apres l'autre (CLASSIC puis les douze machines) : fini, crete " + juce::String(pk, 2).toStdString());
+        }
+        {
+            // HELL d'avant RANGE (2026-11-17) : l'ancien decalage, TONE et LFO DEPTH migres au chargement, sans changer le son
+            MMArpProcessor a;
+            Head ha;
+            a.setPlayHead(&ha);
+            a.prepareToPlay(48000, 256);
+            const auto P = [&](MMArpProcessor& pr, const char* id) { return pr.knobParam(mmx::allIndex(id)); };
+            P(a, "xHellShift")->setValueNotifyingHost(0.7f); // 5000 x 0.4^3 = 320 Hz : WIDE
+            P(a, "xHellTone")->setValueNotifyingHost(0.2f);  // passe-bas
+            P(a, "xHellLfoDepth")->setValueNotifyingHost(0.5f);
+            juce::MemoryBlock blob;
+            a.getStateInformation(blob);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(blob.getData(), static_cast<int>(blob.getSize()));
+            int gone = 0;
+            if (xml)
+                for (auto* e : xml->getChildIterator()) {
+                    std::vector<juce::XmlElement*> kill;
+                    for (auto* c : e->getChildIterator())
+                        if (c->getStringAttribute("id").startsWith("xHell") &&
+                            c->getStringAttribute("id") != "xHellShift" && c->getStringAttribute("id") != "xHellTone" && c->getStringAttribute("id") != "xHellLfoDepth" &&
+                            c->getStringAttribute("id") != "xHellMix" && c->getStringAttribute("id") != "xHellSync" && c->getStringAttribute("id") != "xHellTime" &&
+                            c->getStringAttribute("id") != "xHellFb" && c->getStringAttribute("id") != "xHellUpDown" && c->getStringAttribute("id") != "xHellSpread" &&
+                            c->getStringAttribute("id") != "xHellLfoRate")
+                            kill.push_back(c);
+                    for (auto* c : kill) e->removeChildElement(c, true);
+                    gone += static_cast<int>(kill.size());
+                }
+            juce::MemoryBlock old;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, old);
+            MMArpProcessor b;
+            Head hb;
+            b.setPlayHead(&hb);
+            b.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+            b.prepareToPlay(48000, 256);
+            const int range = static_cast<int>(std::lround(P(b, "xHellRange")->getValue() * 3));
+            const double hz = mmarp::Hell::shiftHzFor(P(b, "xHellShift")->getValue(), range, 120, 0);
+            const double lp = mmarp::Hell::lpHzOf(P(b, "xHellLp")->getValue());
+            const double lpWas = 600.0 * std::pow(30.0, 0.2 / 0.49);
+            // (12 reglages d'avant RANGE, plus les 20 de HELL v2 : v46)
+            const bool ok = gone == 32 && range == mmarp::Hell::WIDE && std::fabs(hz - 320) < 0.5 && std::fabs(P(b, "xHellTone")->getValue() - 0.5f) < 1e-6f &&
+                            std::fabs(lp - lpWas) < 0.01 * lpWas && std::fabs(P(b, "xHellLfoAmt")->getValue() - 0.75f) < 1e-3f && P(b, "xHellLfoDepth")->getValue() == 0.f;
+            check(ok, "HELL d'avant (sans RANGE) : 320 Hz -> WIDE " + juce::String(hz, 1).toStdString() + " Hz, TONE -> LOW-PASS " + juce::String(lp, 0).toStdString() + " Hz (avant " +
+                          juce::String(lpWas, 0).toStdString() + "), LFO DEPTH -> AMOUNT, " + std::to_string(gone) + " reglages retires");
+            check(P(b, "xHellV2")->getValue() == 0.f, "HELL d'avant : le projet garde l'ancien moteur (xHellV2 a OFF)");
+        }
+        {
+            // v46 : HELL v2. Une instance neuve demarre en v2 ; un projet d'avant (sans xHellV2 ni les reglages des cercles)
+            // garde l'ancien HELL au bit pres, quels que soient les reglages des cercles ; en v2, HELL MIX 75 % reste sous
+            // -1 dBFS et sonne autrement que l'ancien.
+            const auto P = [&](MMArpProcessor& pr, const char* id) { return pr.knobParam(mmx::allIndex(id)); };
+            MMArpProcessor a;
+            check(P(a, "xHellV2")->getValue() == 1.f, "HELL v2 : une instance neuve demarre en v2 (xHellV2 a ON)");
+            a.faceProgram(program("[0,5]", R"({"cutoff":0.6,"reverb":0.2})"));
+            P(a, "xHellMix")->setValueNotifyingHost(0.75f);
+            P(a, "xHellFb")->setValueNotifyingHost(0.7f);
+            P(a, "xHellSync")->setValueNotifyingHost(6.f / 13.f);
+            juce::MemoryBlock blob;
+            a.getStateInformation(blob);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(blob.getData(), static_cast<int>(blob.getSize()));
+            int gone = 0;
+            if (xml)
+                for (auto* e : xml->getChildIterator()) {
+                    std::vector<juce::XmlElement*> kill;
+                    for (auto* c : e->getChildIterator()) {
+                        const juce::String id = c->getStringAttribute("id");
+                        bool v2 = id == "xHellV2";
+                        for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) v2 = v2 || id == mmarp::Hell2::kKeyIds[k];
+                        if (v2) kill.push_back(c);
+                    }
+                    for (auto* c : kill) e->removeChildElement(c, true);
+                    gone += static_cast<int>(kill.size());
+                }
+            juce::MemoryBlock before;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, before);
+            // b : le projet d'avant tel quel ; c : le meme, les cercles pousses au maximum (l'ancien moteur les ignore) ;
+            // d : le meme, passe en v2
+            MMArpProcessor b, c, d;
+            for (MMArpProcessor* pr : {&b, &c, &d}) pr->setStateInformation(before.getData(), static_cast<int>(before.getSize()));
+            check(gone == 20 && P(b, "xHellV2")->getValue() == 0.f && std::fabs(P(d, "xHellMix")->getValue() - 0.75f) < 1e-6f,
+                  "HELL v2 : un projet d'avant (" + std::to_string(gone) + " reglages retires) s'ouvre avec l'ancien HELL (xHellV2 a OFF)");
+            for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) P(c, mmarp::Hell2::kKeyIds[k])->setValueNotifyingHost(1.f);
+            P(d, "xHellV2")->setValueNotifyingHost(1.f);
+            std::vector<float> bl, br, cl, cr, dl, dr;
+            Head hb, hc, hd;
+            Stats sb, sc, sd;
+            MMArpProcessor* procs[3] = {&b, &c, &d};
+            Head* heads[3] = {&hb, &hc, &hd};
+            Stats* stats[3] = {&sb, &sc, &sd};
+            std::vector<float>* ls[3] = {&bl, &cl, &dl};
+            std::vector<float>* rs[3] = {&br, &cr, &dr};
+            for (int k = 0; k < 3; ++k) {
+                procs[k]->setPlayHead(heads[k]);
+                procs[k]->prepareToPlay(48000, 512);
+                heads[k]->playing = true;
+                heads[k]->ppq = 0;
+                *stats[k] = run(*procs[k], *heads[k], 48000 * 6, 512, nullptr, ls[k], rs[k]);
+            }
+            check(sb.finite && sb.peak > 0.01 && bl == cl && br == cr, "HELL v2 : l'ancien moteur au bit pres, les reglages des cercles n'y changent rien (crete " +
+                                                                          juce::String(db(sb.peak), 1).toStdString() + " dBFS)");
+            double diff = 0;
+            for (size_t i = 0; i < std::min(bl.size(), dl.size()); ++i) diff = std::max(diff, static_cast<double>(std::fabs(bl[i] - dl[i])));
+            check(sd.finite && sd.peak > 0.01 && sd.peak <= 0.8913 && diff > 0.05, "HELL v2 a MIX 75 % : sous le plafond (crete " + juce::String(db(sd.peak), 2).toStdString() +
+                                                                                       " dBFS) et autre que l'ancien HELL (ecart " + juce::String(diff, 2).toStdString() + ")");
+        }
+    }
+    {
+        // Un projet de la premiere version (sans parametres) : les potards, la suite et la progression de l'etat de la face
+        juce::ValueTree st("MMARP1");
+        st.setProperty("master", 0.0, nullptr);
+        st.setProperty("arp", true, nullptr);
+        st.setProperty("seed", 7, nullptr);
+        const juce::String vk = R"({"v":1,"knobs":{"cutoff":0.3,"rate":0.34}})";
+        juce::DynamicObject::Ptr lso = new juce::DynamicObject();
+        lso->setProperty("mm.v4.voyager.1", vk);
+        lso->setProperty("mm.v4.plugin.arp.prog", "[2]");
+        juce::DynamicObject::Ptr top = new juce::DynamicObject();
+        top->setProperty("ls", juce::var(lso.get()));
+        st.setProperty("ls", juce::JSON::toString(juce::var(top.get())), nullptr);
+        juce::MemoryBlock mb;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), mb);
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        p.prepareToPlay(48000, 512);
+        check(std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.3f) < 1e-6f && std::fabs(p.knobParam(mmarp::knobIndex("rate"))->getValue() - 0.34f) < 1e-6f,
+              "projet de la premiere version : ses potards repris");
+        h.playing = true;
+        const Stats s = run(p, h, 48000 * 2, 512);
+        check(s.peak > 0.01, "projet de la premiere version : sa progression joue");
+        // v43 : [2] est E dans les accords du site : toujours E (6 dans ceux du plugin), pas A (2 du plugin)
+        const auto pc = clipPitches(p);
+        check(pc.count(4) == 1 && pc.count(9) == 0, "projet de la premiere version : sa progression [2] du site reste E");
+    }
+    {
+        // v43 (Mika : "pourquoi on a pas toutes les fondamentales finalement ?") : les accords du plugin, F#m G#ø A Bm C#m
+        // D E F#m7 (dsp/Params.h). Un programme sans chordBank (un projet d'avant) est en indices du site, F#m D E C#m Bm
+        // A F#m7 Dmaj7 : converti, le meme accord ; avec chordBank 2 (la face v43), tel quel
+        MMArpProcessor p;
+        p.prepareToPlay(48000, 512);
+        p.faceProgram(program("[1]"));
+        const auto site = clipPitches(p);
+        check(site.count(2) == 1 && site.count(8) == 0, "programme d'avant la v43 : [1] du site reste D (pas G#)");
+        p.faceProgram(program("[1]").replace("\"prog\":", "\"chordBank\":2,\"prog\":"));
+        const auto own = clipPitches(p);
+        check(own.count(8) == 1 && own.count(11) == 1, "programme v43 (chordBank 2) : [1] est G#ø (G# B D F#)");
+        p.faceProgram(program("[7]"));
+        const auto dmaj7 = clipPitches(p);
+        check(dmaj7.count(2) == 1 && dmaj7.count(6) == 1 && dmaj7.count(9) == 1, "programme d'avant : Dmaj7 (7 du site) joue D");
+        // L'etat de la face v43 d'un projet de la premiere version : { chordBank, prog } lu tel quel
+        juce::ValueTree st("MMARP1");
+        st.setProperty("seed", 7, nullptr);
+        juce::DynamicObject::Ptr lso = new juce::DynamicObject();
+        lso->setProperty("mm.v4.voyager.1", R"({"v":1,"knobs":{}})");
+        lso->setProperty("mm.v4.plugin.arp.prog", R"({"chordBank":2,"prog":[1]})");
+        juce::DynamicObject::Ptr top = new juce::DynamicObject();
+        top->setProperty("ls", juce::var(lso.get()));
+        st.setProperty("ls", juce::JSON::toString(juce::var(top.get())), nullptr);
+        juce::MemoryBlock mb;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), mb);
+        MMArpProcessor q;
+        q.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        const auto ls = clipPitches(q);
+        check(ls.count(8) == 1, "etat de la face { chordBank: 2, prog: [1] } : G#ø");
+    }
+    {
+        // Le meme passage joue deux fois (une boucle d'Ableton, un export) : le meme son, quels que soient les blocs
+        auto render = [](int block) {
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            juce::ValueTree st = juce::ValueTree::fromXml(*juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize())));
+            st.setProperty("seed", 12345, nullptr);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            p.prepareToPlay(48000, block);
+            h.playing = true;
+            std::vector<float> L;
+            run(p, h, 48000 * 3, block, nullptr, &L);
+            return L;
+        };
+        const auto a = render(512), b = render(77), c = render(512);
+        double d1 = 0, d2 = 0, pk = 0;
+        for (size_t i = 0; i < a.size() && i < b.size() && i < c.size(); ++i) {
+            d1 = std::max(d1, static_cast<double>(std::fabs(a[i] - c[i])));
+            d2 = std::max(d2, static_cast<double>(std::fabs(a[i] - b[i])));
+            pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
+        }
+        check(pk > 0.01 && d1 <= 0, "meme graine, meme passage : identique au bit pres");
+        // Sans la file de 128 (faible latence), la taille des blocs deplace les decisions prises au rythme des blocs
+        // (DRIFT) : le son reste le meme a l'oreille, plus au bit pres. Controle : la meme sonie.
+        double ra = 0, rb = 0;
+        for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
+            ra += static_cast<double>(a[i]) * a[i];
+            rb += static_cast<double>(b[i]) * b[i];
+        }
+        juce::ignoreUnused(d2);
+        check(std::fabs(db(std::sqrt(ra)) - db(std::sqrt(rb))) < 0.5, "blocs de 512 contre 77 : la meme sonie (" + juce::String(db(std::sqrt(ra)) - db(std::sqrt(rb)), 2).toStdString() + " dB d'ecart)");
+    }
+    {
+        // DISTO (2026-11-17, v25) : un projet d'avant (sans aucun reglage de la DISTO), DISTO (l'OVERDRIVE du moteur) a
+        // 0.6, sonne au bit pres comme avant ; le style A change le son. La pedale DISTORTION masquee : un projet qui
+        // l'avait (0.5, TONE 0.7) passe a la DISTO (DIODE, DRIVE 0.5, MIX, AUTO, POST FILTER LP, TONE) et sonne au bit
+        // pres comme ce reglage pose a la main
+        auto render = [](bool strip, float style, double pedal, double pedalTone, const std::vector<std::pair<const char*, double>>& set) {
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            int removed = 0;
+            for (auto* e : xml->getChildIterator()) {
+                std::vector<juce::XmlElement*> kill;
+                for (auto* c : e->getChildIterator()) {
+                    const juce::String id = c->getStringAttribute("id");
+                    if (id == "dist") c->setAttribute("value", 0.6);
+                    if (id == "xDist") c->setAttribute("value", pedal);
+                    if (id == "xDistTone") c->setAttribute("value", pedalTone);
+                    if (id == "xDStyle") c->setAttribute("value", static_cast<double>(style));
+                    for (const auto& kv : set)
+                        if (id == kv.first) c->setAttribute("value", kv.second);
+                    const int ix = mmx::allIndex(id.toRawUTF8());
+                    if (strip && ix >= mmarp::kKnobs && std::strcmp(mmx::kExtraDefs[ix - mmarp::kKnobs].section, "disto") == 0) kill.push_back(c);
+                }
+                for (auto* c : kill) e->removeChildElement(c, true);
+                removed += static_cast<int>(kill.size());
+            }
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("seed", 12345, nullptr);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            p.prepareToPlay(48000, 512);
+            h.playing = true;
+            std::vector<float> L;
+            run(p, h, 48000 * 2, 512, nullptr, &L);
+            std::map<std::string, double> v;
+            for (const char* id : {"dist", "xDist", "xDistTone", "xDStyle", "xDMix", "xDAuto", "xDPostMode", "xDPostFreq", "xDPostReso", "xDTone"})
+                v[id] = static_cast<double>(p.knobParam(mmx::allIndex(id))->getValue());
+            return std::make_tuple(L, removed, v);
+        };
+        int nDisto = 0;
+        for (int e = 0; e < mmx::kExtra; ++e) nDisto += std::strcmp(mmx::kExtraDefs[e].section, "disto") == 0 ? 1 : 0;
+        const auto now = render(false, 0.f, 0, 0.5, {}), old = render(true, 0.f, 0, 0.5, {}), a = render(false, 1.f / 12, 0, 0.5, {});
+        double d = 0, dA = 0, pk = 0;
+        for (size_t i = 0; i < std::get<0>(now).size() && i < std::get<0>(old).size() && i < std::get<0>(a).size(); ++i) {
+            d = std::max(d, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(old)[i])));
+            dA = std::max(dA, static_cast<double>(std::fabs(std::get<0>(now)[i] - std::get<0>(a)[i])));
+            pk = std::max(pk, static_cast<double>(std::fabs(std::get<0>(now)[i])));
+        }
+        check(std::get<1>(old) == nDisto && nDisto == 53 && pk > 0.01 && d <= 0 && dA > 0.001,
+              "DISTO : un projet d'avant (" + std::to_string(std::get<1>(old)) + " reglages de la DISTO absents, DISTO 0.6) sonne au bit pres comme avant ; le style A change le son (ecart " +
+                  juce::String(dA, 3).toStdString() + ")");
+        // la pedale : convertie
+        const auto conv = render(true, 0.f, 0.5, 0.7, {});
+        const auto& cv = std::get<2>(conv);
+        const double toneHz = mmarp::ArpFxLaws::distToneHz(0.7);
+        const double wantFreq = std::log(toneHz / 20) / std::log(1000.0);
+        const bool vals = std::fabs(cv.at("xDStyle") - 8.0 / 12) < 1e-6 && std::fabs(cv.at("dist") - 0.5) < 1e-6 && cv.at("xDMix") > 0.999 && cv.at("xDAuto") > 0.999 &&
+                          std::fabs(cv.at("xDPostMode") - 0.25) < 1e-6 && std::fabs(cv.at("xDPostFreq") - wantFreq) < 1e-6 && cv.at("xDPostReso") < 1e-6 &&
+                          std::fabs(cv.at("xDTone") - (0.5 + 12 * 0.2 / 12)) < 1e-6 && cv.at("xDist") == 0 && std::fabs(cv.at("xDistTone") - 0.5) < 1e-6;
+        const auto hand = render(false, 8.f / 12, 0, 0.5,
+                                 {{"dist", 0.5}, {"xDMix", 1}, {"xDAuto", 1}, {"xDPostMode", 0.25}, {"xDPostFreq", static_cast<double>(static_cast<float>(wantFreq))}, {"xDPostReso", 0}, {"xDTone", 0.7}});
+        double dc = 0, dn = 0;
+        for (size_t i = 0; i < std::get<0>(conv).size() && i < std::get<0>(hand).size(); ++i) {
+            dc = std::max(dc, static_cast<double>(std::fabs(std::get<0>(conv)[i] - std::get<0>(hand)[i])));
+            dn = std::max(dn, static_cast<double>(std::fabs(std::get<0>(conv)[i] - std::get<0>(now)[i])));
+        }
+        check(vals && dc <= 0 && dn > 0.001,
+              "pedale DISTORTION (0.5, TONE 0.7) convertie : DIODE, DRIVE 0.5, MIX 100 %, AUTO, POST LP " + std::to_string(std::lround(toneHz)) +
+                  " Hz, TONE ; au bit pres comme ce reglage pose a la main ; la pedale a 0");
+        // une pedale en dessous de 5 % : MIX suit sa dose ; une DISTO deja reglee (style T) : la pedale est seulement coupee
+        const auto low = render(true, 0.f, 0.02, 0.5, {});
+        const auto keep = render(false, 4.f / 12, 0.4, 0.5, {});
+        check(std::fabs(std::get<2>(low).at("xDMix") - 0.4) < 1e-6 && std::fabs(std::get<2>(low).at("dist") - 0.02) < 1e-6 && std::fabs(std::get<2>(keep).at("xDStyle") - 4.0 / 12) < 1e-6 &&
+                  std::fabs(std::get<2>(keep).at("dist") - 0.6) < 1e-6 && std::get<2>(keep).at("xDist") == 0,
+              "pedale a 2 % : MIX 40 % ; DISTO deja en T : la pedale seulement coupee, DRIVE garde");
+    }
+    {
+        // v27 : l'ancien DELAY (DLY TIME, TAPE, DELAY MODE) converti a l'ouverture vers la page DELAY. Le meme projet
+        // d'avant (sans aucun reglage v27 : DELAY, EQ parametrique, rack enrichi) rendu par l'ancien DELAY tel quel
+        // (testLegacyDelay) et par la page DELAY convertie : au bit pres. Puis l'ancien TAPE n'agit plus (OLD).
+        struct Old {
+            double delay, dlyTime, tape, mode;
+        };
+        auto render = [](const Old& o, bool legacy, bool strip, const std::vector<std::pair<const char*, double>>& after, std::map<std::string, double>* vals) {
+            MMArpProcessor::testLegacyDelay = legacy;
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            for (auto* e : xml->getChildIterator()) {
+                std::vector<juce::XmlElement*> kill;
+                for (auto* c : e->getChildIterator()) {
+                    const juce::String id = c->getStringAttribute("id");
+                    if (id == "delay") c->setAttribute("value", o.delay);
+                    if (id == "dlyTime") c->setAttribute("value", o.dlyTime);
+                    if (id == "tape") c->setAttribute("value", o.tape);
+                    if (id == "xDlyMode") c->setAttribute("value", o.mode);
+                    const int ix = mmx::allIndex(id.toRawUTF8());
+                    if (strip && ix >= mmarp::kKnobs + mmx::ex_xDlStyle) kill.push_back(c);
+                }
+                for (auto* c : kill) e->removeChildElement(c, true);
+            }
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("seed", 12345, nullptr);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            for (const auto& kv : after) p.knobParam(mmx::allIndex(kv.first))->setValueNotifyingHost(static_cast<float>(kv.second));
+            p.prepareToPlay(48000, 512);
+            h.playing = true;
+            std::vector<float> L, R;
+            run(p, h, 48000 * 3, 512, nullptr, &L, &R);
+            if (vals)
+                for (int e = mmx::ex_xDlStyle; e <= mmx::ex_xDlRhythm; ++e) (*vals)[mmx::kExtraDefs[e].id] = static_cast<double>(p.knobParam(mmarp::kKnobs + e)->getValue());
+            MMArpProcessor::testLegacyDelay = false;
+            L.insert(L.end(), R.begin(), R.end());
+            return L;
+        };
+        // le defaut du site (TAPE 0.3 : la bande), le ping-pong, STEREO, WIDE, la bande a fond ; tous les DLY TIME
+        const Old cases[] = {{0.25, 0.25, 0.3, 0}, {0.4, 0.75, 0, 0}, {0.55, 0.5, 0, 0.5}, {0.3, 1, 0, 1}, {0.45, 0, 0.65, 0.5}, {0.38, 0.25, 0.01, 0}};
+        int exact = 0;
+        double worst = 0, pk = 0;
+        std::string why;
+        for (const Old& o : cases) {
+            std::map<std::string, double> v;
+            const auto a = render(o, true, true, {}, nullptr), b = render(o, false, true, {}, &v);
+            double d = 0;
+            for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
+                d = std::max(d, static_cast<double>(std::fabs(a[i] - b[i])));
+                pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
+            }
+            worst = std::max(worst, d);
+            if (d <= 0 && a.size() == b.size()) ++exact;
+            else why += " cas " + std::to_string(&o - cases) + " ecart " + juce::String(d, 9).toStdString();
+        }
+        check(exact == 6 && pk > 0.01, "DELAY v27 : 6 projets d'avant (TAPE, PING PONG, STEREO, WIDE, tous les DLY TIME) convertis sonnent au bit pres comme l'ancien DELAY" + why);
+        // les valeurs converties : la bande, et le ping-pong STEREO a 1/4.
+        std::map<std::string, double> vt, vd;
+        render({0.25, 0.25, 0.3, 0}, false, true, {}, &vt);
+        render({0.55, 0.75, 0, 0.5}, false, true, {}, &vd);
+        const auto stepOf = [](int e, double v) { return mmx::exStep(e, v); };
+        const bool okT = stepOf(mmx::ex_xDlStyle, vt["xDlStyle"]) == mmarp::ES_TAPE && std::fabs(vt["xDlWobble"] - 0.3) < 1e-6 && stepOf(mmx::ex_xDlMode, vt["xDlMode"]) == mmarp::EM_PINGPONG &&
+                         stepOf(mmx::ex_xDlSync, vt["xDlSync"]) == 1 && stepOf(mmx::ex_xDlDiv, vt["xDlDiv"]) == 2 && stepOf(mmx::ex_xDlNote, vt["xDlNote"]) == 1 &&
+                         static_cast<float>(vt["xDlFb"]) == static_cast<float>(0.35 + (0.68 - 0.35) * 0.25);
+        const bool okD = stepOf(mmx::ex_xDlStyle, vd["xDlStyle"]) == mmarp::ES_DIGITAL && vd["xDlWobble"] == 0 && stepOf(mmx::ex_xDlMode, vd["xDlMode"]) == mmarp::EM_DUAL &&
+                         stepOf(mmx::ex_xDlDiv, vd["xDlDiv"]) == 3 && stepOf(mmx::ex_xDlNote, vd["xDlNote"]) == 1 && static_cast<float>(vd["xDlFb"]) == static_cast<float>(0.35 + (0.68 - 0.35) * 0.55);
+        check(okT && okD, "DELAY v27 : la regle de conversion (TAPE -> style TAPE, WOBBLE = TAPE, PING-PONG ; sinon DIGITAL, STEREO -> DUAL ; DLY TIME -> 1/8. ou 1/4. ; FEEDBACK = 0.35 + 0.33 x DELAY)");
+        // l'ancien TAPE (OLD TAPE) n'agit plus ; le STYLE de la page, si
+        const auto base = render({0.4, 0.25, 0.3, 0}, false, true, {}, nullptr);
+        const auto oldTape = render({0.4, 0.25, 0.3, 0}, false, true, {{"tape", 0.9}, {"dlyTime", 1}}, nullptr);
+        const auto style = render({0.4, 0.25, 0.3, 0}, false, true, {{"xDlStyle", 6.0 / 7}}, nullptr);
+        double dOld = 0, dSt = 0;
+        for (size_t i = 0; i < base.size() && i < oldTape.size() && i < style.size(); ++i) {
+            dOld = std::max(dOld, static_cast<double>(std::fabs(base[i] - oldTape[i])));
+            dSt = std::max(dSt, static_cast<double>(std::fabs(base[i] - style[i])));
+        }
+        check(dOld <= 0 && dSt > 0.001, "DELAY v27 : OLD TAPE et OLD DLY TIME automatises ne changent plus rien ; le STYLE CASSETTE de la page change le son (ecart " + juce::String(dSt, 3).toStdString() + ")");
+        // les noms dans l'hote : OLD devant
+        MMArpProcessor p;
+        check(p.knobParam(mmx::allIndex("tape"))->getName(64) == "OLD TAPE" && p.knobParam(mmx::allIndex("dlyTime"))->getName(64) == "OLD DLY TIME" &&
+                  p.knobParam(mmx::allIndex("xDlyMode"))->getName(64) == "OLD DLY MODE" && p.knobParam(mmx::allIndex("xEqLow"))->getName(64) == "OLD EQ LOW" &&
+                  p.knobParam(mmx::allIndex("xDlStyle"))->getName(64) == "DELAY STYLE" && p.knobParam(mmx::allIndex("xQ3Gain"))->getName(64) == "EQ 3 GAIN",
+              "DELAY v27 : dans l'hote, OLD TAPE, OLD DLY TIME, OLD DLY MODE, OLD EQ LOW ; les neufs en fin de liste (DELAY STYLE, EQ 3 GAIN)");
+        // les neufs sont en fin de liste : l'index des anciens ne bouge pas
+        check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == 226 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
+        // v32 : EXPORT HQ, le seul neuf, en fin de liste
+        check(mmx::ex_xExportHq == 227 && mmx::ex_xEngine == 228 && mmx::ex_xMidiIn == 229 && mmx::ex_xArpHold == 230 && mmx::ex_xArpRun == 231 && mmx::ex_xDPunish2 == 232 && mmx::kExtra >= 233, "v32 / v34 / v46 : EXPORT HQ, ENGINE ... puis DISTO PUNISH (v2) ajoutes en fin de liste (les 227 d'avant gardent leur place)");
+        // v46 : les 20 reglages de HELL v2, ensemble, apres DISTO PUNISH (v2) (xHellV2 d'abord)
+        {
+            bool inOrder = mmx::ex_xHellV2 == 233 && mmx::ex_xHellWarp == mmx::ex_xHellV2 + 1 && mmx::ex_xHellDescent == 252;
+            for (int k = mmarp::Hell2::kWarp; k < mmarp::Hell2::kKeys; ++k) inOrder = inOrder && mmx::allIndex(mmarp::Hell2::kKeyIds[k]) == mmarp::kKnobs + mmx::ex_xHellV2 + 1 + (k - mmarp::Hell2::kWarp);
+            check(inOrder && mmx::allIndex("xHellTone") == mmarp::kKnobs + mmx::ex_xHellTone && mmx::ex_xHellTone < 232, "v46 : HELL v2, 20 reglages neufs en fin de liste, apres DISTO PUNISH (v2) (les 233 d'avant gardent leur place)");
+        }
+        // v46 : les dix reglages de la sortie de la reverbe, apres HELL v2, dans l'ordre
+        check(mmx::ex_xSkyLoCut == 253 && mmx::ex_xSkyWidth == 260 && mmx::ex_xSkyFreeze == 262 && mmx::kExtra >= 263,
+              "v46 : LOW CUT ... FREEZE de la reverbe ajoutes en fin de liste, apres HELL v2 (les 253 d'avant gardent leur place)");
+        // v49 : LATENCY (ZERO / EXACT) en fin de liste, apres REVERB FREEZE
+        check(mmx::ex_xLatency == 263 && mmx::kExtra >= 264 && std::strcmp(mmx::kExtraDefs[mmx::ex_xLatency].steps[1], "ZERO") == 0 && mmx::kExtraDefs[mmx::ex_xLatency].def == 1,
+              "v49 : LATENCY ajoute en fin de liste (263, ZERO par defaut ; les 263 d'avant gardent leur place)");
+    }
+    {
+        // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
+        // avec l'ancien DELAY (DLY TIME, TAPE, DELAY MODE du preset, testLegacyDelay)
+        const juce::File f = juce::File::getCurrentWorkingDirectory().getChildFile("plugin/mm-arp/presets/factory.json");
+        const juce::var bank = juce::JSON::parse(f.loadFileAsString());
+        const juce::var* list = bank.getDynamicObject() ? bank.getDynamicObject()->getProperties().getVarPointer("presets") : nullptr;
+        // v53 (2026-11-25, la banque dark disco, 80 presets) : un preset qui pose sa page DELAY lui-meme (un echo cale au
+        // tempo que l'ancien DELAY ne savait pas faire : la double croche, le triolet, sa reinjection) n'a pas d'ancien DELAY
+        // a comparer ; les autres (leur page = l'ancien DELAY converti, la regle de convertDelay) restent au bit pres.
+        const auto legacyPage = [](const juce::var& pr) {
+            const auto num = [&](const char* part, const char* id, double def) {
+                const juce::var v = pr.getProperty(part, juce::var()).getProperty(id, juce::var());
+                return v.isVoid() ? def : static_cast<double>(v);
+            };
+            const auto kn = [&](const char* id) {
+                const int i = mmarp::knobIndex(id);
+                return mmarp::knobClean(i, num("knobs", id, mmarp::kKnobDefs[i].def));
+            };
+            const double delay = kn("delay"), tape = kn("tape");
+            const int dt = std::max(0, std::min(4, mmarp::knobStep(mmarp::knobIndex("dlyTime"), kn("dlyTime"))));
+            const int dm = mmx::exStep(mmx::ex_xDlyMode, num("extra", "xDlyMode", 0));
+            std::map<int, double> want;
+            for (int e = mmx::ex_xDlStyle; e <= mmx::ex_xDlRhythm; ++e) want[e] = mmx::kExtraDefs[e].def;
+            const auto step = [&](int e, int i) { return static_cast<double>(i) / (mmx::kExtraDefs[e].nSteps - 1); };
+            const bool tp = mmarp::ArpFxLaws::fxAmount(tape) > 0;
+            want[mmx::ex_xDlStyle] = step(mmx::ex_xDlStyle, tp ? mmarp::ES_TAPE : mmarp::ES_DIGITAL);
+            want[mmx::ex_xDlWobble] = tp ? tape : 0;
+            want[mmx::ex_xDlMode] = step(mmx::ex_xDlMode, tp || dm == 0 ? mmarp::EM_PINGPONG : dm == 1 ? mmarp::EM_DUAL : mmarp::EM_WIDE);
+            static const int kDiv[5] = {2, 2, 3, 3, 4}, kNote[5] = {0, 1, 0, 1, 0};
+            want[mmx::ex_xDlSync] = step(mmx::ex_xDlSync, 1);
+            want[mmx::ex_xDlDiv] = step(mmx::ex_xDlDiv, kDiv[dt]);
+            want[mmx::ex_xDlNote] = step(mmx::ex_xDlNote, kNote[dt]);
+            want[mmx::ex_xDlFb] = 0.35 + (0.68 - 0.35) * delay;
+            for (const auto& [e, v] : want)
+                if (std::fabs(num("extra", mmx::kExtraDefs[e].id, mmx::kExtraDefs[e].def) - v) > 1e-6) return false;
+            return true;
+        };
+        int n = 0, exact = 0, legacy = 0, native = 0, total = list && list->isArray() ? list->size() : 0;
+        std::string bad;
+        if (list && list->isArray())
+            for (const auto& pr : *list->getArray()) {
+                if (!legacyPage(pr)) {
+                    ++n;
+                    ++native;
+                    continue;
+                }
+                ++legacy;
+                const auto play = [&](bool legacy) {
+                    MMArpProcessor::testLegacyDelay = legacy;
+                    MMArpProcessor p;
+                    Head h;
+                    h.bpm = static_cast<double>(pr.getProperty("bpm", 120));
+                    p.setPlayHead(&h);
+                    for (const char* part : {"knobs", "extra"})
+                        if (auto* o = pr.getProperty(part, juce::var()).getDynamicObject())
+                            for (const auto& kv : o->getProperties()) {
+                                const int ix = mmx::allIndex(kv.name.toString().toRawUTF8());
+                                if (ix >= 0) p.knobParam(ix)->setValueNotifyingHost(static_cast<float>(static_cast<double>(kv.value)));
+                            }
+                    juce::MemoryBlock mb;
+                    p.getStateInformation(mb);
+                    auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                    juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                    st.setProperty("seed", 777, nullptr);
+                    st.setProperty("program", program(), nullptr);
+                    juce::MemoryBlock m2;
+                    juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                    p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                    p.prepareToPlay(48000, 512);
+                    h.playing = true;
+                    std::vector<float> L, R;
+                    run(p, h, 48000 * 2, 512, nullptr, &L, &R);
+                    MMArpProcessor::testLegacyDelay = false;
+                    L.insert(L.end(), R.begin(), R.end());
+                    return L;
+                };
+                const auto a = play(true), b = play(false);
+                double d = 0;
+                for (size_t i = 0; i < a.size() && i < b.size(); ++i) d = std::max(d, static_cast<double>(std::fabs(a[i] - b[i])));
+                ++n;
+                if (d <= 0 && a.size() == b.size()) ++exact;
+                else bad += " " + pr.getProperty("name", "?").toString().toStdString();
+            }
+        // v53 : la banque n'a plus 40 presets (80) : tous comptes, au moins 64 ; ceux a l'ancien DELAY converti au bit pres
+        check(n == total && n >= 64 && legacy + native == n && legacy > 0 && exact == legacy,
+              "DELAY v27 : la banque d'usine (" + std::to_string(n) + " presets), " + std::to_string(exact) + " / " + std::to_string(legacy) +
+                  " a l'ancien DELAY converti au bit pres comme avec l'ancien DELAY ; " + std::to_string(native) + " avec leur page DELAY (v53)" + bad);
+    }
+    {
+        // v27 : l'analyseur de la page SOUND (seulement page ouverte) : une note jouee, ses bandes au-dessus de -60 dB
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 512);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        h.playing = true;
+        float db[mmarp::SpecAnalyzer::kBins];
+        run(p, h, 48000, 512, nullptr, nullptr);
+        const bool idle = !p.specFrame(db);
+        p.setSpecOn(true);
+        run(p, h, 48000, 512, nullptr, nullptr);
+        const bool got = p.specFrame(db);
+        float top = -200;
+        for (float v : db) top = std::max(top, v);
+        p.setSpecOn(false);
+        check(idle && got && top > -60, "EQ ANALYZER : rien tant que la page est fermee ; page ouverte, 96 bandes (crete " + juce::String(top, 1).toStdString() + " dB)");
+    }
+    {
+        // La taille de la fenetre (2026-11-18, v29) : 1496 par defaut ; la taille choisie reste dans le projet (editorW7) ;
+        // un projet v26-v28 (editorW6) rouvre a 80 % ; un plus ancien (editorW5) a 1496
+        MMArpProcessor a;
+        const int def = a.editorWidth();
+        a.setEditorWidth(1300);
+        juce::MemoryBlock mb;
+        a.getStateInformation(mb);
+        MMArpProcessor b;
+        b.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        auto reopen = [&](const char* key, int w) {
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            xml->removeAttribute("editorW7");
+            xml->setAttribute(key, w);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*xml, m2);
+            MMArpProcessor c;
+            c.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            return c.editorWidth();
+        };
+        const int w6 = reopen("editorW6", 1870), w6b = reopen("editorW6", 3300), w5 = reopen("editorW5", 2500);
+        check(def == 1496 && b.editorWidth() == 1300 && w6 == 1496 && w6b == 2640 && w5 == 1496,
+              "taille : 1496 par defaut, la taille choisie gardee (1300), un projet v26-v28 a 1870 rouvre a " + std::to_string(w6) +
+                  ", a 3300 a " + std::to_string(w6b) + ", un plus ancien (editorW5 2500) a " + std::to_string(w5));
+    }
+    {
+        // v31 : le compteur CPU (la charge de l'instance par etage, lissee, et son pic) : des valeurs finies, le total
+        // au-dessus de la somme des etages mesures a part, le pic au-dessus de la moyenne, les voix et QUALITY (HQ : x8)
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 128);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        h.playing = true;
+        const bool idle0 = p.cpu(MMArpProcessor::kCpuTotal) == 0.f;
+        run(p, h, 48000, 128, nullptr, nullptr);
+        bool finite = true;
+        double parts = 0;
+        for (int i = 0; i < MMArpProcessor::kCpuN; ++i) {
+            finite = finite && std::isfinite(p.cpu(i)) && p.cpu(i) >= 0;
+            if (i != MMArpProcessor::kCpuTotal) parts += p.cpu(i);
+        }
+        const double tot = p.cpu(MMArpProcessor::kCpuTotal);
+        char buf[200];
+        std::snprintf(buf, sizeof buf, "v31 compteur CPU : total %.2f %% (etages %.2f %%), pic %.2f %%, moteur %.2f %%, %d voix, x%d (STD)", tot, parts, static_cast<double>(p.cpuPeak()),
+                      static_cast<double>(p.cpu(MMArpProcessor::kCpuEngine)), p.cpuVoices(), p.cpuOs());
+        check(idle0 && finite && tot > 0 && tot < 1000 && std::fabs(parts - tot) < 0.05 * tot + 0.05 && p.cpuPeak() >= tot && p.cpu(MMArpProcessor::kCpuEngine) > 0 && p.cpuOs() == 2 && p.cpuPro(), buf);
+        // v34 : en CLASSIC, les crans de la v32 (STD x4, EXPORT HQ x8, ECO x2)
+        p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+        // v32 : EXPORT HQ : le rendu hors ligne passe en HQ x8 (QUALITY reste STD), le temps reel revient a x4
+        p.setNonRealtime(true);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osOff = p.cpuOs();
+        p.knobParam(mmx::allIndex("xExportHq"))->setValueNotifyingHost(0.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osOffNo = p.cpuOs();
+        p.setNonRealtime(false);
+        p.knobParam(mmx::allIndex("xExportHq"))->setValueNotifyingHost(1.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osRt = p.cpuOs();
+        p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.f);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int osEco = p.cpuOs();
+        check(osOff == 8 && osOffNo == 4 && osRt == 4 && osEco == 2,
+              "v32 QUALITY (CLASSIC) : STD x4, EXPORT HQ hors ligne x" + std::to_string(osOff) + " (coupe : x" + std::to_string(osOffNo) + "), temps reel x" + std::to_string(osRt) + ", ECO x" + std::to_string(osEco));
+        // v34 PRO : ECO x1, STD x2, HQ x4, EXPORT HQ x4
+        p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(1.f);
+        const auto osAt = [&](float q) {
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+            run(p, h, 4800, 128, nullptr, nullptr);
+            return p.cpuOs();
+        };
+        const int pe = osAt(0.f), ps = osAt(0.5f), ph = osAt(1.f);
+        p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+        p.setNonRealtime(true);
+        run(p, h, 4800, 128, nullptr, nullptr);
+        const int px = p.cpuOs();
+        p.setNonRealtime(false);
+        check(pe == 1 && ps == 2 && ph == 4 && px == 4 && p.cpuPro(), "v34 PRO : ECO x" + std::to_string(pe) + ", STD x" + std::to_string(ps) + ", HQ x" + std::to_string(ph) + ", EXPORT HQ x" + std::to_string(px));
+    }
+    {
+        // v32 : un projet d'avant (QUALITY a deux crans, sans EXPORT HQ) : HQ reste HQ, STD reste STD ; une instance neuve : STD
+        const auto reload = [&](float oldQ) {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;) {
+                juce::ValueTree c = params.getChild(i);
+                if (c.getProperty("id").toString() == "xExportHq") params.removeChild(i, nullptr);
+                else if (c.getProperty("id").toString() == "xQuality") c.setProperty("value", oldQ, nullptr);
+            }
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            MMArpProcessor b;
+            b.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            return std::make_pair(b.knobParam(mmx::allIndex("xQuality"))->getValue(), b.knobParam(mmx::allIndex("xExportHq"))->getValue());
+        };
+        MMArpProcessor fresh;
+        const auto hqOld = reload(1.f), stdOld = reload(0.f);
+        check(fresh.knobParam(mmx::allIndex("xQuality"))->getValue() == 0.5f && hqOld.first == 1.f && stdOld.first == 0.5f && hqOld.second == 1.f,
+              "v32 : instance neuve en STD ; projet d'avant en HQ : HQ ; en STD : STD ; EXPORT HQ engage");
+        // v34 : instance neuve en PRO ; un projet d'avant (sans ENGINE) en CLASSIC
+        {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;)
+                if (params.getChild(i).getProperty("id").toString() == "xEngine") params.removeChild(i, nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            MMArpProcessor b;
+            b.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            check(fresh.knobParam(mmx::allIndex("xEngine"))->getValue() == 1.f && b.knobParam(mmx::allIndex("xEngine"))->getValue() == 0.f,
+                  "v34 : instance neuve en PRO ; projet d'avant (sans ENGINE) en CLASSIC");
+        }
+    }
+    {
+        // v32 (Mika : "8 voix") : un arpege rapide au release long ; le moteur seul (la limite du plugin, softVoices 8) :
+        // jamais plus de 8 voix pleines, les volees s'effacent en ~5 ms ; sans limite, 12
+        const auto play = [](int soft, int& maxFull, int& maxOn, double& rms) {
+            mmarp::VoyagerOptions o;
+            o.os = 4;
+            o.softVoices = soft;
+            mmarp::Voyager v(o);
+            const mmarp::ParamKV kv[] = {{mmarp::Voyager::paramIndex("aR"), 0.9}, {mmarp::Voyager::paramIndex("aS"), 0.7}};
+            v.params(kv, 2);
+            std::vector<float> L(128), R(128);
+            maxFull = maxOn = 0;
+            double sum = 0;
+            int n = 0;
+            for (int b = 0; b < 48000 * 3 / 128; ++b) {
+                const double t = b * 128 / 48000.0;
+                if (b % 12 == 0) v.note(t, 48 + (b / 12) % 24, 0.05, 1, std::numeric_limits<double>::quiet_NaN(), 0, 0.8);
+                v.process(L.data(), R.data(), 128);
+                maxFull = std::max(maxFull, v.fullVoices());
+                maxOn = std::max(maxOn, v.activeVoices());
+                for (int i = 0; i < 128; ++i) sum += static_cast<double>(L[static_cast<size_t>(i)]) * L[static_cast<size_t>(i)];
+                n += 128;
+            }
+            rms = std::sqrt(sum / n);
+        };
+        int f8, o8, f0, o0;
+        double r8, r0;
+        play(8, f8, o8, r8);
+        play(0, f0, o0, r0);
+        check(f8 <= 8 && o8 <= 12 && f0 == 12 && r8 > 0 && std::fabs(20 * std::log10(r8 / r0)) < 3,
+              "v32 voix : limite 8 : " + std::to_string(f8) + " pleines (" + std::to_string(o8) + " avec celles qui s'effacent) ; sans limite : " + std::to_string(f0) +
+                  " ; niveau " + juce::String(20 * std::log10(r8 / r0), 1).toStdString() + " dB");
+    }
+    {
+        // v38 MIDI IN : NOTES (comme avant : le clip a le dessus), ARP (les touches tenues font l'accord, l'horloge interne
+        // si Ableton est a l'arret, lacher arrete ; HOLD garde l'accord), LAYER (l'arpege continue, les notes par-dessus)
+        const auto make = [&](MMArpProcessor& p, Head& h, float midiIn, float hold) {
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 512);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            p.knobParam(mmx::allIndex("xMidiIn"))->setValueNotifyingHost(midiIn);
+            p.knobParam(mmx::allIndex("xArpHold"))->setValueNotifyingHost(hold);
+        };
+        juce::MidiBuffer on, off;
+        for (int m : {60, 64, 67}) {
+            on.addEvent(juce::MidiMessage::noteOn(1, m, 0.8f), 0);
+            off.addEvent(juce::MidiMessage::noteOff(1, m), 0);
+        }
+        const auto arpCase = [&](float hold, double& during, double& after) {
+            MMArpProcessor p;
+            Head h;
+            h.playing = false;
+            make(p, h, 0.5f, hold);
+            run(p, h, 4800, 512, nullptr, nullptr);
+            during = db(run(p, h, 48000, 512, &on).rms);
+            run(p, h, 512, 512, &off);
+            run(p, h, 48000 * 4, 512);
+            after = db(run(p, h, 48000, 512).rms);
+        };
+        double d0, a0, d1, a1;
+        arpCase(0.f, d0, a0);
+        arpCase(1.f, d1, a1);
+        check(d0 > -45 && a0 < -90 && d1 > -45 && a1 > -45,
+              "v38 MIDI IN ARP (Ableton a l'arret) : accord tenu " + juce::String(d0, 1).toStdString() + " dB, lache " + juce::String(a0, 1).toStdString() +
+                  " dB ; HOLD : " + juce::String(d1, 1).toStdString() + " dB, lache " + juce::String(a1, 1).toStdString() + " dB (l'accord reste)");
+        // NOTES contre LAYER, transport en lecture : en NOTES le clip a le dessus, en LAYER l'arpege continue
+        const auto clipCase = [&](float midiIn) {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            make(p, h, midiIn, 0.f);
+            run(p, h, 4800, 512, nullptr, nullptr);
+            run(p, h, 4800, 512, &on);
+            return p.clipActive();
+        };
+        check(clipCase(0.f) && !clipCase(1.f), "v38 MIDI IN : NOTES, le clip coupe l'arpege ; LAYER, l'arpege continue sous les notes");
+    }
+    {
+        // v40 : sous le transport de l'hote, STOP (ARP RUN 0) fait taire l'arpege, RUN le relance (au pas suivant de la
+        // grille), la pause est gardee dans l'etat du projet
+        MMArpProcessor p;
+        Head h;
+        h.playing = true;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 512);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        const double runDb = db(run(p, h, 48000, 512).rms);
+        p.knobParam(mmx::allIndex("xArpRun"))->setValueNotifyingHost(0.f);
+        run(p, h, 48000 * 4, 512);
+        const double stopDb = db(run(p, h, 48000, 512).rms);
+        const bool fbStop = !p.feedback().playing;
+        juce::MemoryBlock ms;
+        p.getStateInformation(ms);
+        MMArpProcessor q;
+        q.setStateInformation(ms.getData(), static_cast<int>(ms.getSize()));
+        const bool kept = q.knobParam(mmx::allIndex("xArpRun"))->getValue() < 0.5f;
+        p.knobParam(mmx::allIndex("xArpRun"))->setValueNotifyingHost(1.f);
+        const double againDb = db(run(p, h, 48000, 512).rms);
+        check(runDb > -45 && stopDb < -90 && fbStop && kept && againDb > -45,
+              "v40 ARP RUN sous l'hote : RUN " + juce::String(runDb, 1).toStdString() + " dB, STOP " + juce::String(stopDb, 1).toStdString() + " dB (afficheur a l'arret), relance " +
+                  juce::String(againDb, 1).toStdString() + " dB, pause gardee dans le projet");
+    }
+    {
+        // v49 (Mika : "le moins de ms possible") : LATENCY. Une instance neuve en ZERO : 0 declare a 44.1, 48 et 96 kHz, en
+        // CLASSIC comme en PRO, a chaque QUALITY, en temps reel et a l'export, et jamais de changement en jouant (QUALITY
+        // bouge, ENGINE bouge). Un projet d'avant (sans LATENCY) : EXACT, la latence du site, qui suit QUALITY quand elle
+        // change (declaree par le thread du message), et son son au bit pres (le meme que LATENCY a EXACT pose a la main).
+        const auto withState = [](MMArpProcessor& p, bool dropLatency, float latency) {
+            MMArpProcessor a;
+            juce::MemoryBlock mb;
+            a.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            juce::ValueTree params = st.getChild(0);
+            for (int i = params.getNumChildren(); --i >= 0;) {
+                juce::ValueTree c = params.getChild(i);
+                if (c.getProperty("id").toString() == "xLatency") {
+                    if (dropLatency) params.removeChild(i, nullptr);
+                    else c.setProperty("value", latency, nullptr);
+                }
+            }
+            st.setProperty("program", program(), nullptr);
+            st.setProperty("seed", 777, nullptr); // la meme graine : les memes tirages (DRIFT...)
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        };
+        // 1. instance neuve : ZERO partout
+        {
+            bool allZero = true;
+            std::string why;
+            for (double sr : {44100.0, 48000.0, 96000.0})
+                for (float eng : {0.f, 1.f})
+                    for (float q : {0.f, 0.5f, 1.f})
+                        for (bool offline : {false, true}) {
+                            MMArpProcessor p;
+                            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(eng);
+                            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+                            p.setNonRealtime(offline);
+                            p.prepareToPlay(sr, 256);
+                            if (p.getLatencySamples() != 0) {
+                                allZero = false;
+                                why += " " + std::to_string(static_cast<int>(sr)) + (eng > 0 ? "/PRO" : "/CLASSIC") + "/Q" + juce::String(q, 1).toStdString() + "=" +
+                                       std::to_string(p.getLatencySamples());
+                            }
+                        }
+            MMArpProcessor fresh;
+            check(allZero && fresh.knobParam(mmx::allIndex("xLatency"))->getValue() == 1.f,
+                  "v49 LATENCY ZERO (instance neuve) : 0 declare a 44.1 / 48 / 96 kHz, CLASSIC et PRO, ECO / STD / HQ, temps reel et export" + why);
+        }
+        // 2. en jouant, ZERO : QUALITY et ENGINE bougent, la latence reste 0 ; le son est fini
+        {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 128);
+            withState(p, false, 1.f);
+            bool still = p.getLatencySamples() == 0;
+            Stats s = run(p, h, 48000, 128);
+            bool fin = s.finite && s.peak > 0.001;
+            for (float q : {1.f, 0.f, 0.5f})
+                for (float eng : {0.f, 1.f}) {
+                    p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(q);
+                    p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(eng);
+                    for (int k = 0; k < 40; ++k) {
+                        const Stats r = run(p, h, 1200, 128);
+                        fin = fin && r.finite;
+                        p.syncLatency();
+                        still = still && p.getLatencySamples() == 0 && p.latencyNow() == 0;
+                    }
+                }
+            s = run(p, h, 48000, 128);
+            check(still && fin && s.peak > 0.001, "v49 LATENCY ZERO en jouant : QUALITY ECO / STD / HQ et ENGINE CLASSIC / PRO changes, la latence reste 0, le son fini");
+        }
+        // 3. un projet d'avant (sans LATENCY) : EXACT, la latence du site, qui suit QUALITY
+        {
+            MMArpProcessor p;
+            Head h;
+            h.playing = true;
+            p.setPlayHead(&h);
+            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+            withState(p, true, 0.f);
+            p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+            p.prepareToPlay(48000, 128);
+            const bool exact = p.knobParam(mmx::allIndex("xLatency"))->getValue() == 0.f;
+            const int l0 = p.getLatencySamples();
+            run(p, h, 24000, 128);
+            p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(1.f);
+            run(p, h, 48000, 128);
+            p.syncLatency();
+            const int l1 = p.getLatencySamples();
+            // puis LATENCY a ZERO en jouant : le moteur change au silence, la latence declaree tombe a 0
+            p.knobParam(mmx::allIndex("xLatency"))->setValueNotifyingHost(1.f);
+            run(p, h, 48000, 128);
+            p.syncLatency();
+            const int l2 = p.getLatencySamples();
+            check(exact && l0 == 19 && l1 == 21 && l2 == 0,
+                  "v49 : projet d'avant en EXACT, latence " + std::to_string(l0) + " (CLASSIC STD), " + std::to_string(l1) + " apres QUALITY HQ (declaree), " + std::to_string(l2) +
+                      " apres LATENCY ZERO");
+        }
+        // 4. le son d'un projet d'avant (EXACT) : le meme au bit pres que LATENCY a EXACT pose a la main (ZERO, lui, change
+        // le son : les demi-bandes RII ; meme sonie a 0.05 dB pres, en avance de la latence d'EXACT)
+        {
+            const auto render = [&](bool drop, float lat, std::vector<float>& L) {
+                MMArpProcessor p;
+                Head h;
+                h.playing = true;
+                p.setPlayHead(&h);
+                withState(p, drop, lat);
+                p.knobParam(mmx::allIndex("xEngine"))->setValueNotifyingHost(0.f);
+                p.knobParam(mmx::allIndex("xQuality"))->setValueNotifyingHost(0.5f);
+                p.knobParam(mmx::allIndex("dist"))->setValueNotifyingHost(0.5f);
+                p.knobParam(mmx::allIndex("xDStyle"))->setValueNotifyingHost(1.f / 12);
+                p.knobParam(mmx::allIndex("xWarmth"))->setValueNotifyingHost(0.5f);
+                p.prepareToPlay(48000, 128);
+                return run(p, h, 48000 * 3, 128, nullptr, &L);
+            };
+            std::vector<float> a, b, c;
+            const Stats sa = render(true, 0.f, a), sb = render(false, 0.f, b), sc = render(false, 1.f, c);
+            const bool same = a == b;
+            bool differs = false;
+            for (size_t i = 0; i < a.size() && i < c.size(); ++i) differs = differs || a[i] != c[i];
+            // (la sonie hors des bords : EXACT est en retard de ses latences, 19 + 32 + 39 echantillons)
+            const auto mid = [](const std::vector<float>& x) {
+                double e = 0;
+                for (size_t i = 24000; i + 4800 < x.size(); ++i) e += static_cast<double>(x[i]) * x[i];
+                return std::sqrt(e / static_cast<double>(x.size() - 28800));
+            };
+            const double dl = db(mid(c)) - db(mid(a));
+            check(same && differs && sa.peak > 0.01 && sc.finite && std::fabs(dl) < 0.05,
+                  "v49 : projet d'avant (EXACT) au bit pres comme LATENCY EXACT (" + std::string(same ? "oui" : "NON") + ", crete " + juce::String(sa.peak, 3).toStdString() +
+                      ") ; ZERO (DISTO, WARMTH, moteur) " + std::string(differs ? "autre" : "IDENTIQUE") + ", a " + juce::String(dl, 3).toStdString() + " dB d'EXACT");
+        }
+    }
+    // v50 : LFO 1 / 2 FREE, LFO 4, la matrice de l'encart LFO (xMx1..8) : 31 reglages en fin de liste, neutres
+    {
+        // 1. les compteurs et l'ordre du contrat (apres LATENCY, 263)
+        {
+            const char* ids[7] = {"xLfo1Sync", "xLfo1Hz", "xLfo2Sync", "xLfo2Hz", "xLfo4Rate", "xLfo4Shape", "xLfo4Sync"};
+            bool order = true;
+            for (int i = 0; i < 7; ++i) order = order && mmx::allIndex(ids[i]) == mmarp::kKnobs + 264 + i;
+            for (int n = 1; n <= 8; ++n)
+                for (int r = 0; r < 3; ++r) {
+                    const std::string id = "xMx" + std::to_string(n) + (r == 0 ? "Src" : r == 1 ? "Dst" : "Amt");
+                    order = order && mmx::allIndex(id.c_str()) == mmarp::kKnobs + 271 + 3 * (n - 1) + r;
+                }
+            MMArpProcessor p;
+            // (v52 : deux reglages de plus apres eux, xKey et xScale : le compte exact est verifie plus bas)
+            check(order && mmx::kExtra >= 295 && mmx::kAll == mmarp::kKnobs + mmx::kExtra && static_cast<int>(p.getParameters().size()) == mmx::kAll + 3 && mmx::ex_xLatency == 263,
+                  "v50 : 31 reglages en fin de liste dans l'ordre du contrat (264 a 294 ; 295 reglages du VST3 seul, " + std::to_string(p.getParameters().size()) +
+                      " parametres hote)");
+        }
+        // 2. les valeurs par defaut (neutres), les crans, le texte de l'hote
+        {
+            const auto& D = mmx::kExtraDefs;
+            const auto is = [](double a, double b) { return std::fabs(a - b) < 1e-12; };
+            bool defs = is(D[mmx::ex_xLfo1Sync].def, 1) && is(D[mmx::ex_xLfo2Sync].def, 1) && is(D[mmx::ex_xLfo4Sync].def, 1) && is(D[mmx::ex_xLfo1Hz].def, 0.4) &&
+                        is(D[mmx::ex_xLfo2Hz].def, 0.4) && is(D[mmx::ex_xLfo4Rate].def, 0.4) && is(D[mmx::ex_xLfo4Shape].def, 0) && D[mmx::ex_xLfo4Shape].nSteps == 7;
+            for (int j = 0; j < 8; ++j) {
+                const int e = mmx::ex_xMx1Src + 3 * j;
+                defs = defs && is(D[e].def, 0) && D[e].nSteps == 14 && std::strcmp(D[e].steps[12], "LFO 3") == 0 && is(D[e + 1].def, 0) && D[e + 1].nSteps == 1024 &&
+                       D[e + 1].steps == nullptr && is(D[e + 2].def, 0.5) && D[e + 2].nSteps == 0;
+            }
+            MMArpProcessor p;
+            auto* dst = p.knobParam(mmx::allIndex("xMx3Dst"));
+            const juce::String t0 = dst->getText(0.f, 32), t1 = dst->getText(54.f / 1023, 32), t2 = dst->getText(25.f / 1023, 32), t3 = dst->getText(10.f / 1023, 32);
+            const juce::String ta = p.knobParam(mmx::allIndex("xMx3Amt"))->getText(0.75f, 32), ts = p.knobParam(mmx::allIndex("xMx3Src"))->getText(1.f, 32);
+            defs = defs && t0 == "OFF" && t1 == "FILTER CUTOFF" && t2 == "---" && t3 == "CUTOFF" && ta == "+50 %" && ts == "LFO 4";
+            check(defs, "v50 : defauts neutres (SYNC, 0.4, OFF, 0.5), DEST a 1024 crans ; texte de l'hote : " + t0.toStdString() + ", " + t1.toStdString() + ", " + t2.toStdString() +
+                            ", " + t3.toStdString() + ", " + ta.toStdString() + ", " + ts.toStdString());
+        }
+        // 3. un projet d'avant (sans les 31 reglages) s'ouvre a leurs defauts, quelle que soit la valeur que l'instance avait,
+        // et sonne au bit pres comme le meme projet avec les defauts poses
+        {
+            const auto render = [&](bool drop, std::vector<float>& L) {
+                MMArpProcessor a;
+                juce::MemoryBlock mb;
+                a.getStateInformation(mb);
+                auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                juce::ValueTree params = st.getChild(0);
+                for (int i = params.getNumChildren(); --i >= 0;) {
+                    const int e = mmx::allIndex(params.getChild(i).getProperty("id").toString().toRawUTF8()) - mmarp::kKnobs;
+                    if (drop && e >= mmx::ex_xLfo1Sync) params.removeChild(i, nullptr);
+                }
+                st.setProperty("program", program(), nullptr);
+                st.setProperty("seed", 777, nullptr);
+                juce::MemoryBlock m2;
+                juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                MMArpProcessor p;
+                // l'instance avait autre chose avant l'ouverture : une route LFO 1 -> FILTER CUTOFF, LFO 1 en FREE
+                p.knobParam(mmx::allIndex("xMx1Src"))->setValueNotifyingHost(6.f / 13);
+                p.knobParam(mmx::allIndex("xMx1Dst"))->setValueNotifyingHost(54.f / 1023);
+                p.knobParam(mmx::allIndex("xMx1Amt"))->setValueNotifyingHost(0.9f);
+                p.knobParam(mmx::allIndex("xLfo1Sync"))->setValueNotifyingHost(0.f);
+                p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                bool atDef = true;
+                for (int e = mmx::ex_xLfo1Sync; e <= mmx::ex_xMx8Amt; ++e)
+                    atDef = atDef && std::fabs(static_cast<double>(p.knobParam(mmarp::kKnobs + e)->getValue()) - mmx::kExtraDefs[e].def) < 1e-6;
+                Head h;
+                h.playing = true;
+                p.setPlayHead(&h);
+                p.prepareToPlay(48000, 128);
+                run(p, h, 48000 * 2, 128, nullptr, &L);
+                return atDef;
+            };
+            std::vector<float> a, b;
+            const bool da = render(true, a), db2 = render(false, b);
+            double pk = 0;
+            for (float v : a) pk = std::max(pk, static_cast<double>(std::fabs(v)));
+            check(da && db2 && a == b && pk > 0.01, "v50 : projet d'avant sans les 31 reglages : leurs defauts a l'ouverture (" + std::string(da ? "oui" : "NON") +
+                                                        "), le son au bit pres (" + std::string(a == b ? "oui" : "NON") + ", crete " + juce::String(pk, 3).toStdString() + ")");
+        }
+    }
+    // v52 (choix 2A de Mika) : la tonalite au choix, xKey et xScale en fin de liste, reglages de l'instance
+    {
+        // 1. le contrat : 295 et 296, 297 reglages du VST3 seul ; depart F# MINOR ; texte et nom de l'hote ; jamais une cible
+        {
+            MMArpProcessor p;
+            const auto& D = mmx::kExtraDefs;
+            bool modFree = true;
+            for (int i = 0; i < mmx::kModDestCount; ++i)
+                modFree = modFree && std::strcmp(mmx::kModDests[i].id, "xKey") != 0 && std::strcmp(mmx::kModDests[i].id, "xScale") != 0;
+            auto* key = p.knobParam(mmx::allIndex("xKey"));
+            auto* sc = p.knobParam(mmx::allIndex("xScale"));
+            const juce::String tk = key->getText(key->getValue(), 32), ts = sc->getText(sc->getValue(), 32), ta = key->getText(9.f / 11, 32), tp = sc->getText(1.f, 32);
+            check(mmx::ex_xKey == 295 && mmx::ex_xScale == 296 && mmx::kExtra == 297 && mmx::kAll == mmarp::kKnobs + 297 && p.getParameters().size() == 362 &&
+                      D[mmx::ex_xKey].nSteps == 12 && D[mmx::ex_xScale].nSteps == 4 && mmx::exStep(mmx::ex_xKey, D[mmx::ex_xKey].def) == mmarp::kKeyDef &&
+                      mmx::exStep(mmx::ex_xScale, D[mmx::ex_xScale].def) == mmarp::kScaleDef && tk == "F#" && ts == "MINOR" && ta == "A" && tp == "PHRYGIAN" &&
+                      key->getName(32) == "KEY" && sc->getName(32) == "KEY SCALE" && modFree,
+                  "v52 : KEY (295) et KEY SCALE (296) en fin de liste, 297 reglages, " + std::to_string(p.getParameters().size()) + " parametres hote ; depart " +
+                      tk.toStdString() + " " + ts.toStdString() + " ; textes " + ta.toStdString() + ", " + tp.toStdString() + " ; jamais une cible de modulation (" +
+                      (modFree ? "oui" : "NON") + ")");
+        }
+        // 2. les notes suivent : A MINOR = F# MINOR trois demi-tons plus haut (meme gamme, tonique 57 au lieu de 54), note pour
+        // note (le clip DRAG MIDI) ; D# PHRYGIAN : toutes les notes dans sa gamme ; la tonique entre do 3 et si 3
+        {
+            const auto notesOf = [](MMArpProcessor& p) {
+                int bars = 0;
+                std::vector<int> out;
+                const juce::MidiFile mf = p.arpMidi(1, bars);
+                if (mf.getNumTracks() > 0)
+                    for (const auto* ev : *mf.getTrack(0))
+                        if (ev->message.isNoteOn()) out.push_back(ev->message.getNoteNumber());
+                return out;
+            };
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            p.prepareToPlay(48000, 512);
+            p.faceProgram(program("[0,1,2,3,4,5,6,7]"));
+            const std::vector<int> fs = notesOf(p);
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(9.f / 11);
+            const std::vector<int> am = notesOf(p);
+            bool up3 = !fs.empty() && fs.size() == am.size();
+            for (size_t i = 0; up3 && i < fs.size(); ++i) up3 = am[i] == fs[i] + 3;
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(3.f / 11);
+            p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f);
+            const std::vector<int> dp = notesOf(p);
+            const std::set<int> phryg = {3, 4, 6, 8, 10, 11, 1};
+            bool inScale = !dp.empty();
+            for (int m : dp) inScale = inScale && phryg.count(m % 12) == 1;
+            bool tonics = true;
+            for (int k = 0; k < 12; ++k) tonics = tonics && mmarp::keyTonic(k) == 48 + k && mmarp::degreeMidi(0, 0, k, 0) >= 48 && mmarp::degreeMidi(0, 0, k, 0) <= 59;
+            check(up3 && inScale && tonics && mmarp::degreeMidi(0, 0) == 54,
+                  "v52 : A MINOR = F# MINOR + 3 demi-tons note pour note (" + std::to_string(am.size()) + " notes : " + (up3 ? "oui" : "NON") +
+                      ") ; D# PHRYGIAN dans sa gamme (" + std::to_string(dp.size()) + " notes : " + (inScale ? "oui" : "NON") + ") ; toniques de C3 a B3, F# = 54");
+            // en lecture : la tonalite change sans la face (l'automation de l'hote), la note jouee suit
+            h.playing = true;
+            h.ppq = 0;
+            p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(0.f);
+            p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f / 3);
+            run(p, h, 48000 * 2, 512);
+            const int m1 = p.feedback().midi;
+            const std::set<int> cmaj = {0, 2, 4, 5, 7, 9, 11};
+            check(m1 >= 0 && cmaj.count(m1 % 12) == 1, "v52 : automation de KEY / KEY SCALE en lecture (C MAJOR) : la note jouee " + std::to_string(m1) + " est dans la gamme");
+        }
+        // 3. un projet d'avant (sans xKey ni xScale) s'ouvre en F# MINOR, quelle que soit la tonalite de l'instance avant
+        // l'ouverture ; le meme projet en A MINOR la garde
+        {
+            const auto reopen = [&](bool drop, float key) {
+                MMArpProcessor a;
+                a.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(key);
+                juce::MemoryBlock mb;
+                a.getStateInformation(mb);
+                auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                juce::ValueTree params = st.getChild(0);
+                for (int i = params.getNumChildren(); --i >= 0;) {
+                    const juce::String id = params.getChild(i).getProperty("id").toString();
+                    if (drop && (id == "xKey" || id == "xScale")) params.removeChild(i, nullptr);
+                }
+                juce::MemoryBlock m2;
+                juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                MMArpProcessor p;
+                p.knobParam(mmx::allIndex("xKey"))->setValueNotifyingHost(2.f / 11);
+                p.knobParam(mmx::allIndex("xScale"))->setValueNotifyingHost(1.f);
+                p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                return std::make_pair(mmx::exStep(mmx::ex_xKey, p.knobParam(mmx::allIndex("xKey"))->getValue()),
+                                      mmx::exStep(mmx::ex_xScale, p.knobParam(mmx::allIndex("xScale"))->getValue()));
+            };
+            const auto old = reopen(true, 9.f / 11), kept = reopen(false, 9.f / 11);
+            check(old.first == 6 && old.second == 0 && kept.first == 9 && kept.second == 0,
+                  "v52 : projet d'avant sans tonalite : F# MINOR a l'ouverture (" + std::to_string(old.first) + "/" + std::to_string(old.second) +
+                      ") ; un projet en A MINOR la garde (" + std::to_string(kept.first) + "/" + std::to_string(kept.second) + ")");
+        }
+    }
+    std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
+    return failures ? 1 : 0;
+}

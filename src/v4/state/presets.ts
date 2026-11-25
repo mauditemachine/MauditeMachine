@@ -78,7 +78,9 @@ import { LFO_PARAMS, clampLfo, lfoDefault } from '../audio/lfo';
 import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKnob, cleanLayer, foldFamilies, kit, kitDefaultCopy, modelAt, resolveSample, type KitFamily, type KitId, type KitModel, type Layer } from '../audio/kit';
 import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
 import type { Inst } from '../theme';
+import { PLUGIN_ARP } from '../theme/base';
 import { arp } from '../voyager/arp';
+import { ARP_CHORD_BANK, arpProgOf } from '../voyager/chords';
 import { VOY_KNOB_IDS, foldLegacyKnobs, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
 import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
 import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId } from '../bass/params';
@@ -111,6 +113,11 @@ interface VoyData {
   knobs: Partial<VoyValues>;
   seq: SeqState;
   prog: number[];
+  /**
+   * Le plugin MM-ARP (v43) : la banque de prog (voyager/chords.ts ARP_CHORD_BANK), posee par capture ; absente (le site,
+   * un preset d'avant, un preset d'usine du site) : des indices du site, que le plugin convertit (arpProgOf)
+   */
+  chordBank?: number;
 }
 
 interface RytmData {
@@ -465,7 +472,8 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
     return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: JSON.parse(JSON.stringify(recipe)) as BassRecipe } : {}), ...(len !== 16 ? { len } : {}) };
   }
   if (m === 'voy') {
-    return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog] };
+    // Le plugin MM-ARP (v43) : la progression marquee de sa banque (le site : rien ne change)
+    return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog], ...(PLUGIN_ARP ? { chordBank: ARP_CHORD_BANK } : {}) };
   }
   const p = pattern.get();
   const v = voiceFx.get();
@@ -540,7 +548,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
       voyParams.set(id, typeof x === 'number' ? x : id === 'chord' ? 0 : voyKnob(id).def);
     }
     seq.restore(v.seq);
-    arp.load(v.prog);
+    // Le plugin MM-ARP (v43) : une progression sans sa marque (d'avant, ou du site) passe dans ses accords
+    arp.load(PLUGIN_ARP ? arpProgOf(v.prog, v.chordBank) : v.prog);
     return;
   }
   const r = d as RytmData;
@@ -693,6 +702,10 @@ function canon(v: unknown): unknown {
 function voyNow(m: PresetMachine, o: Record<string, unknown>): Record<string, unknown> {
   if (m === 'mm808') return rytmNow(o);
   if (m !== 'voy' || !o.knobs || typeof o.knobs !== 'object') return o;
+  // Le plugin MM-ARP (v43) : la progression dans ses accords, toujours marquee (un preset du site charge, puis capture,
+  // reste le meme son : ni EDITED, ni un son mis de cote pour rien ; une empreinte gardee, relue, ne se convertit pas deux
+  // fois)
+  if (PLUGIN_ARP) return { ...o, knobs: foldLegacyKnobs(o.knobs as Record<string, unknown>), ...('prog' in o ? { prog: arpProgOf(o.prog, o.chordBank) } : {}), chordBank: ARP_CHORD_BANK };
   return { ...o, knobs: foldLegacyKnobs(o.knobs as Record<string, unknown>) };
 }
 

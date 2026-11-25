@@ -63,7 +63,7 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 - **Configuration** : `public/data/vst.json` (`emailjsTemplateId`, `donateUrl`). **Etat au 24 nov : `donateUrl` = `https://ko-fi.com/mauditemachine` (Ko-fi : Stripe branche, PayPal non, CA$, minimum 3) ; `emailjsTemplateId` = `template_63bjqgy` (25 nov, modele "VST download" du compte EmailJS Maudite Machine, `service_zeuwh04`) : le bloc PLUGINS est visible dans GOODIES** et `/goodies/` mentionne les plugins pour Google (prerendu).
 - **Zips publics** : releases fixes `mm-rytm-public` et `mm-arp-public`, remplies a la main par le workflow `Plugin public` (`.github/workflows/plugin-public.yml`) ; jamais les releases `-latest`, ecrasees par chaque build de chantier.
 - **Installeurs (25 nov 2026, Mika : "un systeme d'installation comme tous les bons plugins")** : `Plugin public` fabrique `MM-<PLUGIN>-Installer-Mac.pkg` (pkgbuild + productbuild) et `MM-<PLUGIN>-Installer-Windows.exe` (Inno Setup), habilles sobrement (`plugin/installer/` : logo, textes courts, licence), installes pour de vrai sur les runners (et desinstalle sous Windows) avant publication ; le zip `MM-<PLUGIN>-VST3.zip` les reunit avec le README. `/download/` : un bouton par systeme, celui du visiteur part tout seul. Non signes (Apple Developer et certificat Windows a acheter).
-- MM-ARP (plugin) vit encore sur la branche `claude/nifty-bohr-7ixmpf` ; sa release `mm-arp-latest` existe, c'est elle que `Plugin public` reprend.
+- MM-ARP (plugin) : fusionne dans `main` le 25 nov 2026 (section 6) ; sa release `mm-arp-latest` (workflow `plugin-arp.yml`) est celle que `Plugin public` reprend.
 - **Un zip par plugin** (`MM-RYTM-VST3.zip`, `MM-ARP-VST3.zip`, 24 nov, Mika : "dans le meme package, c'est aux gens de faire ce choix") : depuis le 25 nov, les deux installeurs et le README. **Distribution non signee assumee** (25 nov, Mika : "distribue de cette maniere, pas le choix") : un clic "Ouvrir quand meme" / "Run anyway" la premiere fois, pas de compte Apple Developer pour l'instant. **MM-RYTM Windows (beta)** : job `windows` de `plugin.yml` (MSVC, WebView2), jamais essaye sur un PC avant publication. MM-ARP Windows : a faire quand sa branche sera fusionnee (meme recette : `plugin/mm-rytm/README.md`).
 - **Navigation (25 nov 2026, Mika : "Goodies est trop petit dans le menu" ; "laisse MM-RYTM et MM-ARP dans le menu mais cette fois pour les telechargements et les presentations")** :
   - Menu : `TRACKS, MIXTAPES, MM-RYTM, MM-ARP, GOODIES (badge FREE), SHOWS, PRESS, CONTACT` (`src/v4/ui/Header.tsx` `PAGE_LINKS`) ; la pastille GOODIES de "Under the hood" est retiree (reste MERCH).
@@ -74,3 +74,63 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
   - **`/mm-rytm/play/`** (`WebPlugin.tsx`, noindex) : le plugin MM-RYTM entier dans le navigateur, desktop seulement (au telephone, un message). MM-ARP en version web : apres la fusion de sa branche (sa face v53 y vit, et la DISTO, les LFO 3-4 et la matrice n'existent qu'en C++).
 - **Publie (25 nov 2026, installeurs)** : `mm-rytm-public` = version `2026.11.25.8`, build `2fd52a6` de `main` (`.pkg` Mac universel, `.exe` Windows x64 beta, zip des deux) ; `mm-arp-public` = version `2026.11.25.6`, build `9744576` (v53) de `claude/nifty-bohr-7ixmpf` (`.pkg` Mac universel, zip). MM-RYTM se publie depuis le dernier build vert de `main` (artefacts de `plugin.yml`), MM-ARP depuis `mm-arp-latest`.
 
+---
+
+## 6. Plugin MM-ARP (VST3 macOS, Ableton) : etat et conventions (repris du CLAUDE.md de sa branche, fusionnee le 25 nov 2026)
+
+Branche de travail : claude/nifty-bohr-7ixmpf, fusionnee dans `main` le 25 nov 2026 (Mika : "fusionne la branche de MM-ARP") ; la suite se fait depuis `main`. Journal detaille :
+docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
+
+- Code : face WebView dans src/v4/plugin/arp (tout gate PLUGIN_ARP, le site
+  et MM-RYTM ne doivent jamais changer) ; C++ dans plugin/mm-arp (src/ JUCE,
+  dsp/ moteur et effets, tests/). Build face : npm run plugin:arp:web.
+- Publication : commit sans [skip ci] + push, lancer le workflow
+  plugin-arp.yml (workflow_dispatch) ; release fixe mm-arp-latest, BUILD.txt
+  DANS le zip. Si le job mac est "cancelled" (pas de runner) : rerun.
+  Installation Mika :
+  curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-latest/update.sh | bash
+- Invariants : tsc --noEmit reste a 105 erreurs ; moteur CLASSIC au bit pres
+  du site (voyager_compare 85/85) ; nouveaux parametres hote TOUJOURS en fin
+  de liste, les anciens gardes en "OLD ..." avec conversion au chargement ;
+  banque d'usine (presets/build.mjs + src/v4/plugin/arp/analog.ts) : v53,
+  effets LEGERS bornes (ANALOG_FX, jamais de reverbe sur une basse), passe-bas
+  modere, pas trop aigu ; RANDOM suit les memes regles.
+  Valider le YAML du workflow avant push.
+- Mika veut des IMAGES avant tout changement de design (maquette, il valide,
+  puis code + publication). Choix A/B/C : voir la regle plus haut.
+- Etat (v53, 2026-11-25 ; v52 le 2026-11-24) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+  sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
+  accent reglable (SETTINGS), pads = 7 degres de la tonalite choisie +
+  tonique a 4 sons (v52 : CHORDS F# MINOR par defaut, KeySelect.tsx), liste
+  des presets souris / Entree. Pages OPEN : barre C (touches mates, LED
+  dans la touche), SOUND A (EQ en haut, Maj = Q, Alt = fin), DISTO A
+  (un seul EQ, CLEAN LOW, PUNISH v2 en levier, xDPunish2), DELAY A (echos
+  facon Echo, cale sur le ppq de l'hote), HELL v2 (vortex, six cercles,
+  xHellV2..xHellDescent), REVERB A (cascade 3D, EQ / WIDTH / DUCK /
+  FREEZE sur le mouille), SEQ refaite (tete commune, crayon, END ; sans
+  matrice depuis v50 ; v51 : touches hautes, plus de bande vide). Encart EDIT (v50, option C) : SYNTH | LFO | SQ |
+  FX MOD ; LFO 1 a 4 (LFO 3 = LFO de la DISTO) + MOD MATRIX 8 lignes au
+  viseur (xMx1..8, cibles 32 + k = reglage hote k, table generee
+  modTable.ts / ModTable.inc par extra-gen.mjs) ; anciennes routes jamais
+  converties, montrees en "lignes liees" ; section MOD retiree de la face
+  du plugin (le site la garde). 297 parametres hote (dernier : xScale ;
+  xLatency : LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
+  change par un preset ; xKey / xScale : la tonalite, reglages
+  d'instance, jamais changes par un preset ni RANDOM). Banque d'usine v53
+  dark disco / italo hypnotique, 80 presets (BASS 42 / SEQ 20 / LEAD 10 /
+  PAD 8, basses en MONO), effets legers ; emplacements xMx a OFF (RANDOM
+  aussi). v53 : PRESET ouvre le navigateur (PresetBrowser.tsx, banque du
+  VST3 par familles, clic = charge) ; pages d'OPEN sans diode (noled.css) ;
+  vivacite voyager/vivid.ts (VIVID_LEVEL, 'off' tant que Mika n'a pas
+  choisi A / B / C). v52 : LED eteintes en verre,
+  allumees a l'accent ; grands noms et chiffres des ecrans en points
+  (Doto 'MM Dots', plugin/mm-arp/web/fonts, dots.css, screen.ts) ;
+  colonne FILTER EG / AMP EG : ecran des enveloppes + POLARITY, KEY
+  TRACK, ACCENT, VOICE (EgColumn.tsx). Moteurs CLASSIC / PRO, QUALITY ECO/STD/HQ, 8 voix.
+  v49 : face au repos (mm_tick unique, rien face cachee), demi-bandes RII
+  a phase minimale (dsp/Halfband.h). src/v4/voyager/params.ts est lu par
+  Node (presets/build.mjs, fx-ref.mjs) : n'y importer ni theme/base ni un
+  module du site ; window seulement derriere typeof window.
+- Regle : une refonte n'est "faite" que si elle est la page PAR DEFAUT du
+  build publie ; une maquette derriere un drapeau d'URL ne compte pas
+  (Mika, 2026-11-20 : "t'as rien branle", il ne voyait rien changer).

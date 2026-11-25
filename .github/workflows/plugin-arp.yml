@@ -1,0 +1,170 @@
+name: Plugin MM-ARP
+# 2026-11-09 (Mika : "fais la meme chose pour ARP, en plugin VST3 pour l'installer et l'utiliser avec Ableton") : le
+# portage C++ du MM-ARP (plugin/mm-arp), comme plugin.yml pour le MM-RYTM. 1) le DSP compare au vrai moog.worklet.js et
+# chorus.worklet.js du site, sur Linux ; 2) le VST3 macOS universel, signe ad hoc, en artefact et dans la release
+# mm-arp-latest. Rien ne touche au site ni a GitHub Pages.
+on:
+  push:
+    paths:
+      - 'plugin/mm-arp/**'
+      - 'src/v4/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/plugin-arp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-arp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dsp:
+    name: DSP identique au site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Construire le DSP et ses tests (sans JUCE)
+        run: |
+          cmake -S plugin/mm-arp -B build-dsp -DMM_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp -j
+      - name: Arpegiateur
+        run: ./build-dsp/mmarp_arp_test
+      - name: Moteur compare au moog.worklet.js du site (85 cas, au bit pres)
+        run: |
+          node plugin/mm-arp/tests/voyager-ref.mjs ref-voy
+          ./build-dsp/mmarp_voyager_compare ref-voy
+          ./build-dsp/mmarp_voyager_compare ref-voy --blocks
+      - name: Potards (lois de params.ts, chords.ts, seq.ts) compares au site
+        run: |
+          node plugin/mm-arp/tests/params-gen.mjs --check
+          node plugin/mm-arp/tests/params-ref.mjs ref-params
+          ./build-dsp/mmarp_params_test ref-params
+      - name: Reglages du VST3 seul (x8, LFO, reverb, master) au neutre = le site, et mesures
+        run: |
+          node plugin/mm-arp/tests/extra-gen.mjs --check
+          ./build-dsp/mmarp_hq_test
+      - name: Sequenceur par pas, moteur et rack du VST3 seul (neutre = le site, mesures)
+        run: ./build-dsp/mmarp_hq2_test
+      - name: Controleurs, matrice, MONO / LEGATO, FEEDBACK, AMP MODE, DISTORTION, EQ (neutre = avant, mesures)
+        run: ./build-dsp/mmarp_hq3_test
+      - name: "HELL facon Echobode : MIX 0 au bit pres, SIDEBAND, CROSS, ANTI REFL, RANGE, LFO et ses cibles, stabilite, blocs ; presets de la face (hell.ts) : le sens suit le signe de SHIFT"
+        run: |
+          node plugin/mm-arp/tests/hell-presets-gen.mjs --check
+          ./build-dsp/mmarp_hell_test
+      - name: "HELL v2 (v46) : MIX 0 au bit pres, 16 presets x MIX 25/50/75/100 % sous -1 dBFS, descente, blocs, grille de l'hote, extremes, 44.1 et 96 kHz, cout ; banque de la page (hell2.ts) a jour"
+        run: |
+          node plugin/mm-arp/tests/hell2-presets-gen.mjs --check
+          ./build-dsp/mmarp_hell2_test
+      - name: "Reverb facon BigSky : Tr60 HALL et ROOM, energie, 12 machines au max, blocs, cout"
+        run: ./build-dsp/mmarp_sky_test
+      - name: "DISTO complete : DRIVE 0 et MM au bit pres, 12 styles, MORPH, multibande, BOX, filtres, DYNAMICS, FEEDBACK stable, ENV, LFO, blocs, MIX 0, cout"
+        run: ./build-dsp/mmarp_decap_test
+      - name: "DELAY v27 : l'ancien DELAY converti au bit pres, temps exact, PING-PONG, RHYTHM, DUCKING, FEEDBACK stable, 8 styles x 5 modes, blocs, MIX 0 ; EQ 6 bandes mesuree et neutre ; rack enrichi ; cout"
+        run: ./build-dsp/mmarp_echo_test
+      - name: "Moteur PRO (v34) : stabilite, blocs au bit pres, niveaux et repliement contre CLASSIC, cout"
+        run: ./build-dsp/mmarp_pro_test
+      - name: "LATENCY ZERO (v49) : demi-bandes RII contre RIF (amplitude +/-0.1 dB a 18 kHz, repliement), moteur, DISTO, WARMTH, BigSky, DELAY endormi, blocs, cout"
+        run: ./build-dsp/mmarp_latency_test
+      - name: "Arc lumineux de la face : ce que le moteur dit des modulations (LFO, matrice)"
+        run: ./build-dsp/mmarp_modview_test
+      - name: "Banque d'usine a jour (FILTER +, DISTO, EQ et rack neutres partout, DELAY converti, sans la pedale)"
+        run: node plugin/mm-arp/presets/build.mjs --check
+      - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
+        run: |
+          node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet
+          ./build-dsp/mmarp_fx_test ref-fx
+
+  host:
+    name: Processeur JUCE sans fenetre (comme sous Ableton)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependances de JUCE (Linux)
+        run: sudo apt-get update -q && sudo apt-get install -y -q libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libxcomposite-dev libasound2-dev libfreetype-dev libfontconfig1-dev
+      - name: Construire le banc
+        run: |
+          cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host -j 4 --target mmarp_host_test mmarp_mod_test
+      - name: Transport, programme, MIDI, etat du projet, reproductibilite
+        run: ./build-host/mmarp_host_test_artefacts/Release/mmarp_host_test
+      - name: "Matrice de modulation v50 (xMx) : rien d'actif au bit pres, xMx = xM au bit pres, LFO 1 / 2 FREE, LFO 3 et 4, 13 sources, une cible par famille (valeur, effet, clic, allocations)"
+        run: ./build-host/mmarp_mod_test_artefacts/Release/mmarp_mod_test
+
+  # 2026-11-18 (Mika : "juste pour la reduction c'est 15 minutes ?!") : le Mac compile EN MEME TEMPS que les tests (plus
+  # de needs) et avec ccache (seuls les fichiers touches se recompilent) ; la publication attend tout (job publish).
+  mac:
+    name: Plugin macOS (VST3)
+    runs-on: macos-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: ccache
+        run: brew install ccache
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-mac-${{ github.sha }}
+          restore-keys: ccache-mac-
+      - name: Construire la face
+        run: |
+          npm ci --no-audit --no-fund
+          npm run plugin:arp:web
+      - name: Configurer (universel arm64 + x86_64)
+        run: cmake -S plugin/mm-arp -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Construire
+        run: |
+          cmake --build build --config Release -j 4 --target MM_ARP_VST3
+          ccache -s | head -20
+      # Le paquet dans pkg/, jamais dans dist/ (le build du site commite dans le repo)
+      - name: Signer ad hoc et empaqueter
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-ARP
+          B=build/MM_ARP_artefacts/Release/VST3/MM-ARP.vst3
+          codesign --force --deep --sign - "$B"
+          codesign --verify --deep --strict "$B"
+          ditto "$B" pkg/MM-ARP/MM-ARP.vst3
+          cp plugin/mm-arp/INSTALL.md plugin/mm-arp/update.sh pkg/MM-ARP/
+          printf 'commit %s, branche %s, %s\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-ARP/BUILD.txt
+          ditto -c -k --keepParent pkg/MM-ARP MM-ARP-macOS.zip
+          unzip -l MM-ARP-macOS.zip | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-ARP-macOS
+          path: MM-ARP-macOS.zip
+          retention-days: 30
+  # La publication : seulement si les tests (dsp, host) et le Mac sont verts
+  publish:
+    name: Publier (release mm-arp-latest)
+    needs: [dsp, host, mac]
+    runs-on: ubuntu-latest
+    # La release mm-arp-latest : le seul droit d'ecriture du workflow
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MM-ARP-macOS
+      # Le dernier build aussi en release mm-arp-latest, a une adresse fixe : plugin/mm-arp/update.sh la telecharge et
+      # l'installe par-dessus l'ancien. Ses fichiers sont remplaces, son etiquette avance au commit construit.
+      - name: Publier le dernier build (release mm-arp-latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view mm-arp-latest >/dev/null 2>&1; then
+            gh release create mm-arp-latest --prerelease --target "$GITHUB_SHA" --title "MM-ARP (dernier build)" --notes "Le VST3 macOS du dernier build."
+          fi
+          gh release upload mm-arp-latest MM-ARP-macOS.zip plugin/mm-arp/update.sh --clobber
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-arp-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          gh release edit mm-arp-latest --notes "MM-ARP, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-arp-latest/update.sh | bash"
