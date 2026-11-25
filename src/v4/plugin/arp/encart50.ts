@@ -37,6 +37,7 @@ import { arp, arpExternal } from '../../voyager/arp';
 import { voyMsg } from '../../voyager/msg';
 import { RATES, voyParams, type VoyKnobId } from '../../voyager/params';
 import { paintLed } from '../../voyager/ledLens';
+import { VIVID } from '../../voyager/vivid';
 import { seq, SEQ_MIN, SEQ_TOP, type SeqStep } from '../../voyager/seq';
 import { VOY_SEQ } from '../../voyager/seqscreen';
 import { keyName } from '../../voyager/chords';
@@ -113,7 +114,8 @@ const rgba = (hex: string, a: number): string => {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 };
 /** Le halo d'une LED allumee de l'encart (les touches de la bascule, la tete de SQ) : celui d'avant, a l'accent. */
-export const LED_HALO_50 = { r0: 0, r1: 3.4, stops: [[0, 0.6], [1, 0]] } as const;
+// v53 (voyager/vivid.ts) : plus opaque selon la vivacite de la face (0.6 : la v52) ; sa portee reste (les toiles des LED en dependent)
+export const LED_HALO_50 = { r0: 0, r1: 3.4, stops: [[0, Math.min(1, 0.6 * VIVID.led.halo)], [1, 0]] } as const;
 
 /* ---------------- le panneau et ses aides de dessin (unites : u depuis le bord gauche du verre, v depuis le haut) ---------------- */
 

@@ -17,6 +17,7 @@ import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { editor } from '../../state/editor';
 import { arcPlaceOf, encartPage, FLUTED } from './faceExtras';
 import { FLUTED_DIALS } from '../../voyager/knobs';
+import { VIVID } from '../../voyager/vivid';
 
 const FACE_IDS: ReadonlySet<string> = new Set(VOY_FACE_KNOBS.map((k) => k.id));
 const SWEEP = 135;
@@ -71,12 +72,13 @@ export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   if (!stage || hood !== 'closed' || ids.length === 0) return null;
   const key = (id: string): string => `${id}|${size}|${edit === 'voy' ? 'e' : ''}|${page}|${arcPlaceOf(id)?.i ?? -1}`;
   const k = window.innerWidth / 1100;
-  const w = 3 * k;
+  // v53 (voyager/vivid.ts) : l'arc plus epais, sa plage et son flou plus marques selon la vivacite (1, 0.22, 1 : la v52)
+  const w = 3 * k * VIVID.mod.w;
   return (
     <svg className="mm-mod-face" style={{ position: 'fixed', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }} aria-hidden="true">
       <defs>
         <filter id="mm-mod-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation={2.2 * k} result="b" />
+          <feGaussianBlur stdDeviation={2.2 * k * VIVID.mod.blur} result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
@@ -102,11 +104,11 @@ export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         const a = modArcPaths(m, at, w);
         return (
           <g key={id} className="mm-mod-arc" data-id={id}>
-            <path d={a.range} style={{ stroke: MOD_ORANGE }} strokeOpacity={0.22} strokeWidth={w} fill="none" strokeLinecap="round" />
+            <path d={a.range} style={{ stroke: MOD_ORANGE }} strokeOpacity={VIVID.mod.range} strokeWidth={w} fill="none" strokeLinecap="round" />
             {a.trail.map((s, i) => (
               <path key={i} d={s.d} style={{ stroke: MOD_ORANGE }} strokeOpacity={s.o} strokeWidth={w * 1.07} fill="none" strokeLinecap="round" filter="url(#mm-mod-glow)" />
             ))}
-            <circle cx={a.head[0]} cy={a.head[1]} r={2.2 * k} style={{ fill: MOD_HEAD }} filter="url(#mm-mod-glow)" />
+            <circle cx={a.head[0]} cy={a.head[1]} r={2.2 * k * VIVID.mod.w} style={{ fill: MOD_HEAD }} filter="url(#mm-mod-glow)" />
           </g>
         );
       })}

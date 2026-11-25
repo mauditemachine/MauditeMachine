@@ -98,11 +98,24 @@ const rgba = (hex: string, a: number): string => {
 };
 
 /**
+ * Le trait des courbes (v53, voyager/vivid.ts : la vivacite de la face) : FILTER (multiple de 1.5 px) et AMP (de 1.3 px),
+ * le flou (multiple de 3 px) et l'opacite du halo de FILTER, l'opacite du haut de son degrade. Par defaut, ceux de la v52.
+ */
+export interface EgStroke {
+  line: number;
+  amp: number;
+  blur: number;
+  glowA: number;
+  fill: number;
+}
+export const EG_STROKE_V52: EgStroke = { line: 1, amp: 1, blur: 1, glowA: 0.6, fill: 0.32 };
+
+/**
  * Le verre entier dans sa toile (W x H px pour gw x gd unites) : le fond sombre et son ombre interieure, les reperes
  * (la ligne du zero, le haut de l'attaque et la fin de la decroissance du filtre, la fin du gate), AMP en blanc casse
  * pointille, FILTER a l'accent (un degrade dessous, un halo), la legende en haut a droite. font : la police de la face.
  */
-export function drawEgGlass(g: CanvasRenderingContext2D, W: number, H: number, gw: number, gd: number, v: Readonly<VoyValues>, accent: string, font: string): void {
+export function drawEgGlass(g: CanvasRenderingContext2D, W: number, H: number, gw: number, gd: number, v: Readonly<VoyValues>, accent: string, font: string, st: EgStroke = EG_STROKE_V52): void {
   const U = W / gw;
   const { f, a } = egOf(v);
   const ax = egAxis(f, a);
@@ -163,7 +176,7 @@ export function drawEgGlass(g: CanvasRenderingContext2D, W: number, H: number, g
   line(pa);
   g.setLineDash([3 * px, 2.5 * px]);
   g.strokeStyle = 'rgba(246, 241, 231, 0.72)';
-  g.lineWidth = 1.3 * px;
+  g.lineWidth = 1.3 * px * st.amp;
   g.stroke();
   g.setLineDash([]);
   // FILTER : le degrade dessous, puis le trait a l'accent et son halo
@@ -173,16 +186,16 @@ export function drawEgGlass(g: CanvasRenderingContext2D, W: number, H: number, g
   g.lineTo(pf[0][0], yZero);
   g.closePath();
   const fill = g.createLinearGradient(0, yOne, 0, yZero);
-  fill.addColorStop(0, rgba(accent, 0.32));
+  fill.addColorStop(0, rgba(accent, st.fill));
   fill.addColorStop(1, rgba(accent, 0));
   g.fillStyle = fill;
   g.fill();
   line(pf);
   g.save();
-  g.shadowColor = rgba(accent, 0.6);
-  g.shadowBlur = 3 * px;
+  g.shadowColor = rgba(accent, st.glowA);
+  g.shadowBlur = 3 * px * st.blur;
   g.strokeStyle = accent;
-  g.lineWidth = 1.5 * px;
+  g.lineWidth = 1.5 * px * st.line;
   g.stroke();
   g.restore();
   // la legende : FILTER a l'accent, AMP au blanc casse et son petit pointille

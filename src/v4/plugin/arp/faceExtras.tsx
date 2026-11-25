@@ -52,6 +52,7 @@ import { editor } from '../../state/editor';
 import { FONT_DISPLAY, PORTRAIT, type EncId } from '../../theme';
 import { FLUTED_DIALS } from '../../voyager/knobs';
 import { paintLed } from '../../voyager/ledLens';
+import { VIVID } from '../../voyager/vivid';
 import { voyMsg } from '../../voyager/msg';
 import { voyKnob, voyParams, voyValueText, type VoyKnobId } from '../../voyager/params';
 import { VOY_SEQ } from '../../voyager/seqscreen';
@@ -983,6 +984,8 @@ export const FaceExtras: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         // v31 : la cadence du rendu (frames rendues, rAF, temps JS des rendus, DPR, taille du canevas)
         stats: () => ({ frames: stage.stats.frames, rafs: stage.stats.rafs, renderMs: stage.stats.renderMs, dpr: stage.stats.dpr, loop: stage.stats.loopActive }),
         stage: () => stage,
+        // v53 : le niveau de vivacite de la face (voyager/vivid.ts : VIVID_LEVEL, ou ?vivid=)
+        vivid: () => VIVID.level,
         // v46 : la page de l'encart d'EDIT (synth, lfo, sq, fxmod) sans passer par un clic (captures)
         encart: (p: EncartPage) => encartPage.set(p),
         // v50 : la matrice (les lignes de la page montree, sa page, l'assignation en cours), la toile redessinee
