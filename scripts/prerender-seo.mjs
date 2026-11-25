@@ -104,7 +104,7 @@ const STATIC_LANG = 'en';
 // (src/v4/state/sectionRoute.ts) et sa page statique, avec son contenu en
 // HTML lisible sans JavaScript (moteurs, reseaux sociaux, assistants IA).
 // 2026-10-04 : /radar/ (la page Radar de la v2), meme principe que /techrider/.
-const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/', '/plugins/', '/mm-rytm/', '/mm-arp/', '/mm-rytm/play/'];
+const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/', '/plugins/', '/mm-rytm/', '/mm-arp/', '/mm-rytm/play/', '/mm-arp/play/'];
 
 /**
  * Les pages React de la v2 (fiche technique, Radar) rendent leur propre
@@ -112,7 +112,7 @@ const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/'
  * montage. Toutes les autres adresses sont la machine (v4), dont le DOM
  * rendu est le meme partout : leur texte reste a cote de #root.
  */
-const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/', '/mm-rytm/play/']);
+const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/', '/mm-rytm/play/', '/mm-arp/play/']);
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
@@ -794,6 +794,7 @@ const PAGE_NAMES = {
   '/mm-rytm/': 'MM-RYTM plugin',
   '/mm-arp/': 'MM-ARP plugin',
   '/mm-rytm/play/': 'Play MM-RYTM',
+  '/mm-arp/play/': 'Play MM-ARP',
 };
 
 /** Le contenu lisible de chaque adresse : ce que la machine montre, en HTML simple. */
@@ -909,6 +910,8 @@ function contentFor(route) {
     }
     case '/mm-rytm/play/':
       return [h1('MM-RYTM, the plugin in your browser'), p('The full MM-RYTM drum machine plugin, with the face and the sound of the VST3. Desktop only.'), `<p>${a('Get the VST3, free', `${SITE}/mm-rytm/`)}</p>`].join('');
+    case '/mm-arp/play/':
+      return [h1('MM-ARP, the plugin in your browser'), p('The full MM-ARP synth and arpeggiator plugin, with the face and the sound of the VST3. Desktop only.'), `<p>${a('Get the VST3, free', `${SITE}/mm-arp/`)}</p>`].join('');
     case '/goodies/': {
       const groups = [
         ['wallpaper-desktop', 'Desktop wallpapers'],
@@ -1685,7 +1688,7 @@ for (const route of ROUTES) {
   // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
   let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
   // Page cachee (/plugins/) : servie en 200 mais non indexee par les moteurs ; le plugin dans le navigateur aussi (un outil)
-  if (route === '/plugins/' || route === '/mm-rytm/play/') {
+  if (route === '/plugins/' || route === '/mm-rytm/play/' || route === '/mm-arp/play/') {
     html = upsertMeta(html, 'name', 'robots', 'noindex, nofollow');
     html = upsertMeta(html, 'name', 'googlebot', 'noindex, nofollow');
   }

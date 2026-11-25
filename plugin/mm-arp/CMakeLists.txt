@@ -83,6 +83,16 @@ target_link_libraries(mmarp_latency_test PRIVATE mmarp_dsp)
 add_test(NAME latency COMMAND mmarp_latency_test)
 
 if(NOT MM_BUILD_PLUGIN)
+  # 2026-11-25 : le moteur du navigateur (web-engine/ArpEngine.cpp : le processeur du VST3 sans JUCE, API C pour le wasm),
+  # compile avec les options du DSP (jamais de FMA), et son banc natif
+  add_library(mmarp_engine STATIC web-engine/ArpEngine.cpp)
+  target_include_directories(mmarp_engine PUBLIC web-engine src)
+  target_link_libraries(mmarp_engine PUBLIC mmarp_dsp)
+  target_compile_options(mmarp_engine PRIVATE ${MM_DSP_OPTS})
+  add_executable(mmarp_engine_test tests/engine_web_test.cpp)
+  target_link_libraries(mmarp_engine_test PRIVATE mmarp_engine)
+  target_compile_definitions(mmarp_engine_test PRIVATE MMARP_FACTORY_JSON="${CMAKE_CURRENT_SOURCE_DIR}/presets/factory.json")
+  add_test(NAME engine_web COMMAND mmarp_engine_test)
   return()
 endif()
 

@@ -2,7 +2,7 @@
   "mm808": {
     "name": "MM-RYTM",
     "version": "7.3",
-    "fingerprint": "sha256:13ed4f956d1ccf17043b478e967e5d1b22f4ebee8bf2ba06f16e19b3ad988b46",
+    "fingerprint": "sha256:b86e7a12d055a8841a90671c20c7d08cf416073fa488d3b892685259407ad06e",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -33,7 +33,7 @@
   "voy": {
     "name": "MM-ARP",
     "version": "2.6",
-    "fingerprint": "sha256:71f784dd41f8152b1b2fdd3563f0bc326ae5686695878e0cfaacda306a5f730e",
+    "fingerprint": "sha256:b7a3937f819526f9c83419bda17b3f4cb43e818527664eb6d6e7e997a4757878",
     "history": [
       { "version": "2.4", "date": "2026-11-02", "note": "logotype sous le bouton volume", "sha": "f233efd9" },
       { "version": "2.5", "date": "2026-11-03", "note": "bouton dedie preset et liste presets", "sha": "f96ca4f1" },

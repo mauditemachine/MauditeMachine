@@ -63,6 +63,10 @@
     "/mm-rytm/play": {
       "title": "MM-RYTM, Play the Plugin in Your Browser | Maudite Machine",
       "description": "Play the full MM-RYTM drum machine plugin in your browser, with the face and the sound of the VST3. Desktop only."
+    },
+    "/mm-arp/play": {
+      "title": "MM-ARP, Play the Plugin in Your Browser | Maudite Machine",
+      "description": "Play the full MM-ARP synth and arpeggiator plugin in your browser, with the face and the sound of the VST3. Desktop only."
     }
   },
   "fr": {
