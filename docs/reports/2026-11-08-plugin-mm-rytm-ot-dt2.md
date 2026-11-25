@@ -690,6 +690,7 @@ Mika : « B, 1600 c'est bon, go code ».
 - **Le bandeau** : MAUDITE MACHINE, MM-RYTM, les onglets d'OPEN (SAMPLE a MASTER, LIBRARY, MIDI : un clic ouvre la page), le menu ≡ qui s'ouvre sur la face (`Overlay.tsx` : Echap ou un clic ailleurs le ferme).
 - **La barre du bas** : DRAG MIDI (glisser : le clip vers Ableton ; un clic : le .mid), la pattern (A01 / 16 STEPS / 32 NOTES, le message du plugin), NEW… (confirme) et SAVE .MID (`Library.tsx` : useMidiDrag, Confirm exportes).
 - **Verifie** : Chromium (sans son), 1600 x 1069 : la racine 3D en 0, 50, 1600 x 975 ; 16 pistes, 16 pas ; poser et retirer le pas 4 de BD (le programme envoye au moteur) ; SD choisie puis son pas 2 ; OH coupee puis rendue au clic droit ; le menu des conditions au-dessus du pas 1 ; DISTO par l'onglet, Echap ; le menu ≡ (Echap, clic ailleurs) ; la touche OPEN de la face ; SAVE .MID et un glisser de DRAG MIDI (mm_save_midi, mm_drag_midi) ; MUTE : les pas deviennent les pistes ; a 1200 x 802 tout se reduit ensemble ; aucune erreur. Site : 4 vues a 0 pixel ; tsc 105 (la base) ; face:test 7/7, presets:test 5/5.
+- **Build vert** (run 45673800025), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 69dffa4, branche claude/intelligent-ride-56tyeo, 2026-11-25 18:26 UTC.
 
 ## 2. Decisions prises et pourquoi
 
