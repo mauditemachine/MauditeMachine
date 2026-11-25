@@ -9,6 +9,9 @@ name: Plugin public (MM-RYTM, MM-ARP)
 # C:\Program Files\Common Files\VST3, avec sa desinstallation. Chacun est installe pour de vrai sur le runner avant
 # d'etre publie. La release porte les deux installeurs et un zip qui les reunit avec le README (MM-<PLUGIN>-VST3.zip,
 # l'adresse d'avant). Pas encore signes (compte Apple Developer, certificat Windows) : un clic de plus a l'ouverture.
+# 2026-11-25 : MM-RYTM vient du dernier build vert de main (les artefacts Mac et Windows du meme run de plugin.yml), plus
+# de la release mm-rytm-latest, que les branches de chantier ecrasent aussi (un zip public a melange un Mac d'une branche
+# de l'ARP et un Windows d'une autre). MM-ARP : sa release mm-arp-latest (seule sa branche la publie).
 on:
   workflow_dispatch:
     inputs:
@@ -26,6 +29,7 @@ on:
         default: true
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: plugin-public-${{ inputs.plugin }}
   cancel-in-progress: false
@@ -38,6 +42,7 @@ jobs:
     runs-on: macos-latest
     outputs:
       version: ${{ steps.pkg.outputs.version }}
+      run: ${{ steps.pkg.outputs.run }}
     steps:
       - uses: actions/checkout@v4
       - name: Construire et installer le .pkg
@@ -54,7 +59,15 @@ jobs:
           VER="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER"
           I=plugin/installer
           rm -rf in work root scripts res out && mkdir -p in work root scripts res out
-          gh release download "mm-$PLUGIN-latest" -p "$N-macOS.zip" -D in
+          RUN=""
+          if [ "$PLUGIN" = rytm ]; then
+            RUN="$(gh run list --workflow plugin.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            test -n "$RUN"
+            echo "MM-RYTM : le run $RUN de plugin.yml sur main"
+            gh run download "$RUN" -n "$N-macOS" -D in
+          else
+            gh release download "mm-$PLUGIN-latest" -p "$N-macOS.zip" -D in
+          fi
           ditto -x -k "in/$N-macOS.zip" work
           codesign --verify --deep --strict "work/$N/$N.vst3"
           ditto "work/$N/$N.vst3" "root/$N.vst3"
@@ -81,6 +94,7 @@ jobs:
           printf 'macOS : %s\n' "$(cat "work/$N/BUILD.txt" 2>/dev/null || echo 'build inconnu')" > out/BUILD-mac.txt
           ls -la out
           echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: mac
@@ -99,10 +113,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN: ${{ needs.mac.outputs.run }}
         run: |
           N=$([ "$PLUGIN" = rytm ] && echo MM-RYTM || echo MM-ARP)
           mkdir -p in work
-          if gh release download "mm-$PLUGIN-latest" -p "$N-Windows.zip" -D in; then
+          # Le meme run que le Mac (MM-RYTM) ; sinon la release -latest
+          if { [ -n "$RUN" ] && gh run download "$RUN" -n "$N-Windows" -D in; } || { [ -z "$RUN" ] && gh release download "mm-$PLUGIN-latest" -p "$N-Windows.zip" -D in; }; then
             7z x -y -owork "in/$N-Windows.zip" > /dev/null
             test -d "work/$N/$N.vst3/Contents/x86_64-win"
             echo "has=1" >> "$GITHUB_OUTPUT"
@@ -168,6 +184,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VER: ${{ needs.mac.outputs.version }}
+          RUN: ${{ needs.mac.outputs.run }}
         run: |
           set -euo pipefail
           N=$([ "$PLUGIN" = rytm ] && echo MM-RYTM || echo MM-ARP)
@@ -192,7 +209,8 @@ jobs:
           printf 'version %s\n%s\n' "$VER" "$BUILD" > "pkg/$N/BUILD.txt"
           (cd pkg && zip -qr "../$N-VST3.zip" "$N")
           unzip -l "$N-VST3.zip"
-          SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"
+          # L'etiquette publique : le commit construit (le run de main pour MM-RYTM, la release -latest sinon)
+          if [ -n "$RUN" ]; then SHA="$(gh run view "$RUN" --json headSha --jq .headSha)"; else SHA="$(gh api "repos/$GH_REPO/git/ref/tags/$SRC" --jq .object.sha)"; fi
           if ! gh release view "$DST" >/dev/null 2>&1; then
             gh release create "$DST" --target "$SHA" --latest=false --title "$N (public)" --notes "$N, free VST3."
           fi
