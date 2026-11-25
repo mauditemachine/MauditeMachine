@@ -87,12 +87,13 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
 - Invariants : tsc --noEmit reste a 105 erreurs ; moteur CLASSIC au bit pres
   du site (voyager_compare 85/85) ; nouveaux parametres hote TOUJOURS en fin
   de liste, les anciens gardes en "OLD ..." avec conversion au chargement ;
-  banque d'usine seche (v43, presets/build.mjs + src/v4/plugin/arp/analog.ts :
-  AUCUN effet, passe-bas modere, pas trop aigu ; RANDOM suit les memes regles).
+  banque d'usine (presets/build.mjs + src/v4/plugin/arp/analog.ts) : v53,
+  effets LEGERS bornes (ANALOG_FX, jamais de reverbe sur une basse), passe-bas
+  modere, pas trop aigu ; RANDOM suit les memes regles.
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v52, 2026-11-24 ; v49 a v51 le 2026-11-23) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v53, 2026-11-25 ; v52 le 2026-11-24) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
   accent reglable (SETTINGS), pads = 7 degres de la tonalite choisie +
   tonique a 4 sons (v52 : CHORDS F# MINOR par defaut, KeySelect.tsx), liste
@@ -110,9 +111,13 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   du plugin (le site la garde). 297 parametres hote (dernier : xScale ;
   xLatency : LATENCY EXACT / ZERO, ZERO pour les instances neuves, jamais
   change par un preset ; xKey / xScale : la tonalite, reglages
-  d'instance, jamais changes par un preset ni RANDOM). Banque d'usine v52
-  techno seche (BASS / ACID / SEQ / CHORD, BASS et ACID en MONO),
-  emplacements xMx a OFF (RANDOM aussi). v52 : LED eteintes en verre,
+  d'instance, jamais changes par un preset ni RANDOM). Banque d'usine v53
+  dark disco / italo hypnotique, 80 presets (BASS 42 / SEQ 20 / LEAD 10 /
+  PAD 8, basses en MONO), effets legers ; emplacements xMx a OFF (RANDOM
+  aussi). v53 : PRESET ouvre le navigateur (PresetBrowser.tsx, banque du
+  VST3 par familles, clic = charge) ; pages d'OPEN sans diode (noled.css) ;
+  vivacite voyager/vivid.ts (VIVID_LEVEL, 'off' tant que Mika n'a pas
+  choisi A / B / C). v52 : LED eteintes en verre,
   allumees a l'accent ; grands noms et chiffres des ecrans en points
   (Doto 'MM Dots', plugin/mm-arp/web/fonts, dots.css, screen.ts) ;
   colonne FILTER EG / AMP EG : ecran des enveloppes + POLARITY, KEY

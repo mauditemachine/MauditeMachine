@@ -1070,3 +1070,35 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Tests : tsc 105 ; extra-gen (297, 205 cibles), build.mjs --check, presets-check, presets-render x4 / x8 / PRO,
   random-analog ; CI DSP (voyager_compare 85/85), host_test, mod_test, modview_test ; face en Chromium muet : smoke,
   func, func2, funckey (24), egtest (43).
+
+## 2026-11-25 : v53, banque dark disco (80), navigateur de presets (C), OPEN sans diode (A), reglage de vivacite
+
+- Mika (v52 installee) : "le design est vraiment abouti je suis super content !" ; mais "la ou ya de la couleur que ce
+  soit un peu plus voyant", "les selecteurs de formes d'onde sont peut-etre un peu trop fins", "les diodes dans OPEN je
+  suis pas extra fan", "pas fan du tout des presets ... et de la facon dont je peux les selectionner". Questions
+  posees : son des presets ("hypnotique, que je peux deformer ... dark disco, souvent une note repetee, Damon Jee ...
+  Donna Summer ... Pablo Bozzi" ; pas son style), effets ("oui, doses, pas beaucoup ... des bons sons de base ...
+  souvent des notes style basslines"), selection ("scroller et choisir en cliquant, mieux vaut avoir plus de choix"),
+  diodes ("plutot sans diode"). Maquettes A / B / C : presets C, OPEN A ; couleurs : images A / B / C envoyees.
+- Constat : la touche PRESET de la face montrait les 19 presets du SITE (state/factory.ts, presetMode 'voy'), pas la
+  banque du plugin (seulement dans OPEN > LIBRARY).
+- Banque d'usine v53 (presets/build.mjs, rapport docs/reports/2026-11-25-mm-arp-banque-dark-disco.md) : 80 presets,
+  BASS 42 / SEQ 20 / LEAD 10 / PAD 8, 105 a 124 BPM (64 entre 115 et 123) ; notes repetees, galops munichois (dont un
+  par le vrai echo a la double croche), octaves italo, basses caoutchouc / body / EBM / new beat ; sons de base au
+  milieu de leurs courses. Regle "AUCUN effet" -> "effets legers bornes" (analog.ts ANALOG_FX : OVERDRIVE <= 0.25,
+  GLUE <= 0.3, CHORUS I ou II, WARMTH <= 0.3, DELAY <= 0.3 cale au tempo, REVERB CLASSIC <= 0.18 courte, jamais sur une
+  basse ; le reste a l'arret), RANDOM aux memes plafonds. LIBRARY : colonnes BASS / SEQ / LEAD / PAD qui defilent.
+  host_test compte toute la banque (57 au bit pres avec l'ancien DELAY + 23 a page DELAY propre). Ecoutes MP3
+  (seul, + kick et charleston, toute la banque) envoyees a Mika.
+- Navigateur de presets (choix C : PresetBrowser.tsx, presetPanel.ts, presetBrowser.css, voyager/presetHook.ts,
+  actions/presets.ts) : PRESET ouvre en grand la banque du VST3, une colonne par famille (LIB_CATS lu dynamiquement),
+  molette, clic = chargement immediat (factoryLoad, UNDO), fleches, Echap ; USER = dossier disque (mm_presets) et
+  presets du projet, SAVE / SAVE TO DISK / OPEN FROM DISK ; reglages d'instance intacts ; le nom du preset en tete du
+  LCD (voyPatch.named) ; les presets du site ne s'affichent plus dans le plugin.
+- OPEN sans diode (choix A, noled.css) : plus aucune diode dans les pages d'OPEN ; touche allumee pleine a l'accent ;
+  titre de section actif, levier sur ON, cran choisi, page montree : le mot s'allume ; section a l'arret attenuee.
+- Vivacite (voyager/vivid.ts, VIVID_LEVEL) : selecteurs de forme d'onde plus epais (arcs x1.5 / x2 / x2.4), halos,
+  pads et touches au vrai accent (lueur apres la courbe ACES), LED, courbe d'enveloppe ; niveaux A / B / C proposes,
+  fusionne au niveau 'off' en attendant le choix de Mika (une constante a changer).
+- Tests : tsc 105 ; build.mjs --check (80), presets-check, presets-render x4 / x8 / PRO, random-analog ; CI DSP,
+  host_test ; face en Chromium muet : smoke, func, func2, funckey, egtest, funcpb (navigateur) TOUT OK.
