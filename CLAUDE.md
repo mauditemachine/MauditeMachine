@@ -93,7 +93,7 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   Valider le YAML du workflow avant push.
 - Mika veut des IMAGES avant tout changement de design (maquette, il valide,
   puis code + publication). Choix A/B/C : voir la regle plus haut.
-- Etat (v55, 2026-11-25 ; v52 le 2026-11-24) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
+- Etat (v56, 2026-11-25 ; v52 le 2026-11-24) : face cuir, knobs = PNG de Mika (vknob : k1, k3,
   sel, tiny ; ne JAMAIS les redessiner), touches pilules a LED partout,
   accent reglable (SETTINGS), pads = 7 degres de la tonalite choisie +
   tonique a 4 sons (v52 : CHORDS F# MINOR par defaut, KeySelect.tsx), liste
@@ -114,7 +114,8 @@ docs/reports/2026-11-09-plugin-mm-arp.md (une section par publication).
   d'instance, jamais changes par un preset ni RANDOM). Banque d'usine v53
   dark disco / italo hypnotique, 80 presets (BASS 42 / SEQ 20 / LEAD 10 /
   PAD 8, basses en MONO), effets legers ; emplacements xMx a OFF (RANDOM
-  aussi). v55 : vivacite des couleurs au niveau B (choix de Mika,
+  aussi). v56 : fiches INFOS de PRESET / PRESETS = le navigateur
+  (infos.ts, diagrams.ts browserDiagram). v55 : vivacite des couleurs au niveau B (choix de Mika,
   voyager/vivid.ts VIVID_LEVEL). v54 : double clic sur un potard (face, encart, OPEN) = valeur de
   depart (Alt / Cmd / Ctrl + clic aussi) ; un clic seul ouvre sa page
   300 ms apres (voyager/faceDbl.ts FACE_DBL). v53 : PRESET ouvre le navigateur (PresetBrowser.tsx, banque du

@@ -19,6 +19,7 @@
  */
 
 import { JUNO } from '../audio/chorus';
+import { PLUGIN_ARP } from '../theme/base';
 import { ACCENT_DEPTHS, arpPreview } from './preview';
 import { chordNotes, chordRootPc, keyTonic, voicedDegrees, degreeMidi } from './chords';
 import {
@@ -1230,6 +1231,32 @@ function presetsDiagram(): VoyDiagram {
   return p.done();
 }
 
+/**
+ * PRESETS du plugin MM-ARP (v53, plugin/arp/PresetBrowser.tsx) : le navigateur, une colonne par famille qui defile, le
+ * preset charge allume, la fleche de la souris dessus.
+ */
+function browserDiagram(): VoyDiagram {
+  const p = new Pic();
+  const gap = 8;
+  const cw = (X1 - X0 - 3 * gap) / 4;
+  let rows = '';
+  let lane = '';
+  ['BASS', 'SEQ', 'LEAD', 'PAD'].forEach((name, c) => {
+    const x = X0 + c * (cw + gap);
+    p.label(name, x + 2, 27);
+    for (let r = 0; r < 5; r += 1) if (!(c === 0 && r === 1)) rows += rbox(x, 34 + r * 13, cw - 6, 9, 2);
+    // la barre de defilement de la colonne, son curseur
+    lane += seg(x + cw - 2, 34, x + cw - 2, 95);
+    p.p(rbox(x + cw - 3.5, 34 + ((c * 17) % 34), 3, 20, 1.5), 'main', true);
+  });
+  p.p(lane, 'grid');
+  p.p(rows, 'ghost');
+  p.p(rbox(X0, 47, cw - 6, 9, 2), 'hot', true);
+  p.p(poly([[X0 + 30, 52], [X0 + 30, 72], [X0 + 35, 67], [X0 + 40, 76], [X0 + 44, 74], [X0 + 39, 65], [X0 + 46, 65], [X0 + 30, 52]]), 'main', true);
+  p.label('CLICK: IT LOADS', X1, BOT, 'end');
+  return p.done();
+}
+
 /** INFOS : le i et une commande survolee. */
 function infosDiagram(): VoyDiagram {
   const p = new Pic();
@@ -1369,7 +1396,7 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return openDiagram();
     case 'preset':
     case 'presets':
-      return presetsDiagram();
+      return PLUGIN_ARP ? browserDiagram() : presetsDiagram();
     case 'screen':
       return screenDiagram();
     case 'infos':

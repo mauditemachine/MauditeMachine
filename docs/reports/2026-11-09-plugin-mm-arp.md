@@ -1130,3 +1130,16 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
   pour comparer.
 - Tests : tsc 105 ; face en Chromium muet sans ?vivid= : __mmProbe.vivid() = B, capture avec l'accent cyan de Mika,
   console sans erreur ; smoke.
+
+## 2026-11-25 (suite) : v56, fiches INFOS de PRESET et de l'ecran
+
+- Mika : "corrige aussi la fiche INFOS de PRESET". Depuis la v53, PRESET, l'ecran et sa pastille PRESETS ouvrent le
+  navigateur ; les fiches decrivaient encore la liste de l'ecran du site (fleches, LOAD, SAVE, NAME, DEL, EXIT).
+- voyager/infos.ts : fiches 'preset' et 'presets' du plugin (gate PLUGIN_ARP) reecrites (colonnes par famille,
+  molette, clic = charge tout de suite, fleches, Entree, Echap, USER, SAVE, SAVE TO DISK, OPEN FROM DISK, tonalite et
+  reglages d'instance intacts) ; voyager/diagrams.ts : browserDiagram (quatre colonnes BASS / SEQ / LEAD / PAD, le
+  preset charge allume, la fleche de la souris, "CLICK: IT LOADS") au lieu des fleches et des quatre touches. Les
+  fiches et le dessin du site ne changent pas.
+- Tests : tsc 105 ; INFOS allume dans Chromium muet, survol de PRESET et de la pastille PRESETS : les deux fiches
+  du navigateur, captures, console sans erreur.
+
