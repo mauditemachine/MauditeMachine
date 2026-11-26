@@ -32,6 +32,7 @@ import FOUND from 'virtual:rytm-samples';
 import type { SamplePcm } from './sampledsp';
 import { sampleLabel } from './samplelabel';
 import { SYNTH_SAMPLES, isSynthSampleUrl, renderSynthSample } from './synthSamples';
+import { cleanPcm, decodeWav } from './audiofile';
 import { decodeAudio, userSamples } from './usersamples';
 
 /** Le nom court d'un fichier (audio/samplelabel.ts, partage avec l'admin) : sans extension, numero, "AT", ni le nom de la famille. */
@@ -435,16 +436,25 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
           if (!res.ok) throw new HttpError(res.status);
           s.lastByte = performance.now();
           arm();
-          data = await readBody(res, s, arm);
+          // Le plugin (2026-11-26, Mika : "le loading est trop long") : le fichier vient du plugin lui-meme, d'un bloc ;
+          // pas de lecture par morceaux (un aller-retour par morceau dans la WebView)
+          data = IN_PLUGIN ? await res.arrayBuffer() : await readBody(res, s, arm);
         }
         window.clearTimeout(timer);
         if (!data) throw new Error('storage');
-        try {
-          const d = await decodeAudio(data);
-          out = { L: d.L, R: d.R, sr: d.sr };
-        } catch {
-          throw new BadFile('decode');
-        }
+        // Le plugin : un WAV se decode ici, tout de suite (audio/audiofile.ts decodeWav) ; le PCM n'y sert qu'a l'ecran
+        // (le son est celui du moteur C++), sa frequence d'origine suffit. Le site garde le decodeur du navigateur.
+        const quick = IN_PLUGIN ? decodeWav(data) : null;
+        if (quick) {
+          cleanPcm(quick);
+          out = quick;
+        } else
+          try {
+            const d = await decodeAudio(data);
+            out = { L: d.L, R: d.R, sr: d.sr };
+          } catch {
+            throw new BadFile('decode');
+          }
       }
       // Un chargement depasse (le sample retire, ou un autre essai parti) : son resultat ne compte pas
       if (s.gen !== gen || slots.get(key) !== s) return pcm.get(key) ?? null;
@@ -522,6 +532,30 @@ export function requestSample(key: string): Promise<SamplePcm | null> {
     s.tries = 0;
   }
   return start(key, s);
+}
+
+/**
+ * Toute une famille d'avance (2026-11-26, Mika : "pour RYTM vst le loading est trop long") : la page SAMPLE du plugin
+ * charge la banque de la piste montree des qu'elle s'ouvre (27 caisses claires : moins d'un Mo, decodees en quelques ms),
+ * un par un pour ne pas bloquer l'ecran ; changer de sample ensuite ne montre plus LOADING. Le sample choisi d'abord.
+ */
+export function prefetchFamily(family: string, first?: string): void {
+  if (typeof window === 'undefined') return;
+  const keys = samplesOf(family)
+    .map((x) => x.key)
+    .filter((k) => !pcm.has(k));
+  if (first) keys.sort((a, b) => (a === first ? -1 : b === first ? 1 : 0));
+  let i = 0;
+  const next = (): void => {
+    while (i < keys.length && pcm.has(keys[i])) i += 1;
+    if (i >= keys.length) return;
+    const k = keys[i];
+    i += 1;
+    void loadSample(k).then(next, next);
+  };
+  // Deux a la fois : la file avance meme si un fichier tarde
+  next();
+  next();
 }
 
 /** Le PCM d'un echantillon retire (un sample de ce navigateur) : libere, son chargement en cours oublie. */

@@ -385,6 +385,69 @@ export function decodeAiff(data: ArrayBuffer): SamplePcm | null {
   return { L: out[0], R: chans > 1 ? out[1] : null, sr: c.rate };
 }
 
+/**
+ * Un WAV non compresse decode ici, a sa frequence (2026-11-26, Mika : "pour RYTM vst le loading est trop long") : PCM
+ * entier 8 a 32 bits, flottant 32 ou 64 bits, l'extensible ; ses deux premiers canaux (un mono : R null). Synchrone et
+ * sans le decodeur du navigateur : dans la WebView du plugin, decodeAudioData ajoutait plusieurs allers-retours au
+ * chargement de chaque sample. null : un WAV compresse ou illisible, le navigateur essaiera.
+ */
+export function decodeWav(data: ArrayBuffer): SamplePcm | null {
+  if (data.byteLength < 12) return null;
+  const v = new DataView(data);
+  if (ascii(v, 0) !== 'RIFF' || ascii(v, 8) !== 'WAVE') return null;
+  let at = 12;
+  let tag = 0;
+  let channels = 0;
+  let rate = 0;
+  let bits = 0;
+  let align = 0;
+  while (at + 8 <= v.byteLength) {
+    const id = ascii(v, at);
+    const size = v.getUint32(at + 4, true);
+    const body = at + 8;
+    if (id === 'fmt ' && size >= 16 && body + 16 <= v.byteLength) {
+      tag = v.getUint16(body, true);
+      channels = v.getUint16(body + 2, true);
+      rate = v.getUint32(body + 4, true);
+      align = v.getUint16(body + 12, true);
+      bits = v.getUint16(body + 14, true);
+      // L'extensible : le vrai format dans son sous-type (ses deux premiers octets)
+      if (tag === 0xfffe && size >= 40 && body + 26 <= v.byteLength) tag = v.getUint16(body + 24, true);
+    } else if (id === 'data') {
+      if (tag !== 1 && tag !== 3) return null;
+      if (channels < 1 || !(rate >= 1000 && rate <= 768000)) return null;
+      const float = tag === 3;
+      const bytes = Math.ceil(bits / 8);
+      if (float ? bytes !== 4 && bytes !== 8 : bytes < 1 || bytes > 4) return null;
+      const frame = Math.max(bytes * channels, align || 0);
+      const left = v.byteLength - body;
+      const len = size === 0 || size === 0xffffffff || size > left ? left : size;
+      const n = Math.floor(len / frame);
+      if (n <= 0) return null;
+      const chans = Math.min(2, channels);
+      const out = Array.from({ length: chans }, () => new Float32Array(n));
+      const scale = float ? 1 : bytes === 1 ? 1 / 128 : 1 / 2 ** (bytes * 8 - 1);
+      for (let ch = 0; ch < chans; ch += 1) {
+        const x = out[ch];
+        let p = body + ch * bytes;
+        if (float && bytes === 4) for (let i = 0; i < n; i += 1, p += frame) x[i] = v.getFloat32(p, true);
+        else if (float) for (let i = 0; i < n; i += 1, p += frame) x[i] = v.getFloat64(p, true);
+        else if (bytes === 1) for (let i = 0; i < n; i += 1, p += frame) x[i] = (v.getUint8(p) - 128) * scale;
+        else if (bytes === 2) for (let i = 0; i < n; i += 1, p += frame) x[i] = v.getInt16(p, true) * scale;
+        else if (bytes === 3)
+          for (let i = 0; i < n; i += 1, p += frame) {
+            const u = v.getUint8(p) | (v.getUint8(p + 1) << 8) | (v.getUint8(p + 2) << 16);
+            x[i] = (u & 0x800000 ? u - 0x1000000 : u) * scale;
+          }
+        else for (let i = 0; i < n; i += 1, p += frame) x[i] = v.getInt32(p, true) * scale;
+      }
+      return { L: out[0], R: chans > 1 ? out[1] : null, sr: rate };
+    }
+    at = body + size + (size & 1);
+  }
+  return null;
+}
+
 /** Les valeurs non finies a 0, le reste borne a +/-PCM_LIMIT, en place ; rend la crete. */
 export function cleanPcm(p: SamplePcm): number {
   let peak = 0;

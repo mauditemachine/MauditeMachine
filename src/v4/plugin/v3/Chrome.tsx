@@ -27,23 +27,35 @@ export const Chassis: React.FC = () => (
   </>
 );
 
+/**
+ * Le logo et le nom du plugin (2026-11-26, Mika : "le logo c'est pas ca du tout, regarde le plugin ARP") : le vrai logo
+ * (public/logo/mauditemachine-logo-aligned.svg, celui du MM-ARP) puis MM-RYTM, aux proportions du MM-ARP (sa face de
+ * 1100 px : logo de 243.5 px, 25 px d'ecart, nom en 15.3 px espace de 0.274 em) multipliees par k, centres sur cy.
+ */
+/** La taille du logo dans la scene de 1400 px (celle du MM-ARP, a l'echelle de la fenetre, a la place de l'en-tete). */
+export const BRAND_K = 1.1;
+
+export const Brand: React.FC<{ x: number; cy: number; k: number }> = ({ x, cy, k }) => (
+  <div className="mm3-brand" style={{ left: x, top: cy, gap: 25 * k }} aria-label="Maudite Machine MM-RYTM">
+    <span className="mm3-brand-word" style={{ width: 243.5 * k, height: (243.5 * k * 57) / 972 }} />
+    <span className="mm3-model mm3-brand-model" style={{ fontSize: 15.3 * k }}>
+      MM-RYTM
+    </span>
+  </div>
+);
+
 export const Header: React.FC = () => {
   const v = useView();
   const open = v.page !== null;
   return (
     <>
-      <div className="mm3-wordmark" style={{ left: 58, top: 24 }}>
-        MAUDITE MACHINE
-      </div>
-      <div className="mm3-model" style={{ left: 322, top: 26 }}>
-        MM-RYTM
-      </div>
+      <Brand x={58} cy={36} k={BRAND_K} />
       {!open && (
-        <div className="mm3-note" style={{ left: 458, top: 30, fontSize: 8.5, color: '#bdbdbd', letterSpacing: '.2em' }}>
+        <div className="mm3-note" style={{ left: 492, top: 30, fontSize: 8.5, color: '#bdbdbd', letterSpacing: '.2em' }}>
           OPEN <span style={{ color: 'var(--acc)' }}>›</span>
         </div>
       )}
-      <div className="mm3-tabs" style={{ left: open ? 470 : 504, top: 21 }} role="tablist" aria-label="OPEN pages">
+      <div className="mm3-tabs" style={{ left: open ? 494 : 538, top: 21 }} role="tablist" aria-label="OPEN pages">
         {TABS.map((t) => (
           <div
             key={t}

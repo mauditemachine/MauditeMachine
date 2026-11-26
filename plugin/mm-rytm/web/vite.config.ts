@@ -59,6 +59,8 @@ export default defineConfig({
         // Le logotype serigraphie sur la machine (V.6.4)
         mkdirSync(resolve(OUT, 'logo'), { recursive: true });
         copyFileSync(resolve(REPO, 'public/logo/mauditemachine-logotype.svg'), resolve(OUT, 'logo/mauditemachine-logotype.svg'));
+        // Le logo de l'en-tete, celui du MM-ARP (2026-11-26, Mika : "le logo c'est pas ca du tout")
+        copyFileSync(resolve(REPO, 'public/logo/mauditemachine-logo-aligned.svg'), resolve(OUT, 'logo/mauditemachine-logo-aligned.svg'));
       },
     },
   ],

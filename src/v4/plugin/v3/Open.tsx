@@ -12,7 +12,7 @@ import { anyDial, anyDialReset, clearKey, faceKeyDown, faceKeyUp, fileImport, lo
 import { lockOf } from '../../audio/locks';
 import { pattern, velocity } from '../../audio/pattern';
 import { trigger } from '../../audio/drums';
-import { samplePcm, samplesOf } from '../../audio/samples';
+import { prefetchFamily, samplePcm, samplesOf } from '../../audio/samples';
 import { CONDS } from '../../audio/trig';
 import { TRACK_KEYS, TRACK_NAMES, isLegacyTrack, tracks, typedFamily, type TrackKey } from '../../audio/tracks';
 import { REVERB_PRESETS, DIST_PRESETS, DIST_STYLE_TEXT, HELL_PRESETS, distLowHz, presetPatch, type LabKnob, type LabPreset } from '../../state/labFx';
@@ -245,6 +245,8 @@ const SamplePage: React.FC = () => {
   const cur = list.findIndex((s) => s.key === skey);
   const smp = cur >= 0 ? list[cur] : undefined;
   const pcm = skey ? samplePcm(skey) : undefined;
+  // La banque de la piste chargee d'avance : changer de sample ne montre plus LOADING (2026-11-26)
+  useEffect(() => prefetchFamily(fam, skey), [fam]); // eslint-disable-line react-hooks/exhaustive-deps
   const pw = playWindow();
   const ms = (f: number, heard = false): string => (pcm ? `${(((f * pcm.L.length) / pcm.sr / (heard ? pw.ratio : 1)) * 1000).toFixed(1)} MS` : '--');
   const reset = (): void => {
