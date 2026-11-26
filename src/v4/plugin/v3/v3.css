@@ -89,6 +89,27 @@
   line-height: 1;
   white-space: nowrap;
 }
+.mm3-brand {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.mm3-brand-word {
+  flex: none;
+  display: block;
+  background: #f1f1f1;
+  -webkit-mask: url('/logo/mauditemachine-logo-aligned.svg') left center / 100% auto no-repeat;
+  mask: url('/logo/mauditemachine-logo-aligned.svg') left center / 100% auto no-repeat;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.7));
+}
+.mm3-brand .mm3-brand-model {
+  position: static;
+  flex: none;
+  letter-spacing: 0.274em;
+}
 .mm3-model {
   font-weight: 500;
   font-size: 22px;

@@ -17,7 +17,7 @@ import { Confirm, useMidi, useMidiDrag } from './Library';
 import { Steps, type RowLay } from './Steps';
 import { Key, useTick } from './ui';
 import { TABS, view, type Page } from './view';
-import { useView } from './Chrome';
+import { Brand, useView } from './Chrome';
 
 /** La fenetre de la face B, en unites (px a 1600 de large) : le bandeau, la face 3D, la barre du bas. */
 export const FB = { w: 1600, head: 50, face: 975, foot: 44, h: 1069 } as const;
@@ -110,16 +110,11 @@ export const FaceChrome: React.FC<{
         }}
       >
         <div className="mm3-fbbar" style={{ left: 0, top: 0, width: FB.w, height: FB.head }} />
-        <div className="mm3-wordmark" style={{ left: 26, top: 13, fontSize: 23 }}>
-          MAUDITE MACHINE
-        </div>
-        <div className="mm3-model" style={{ left: 300, top: 15, fontSize: 19 }}>
-          MM-RYTM
-        </div>
+        <Brand x={26} cy={FB.head / 2} k={1.2} />
         <div
           className="mm3-note"
           style={{
-            left: 452,
+            left: 500,
             top: 20,
             fontSize: 9,
             color: 'var(--acc)',
@@ -128,7 +123,7 @@ export const FaceChrome: React.FC<{
         >
           OPEN ›
         </div>
-        <div className="mm3-tabs mm3-fbtabs" style={{ left: 508, top: 12 }} role="tablist" aria-label="OPEN pages">
+        <div className="mm3-tabs mm3-fbtabs" style={{ left: 556, top: 12 }} role="tablist" aria-label="OPEN pages">
           {FACE_TABS.map((t) => (
             <div
               key={t}
