@@ -9,9 +9,9 @@
     <!-- 2026-10-21 (audit SEO F2 et F3) : chaque page a son titre et sa description (src/data/seo-meta.json) ;
          l'accueil, qui est MM-STUDIO, parle de l'outil gratuit et de l'artiste (avant, un seul titre pour
          tout le site, brief B2 du 2026-10-10). Titre, Open Graph et MusicGroup : scripts/seo-shared.mjs -->
-    <title>MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth</title>
-    <meta name="description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
-    <meta name="keywords" content="MM-STUDIO, online drum machine, free drum machine, drum machine online, online synth, arpeggiator, online DJ mixer, boîte à rythmes en ligne, caja de ritmos online, Maudite Machine, DJ dark disco, DJ indie dance, VRSTL Records, DJ Montpellier" />
+    <title>Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO</title>
+    <meta name="description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
+    <meta name="keywords" content="Maudite Machine, dark disco DJ, indie dance DJ, DJ dark disco, DJ indie dance, dark disco producer, hybrid live electronic, VRSTL Records, MM-STUDIO, online drum machine, free drum machine, online synth, arpeggiator, online DJ mixer, boîte à rythmes en ligne, caja de ritmos online" />
     <meta name="author" content="Maudite Machine" />
     <meta name="robots" content="noindex, follow" />
     <meta name="googlebot" content="noindex, follow" />
@@ -43,7 +43,6 @@
          premiere peinture ; la v4 le repose ensuite selon l'apparence (Dark / Light) -->
     <meta name="theme-color" content="#0c0b09" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="geo.placename" content="Montpellier, Occitanie, France" />
 
     <!-- Données structurées JSON-LD pour le SEO
          2026-10-10 (brief de Mika : un seul MusicGroup par page, valeurs strictes du brief) :
@@ -51,7 +50,7 @@
          (id="ld-artist") par l'original au build. sameAs = profils du brief + profils
          verifies de src/v4/data/socials.ts ; VRSTL Records et le site relies par @id
          2026-10-11 : RA et Discogs ajoutes, gigmit retire (voir seo-shared.mjs) -->
-    <script type="application/ld+json" id="ld-artist">[{"@context":"https://schema.org","@type":"MusicGroup","@id":"https://mauditemachine.com/#artist","name":"Maudite Machine","genre":["Dark Disco","Indie Dance","Indie Electronic"],"location":{"@type":"Place","name":"Montpellier, France","address":{"@type":"PostalAddress","addressLocality":"Montpellier","addressRegion":"Occitanie","addressCountry":"FR"}},"foundingLocation":{"@type":"Place","name":"Montreal, Canada"},"areaServed":["France","Spain","Europe","Canada"],"album":[{"@type":"MusicAlbum","@id":"https://mauditemachine.com/tracks/#limbos-album","name":"Limbos"},{"@type":"MusicAlbum","name":"Voodoo","albumReleaseType":"https://schema.org/SingleRelease","url":"https://mauditemachine.com/tracks/voodoo/"}],"description":"Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.","url":"https://mauditemachine.com","sameAs":["https://soundcloud.com/mauditemachine","https://mauditemachine.bandcamp.com","https://instagram.com/mauditemachine","https://facebook.com/MauditeMachine","https://youtube.com/@mauditemachine-official","https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4","https://www.deezer.com/fr/artist/8651600","https://www.mixcloud.com/mauditemachine/","https://www.tiktok.com/@mauditemachine","https://x.com/mauditemachine","https://music.apple.com/us/artist/maudite-machine/1028417516","https://www.beatport.com/artist/maudite-machine/500537","https://www.songkick.com/artists/10363218-maudite-machine","https://linktr.ee/mauditemachine","https://ra.co/dj/mauditemachine","https://www.discogs.com/artist/5831599-Maudite-Machine"]},{"@context":"https://schema.org","@type":"Organization","@id":"https://vrstlrecords.com/#organization","name":"VRSTL Records","url":"https://vrstlrecords.com","description":"Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.","founder":{"@id":"https://mauditemachine.com/#artist"},"sameAs":["https://vrstlrecords.bandcamp.com","https://www.discogs.com/label/3752945-VRSTL-Records","https://soundcloud.com/vrstlrecords"],"email":"vrstlrecords@gmail.com","address":{"@type":"PostalAddress","addressLocality":"Montréal","addressRegion":"QC","addressCountry":"CA"}},{"@context":"https://schema.org","@type":"WebSite","@id":"https://mauditemachine.com/#website","name":"Maudite Machine","alternateName":"mauditemachine.com","url":"https://mauditemachine.com/","description":"Official website of Maudite Machine, DJ and producer","inLanguage":["en","fr","es"],"about":{"@id":"https://mauditemachine.com/#artist"},"publisher":{"@id":"https://mauditemachine.com/#artist"}}]</script>
+    <script type="application/ld+json" id="ld-artist">[{"@context":"https://schema.org","@type":"MusicGroup","@id":"https://mauditemachine.com/#artist","name":"Maudite Machine","genre":["Dark Disco","Indie Dance","Indie Electronic"],"image":"https://mauditemachine.com/press/og-maudite-machine.jpg","member":{"@type":"Person","@id":"https://mauditemachine.com/#mika","name":"Michael Sanchez","alternateName":"Mika","jobTitle":"DJ and Music Producer","url":"https://mauditemachine.com/"},"areaServed":"Worldwide","knowsLanguage":["fr","en","es"],"album":[{"@type":"MusicAlbum","@id":"https://mauditemachine.com/tracks/#limbos-album","name":"Limbos"},{"@type":"MusicAlbum","name":"Voodoo","albumReleaseType":"https://schema.org/SingleRelease","url":"https://mauditemachine.com/tracks/voodoo/"}],"description":"Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the underground.","url":"https://mauditemachine.com","sameAs":["https://soundcloud.com/mauditemachine","https://mauditemachine.bandcamp.com","https://instagram.com/mauditemachine","https://facebook.com/MauditeMachine","https://youtube.com/@mauditemachine-official","https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4","https://www.deezer.com/fr/artist/8651600","https://www.mixcloud.com/mauditemachine/","https://www.tiktok.com/@mauditemachine","https://x.com/mauditemachine","https://music.apple.com/us/artist/maudite-machine/1028417516","https://www.beatport.com/artist/maudite-machine/500537","https://www.songkick.com/artists/10363218-maudite-machine","https://linktr.ee/mauditemachine","https://ra.co/dj/mauditemachine","https://www.discogs.com/artist/5831599-Maudite-Machine"]},{"@context":"https://schema.org","@type":"Organization","@id":"https://vrstlrecords.com/#organization","name":"VRSTL Records","url":"https://vrstlrecords.com","description":"Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.","founder":{"@id":"https://mauditemachine.com/#artist"},"areaServed":"Worldwide","sameAs":["https://vrstlrecords.bandcamp.com","https://www.discogs.com/label/3752945-VRSTL-Records","https://soundcloud.com/vrstlrecords"],"email":"vrstlrecords@gmail.com"},{"@context":"https://schema.org","@type":"WebSite","@id":"https://mauditemachine.com/#website","name":"Maudite Machine","alternateName":["MM-STUDIO","mauditemachine.com"],"url":"https://mauditemachine.com/","description":"Official website of Maudite Machine, international dark disco and indie dance DJ and producer, and MM-STUDIO.","inLanguage":["en","fr","es"],"about":{"@id":"https://mauditemachine.com/#artist"},"publisher":{"@id":"https://mauditemachine.com/#artist"}}]</script>
 
     <!-- Facebook Pixel Code
          2026-10-11 (performance de l'accueil) : la file fbq et les appels init et PageView tout
@@ -307,8 +306,8 @@
          la langue de la page (en_GB ici). scripts/prerender-seo.mjs les remplace page par page -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maudite Machine" />
-    <meta property="og:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
-    <meta property="og:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta property="og:title" content="Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO" />
+    <meta property="og:description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
     <meta property="og:url" content="https://mauditemachine.com/" />
     <meta property="og:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
     <meta property="og:image:width" content="1200" />
@@ -324,8 +323,8 @@
          audit SEO F19) : le compte x.com/mauditemachine de src/v4/data/socials.ts -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@mauditemachine" />
-    <meta name="twitter:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
-    <meta name="twitter:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta name="twitter:title" content="Maudite Machine | Dark Disco &amp; Indie Dance DJ · MM-STUDIO" />
+    <meta name="twitter:description" content="Maudite Machine, international dark disco and indie dance DJ &amp; producer (VRSTL Records). Play MM-STUDIO free: online drum machine, synth and DJ decks." />
     <meta name="twitter:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
     <meta name="twitter:image:alt" content="MM-STUDIO by Maudite Machine: a free drum machine, synth and DJ decks you play in your browser" />
     <!-- Feuilles externes NON bloquantes (2026-10-03, referencement : 2 s de
@@ -375,8 +374,8 @@
         #seo-static a, .seo-static a { color: #191919 !important; text-decoration: underline !important; text-decoration-color: #FF6A13 !important; text-underline-offset: 3px !important; }
       </style>
     </noscript>
-    <script type="module" crossorigin src="/assets/index-Dql7TV1S.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CPdskAbi.css">
+    <script type="module" crossorigin src="/assets/index-Ba9Jgk0V.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D1WK6MSh.css">
   </head>
   <body>
     <!-- Facebook Pixel noscript fallback -->

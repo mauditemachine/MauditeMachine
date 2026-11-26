@@ -5,6 +5,7 @@ User-agent: *
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Disallow: /plugins
 Allow: /
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
@@ -23,6 +24,7 @@ User-agent: Applebot-Extended
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Disallow: /plugins
 Allow: /
 
 # 2026-10-21 (audit SEO F12) : AhrefsBot et SemrushBot ne sont plus bloques. Mika veut brancher Ahrefs ou Semrush
@@ -35,6 +37,7 @@ User-agent: SiteAuditBot
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Disallow: /plugins
 Allow: /
 
 # Robot de liens sans outil utile ici : toujours bloque

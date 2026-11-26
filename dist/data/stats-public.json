@@ -11559,6 +11559,2778 @@
         "status": "unavailable",
         "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
       }
+    },
+    {
+      "generatedAt": "2026-11-05T13:41:03.521Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9390,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1249,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 352,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-06T13:24:59.455Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9401,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1249,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 354,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-07T12:03:36.552Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9402,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1249,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 354,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-08T12:24:18.086Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9405,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1249,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 357,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-09T14:39:23.022Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9406,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1250,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 357,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-10T13:55:40.348Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9407,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1250,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 45,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 357,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-11T13:10:18.598Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9410,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1250,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 46,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 359,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-12T14:12:40.757Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9414,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1250,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 46,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 362,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-13T13:36:00.967Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9417,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 47,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 362,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-14T12:41:09.010Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9423,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 47,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 365,
+            "likes": 17,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 327,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-15T13:07:13.404Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9428,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 367,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-16T14:15:05.502Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9431,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 367,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-17T15:06:47.799Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9431,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 368,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-18T14:45:31.356Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9435,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 371,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-19T14:52:41.177Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9435,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 373,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-20T14:33:38.866Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9437,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 373,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-21T13:52:16.009Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9437,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 374,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-22T13:44:49.737Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9440,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 376,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-23T16:46:35.939Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9442,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 48,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 378,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 805,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-24T16:40:43.351Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9446,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 49,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 380,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 806,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-25T16:24:34.250Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9447,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 49,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 381,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 806,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
+    },
+    {
+      "generatedAt": "2026-11-26T15:58:53.848Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 94,
+        "totalViews": 9449,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1252,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 49,
+            "likes": 1,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 384,
+            "likes": 18,
+            "comments": 2
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 53,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 299,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 328,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 152,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 806,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 491,
+            "likes": 20,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
     }
   ],
   "manual": {}
