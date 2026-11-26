@@ -1,5 +1,21 @@
 [
   {
+    "date": "2027-02-27",
+    "title": "LUMINARIUM 3e édition · Live set",
+    "venue": "Bain Mathieu",
+    "city": "Montréal",
+    "region": "QC",
+    "country": "CA",
+    "street": "2915 Ontario Est",
+    "location": "Bain Mathieu - Mtl",
+    "startTime": "21:00-05:00",
+    "endDate": "2027-02-28T08:00-05:00",
+    "price": "55",
+    "currency": "CAD",
+    "color": "#ff9a1f",
+    "image": "events/luminarium2027.webp"
+  },
+  {
     "date": "2026-12-19",
     "title": "PRISM",
     "venue": "PRISM",

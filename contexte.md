@@ -45,6 +45,7 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 ## 3. Dates de shows a venir (`public/events.json`)
 
 - **19 decembre 2026** : **PRISM** - Quebec, QC (`venue: "PRISM"`, `city: "Québec"`, `country: "CA"`), visible dans l'encart `SHOWS`, sur `/shows/`, dans `llms.txt` et en `MusicEvent` Schema.org.
+- **27 fevrier 2027** : **LUMINARIUM 3e edition** - Bain Mathieu, 2915 Ontario Est, Montreal (21 h - 8 h, Techno Room, LIVE SET VRSTL Records). Affiche `public/events/luminarium2027.webp`, prevente 55 $ CAD (phases 55/60/65), 18+, capacite 600. Pas encore de lien d'evenement ni de billetterie : ajouter `url` et `ticketUrl` des que Mika les a.
 - Si Mika donne l'heure exacte, le lien de billetterie (`ticketUrl`) ou le visuel, les ajouter sur cette entree dans `public/events.json`.
 
 ---
