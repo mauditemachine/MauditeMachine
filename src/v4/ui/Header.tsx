@@ -60,8 +60,12 @@ export function goMachine(m: MachineId): void {
  * menu deploye et la nous pouvons cliquer ensuite dans STUDIO apres mixtapes") : actif sur l'accueil sans section ni
  * parametre de machine/debug (?m=, ?face=, ?rytmv=, ?b=, ?beat=, ?open=, ?s=, ?debug=).
  */
+/** Ordi large (2026-11-28) : les pages sont deja dans l'en-tete (HeaderNav), sans bouton MENU : le menu plein ecran ne s'ouvre plus seul. */
+export const WIDE_NAV_QUERY = '(min-width: 1400px)';
+
 export function initialMenuOpen(): boolean {
   if (typeof window === 'undefined') return false;
+  if (window.matchMedia(WIDE_NAV_QUERY).matches) return false;
   if (sectionFromPath(window.location.pathname) !== null) return false;
   if (PRESSKIT_ROUTE.re.test(window.location.pathname)) return false;
   const q = new URLSearchParams(window.location.search);
@@ -80,7 +84,7 @@ export function initialMenuOpen(): boolean {
 export function useArrivalMenu(setMenuRaw: React.Dispatch<React.SetStateAction<boolean>>): (v: boolean | ((m: boolean) => boolean)) => void {
   const phase = useSyncExternalStore(arrival.subscribe, arrival.get, arrival.get);
   useEffect(() => {
-    if (phase === 'menu') setMenuRaw(true);
+    if (phase === 'menu') setMenuRaw(!window.matchMedia(WIDE_NAV_QUERY).matches);
     else if (phase === 'machine' || phase === 'logo') setMenuRaw(false);
   }, [phase, setMenuRaw]);
   return useCallback(

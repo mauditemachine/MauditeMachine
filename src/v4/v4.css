@@ -6665,8 +6665,7 @@ html:has(body.v4-active.v4-light) {
 /*
  * ---------- Le menu toujours ouvert sur ordi (2026-11-27, Header.tsx HeaderNav) ----------
  * Mika : "j'aime le menu soit toujours deploye sauf en mobile biensur on conserve le hamburger". Des 1400 px (en dessous, la place manque a cote des machines), les pages
- * du menu en liens dans l'en-tete ; GOODIES y a son badge FREE (le bouton jaune s'efface), MENU garde ses trois traits
- * pour le reste (merch, clair / sombre, reseaux). En dessous, le bouton MENU comme avant.
+ * du menu en liens dans l'en-tete ; GOODIES y a son badge FREE (le bouton jaune s'efface), le bouton MENU s'efface aussi. En dessous, le bouton MENU comme avant.
  */
 .v4-root .v4-hnav {
   display: none;
@@ -6721,12 +6720,10 @@ html:has(body.v4-active.v4-light) {
     font-weight: 800;
     letter-spacing: 0.12em;
   }
+  /* 2026-11-28 (Mika : "oui retire") : plus de bouton MENU a cote des liens */
   .v4-root .v4-header-end .v4-goodies-btn,
-  .v4-root .v4-menu-btn .v4-menu-word {
+  .v4-root .v4-header-end .v4-menu-btn {
     display: none;
-  }
-  .v4-root .v4-menu-btn {
-    padding: 0 11px;
   }
 }
 
