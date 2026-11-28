@@ -44,6 +44,8 @@ Mika a demande de retirer toute attache a une ville fixe (« Montpellier », « 
 
 ## 3. Dates de shows a venir (`public/events.json`)
 
+- **Page `/shows/` a part (27 nov 2026, Mika : "je trouve ca pas cool d'ouvrir cette page directement dans la page des machines", maquette A choisie)** : `src/pages/shows/ShowsPage.tsx` + `shows.css`, route React hors de la machine (chunk lazy, sans three). L'affiche de la plus proche date qui en a une en vedette (date, heure, lieu, bouton billets), les autres dates dessous, puis les shows passes par annee (`events.json` passes + `public/past-events.json`). Le menu, le pad 3 et la puce SHOWS y menent (`src/v4/state/section.ts` redirige `shows` vers `/shows/`) ; `shows` n'est plus dans `SECTION_ROUTES`. Prerendu : `#seo-static` garde, sans coquille ni preload de la machine.
+
 - **19 decembre 2026** : **PRISM** - Quebec, QC (`venue: "PRISM"`, `city: "Québec"`, `country: "CA"`), visible dans l'encart `SHOWS`, sur `/shows/`, dans `llms.txt` et en `MusicEvent` Schema.org.
 - **27 fevrier 2027** : **LUMINARIUM 03** (3e edition) - Bain Mathieu, 2915 Ontario Est, Montreal (21 h - 8 h, Techno Room, LIVE SET VRSTL Records). Affiche `public/events/luminarium2027.webp`, prevente 55 $ CAD (phases 55/60/65), 18+, capacite 600. Billetterie (Spirale Productions / Oui-R1) : https://lepointdevente.com/billets/ln0270227001 (`url` et `ticketUrl`).
 - Si Mika donne l'heure exacte, le lien de billetterie (`ticketUrl`) ou le visuel, les ajouter sur cette entree dans `public/events.json`.

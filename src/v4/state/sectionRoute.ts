@@ -18,7 +18,6 @@ import type { SectionId } from '../theme';
 export const SECTION_ROUTES: Readonly<Partial<Record<SectionId, string>>> = {
   tracks: '/tracks/',
   mixtapes: '/mixtapes/',
-  shows: '/shows/',
   contact: '/contact/',
   goodies: '/goodies/',
   merch: '/merch/',

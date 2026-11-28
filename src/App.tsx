@@ -34,6 +34,9 @@ const WebRytmPlugin = React.lazy(() => import('./v4/plugin/WebRytmPlugin'));
 // Le plugin MM-ARP en entier dans le navigateur (2026-11-25, /mm-arp/play/, desktop) : la face du VST3, le moteur du VST3 en WebAssembly
 const WebArpPlugin = React.lazy(() => import('./v4/plugin/WebArpPlugin'));
 
+// La page des dates (2026-11-27, Mika : une page a part, hors de la machine) : chunk lazy, sans three
+const ShowsStandalone = React.lazy(() => import('./pages/shows/ShowsPage'));
+
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
 
@@ -93,7 +96,8 @@ export default function App() {
           {/* 2026-10-03 : une page par morceau (scripts/prerender-seo.mjs) ; la machine ouvre TRACKS */}
           <Route path="/tracks/:track" element={lazyEl(<V4App />)} />
           <Route path="/mixtapes" element={lazyEl(<V4App />)} />
-          <Route path="/shows" element={lazyEl(<V4App />)} />
+          {/* 2026-11-27 : SHOWS est une page a part (src/pages/shows/ShowsPage.tsx), plus un panneau de la machine */}
+          <Route path="/shows" element={lazyEl(<ShowsStandalone />)} />
           <Route path="/contact" element={lazyEl(<V4App />)} />
           <Route path="/goodies" element={lazyEl(<V4App />)} />
           <Route path="/merch" element={lazyEl(<V4App />)} />

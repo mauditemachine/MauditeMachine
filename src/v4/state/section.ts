@@ -17,6 +17,12 @@ const listeners = new Set<() => void>();
 export const section = {
   get: (): SectionId | null => current,
   set(s: SectionId | null): void {
+    // SHOWS est une page a part depuis le 2026-11-27 (Mika : "je trouve ca pas cool d'ouvrir cette page directement
+    // dans la page des machines") : le menu, le pad 3 et la puce y menent (src/pages/shows/ShowsPage.tsx)
+    if (s === 'shows') {
+      if (typeof window !== 'undefined') window.location.assign('/shows/');
+      return;
+    }
     if (s === current) return;
     current = s;
     changes += 1;

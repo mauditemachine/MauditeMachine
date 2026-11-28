@@ -1694,7 +1694,8 @@ for (const route of ROUTES) {
   }
   html = withContent(html, route);
   // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
-  if (!REACT_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
+  // /shows/ (2026-11-27) : une page a part, pas la machine : ni coquille ni preload de la machine
+  if (!REACT_PAGES.has(route) && route !== '/shows/') html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
   if (route === '/shows/') html = withEvents(html);
   html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
   if (route === '/tracks/') html = toHead(html, tracksJsonLd());
