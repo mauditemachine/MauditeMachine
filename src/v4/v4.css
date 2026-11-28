@@ -3490,6 +3490,42 @@ html:has(body.v4-active) {
   transition: none;
 }
 
+/* ---------- Le fil d'Ariane des sections (2026-11-28, common.tsx Crumbs) ---------- */
+
+.v4-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bone-70);
+}
+
+.v4-crumbs li + li::before {
+  content: '/';
+  margin-right: 6px;
+  opacity: 0.5;
+}
+
+.v4-root .v4-crumbs a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.v4-root .v4-crumbs a:hover,
+.v4-root .v4-crumbs a:focus-visible {
+  color: var(--bone);
+}
+
+.v4-crumbs [aria-current='page'] {
+  color: var(--orange);
+}
+
 /* ---------- STUDIO (2026-11-28, Studio.tsx) : une carte par machine ---------- */
 
 .v4-studio-list {
