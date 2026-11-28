@@ -1,7 +1,7 @@
 /**
  * /shows/ en page a part (2026-11-27, Mika : "je trouve ca pas cool d'ouvrir cette page directement dans la page des
- * machines.. je voudrais faire une autre page pour ca"), maquette A choisie : l'affiche du prochain show en grand a
- * gauche, sa date, son lieu et le bouton des billets a droite, puis les autres dates a venir et les shows passes.
+ * machines.. je voudrais faire une autre page pour ca") : les dates a venir en affiches alignees, de la plus proche a
+ * la plus lointaine (Mika : "affiche les tous en cover alignes"), puis les shows passes par annee.
  *
  * Les dates viennent de public/events.json (a venir, et les passees recentes) et public/past-events.json (l'historique
  * par annee), lus au montage. Le texte lisible sans JavaScript (et par Google) reste #seo-static, pose par
@@ -181,9 +181,7 @@ const ShowsPage: React.FC = () => {
     return [...m.entries()];
   }, [past]);
 
-  // En vedette : toujours la plus proche date (2026-11-27, Mika : "affiche dabord les premiers") ; les autres dessous
-  const next = upcoming[0] ?? null;
-  const more = upcoming.slice(1);
+  // 2026-11-27 (Mika : "affiche les tous en cover alignes") : toutes les dates a venir en affiches, la plus proche d'abord
 
   return (
     <div className="mms">
@@ -206,79 +204,59 @@ const ShowsPage: React.FC = () => {
       <main className="mms-main">
         {events === null && <p className="mms-wait">Loading dates…</p>}
 
-        {events !== null && next && (
-          <section className="mms-next" aria-labelledby="mms-next-title">
-            {!next.image && (
-              <figure className="mms-poster mms-poster--blank" aria-hidden="true">
-                <span>{next.title.split(' · ')[0]}</span>
-                <small>{shortDate(next.date)}</small>
-              </figure>
-            )}
-            {next.image && (
-              <figure className="mms-poster">
-                {next.ticketUrl || next.url ? (
-                  <Ext href={(next.ticketUrl ?? next.url)!}>
-                    <img src={next.image} alt={`${next.title} poster`} />
-                  </Ext>
-                ) : (
-                  <img src={next.image} alt={`${next.title} poster`} />
-                )}
-              </figure>
-            )}
-            <div className="mms-info">
-              <p className="mms-k">Next show</p>
-              <h1 className="mms-title" id="mms-next-title">
-                {next.title.split(' · ')[0]}
+        {events !== null && upcoming.length > 0 && (
+          <section className="mms-up" aria-labelledby="mms-up-title">
+            <div className="mms-up-head">
+              <h1 className="mms-title" id="mms-up-title">
+                Shows
               </h1>
-              <p className="mms-when">
-                <time dateTime={next.date}>{longDate(next.date)}</time>
-                {next.start && ` · ${next.start}${next.end ? ` - ${next.end}` : ''}`}
-              </p>
-              <p className="mms-where">
-                {placeOf(next)}
-                {next.title.includes(' · ') && ` · ${next.title.split(' · ').slice(1).join(' · ')}`}
-              </p>
-              {(next.ticketUrl || next.url) && (
-                <Ext href={(next.ticketUrl ?? next.url)!} className="mms-btn">
-                  {next.ticketUrl ? `Get tickets${next.price ? ` · from ${next.price}` : ''}` : 'Event info'}
-                </Ext>
-              )}
-
-              {more.length > 0 && (
-                <div className="mms-block">
-                  <h2 className="mms-k">Also coming</h2>
-                  <ol className="mms-rows">
-                    {more.map((s) => {
-                      const body = (
-                        <>
-                          <time className="mms-k mms-row-date" dateTime={s.date}>
-                            {shortDate(s.date)}
-                          </time>
-                          <span className="mms-row-title">{s.title}</span>
-                          <span className="mms-row-place">{s.city ?? s.location}</span>
-                        </>
-                      );
-                      const href = s.ticketUrl ?? s.url;
-                      return (
-                        <li key={`${s.date}-${s.title}`}>
-                          {href ? (
-                            <Ext href={href} className="mms-row">
-                              {body}
-                            </Ext>
-                          ) : (
-                            <span className="mms-row">{body}</span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              )}
+              <p className="mms-k">Upcoming</p>
             </div>
+            <ol className="mms-grid">
+              {upcoming.map((s, i) => {
+                const href = s.ticketUrl ?? s.url;
+                const name = s.title.split(' · ')[0];
+                const extra = s.title.includes(' · ') ? s.title.split(' · ').slice(1).join(' · ') : null;
+                const cover = s.image ? (
+                  <img src={s.image} alt={`${name} poster`} loading={i < 4 ? 'eager' : 'lazy'} />
+                ) : (
+                  <span className="mms-cover-blank" aria-hidden="true">
+                    <b>{name}</b>
+                    <small>{shortDate(s.date)}</small>
+                  </span>
+                );
+                return (
+                  <li key={`${s.date}-${s.title}`} className="mms-card" data-next={i === 0 ? '1' : undefined}>
+                    {href ? (
+                      <Ext href={href} className="mms-cover">
+                        {cover}
+                      </Ext>
+                    ) : (
+                      <div className="mms-cover">{cover}</div>
+                    )}
+                    <p className="mms-k mms-card-date">
+                      <time dateTime={s.date}>{longDate(s.date)}</time>
+                      {i === 0 && ' · Next'}
+                    </p>
+                    <h2 className="mms-card-title">{name}</h2>
+                    <p className="mms-card-meta">
+                      {placeOf(s)}
+                      {s.start && ` · ${s.start}${s.end ? ` - ${s.end}` : ''}`}
+                      {extra && ` · ${extra}`}
+                    </p>
+                    {href && (
+                      <Ext href={href} className="mms-btn mms-btn--sm">
+                        {s.ticketUrl ? `Tickets${s.price ? ` · from ${s.price}` : ''}` : 'Event info'}
+                      </Ext>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
           </section>
         )}
 
-        {events !== null && !next && (
+        {events !== null && upcoming.length === 0 && (
           <section className="mms-empty">
             <h1 className="mms-title">Shows</h1>
             <p className="mms-where">No upcoming dates. For booking, write to me.</p>

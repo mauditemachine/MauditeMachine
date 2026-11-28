@@ -164,3 +164,29 @@ a.mms-row:hover .mms-row-title { color: var(--yellow); }
   .mms-btn { transition: none; }
   .mms-btn:hover { transform: none; }
 }
+
+/* Les dates a venir en affiches alignees (2026-11-27) */
+.mms-up-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+.mms-up-head .mms-title { margin: 0; }
+.mms-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 40px 28px; }
+.mms-card { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.mms-cover { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: #141417; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55); transition: transform 0.2s, box-shadow 0.2s; }
+a.mms-cover:hover { transform: translateY(-3px); box-shadow: 0 26px 60px rgba(0, 0, 0, 0.7); }
+.mms-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.mms-cover-blank { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; width: 100%; height: 100%; padding: 20px; text-align: center; border: 1px solid var(--line); border-radius: 12px; background: radial-gradient(120% 80% at 50% 0%, #2a2414 0%, #141417 55%, #0c0b09 100%); }
+.mms-cover-blank b { font-family: 'MMS Radicals', 'Robot Radicals', sans-serif; font-weight: 400; font-size: clamp(34px, 4vw, 56px); line-height: 0.95; color: var(--yellow); overflow-wrap: anywhere; }
+.mms-cover-blank small { font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); }
+.mms-card-date { margin-top: 16px; }
+.mms-card-title { margin: 6px 0 4px; font-size: 21px; font-weight: 700; line-height: 1.2; }
+.mms-card-meta { margin: 0 0 14px; font-size: 15px; line-height: 1.45; color: var(--mute); }
+.mms-btn--sm { padding: 11px 18px; font-size: 11px; margin-top: auto; }
+@media (max-width: 640px) {
+  .mms-up-head { margin-bottom: 20px; }
+  .mms-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
+  .mms-card-title { font-size: 17px; }
+  .mms-card-meta { font-size: 13px; }
+  .mms-card-date { font-size: 10px; letter-spacing: 0.14em; }
+  .mms-cover-blank b { font-size: 30px; }
+  .mms-btn--sm { display: inline-block; padding: 9px 12px; font-size: 10px; letter-spacing: 0.1em; }
+}
+@media (prefers-reduced-motion: reduce) { .mms-cover { transition: none; } a.mms-cover:hover { transform: none; } }
