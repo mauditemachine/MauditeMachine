@@ -4,7 +4,7 @@
  * /mm-rytm/ et /mm-arp/, des sections du panneau comme SHOWS.
  *
  * Une image de la machine, ce qu'elle fait, ses systemes (public/data/vst.json, platforms), puis :
- * - Play it online : la machine du site, cadree (le panneau se ferme) ;
+ * - (plus de "Play it on the site" depuis le 2026-11-28, Mika : "enlever le bouton jouer sur le site puisqu'on y est")
  * - Play the full plugin (desktop) : /mm-rytm/play/ et /mm-arp/play/, la face du VST3 et son moteur en WebAssembly
  *   (plugin/WebRytmPlugin.tsx, plugin/WebArpPlugin.tsx) ;
  * - le VST3 gratuit : le formulaire courriel (VstDownload, only) et le don.
@@ -12,7 +12,6 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { closeSection, focusMachine } from '../../actions';
 import type { MachineId } from '../../state/focus';
 import { track } from '../../state/analytics';
 import { COARSE_QUERY, MOBILE_QUERY, type SectionId } from '../../theme';
@@ -78,18 +77,6 @@ export const PluginPage: React.FC<SectionProps & { id: 'mmrytm' | 'mmarp' }> = (
             Play the full plugin
           </a>
         )}
-        <button
-          type="button"
-          className="v4-plug-btn"
-          tabIndex={tab}
-          onClick={() => {
-            track('vst_play_online', { plugin: page.plugin });
-            closeSection();
-            focusMachine(page.machine);
-          }}
-        >
-          Play it on the site
-        </button>
       </div>
       {page.web && onDesktop && <p className="v4-vst-note">Play the full plugin: the same face and the same sound as the VST3, right in your browser. Desktop only.</p>}
       <h3 className="v4-sec-sub">What it does</h3>

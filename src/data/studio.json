@@ -1,0 +1,33 @@
+{
+  "_doc": "STUDIO (2026-11-28, Mika : \"faut reunir rytm arp et deckmix dans Studio ! et on doit pouvoir telecharger les full plugins quand on est dans studio\") : les machines du site au meme endroit, avec le VST3 complet a telecharger. Lu par src/v4/ui/sections/Studio.tsx et scripts/prerender-seo.mjs.",
+  "lead": "The machines of this site in one place. MM-RYTM and MM-ARP are also full VST3 plugins, free to download for Mac and Windows. MM-DECKS lives right here on the site.",
+  "machines": [
+    {
+      "id": "rytm",
+      "name": "MM-RYTM",
+      "kind": "Drum machine",
+      "text": "16 tracks, synth and sample layers, parameter locks, conditional trigs, per-track FX and two LFOs per voice.",
+      "section": "mmrytm",
+      "page": "/mm-rytm/",
+      "download": "/download/?p=rytm",
+      "web": "/mm-rytm/play/"
+    },
+    {
+      "id": "arp",
+      "name": "MM-ARP",
+      "kind": "Synth and arpeggiator",
+      "text": "Two oscillators, sub, ladder filter, arpeggiator, chord pads, chorus, tape delay and reverb.",
+      "section": "mmarp",
+      "page": "/mm-arp/",
+      "download": "/download/?p=arp",
+      "web": "/mm-arp/play/"
+    },
+    {
+      "id": "decks",
+      "name": "MM-DECKS",
+      "kind": "DJ decks and mixer",
+      "text": "Two to four decks, the Maudite Machine tracks, SoundCloud and your own files, a mixer that also takes MM-RYTM and MM-ARP.",
+      "machine": "dj"
+    }
+  ]
+}

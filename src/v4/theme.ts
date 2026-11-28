@@ -1943,7 +1943,7 @@ export const PAGE_CHIPS: readonly ChipSpec[] = [
 export const CHIPS: readonly ChipSpec[] = [
   { id: 'goodies', silk: 'GOODIES', ...pcbAt(-3.4, 2.45), aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
   { id: 'merch', silk: 'MERCH', ...pcbAt(0, 2.45), aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
-  { id: 'studio', silk: 'STUDIO', ...pcbAt(3.4, 2.45), aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
+  { id: 'studio', silk: 'STUDIO', ...pcbAt(3.4, 2.45), aria: 'Studio: MM-RYTM, MM-ARP, MM-DECKS and the VST3 downloads', href: null, section: 'studio' },
 ];
 
 /** Toutes les puces cliquables d'une carte (les deux machines) : GOODIES, MERCH, STUDIO et les pages. */
