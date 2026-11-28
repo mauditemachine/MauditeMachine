@@ -4,14 +4,13 @@
  * MM-DECKS au meme endroit, une carte chacun. Les deux plugins : DOWNLOAD VST3 (/download/?p=..., l'installeur du
  * systeme du visiteur part seul, le don Ko-fi reste facultatif), PLAY THE FULL PLUGIN (desktop, la face du VST3 en
  * WebAssembly) et DETAILS (leur page, /mm-rytm/ et /mm-arp/). Pas de bouton pour jouer la machine du site : on y est.
- * MM-DECKS n'a pas de plugin : OPEN THE DECKS cadre la machine. Dessous, l'ancien contenu (setup, cours, impression).
+ * MM-DECKS n'y est plus (2026-11-28, Mika : "JE VEUX PAS MMDECK dans studio !"). Dessous, l'ancien contenu (setup, cours, impression).
  * Le texte : src/data/studio.json (le prerendu, scripts/prerender-seo.mjs, lit le meme).
  */
 
 import React, { useState } from 'react';
-import { closeSection, focusMachine, openContact, openSection } from '../../actions';
+import { openContact, openSection } from '../../actions';
 import { MASSIVE_LINK, STUDIO } from '../../data';
-import type { MachineId } from '../../state/focus';
 import { track } from '../../state/analytics';
 import { COARSE_QUERY, MOBILE_QUERY, type SectionId } from '../../theme';
 import { ExternalLink } from '../ExternalLink';
@@ -27,7 +26,6 @@ interface StudioMachine {
   page?: string;
   download?: string;
   web?: string;
-  machine?: string;
 }
 
 const MACHINES = DATA.machines as readonly StudioMachine[];
@@ -51,7 +49,7 @@ export const Studio: React.FC<SectionProps> = ({ active, focusable }) => {
           <li key={m.id} className="v4-studio-card">
             <p className="v4-plug-kicker">
               {m.kind}
-              {m.download ? ' · Free VST3 · Mac · Windows' : ' · On this site'}
+              {' · Free VST3 · Mac · Windows'}
             </p>
             <h3 className="v4-studio-name">{m.name}</h3>
             <p className="v4-sec-text">{m.text}</p>
@@ -75,19 +73,6 @@ export const Studio: React.FC<SectionProps> = ({ active, focusable }) => {
               {m.section && (
                 <button type="button" className="v4-plug-btn" tabIndex={tab} aria-controls={`v4-section-${m.section}`} onClick={() => openSection(m.section as SectionId)}>
                   Details
-                </button>
-              )}
-              {m.machine && (
-                <button
-                  type="button"
-                  className="v4-plug-btn v4-plug-btn--main"
-                  tabIndex={tab}
-                  onClick={() => {
-                    closeSection();
-                    focusMachine(m.machine as MachineId);
-                  }}
-                >
-                  Open the decks
                 </button>
               )}
             </div>

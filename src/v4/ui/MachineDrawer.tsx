@@ -91,18 +91,8 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   return (
     <>
       <div className="v4-mdrawer-hot" aria-hidden="true" onPointerEnter={show} onPointerLeave={hide} />
-      <button
-        type="button"
-        className="v4-mdrawer-tab"
-        data-open={open ? '1' : '0'}
-        aria-expanded={open}
-        aria-controls="v4-mdrawer"
-        onPointerEnter={show}
-        onPointerLeave={hide}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span>MACHINES</span>
-      </button>
+      {/* Plus de bouton MACHINES en bas a gauche (2026-11-28, Mika : "je ne veux pas ca ! ca doit etre dans le menu !") :
+          les machines sont dans le menu (STUDIO) et dans l'en-tete ; le volet reste au bord gauche, a la souris */}
       <div
         ref={panelRef}
         id="v4-mdrawer"

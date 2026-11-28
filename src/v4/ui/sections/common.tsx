@@ -10,7 +10,7 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import type { V2Track } from '../../../v2/context/AudioPlayerContext';
-import { playItem } from '../../actions';
+import { closeSection, openSection, playItem } from '../../actions';
 import { sc } from '../../audio/soundcloud';
 import { fmtTime, type PlayItem } from '../../data';
 import { SECTION_TITLES, type SectionId } from '../../theme';
@@ -25,6 +25,50 @@ export interface SectionProps {
 
 export const tabOf = (focusable: boolean): number => (focusable ? 0 : -1);
 
+/** Les pages rangees sous une autre (fil d'Ariane) : les plugins sous STUDIO. */
+const CRUMB_PARENT: Partial<Record<SectionId, SectionId>> = { mmrytm: 'studio', mmarp: 'studio' };
+
+const cap = (t: string): string => t.charAt(0) + t.slice(1).toLowerCase();
+
+/**
+ * Le fil d'Ariane (2026-11-28, Mika : "je veux un fil ariane !") : Maudite Machine / (Studio /) la page. Le premier
+ * maillon ferme le panneau (l'accueil), le parent ouvre sa section.
+ */
+const Crumbs: React.FC<{ id: SectionId }> = ({ id }) => {
+  const parent = CRUMB_PARENT[id];
+  return (
+    <nav className="v4-crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li>
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              closeSection();
+            }}
+          >
+            Maudite Machine
+          </a>
+        </li>
+        {parent && (
+          <li>
+            <a
+              href={`/${parent}/`}
+              onClick={(e) => {
+                e.preventDefault();
+                openSection(parent);
+              }}
+            >
+              {cap(SECTION_TITLES[parent])}
+            </a>
+          </li>
+        )}
+        <li aria-current="page">{SECTION_TITLES[id].startsWith('MM-') ? SECTION_TITLES[id] : cap(SECTION_TITLES[id])}</li>
+      </ol>
+    </nav>
+  );
+};
+
 export const SectionFrame: React.FC<{ id: SectionId; active: boolean; lang?: string; children: React.ReactNode }> = ({ id, active, lang, children }) => (
   <section
     className="v4-sec"
@@ -34,6 +78,7 @@ export const SectionFrame: React.FC<{ id: SectionId; active: boolean; lang?: str
     aria-labelledby={`v4-sec-${id}-title`}
     lang={lang}
   >
+    <Crumbs id={id} />
     <h2 className="v4-sec-title" id={`v4-sec-${id}-title`}>
       {SECTION_TITLES[id]}
     </h2>
