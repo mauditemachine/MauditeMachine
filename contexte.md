@@ -1,7 +1,7 @@
 # CONTEXTE : mauditemachine.com
 
 Fichier maitre de l'etat en ligne et des chantiers recents, lu au demarrage par **Claude Code** (`CLAUDE.md`) et **Antigravity / Gemini** (`AGENTS.md`).
-Derniere mise a jour : **25 novembre 2026**.
+Derniere mise a jour : **28 novembre 2026**.
 
 Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, dates, press kit), mettre ce fichier a jour dans la meme PR.
 
@@ -16,6 +16,7 @@ Regle : quand un chantier modifie ce qui est decrit ici (machines, routes, SEO, 
   - `MM-BASS` (`bass`) : **V.3.0** (24 fichiers) - accessible sous `?bass=1`.
   - `MM-DECKS` (`src/v4/dj/`) : controle du pitch / tempo actif y compris sur les morceaux personnalises (`FILES`) charges par l'utilisateur.
 - **Arrivee du site (25 nov 2026, Mika : "je veux que le site s'ouvre avec l'intro et ensuite le menu !")** : le logo arrive, se pose, et le menu s'ouvre seul 1,1 s apres (`src/v4/arrival/Arrival.tsx`, `AUTO_MENU_MS`) ; un geste avant garde la main ; la machine vient au defilement suivant.
+- **En-tete (27 nov 2026, PR #36, Mika : "j'aime le menu soit toujours deploye sauf en mobile biensur on conserve le hamburger")** : des 1400 px, les pages du menu (`PAGE_LINKS`) sont des liens dans l'en-tete (`HeaderNav` dans `src/v4/ui/Header.tsx`, styles `.v4-hnav` dans `src/v4/v4.css`), GOODIES avec son badge FREE ; en dessous, le bouton MENU comme avant ; telephone inchange (hamburger). Le bouton MIDI (`MidiButton`) est retire de l'en-tete.
 - **Contact & Mobile (mi-novembre 2026)** :
   - Fenetre de contact directe et epuree (`/contact/`).
   - Version telephone allegée : RYTM et ARP epures, lecteur `TRACKS` avec pochettes Bandcamp, visionneuse Press Kit et contact fluides.
