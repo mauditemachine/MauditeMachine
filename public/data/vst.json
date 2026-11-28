@@ -22,9 +22,11 @@
       "kind": "Synth and arpeggiator",
       "text": "Two oscillators, sub, ladder filter, arpeggiator, chord pads, Juno-style chorus, tape delay and reverb.",
       "platforms": [
-        "macOS"
+        "macOS",
+        "Windows (beta)"
       ],
       "mac": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-Installer-Mac.pkg",
+      "win": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-Installer-Windows.exe",
       "zip": "https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-public/MM-ARP-VST3.zip"
     }
   ]
