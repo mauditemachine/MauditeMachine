@@ -11,21 +11,13 @@
  * gratuit. Play online : les machines du site (un clic les cadre, le panneau se ferme) ; puis les fonds d'ecran et les
  * pochettes. Les plugins n'y sont plus (2026-11-25, Mika : "les goodies ce sont les goodies.. les plugins ne sont pas
  * des goodies !") : ils ont leurs pages, /mm-rytm/ et /mm-arp/ (PluginPage.tsx).
+ * 2026-11-28 (Mika : oui, retirer "Play online") : les machines sont dans STUDIO (Studio.tsx).
  */
 
 import React, { useState } from 'react';
-import { closeSection, focusMachine } from '../../actions';
 import { GOODIE_GROUPS, fmtBytes, goodieFilename } from '../../data';
-import { track } from '../../state/analytics';
-import { MACHINES, type MachineId } from '../../state/focus';
 import { DownloadMark, SectionFrame, tabOf, type SectionProps } from './common';
 
-/** Les machines du site, jouables tout de suite (celles que ce site a : MACHINES, state/focus.ts) */
-const PLAY: readonly { id: MachineId; name: string; kind: string }[] = [
-  { id: 'mm808', name: 'MM-RYTM', kind: 'Drum machine' },
-  { id: 'voy', name: 'MM-ARP', kind: 'Synthesizer' },
-  { id: 'dj', name: 'MM-DECKS', kind: 'DJ decks and mixer' },
-];
 
 
 export const Goodies: React.FC<SectionProps> = ({ active, focusable }) => {
@@ -34,28 +26,7 @@ export const Goodies: React.FC<SectionProps> = ({ active, focusable }) => {
   const tab = tabOf(focusable);
   return (
     <SectionFrame id="goodies" active={active}>
-      <p className="v4-sec-text">Free: play the machines online, take the wallpapers and the covers.</p>
-      <h3 className="v4-sec-sub">Play online</h3>
-      <ul className="v4-gd-play">
-        {PLAY.filter((m) => (MACHINES as readonly string[]).includes(m.id)).map((m) => (
-          <li key={m.id}>
-            <button
-              type="button"
-              className="v4-gd-tile"
-              tabIndex={tab}
-              onClick={() => {
-                track('goodies_play', { machine: m.id });
-                closeSection();
-                focusMachine(m.id);
-              }}
-            >
-              <span className="v4-gd-tile-name">{m.name}</span>
-              <span className="v4-gd-tile-kind">{m.kind}</span>
-              <span className="v4-gd-tile-go">Play</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="v4-sec-text">Free: take the wallpapers and the covers. The machines are in STUDIO.</p>
       {GOODIE_GROUPS.map((g) => (
         <React.Fragment key={g.category}>
           <h3 className="v4-sec-sub">{g.title}</h3>

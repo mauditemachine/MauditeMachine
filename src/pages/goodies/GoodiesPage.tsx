@@ -10,11 +10,6 @@ import { GOODIES, goodieFilename, type GoodieCategory, type GoodieItem } from '.
 import { SiteShell } from '../site/SiteShell';
 import './goodies.css';
 
-const PLAY: readonly { href: string; name: string; kind: string }[] = [
-  { href: '/?m=rytm', name: 'MM-RYTM', kind: 'Drum machine' },
-  { href: '/?m=arp', name: 'MM-ARP', kind: 'Synthesizer' },
-  { href: '/?m=decks', name: 'MM-DECKS', kind: 'DJ decks and mixer' },
-];
 
 const GROUPS: readonly { category: GoodieCategory; title: string }[] = [
   { category: 'wallpaper-desktop', title: 'Desktop wallpapers' },
@@ -52,24 +47,9 @@ const GoodiesPage: React.FC = () => (
       <h1 className="mms-title">Goodies</h1>
       <p className="mms-k">Free</p>
     </div>
-    <p className="mmg-lead">Play the machines online, take the wallpapers and the covers. Everything here is free.</p>
+    <p className="mmg-lead">Wallpapers and covers, free to download. The machines and the VST3 plugins are in Studio.</p>
 
-    <section className="mmg-sec" aria-labelledby="mmg-play">
-      <h2 className="mms-k" id="mmg-play">
-        Play online
-      </h2>
-      <ul className="mmg-play">
-        {PLAY.map((m) => (
-          <li key={m.href}>
-            <a className="mmg-tile" href={m.href}>
-              <span className="mmg-tile-name">{m.name}</span>
-              <span className="mmg-tile-kind">{m.kind}</span>
-              <span className="mmg-tile-go">Play ↗</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
+
 
     {GROUPS.map((g, gi) => {
       const items = GOODIES.filter((x) => x.category === g.category);
