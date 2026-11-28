@@ -6725,6 +6725,17 @@ html:has(body.v4-active.v4-light) {
   .v4-root .v4-header-end .v4-menu-btn {
     display: none;
   }
+  /* 2026-11-28 (Mika : "on devait arriver sur l'animation et ensuite on tombait sur le menu") : l'arrivee ouvre
+     toujours le menu plein ecran ; ouvert, son bouton CLOSE revient pour le fermer */
+  .v4-root .v4-header[data-menu='1'] .v4-header-end .v4-menu-btn {
+    display: flex;
+  }
+  .v4-root .v4-header-end .v4-menu-btn .v4-menu-word {
+    display: none;
+  }
+  .v4-root .v4-header-end .v4-menu-btn {
+    padding: 0 11px;
+  }
 }
 
 @media (min-width: 1600px) {
