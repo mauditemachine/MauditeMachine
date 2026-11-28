@@ -6,6 +6,9 @@ project(MM_ARP VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
+# Windows (2026-11-28, Mika : "MM-ARP en VST3 sur le site, Mac ou Windows") : le runtime C++ de MSVC lie dans le plugin
+# (/MT), comme le MM-RYTM, sinon un PC sans le "Visual C++ Redistributable" ne le charge pas. Toutes les cibles.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 option(MM_HOST_TEST "Le banc du processeur sans fenetre (tests/host_test.cpp, Linux ou Mac), a la place du plugin" OFF)
@@ -144,6 +147,8 @@ juce_add_plugin(MM_ARP
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS TRUE
   VST3_CATEGORIES Instrument Synth
+  # Windows (2026-11-28) : la face passe par WebView2, lie en statique (pas de WebView2Loader.dll a cote du .vst3)
+  NEEDS_WEBVIEW2 TRUE
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # La face : le build de src/v4/plugin/arp (npm run plugin:arp:web -> build-web), en un zip dans le binaire
@@ -166,7 +171,8 @@ target_compile_definitions(MM_ARP PUBLIC
   JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
-  JUCE_DISPLAY_SPLASH_SCREEN=0)
+  JUCE_DISPLAY_SPLASH_SCREEN=0
+  JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 
 target_link_libraries(MM_ARP
   PRIVATE mmarp_dsp mmarp_web

@@ -13,7 +13,7 @@ Depuis le 2026-11-25 : les pages **`/mm-rytm/`** et **`/mm-arp/`** (`src/v4/ui/s
 3. Case "nouvelles" cochee : un second courriel, a toi seulement, par le modele de CONTACT (objet `Newsletter opt-in (VST download)`). Seuls ceux-la ont dit oui aux nouvelles (loi canadienne anti-pourriel : ne pas ecrire aux autres pour autre chose que les plugins).
 4. Les liens du courriel menent a **`/download/?p=rytm`** et **`/download/?p=arp`** (`public/download/index.html`, noindex, hors sitemap) : le zip part tout seul, l'installation est expliquee, le bouton de don est la.
 5. Les zips viennent des releases **fixes** `mm-rytm-public` et `mm-arp-public`, remplies par le workflow **Plugin public** (jamais des releases `-latest`, que chaque build de chantier ecrase).
-6. **Un seul zip par plugin** (`MM-RYTM-VST3.zip`, `MM-ARP-VST3.zip`, 2026-11-24, Mika : "dans le meme package, c'est aux gens de faire ce choix") : un dossier `macOS/` et, quand le plugin en a une, un dossier `Windows/`. La page `/download/` montre d'abord l'installation du systeme du visiteur. MM-RYTM : Mac et Windows (beta). MM-ARP : Mac (Windows quand sa branche sera fusionnee et son CI aura un job Windows).
+6. **Un seul zip par plugin** (`MM-RYTM-VST3.zip`, `MM-ARP-VST3.zip`, 2026-11-24, Mika : "dans le meme package, c'est aux gens de faire ce choix") : un dossier `macOS/` et, quand le plugin en a une, un dossier `Windows/`. La page `/download/` montre d'abord l'installation du systeme du visiteur. MM-RYTM : Mac et Windows (beta). MM-ARP : Mac et Windows (beta) depuis le 28 nov 2026 (job `windows` de `plugin-arp.yml`).
 
 Tant que `emailjsTemplateId` est vide dans `public/data/vst.json`, le bloc reste cache dans GOODIES (apercu : `/goodies/?vst=1`).
 

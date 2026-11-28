@@ -3896,7 +3896,7 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
         // jusqu'a -4.7 dB a 16 kHz) : une pre-accentuation a trois points, symetrique (1 + 2a - 2a cos w : 0 dB en bas,
         // +1.3 dB a 8 kHz, +3.6 dB a 16 kHz), un echantillon de retard de plus
         // (sept points, symetrique : h0 = 1 + 2a + 2c, h1 = -a, h3 = -c ; +1.4 dB a 8 kHz, +5.6 dB a 16 kHz)
-        constexpr double PA = 0.30, PC = -0.0325;
+        static constexpr double PA = 0.30, PC = -0.0325;
         for (int q = 0; q < 6; q += 1) {
           v.pZ[q] = v.pZ[q + 1];
           v.pZR[q] = v.pZR[q + 1];

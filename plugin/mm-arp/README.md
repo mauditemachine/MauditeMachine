@@ -1,6 +1,6 @@
 # MM-ARP, le plugin
 
-Le synthe arpegiateur du site (`src/v4`, le MM-ARP) en VST3 pour macOS, avec la vraie face du site. Usage perso. Meme
+Le synthe arpegiateur du site (`src/v4`, le MM-ARP) en VST3 pour macOS et Windows (beta, 2026-11-28 : face en WebView2 comme le MM-RYTM, job `windows` de `plugin-arp.yml`), avec la vraie face du site. Usage perso. Meme
 architecture que `plugin/mm-rytm`.
 
 ## Architecture (2026-11-09)
