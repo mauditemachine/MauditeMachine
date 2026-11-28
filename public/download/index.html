@@ -218,7 +218,7 @@
           <div>
             <span class="plugin-kind">Drum machine</span>
             <span class="plugin-name">MM-RYTM</span>
-            <span class="plugin-os" data-os="rytm">macOS · Windows (beta)</span>
+            <span class="plugin-os" data-os="rytm">macOS · Windows</span>
           </div>
           <div class="dl">
             <a class="btn" data-dl="rytm" data-sys="mac" data-main="1" href="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-public/MM-RYTM-Installer-Mac.pkg">Mac</a>
@@ -252,14 +252,14 @@
         </section>
 
         <section class="install" id="install-win">
-          <h2>Install on Windows (beta)</h2>
+          <h2>Install on Windows</h2>
           <ol>
             <li>Run <code class="exe">MM-RYTM-Installer-Windows.exe</code> and follow the steps.</li>
             <li>If a blue "Windows protected your PC" window shows up: More info &gt; Run anyway.</li>
             <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Options &gt; Preferences &gt; Plug-ins, turn on "Use VST3 Plug-in System Folders", then Rescan.</li>
             <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
           </ol>
-          <p class="small">Windows 10 or 11, 64-bit. The plugin goes to C:\Program Files\Common Files\VST3; uninstall it from Settings &gt; Apps. Its window uses Microsoft Edge WebView2, part of Windows 11 and up-to-date Windows 10. The Windows version is new: if something goes wrong, <a href="/contact/">tell me</a>.</p>
+          <p class="small">Windows 10 or 11, 64-bit. The plugin goes to C:\Program Files\Common Files\VST3; uninstall it from Settings &gt; Apps. Its window uses Microsoft Edge WebView2, part of Windows 11 and up-to-date Windows 10. If something goes wrong, <a href="/contact/">tell me</a>.</p>
         </section>
       </div>
       <p class="small" id="win-soon" hidden></p>
@@ -409,7 +409,7 @@
               soon.textContent = 'Windows version coming soon.';
               soon.hidden = false;
             } else if (!p && withWin.length < (c.plugins || []).length) {
-              soon.textContent = 'Windows (beta) for now: ' + withWin.map(function (pl) { return pl.name; }).join(', ') + '. The others are coming.';
+              soon.textContent = 'Windows for now: ' + withWin.map(function (pl) { return pl.name; }).join(', ') + '. The others are coming.';
               soon.hidden = false;
             }
             mark();

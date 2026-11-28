@@ -12,7 +12,7 @@ Mac (macOS 11 or later, Apple Silicon and Intel):
   (it asks for your Mac password), then restart the DAW:
     sudo xattr -cr /Library/Audio/Plug-Ins/VST3/@NAME@.vst3
 [[WIN]]
-Windows (10 or 11, 64-bit, beta):
+Windows (10 or 11, 64-bit):
   Run @NAME@-Installer-Windows.exe and follow the steps.
   If a blue "Windows protected your PC" window shows up: More info > Run anyway.
   If the plugin window stays empty, install the Microsoft Edge WebView2 Runtime

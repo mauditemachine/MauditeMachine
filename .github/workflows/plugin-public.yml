@@ -201,7 +201,7 @@ jobs:
             BUILD="$BUILD
           $(cat art/windows/BUILD-win.txt)"
             perl -0pe 's/\[\[NOWIN\]\].*?\[\[\/NOWIN\]\]//gs; s/\[\[\/?WIN\]\]//g; s/\@NAME\@/'"$N"'/g; s/\@SLUG\@/mm-'"$PLUGIN"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
-            OS="Mac and Windows (beta)"
+            OS="Mac and Windows"
           else
             perl -0pe 's/\[\[WIN\]\].*?\[\[\/WIN\]\]//gs; s/\[\[\/?NOWIN\]\]//g; s/\@NAME\@/'"$N"'/g; s/\@SLUG\@/mm-'"$PLUGIN"'/g' plugin/public/README.txt > "pkg/$N/README.txt"
             OS="Mac"
