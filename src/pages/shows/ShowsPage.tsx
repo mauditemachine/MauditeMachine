@@ -181,10 +181,9 @@ const ShowsPage: React.FC = () => {
     return [...m.entries()];
   }, [past]);
 
-  // En vedette : la plus proche date qui a une affiche (sinon la plus proche) ; les autres dates a venir dessous
-  const next = upcoming.find((s) => s.image) ?? upcoming[0] ?? null;
-  const more = upcoming.filter((s) => s !== next);
-  const isFirst = next !== null && next === upcoming[0];
+  // En vedette : toujours la plus proche date (2026-11-27, Mika : "affiche dabord les premiers") ; les autres dessous
+  const next = upcoming[0] ?? null;
+  const more = upcoming.slice(1);
 
   return (
     <div className="mms">
@@ -208,7 +207,13 @@ const ShowsPage: React.FC = () => {
         {events === null && <p className="mms-wait">Loading dates…</p>}
 
         {events !== null && next && (
-          <section className={next.image ? 'mms-next' : 'mms-next mms-next--noimg'} aria-labelledby="mms-next-title">
+          <section className="mms-next" aria-labelledby="mms-next-title">
+            {!next.image && (
+              <figure className="mms-poster mms-poster--blank" aria-hidden="true">
+                <span>{next.title.split(' · ')[0]}</span>
+                <small>{shortDate(next.date)}</small>
+              </figure>
+            )}
             {next.image && (
               <figure className="mms-poster">
                 {next.ticketUrl || next.url ? (
@@ -221,7 +226,7 @@ const ShowsPage: React.FC = () => {
               </figure>
             )}
             <div className="mms-info">
-              <p className="mms-k">{isFirst ? 'Next show' : 'Upcoming'}</p>
+              <p className="mms-k">Next show</p>
               <h1 className="mms-title" id="mms-next-title">
                 {next.title.split(' · ')[0]}
               </h1>
@@ -241,7 +246,7 @@ const ShowsPage: React.FC = () => {
 
               {more.length > 0 && (
                 <div className="mms-block">
-                  <h2 className="mms-k">{isFirst ? 'Also coming' : 'Other dates'}</h2>
+                  <h2 className="mms-k">Also coming</h2>
                   <ol className="mms-rows">
                     {more.map((s) => {
                       const body = (

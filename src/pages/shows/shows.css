@@ -67,9 +67,24 @@ html.mm-shows-root, html.mm-shows-root body { background: #0c0b09 !important; ma
 }
 
 .mms-next { display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 64px; align-items: start; }
-.mms-next--noimg { grid-template-columns: minmax(0, 1fr); }
+
 .mms-poster { margin: 0; }
 .mms-poster img { display: block; width: 100%; height: auto; border-radius: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); }
+.mms-poster--blank {
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  background: radial-gradient(120% 80% at 50% 0%, #2a2414 0%, #141417 55%, #0c0b09 100%);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: center;
+}
+.mms-poster--blank span { font-family: 'MMS Radicals', 'Robot Radicals', sans-serif; font-size: clamp(40px, 6vw, 80px); line-height: 0.95; color: var(--yellow); overflow-wrap: anywhere; }
+.mms-poster--blank small { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); }
 .mms-info { padding-top: 10px; min-width: 0; }
 .mms-title {
   margin: 14px 0 18px;
@@ -129,6 +144,7 @@ a.mms-row:hover .mms-row-title { color: var(--yellow); }
   /* Au telephone, la date et les billets d'abord, l'affiche dessous */
   .mms-info { order: -1; padding-top: 0; }
   .mms-poster { max-width: 520px; }
+  .mms-poster--blank { display: none; }
   .mms-block { margin-top: 40px; }
 }
 @media (max-width: 640px) {
