@@ -1,0 +1,114 @@
+/* Pages du site hors des machines (2026-11-27) : les couleurs et polices de la machine (src/v4/v4.css), sans rien en charger. */
+@font-face { font-family: 'MMS Radicals'; src: url('/fonts/RobotRadicals.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'MMS SF'; src: url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'MMS SF'; src: url('/fonts/SF-Pro-Display-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'MMS SF'; src: url('/fonts/SF-Pro-Display-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+html.mm-site-root, html.mm-site-root body { background: #0c0b09 !important; margin: 0 !important; padding: 0 !important; }
+
+.mms {
+  --ink: #0c0b09;
+  --line: #2e3036;
+  --bone: #f6f1e7;
+  --mute: #9a968e;
+  --yellow: #f2c230;
+  --yellow-hi: #ffd75e;
+  min-height: 100vh;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: 'MMS SF', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.mms a { color: inherit; text-decoration: none; }
+.mms a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; border-radius: 4px; }
+
+.mms-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 40px;
+  border-bottom: 1px solid #1d1d20;
+}
+.mms-logo img { display: block; width: 150px; height: auto; }
+.mms-nav { display: flex; gap: 26px; flex-wrap: wrap; justify-content: center; }
+.mms-nav a {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mute);
+  transition: color 0.15s;
+}
+.mms-nav a:hover { color: var(--bone); }
+.mms-nav a[aria-current='page'] { color: var(--yellow); font-weight: 700; }
+.mms-machines {
+  flex: none;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  padding: 9px 16px;
+  border-radius: 999px;
+  transition: border-color 0.15s;
+}
+.mms-machines:hover { border-color: var(--yellow); }
+
+.mms-main { max-width: 1320px; margin: 0 auto; padding: 48px 40px 40px; }
+.mms-wait { color: var(--mute); }
+
+.mms-k {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+
+.mms-title {
+  margin: 14px 0 18px;
+  font-family: 'MMS Radicals', 'Robot Radicals', 'MMS SF', sans-serif;
+  font-weight: 400;
+  font-size: clamp(44px, 6vw, 84px);
+  line-height: 0.95;
+  overflow-wrap: anywhere;
+}
+.mms-up-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+.mms-up-head .mms-title { margin: 0; }
+.mms-btn {
+  display: inline-block;
+  background: var(--yellow);
+  color: #111 !important;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 15px 24px;
+  border-radius: 999px;
+  transition: background 0.15s, transform 0.15s;
+}
+.mms-btn:hover { background: var(--yellow-hi); transform: translateY(-1px); }
+
+.mms-foot { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 56px; padding-top: 24px; border-top: 1px solid #1d1d20; }
+.mms-foot a { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+.mms-foot a:hover { color: var(--bone); }
+
+
+@media (max-width: 1024px) {
+  .mms-head { flex-wrap: wrap; }
+  .mms-nav { order: 3; width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; gap: 22px; padding-bottom: 2px; scrollbar-width: none; }
+  .mms-nav::-webkit-scrollbar { display: none; }
+  .mms-nav a { flex: none; }
+}
+@media (max-width: 640px) {
+  .mms-head { padding: 14px 16px; }
+  .mms-logo img { width: 120px; }
+  .mms-main { padding: 24px 16px 32px; }
+  .mms-btn { display: block; text-align: center; }
+  .mms-up-head { margin-bottom: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mms-btn { transition: none; }
+  .mms-btn:hover { transform: none; }
+}

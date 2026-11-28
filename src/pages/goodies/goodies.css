@@ -1,0 +1,57 @@
+/* /goodies/ (2026-11-27) : la coquille et les styles communs sont dans ../site/site.css */
+.mmg-lead { margin: -14px 0 8px; font-size: 18px; color: var(--mute); max-width: 60ch; }
+.mmg-sec { margin-top: 48px; }
+.mmg-sec > .mms-k { margin-bottom: 18px; }
+
+.mmg-play { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.mmg-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 26px 24px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: radial-gradient(120% 90% at 0% 0%, #2a2414 0%, #141417 60%);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.mmg-tile:hover { border-color: var(--yellow); transform: translateY(-2px); }
+.mmg-tile-name { font-family: 'MMS Radicals', 'Robot Radicals', sans-serif; font-size: 34px; line-height: 1; color: var(--bone); }
+.mmg-tile-kind { font-size: 15px; color: var(--mute); }
+.mmg-tile-go { margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--yellow); }
+
+.mmg-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px 22px; }
+.mmg-grid[data-kind='wallpaper-desktop'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mmg-grid[data-kind='wallpaper-phone'] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.mmg-grid[data-kind='cover'] { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.mmg-item { display: block; }
+.mmg-img { display: block; overflow: hidden; border-radius: 10px; background: #141417; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); transition: transform 0.2s; }
+.mmg-img[data-kind='wallpaper-desktop'] { aspect-ratio: 16 / 10; }
+.mmg-img[data-kind='wallpaper-phone'] { aspect-ratio: 9 / 19.5; }
+.mmg-img[data-kind='cover'] { aspect-ratio: 1 / 1; }
+.mmg-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mmg-item:hover .mmg-img { transform: translateY(-3px); }
+.mmg-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 12px; }
+.mmg-title { font-size: 15px; font-weight: 500; min-width: 0; }
+.mmg-dl { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mute); }
+.mmg-dl svg { color: var(--yellow); }
+.mmg-item:hover .mmg-title { color: var(--yellow); }
+
+@media (max-width: 1024px) {
+  .mmg-grid[data-kind='wallpaper-phone'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .mmg-lead { margin-top: -6px; font-size: 16px; }
+  .mmg-play { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .mmg-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 12px; padding: 14px 16px; }
+  .mmg-tile-name { font-size: 22px; }
+  .mmg-tile-kind { grid-column: 1; font-size: 13px; }
+  .mmg-tile-go { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+  .mmg-grid { gap: 22px 14px; }
+  .mmg-grid[data-kind='wallpaper-desktop'] { grid-template-columns: minmax(0, 1fr); }
+  .mmg-grid[data-kind='wallpaper-phone'], .mmg-grid[data-kind='cover'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mmg-title { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mmg-tile, .mmg-img { transition: none; }
+  .mmg-tile:hover, .mmg-item:hover .mmg-img { transform: none; }
+}

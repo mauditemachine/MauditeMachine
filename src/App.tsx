@@ -36,6 +36,8 @@ const WebArpPlugin = React.lazy(() => import('./v4/plugin/WebArpPlugin'));
 
 // La page des dates (2026-11-27, Mika : une page a part, hors de la machine) : chunk lazy, sans three
 const ShowsStandalone = React.lazy(() => import('./pages/shows/ShowsPage'));
+// GOODIES aussi (2026-11-27, Mika : "je veux tout separer des machines")
+const GoodiesStandalone = React.lazy(() => import('./pages/goodies/GoodiesPage'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -99,7 +101,7 @@ export default function App() {
           {/* 2026-11-27 : SHOWS est une page a part (src/pages/shows/ShowsPage.tsx), plus un panneau de la machine */}
           <Route path="/shows" element={lazyEl(<ShowsStandalone />)} />
           <Route path="/contact" element={lazyEl(<V4App />)} />
-          <Route path="/goodies" element={lazyEl(<V4App />)} />
+          <Route path="/goodies" element={lazyEl(<GoodiesStandalone />)} />
           <Route path="/merch" element={lazyEl(<V4App />)} />
           <Route path="/studio" element={lazyEl(<V4App />)} />
           {/* 2026-11-25 : les pages des plugins (sections de la machine) et les plugins MM-RYTM et MM-ARP en entier dans le navigateur */}

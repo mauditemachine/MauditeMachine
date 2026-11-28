@@ -19,7 +19,6 @@ export const SECTION_ROUTES: Readonly<Partial<Record<SectionId, string>>> = {
   tracks: '/tracks/',
   mixtapes: '/mixtapes/',
   contact: '/contact/',
-  goodies: '/goodies/',
   merch: '/merch/',
   studio: '/studio/',
   // Les pages des plugins (2026-11-25) : presentation, VST3 gratuit, la machine en ligne

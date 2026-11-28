@@ -112,6 +112,8 @@ const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/'
  * montage. Toutes les autres adresses sont la machine (v4), dont le DOM
  * rendu est le meme partout : leur texte reste a cote de #root.
  */
+/** Les pages du site hors de la machine (2026-11-27, src/pages/site/SiteShell.tsx) : #seo-static garde, sans coquille. */
+const SITE_PAGES = new Set(['/shows/', '/goodies/']);
 const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/', '/mm-rytm/play/', '/mm-arp/play/']);
 
 const indexPath = join(DIST, 'index.html');
@@ -1694,8 +1696,8 @@ for (const route of ROUTES) {
   }
   html = withContent(html, route);
   // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
-  // /shows/ (2026-11-27) : une page a part, pas la machine : ni coquille ni preload de la machine
-  if (!REACT_PAGES.has(route) && route !== '/shows/') html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
+  // /shows/ et /goodies/ (2026-11-27) : des pages a part, pas la machine : ni coquille ni preload de la machine
+  if (!REACT_PAGES.has(route) && !SITE_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
   if (route === '/shows/') html = withEvents(html);
   html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
   if (route === '/tracks/') html = toHead(html, tracksJsonLd());
