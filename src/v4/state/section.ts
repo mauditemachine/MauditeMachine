@@ -9,6 +9,9 @@
 
 import type { SectionId } from '../theme';
 
+/** Les sections devenues des pages a part, hors de la machine : leur adresse. */
+const STANDALONE: Partial<Record<SectionId, string>> = { shows: '/shows/', goodies: '/goodies/' };
+
 let current: SectionId | null = null;
 /** changements depuis le chargement (revue) */
 let changes = 0;
@@ -19,8 +22,10 @@ export const section = {
   set(s: SectionId | null): void {
     // SHOWS est une page a part depuis le 2026-11-27 (Mika : "je trouve ca pas cool d'ouvrir cette page directement
     // dans la page des machines") : le menu, le pad 3 et la puce y menent (src/pages/shows/ShowsPage.tsx)
-    if (s === 'shows') {
-      if (typeof window !== 'undefined') window.location.assign('/shows/');
+    // GOODIES aussi (2026-11-27, Mika : "je veux tout separer des machines", src/pages/goodies/GoodiesPage.tsx)
+    const page = s ? STANDALONE[s] : undefined;
+    if (page) {
+      if (typeof window !== 'undefined') window.location.assign(page);
       return;
     }
     if (s === current) return;

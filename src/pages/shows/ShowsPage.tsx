@@ -9,7 +9,9 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
+import '../site/site.css';
 import './shows.css';
+import { Ext, SiteShell } from '../site/SiteShell';
 
 interface RawEvent {
   date?: unknown;
@@ -112,32 +114,12 @@ const fetchJson = (url: string): Promise<unknown> =>
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
 
-const LOGO = '/logo/mauditemachine-logo-gold.svg';
-const NAV: readonly [string, string][] = [
-  ['Tracks', '/tracks/'],
-  ['Mixtapes', '/mixtapes/'],
-  ['MM-RYTM', '/mm-rytm/'],
-  ['MM-ARP', '/mm-arp/'],
-  ['Goodies', '/goodies/'],
-  ['Shows', '/shows/'],
-  ['Press', '/presskit/'],
-  ['Contact', '/contact/'],
-];
-
-const Ext: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) => (
-  <a href={href} className={className} target="_blank" rel="noopener noreferrer">
-    {children}
-  </a>
-);
-
 const ShowsPage: React.FC = () => {
   const [events, setEvents] = useState<Show[] | null>(null);
   const [history, setHistory] = useState<PastShow[]>([]);
 
   useEffect(() => {
     // La coquille de demarrage de la machine n'a rien a faire ici (prerendu ou navigation depuis la machine)
-    document.getElementById('mm-boot')?.remove();
-    document.documentElement.classList.add('mm-shows-root');
     let alive = true;
     Promise.all([fetchJson('/events.json'), fetchJson('/past-events.json')]).then(([ev, past]) => {
       if (!alive) return;
@@ -157,7 +139,6 @@ const ShowsPage: React.FC = () => {
     });
     return () => {
       alive = false;
-      document.documentElement.classList.remove('mm-shows-root');
     };
   }, []);
 
@@ -184,24 +165,7 @@ const ShowsPage: React.FC = () => {
   // 2026-11-27 (Mika : "affiche les tous en cover alignes") : toutes les dates a venir en affiches, la plus proche d'abord
 
   return (
-    <div className="mms">
-      <header className="mms-head">
-        <a href="/" className="mms-logo" aria-label="Maudite Machine, home">
-          <img src={LOGO} alt="Maudite Machine" width={150} height={33} />
-        </a>
-        <nav className="mms-nav" aria-label="Site">
-          {NAV.map(([label, href]) => (
-            <a key={href} href={href} aria-current={href === '/shows/' ? 'page' : undefined}>
-              {label}
-            </a>
-          ))}
-        </nav>
-        <a href="/" className="mms-machines">
-          Machines <span aria-hidden="true">↗</span>
-        </a>
-      </header>
-
-      <main className="mms-main">
+    <SiteShell current="/shows/">
         {events === null && <p className="mms-wait">Loading dates…</p>}
 
         {events !== null && upcoming.length > 0 && (
@@ -287,14 +251,7 @@ const ShowsPage: React.FC = () => {
           </section>
         )}
 
-        <footer className="mms-foot">
-          <a href="/contact/">Booking</a>
-          <a href="/techrider/">Tech rider</a>
-          <a href="/press/">Press</a>
-          <a href="/">MM-STUDIO</a>
-        </footer>
-      </main>
-    </div>
+    </SiteShell>
   );
 };
 
