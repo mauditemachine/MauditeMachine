@@ -6661,3 +6661,80 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-theme='light'] .v4-mname-sub {
   color: #555;
 }
+
+/*
+ * ---------- Le menu toujours ouvert sur ordi (2026-11-27, Header.tsx HeaderNav) ----------
+ * Mika : "j'aime le menu soit toujours deploye sauf en mobile biensur on conserve le hamburger". Des 1400 px (en dessous, la place manque a cote des machines), les pages
+ * du menu en liens dans l'en-tete ; GOODIES y a son badge FREE (le bouton jaune s'efface), MENU garde ses trois traits
+ * pour le reste (merch, clair / sombre, reseaux). En dessous, le bouton MENU comme avant.
+ */
+.v4-root .v4-hnav {
+  display: none;
+}
+
+@media (min-width: 1400px) {
+  .v4-root .v4-hnav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-right: auto;
+  }
+  .v4-root .v4-hnav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--bone-70);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 140ms ease, box-shadow 140ms ease;
+  }
+  .v4-root .v4-hnav-link:hover {
+    color: var(--bone);
+  }
+  .v4-root .v4-hnav-link[aria-current='page'] {
+    color: var(--bone);
+    box-shadow: inset 0 0 0 1.5px var(--orange);
+  }
+  .v4-root .v4-hnav-link:focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: 2px;
+  }
+  .v4-root .v4-hnav-link[data-badge='1'] {
+    color: var(--yellow);
+  }
+  .v4-root .v4-hnav-badge {
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: var(--yellow);
+    color: #0c0b09;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+  .v4-root .v4-header-end .v4-goodies-btn,
+  .v4-root .v4-menu-btn .v4-menu-word {
+    display: none;
+  }
+  .v4-root .v4-menu-btn {
+    padding: 0 11px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .v4-root .v4-hnav {
+    gap: 6px;
+  }
+  .v4-root .v4-hnav-link {
+    padding: 0 12px;
+  }
+}

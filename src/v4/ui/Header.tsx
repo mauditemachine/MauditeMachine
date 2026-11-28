@@ -13,7 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { closeSection, focusMachine, openSection, openToggle, resetView } from '../actions';
+import { closeSection, focusMachine, openSection, openToggle, page, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { bassExplode, explode, voyExplode } from '../state/explode';
@@ -22,10 +22,9 @@ import { section } from '../state/section';
 import { sectionFromPath } from '../state/sectionRoute';
 import { UNDO_MACHINE_NAME, undo } from '../state/undo';
 import { shareBeat } from '../state/share';
-import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId } from '../theme';
+import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId, type SectionId } from '../theme';
 import { MenuSheet } from './MenuSheet';
 import { arrival } from '../state/arrival';
-import { MidiButton } from './MidiPanel';
 import { FaIcon } from './uiIcons';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
@@ -274,6 +273,40 @@ const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
   );
 };
 
+/**
+ * Le menu toujours ouvert sur ordi (2026-11-27, Mika : "quand on arrive sur MMRYTM ou ARP on perd le menu" ; "j'aime le
+ * menu soit toujours deploye sauf en mobile biensur on conserve le hamburger") : les pages du menu en liens dans
+ * l'en-tete des 1400 px (v4.css .v4-hnav) ; en dessous, le bouton MENU comme avant. Le meme geste que le menu plein
+ * ecran (MenuSheet.tsx) : une page de la machine, ou sa section.
+ */
+const HeaderNav: React.FC<{ getStage: () => Stage | null; onPick: () => void }> = ({ getStage, onPick }) => {
+  const opened = useSyncExternalStore(section.subscribe, section.get, section.get);
+  return (
+    <nav className="v4-hnav" aria-label="Pages">
+      {PAGE_LINKS.map((l) => {
+        const isPage = l.id !== 'mmrytm' && l.id !== 'mmarp' && l.id !== 'goodies';
+        return (
+          <button
+            key={l.id}
+            type="button"
+            className="v4-hnav-link"
+            data-badge={l.badge ? '1' : undefined}
+            aria-current={opened === l.id ? 'page' : undefined}
+            onClick={() => {
+              onPick();
+              if (isPage) page(l.id as PageId, getStage());
+              else openSection(l.id as SectionId);
+            }}
+          >
+            {l.label}
+            {l.badge && <span className="v4-hnav-badge">{l.badge}</span>}
+          </button>
+        );
+      })}
+    </nav>
+  );
+};
+
 export const Header: React.FC<Props> = ({ getStage }) => {
   const [menu, setMenuRaw] = useState(() => initialMenuOpen() && !arrival.active());
   const setMenu = useArrivalMenu(setMenuRaw);
@@ -301,10 +334,10 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           <span className="v4-logotype" aria-hidden="true" />
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
         </a>
+        <HeaderNav getStage={getStage} onPick={() => setMenu(false)} />
         <div className="v4-header-end">
         <ShareButton />
         <UndoButton />
-        <MidiButton />
         {VOYAGER && <HeaderMachines onPick={() => setMenu(false)} />}
         <GoodiesButton onPick={() => setMenu(false)} />
         <button
