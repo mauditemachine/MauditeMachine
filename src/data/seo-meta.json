@@ -41,8 +41,8 @@
       "description": "Listen to Maudite Machine mixtapes and DJ sets: indie dance and dark disco recorded live in clubs and festivals, on SoundCloud and the Mixcloud archive."
     },
     "/studio": {
-      "title": "Studio, Ableton Lessons and Print | Maudite Machine",
-      "description": "The Maudite Machine studio: synths and grooveboxes, Ableton Live lessons with Mika, and print and merch production. Not to be confused with MM-STUDIO."
+      "title": "Studio: MM-RYTM, MM-ARP, MM-DECKS and Free VST3 | Maudite Machine",
+      "description": "The Maudite Machine studio: the MM-RYTM drum machine and MM-ARP synth as free VST3 plugins for Mac and Windows, the MM-DECKS DJ decks, and Ableton Live lessons with Mika."
     },
     "/radar": {
       "title": "Radar: New Releases Picked by Maudite Machine",
@@ -111,8 +111,8 @@
       "description": "Les mixtapes et DJ sets de Maudite Machine : indie dance et dark disco enregistrés en club et en festival, sur SoundCloud et dans les archives Mixcloud."
     },
     "/studio": {
-      "title": "Studio, cours Ableton et impression | Maudite Machine",
-      "description": "Le studio de Maudite Machine : synthés et grooveboxes, cours Ableton Live avec Mika, impression et production de merch. À ne pas confondre avec MM-STUDIO."
+      "title": "Studio : MM-RYTM, MM-ARP, MM-DECKS et VST3 gratuits | Maudite Machine",
+      "description": "Le studio de Maudite Machine : la boîte à rythmes MM-RYTM et le synthé MM-ARP en plugins VST3 gratuits pour Mac et Windows, les platines MM-DECKS et les cours Ableton Live avec Mika."
     },
     "/radar": {
       "title": "Radar : nouveautés choisies par Maudite Machine",
@@ -165,8 +165,8 @@
       "description": "Las mixtapes y DJ sets de Maudite Machine: indie dance y dark disco grabados en directo en clubes y festivales, en SoundCloud y en el archivo de Mixcloud."
     },
     "/studio": {
-      "title": "Estudio, clases de Ableton e impresión | Maudite Machine",
-      "description": "El estudio de Maudite Machine: sintetizadores y grooveboxes, clases de Ableton Live con Mika, impresión y producción de merch. No confundir con MM-STUDIO."
+      "title": "Estudio: MM-RYTM, MM-ARP, MM-DECKS y VST3 gratis | Maudite Machine",
+      "description": "El estudio de Maudite Machine: la caja de ritmos MM-RYTM y el sintetizador MM-ARP como plugins VST3 gratis para Mac y Windows, los platos MM-DECKS y clases de Ableton Live con Mika."
     },
     "/radar": {
       "title": "Radar: novedades elegidas por Maudite Machine",

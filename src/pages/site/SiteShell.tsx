@@ -10,8 +10,7 @@ const LOGO = '/logo/mauditemachine-logo-gold.svg';
 export const SITE_NAV: readonly [string, string][] = [
   ['Tracks', '/tracks/'],
   ['Mixtapes', '/mixtapes/'],
-  ['MM-RYTM', '/mm-rytm/'],
-  ['MM-ARP', '/mm-arp/'],
+  ['Studio', '/studio/'],
   ['Goodies', '/goodies/'],
   ['Shows', '/shows/'],
   ['Press', '/presskit/'],

@@ -33,7 +33,7 @@ import { section } from '../state/section';
 import { AMark } from './AMark';
 import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
-import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
+import { HOOD_LINKS, PAGE_LINKS, isSectionLink, openHood } from './Header';
 import { arrival } from '../state/arrival';
 import type { PageId, SectionId } from '../theme';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
@@ -168,7 +168,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
               <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
             </>
           );
-          const isPage = l.id !== 'mmrytm' && l.id !== 'mmarp' && l.id !== 'goodies';
+          const isPage = !isSectionLink(l.id);
           return (
             <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties} data-badge={l.badge ? '1' : undefined}>
               <button

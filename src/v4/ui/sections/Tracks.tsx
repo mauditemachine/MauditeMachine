@@ -6,8 +6,7 @@
 import React, { useSyncExternalStore } from 'react';
 import { TRACKS, TRACK_QUEUE } from '../../data';
 import { missingTrack } from '../../state/sectionRoute';
-import { PORTRAIT } from '../../theme';
-import { PlayList, SectionFrame, tabOf, type SectionProps } from './common';
+import { SectionFrame, tabOf, type SectionProps } from './common';
 import { PhonePlayer } from './PhonePlayer';
 
 export const Tracks: React.FC<SectionProps> = ({ active, focusable }) => {
@@ -20,11 +19,7 @@ export const Tracks: React.FC<SectionProps> = ({ active, focusable }) => {
           Track not found: {missing}. Here are all the tracks.
         </p>
       )}
-      {PORTRAIT ? (
-        <PhonePlayer items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
-      ) : (
-        <PlayList items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
-      )}
+            <PhonePlayer items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
     </SectionFrame>
   );
 };

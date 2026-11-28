@@ -87,6 +87,8 @@ const OG_IMAGE = OG_DEFAULT.url;
 
 // Source unique partagee avec src/lib/seo.ts (pas de divergence possible)
 const SEO_META = readJson('src/data/seo-meta.json', {});
+// STUDIO (2026-11-28) : MM-RYTM, MM-ARP, MM-DECKS et les VST3 (le meme fichier que src/v4/ui/sections/Studio.tsx)
+const STUDIO_PAGE = readJson('src/data/studio.json', { lead: '', machines: [] });
 
 // Le HTML statique est genere en anglais : c'est la langue de fallback du
 // site et celle des crawlers sociaux (qui n'envoient pas de Accept-Language
@@ -946,12 +948,20 @@ function contentFor(route) {
       ].join('');
     case '/studio/': {
       return [
-        h1('Maudite Machine studio, lessons and print'),
+        h1('Studio: MM-RYTM, MM-ARP and MM-DECKS by Maudite Machine'),
+        STUDIO_PAGE.lead ? p(STUDIO_PAGE.lead) : '',
+        ...asArray(STUDIO_PAGE.machines).map((m) =>
+          [
+            h2(`${m.name}, ${m.kind}`),
+            p(m.text),
+            m.download ? `<p>${a(`Download the ${m.name} VST3 (Mac and Windows, free)`, `${SITE}${m.download}`)}</p>` : '',
+            m.page ? `<p>${a(`${m.name} plugin page`, `${SITE}${m.page}`)}</p>` : '',
+          ].join(''),
+        ),
+        `<p>${a('MM-STUDIO: play the machines in your browser', `${SITE}/mm-studio/`)}</p>`,
         STUDIO.setup ? h2('The setup') + p(STUDIO.setup) : '',
         STUDIO.lessons.length ? h2('Ableton Live lessons') + STUDIO.lessons.map(p).join('') : '',
         `<p>${a('Ask about a lesson', `${SITE}/contact/`)}</p>`,
-        // 2026-10-11 : cette page n'est pas MM-STUDIO (les machines jouables du site)
-        `<p>This page covers the studio, the Ableton Live lessons and print. The drum machine, synth and DJ decks you play on this site are MM-STUDIO, with their own page: ${a('MM-STUDIO', `${SITE}/mm-studio/`)}.</p>`,
         STUDIO.print ? h2('Print and merch production') + p(STUDIO.print) + (MASSIVE_HREF ? `<p>${a('massivemedias.com', MASSIVE_HREF)}</p>` : '') : '',
       ].join('');
     }
