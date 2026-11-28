@@ -63,7 +63,21 @@ juce::String urlDecode(const juce::String& s) { return juce::URL::removeEscapeCh
 
 juce::WebBrowserComponent::Options MMArpEditor::options() {
     auto o = juce::WebBrowserComponent::Options{}
+#if JUCE_WINDOWS
+                 // Windows (2026-11-28, la recette du MM-RYTM) : le backend par defaut de JUCE y est encore Internet
+                 // Explorer ; la face demande WebView2 (Edge, livre avec Windows 10 et 11). Son dossier de donnees ne peut
+                 // pas etre celui de l'hote (Program Files, en lecture seule) : il va dans AppData.
+                 .withBackend(juce::WebBrowserComponent::Options::Backend::webview2)
+                 .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2{}
+                                             .withUserDataFolder(juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                                                                     .getChildFile("Maudite Machine")
+                                                                     .getChildFile("MM-ARP")
+                                                                     .getChildFile("WebView2"))
+                                             .withStatusBarDisabled()
+                                             .withBackgroundColour(kInk))
+#else
                  .withBackend(juce::WebBrowserComponent::Options::Backend::defaultBackend)
+#endif
                  .withNativeIntegrationEnabled()
                  .withKeepPageLoadedWhenBrowserIsHidden()
                  .withResourceProvider([this](const juce::String& url) { return resource(url); })
@@ -112,7 +126,7 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  .withEventListener("mm_keys", [this](juce::var o) {
                      if (!static_cast<bool>(o.getProperty("on", false))) keysToHost();
                  })
-                 .withEventListener("mm_midimap_get", [this](juce::var) { browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap()); })
+                 .withEventListener("mm_midimap_get", [this](juce::var) { emit("mm_midimap", proc_.midiMap()); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
@@ -150,8 +164,12 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     // 2026-11-16 (Mika : "quand je change de piste et que je reviens ca revient tout petit") : la taille voulue est lue
     // AVANT setResizeLimits, qui force 880 sur l'editeur vide et ecrasait la taille memorisee via resized()
     const int wanted = proc_.editorWidth();
-    browser_ = std::make_unique<Browser>(options());
-    addAndMakeVisible(*browser_);
+    // Sans moteur web (Windows sans le runtime WebView2) : pas de face, un message ; le plugin joue quand meme
+    const auto opts = options();
+    if (juce::WebBrowserComponent::areOptionsSupported(opts)) {
+        browser_ = std::make_unique<Browser>(opts);
+        addAndMakeVisible(*browser_);
+    }
     // Redimensionnable a proportions fixes (2026-11-11, Mika : "je ne peux pas agrandir le plugin") : 880 a 2200 de large,
     // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
     setResizable(true, true);
@@ -169,7 +187,7 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     const int w = juce::jlimit(kMinW, maxW, wanted);
     setSize(w, w * kH / kW);
     sizing_ = false;
-    browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    if (browser_) browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
 
@@ -203,7 +221,16 @@ void MMArpEditor::setShown(bool on) {
     }
 }
 
-void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
+void MMArpEditor::paint(juce::Graphics& g) {
+    g.fillAll(kInk);
+    if (browser_) return;
+    g.setColour(juce::Colour(0xfff6f1e7));
+    g.setFont(18.0f);
+    g.drawFittedText("MM-ARP needs the Microsoft Edge WebView2 Runtime to show its face.\n"
+                     "Install it from microsoft.com/edge/webview2, then reopen the plugin.\n"
+                     "The plugin keeps playing in the meantime.",
+                     getLocalBounds().reduced(40), juce::Justification::centred, 4);
+}
 
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
@@ -230,7 +257,7 @@ void MMArpEditor::setHint(const juce::String& m) {
     auto* o = new juce::DynamicObject();
     o->setProperty("ok", !m.startsWith("Aucun") && !m.startsWith("Impossible"));
     o->setProperty("msg", m);
-    browser_->emitEventIfBrowserIsVisible("mm_drag_status", juce::var(o));
+    emit("mm_drag_status", juce::var(o));
 }
 
 void MMArpEditor::dragMidi(int cycles) {
@@ -269,7 +296,7 @@ void MMArpEditor::saveMidi() {
 void MMArpEditor::timerCallback() {
     if (!ready_) return;
     // MIDI LEARN : la liste des CC a chaque changement (rare : meme face cachee, pour ne pas perdre le changement)
-    if (proc_.takeMapChanged()) browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap());
+    if (proc_.takeMapChanged()) emit("mm_midimap", proc_.midiMap());
     // v49 : rien vers la face tant qu'elle n'est pas a l'ecran
     setShown(faceVisible_ && isShowing());
     if (!shown_) return;
@@ -453,7 +480,7 @@ void MMArpEditor::timerCallback() {
         }
     }
 
-    if (any) browser_->emitEventIfBrowserIsVisible("mm_tick", juce::var(tick.get()));
+    if (any) emit("mm_tick", juce::var(tick.get()));
 }
 
 /* ---------------- les presets sur le disque (~/Music/Maudite Machine/MM-ARP Presets, fichiers .mmarp) ---------------- */
@@ -480,7 +507,7 @@ void MMArpEditor::presetSave(const juce::String& name, const juce::String& prese
                                   // annule dans la boite du Mac : la face ne dit rien
                                   o->setProperty("ok", false);
                                   o->setProperty("cancelled", true);
-                                  browser_->emitEventIfBrowserIsVisible("mm_saved", juce::var(o));
+                                  emit("mm_saved", juce::var(o));
                                   return;
                               }
                               if (!f.hasFileExtension("mmarp")) f = f.withFileExtension("mmarp");
@@ -488,7 +515,7 @@ void MMArpEditor::presetSave(const juce::String& name, const juce::String& prese
                               o->setProperty("ok", ok);
                               o->setProperty("name", f.getFileNameWithoutExtension());
                               o->setProperty("path", f.getFullPathName());
-                              browser_->emitEventIfBrowserIsVisible("mm_saved", juce::var(o));
+                              emit("mm_saved", juce::var(o));
                               presetList();
                           });
 }
@@ -511,7 +538,7 @@ void MMArpEditor::presetLoad(const juce::File& f) {
     o->setProperty("name", f.getFileNameWithoutExtension());
     o->setProperty("preset", text);
     o->setProperty("path", f.getFullPathName());
-    browser_->emitEventIfBrowserIsVisible("mm_preset", juce::var(o));
+    emit("mm_preset", juce::var(o));
 }
 
 void MMArpEditor::presetList() {
@@ -528,5 +555,5 @@ void MMArpEditor::presetList() {
     auto* o = new juce::DynamicObject();
     o->setProperty("items", items);
     o->setProperty("dir", dir.getFullPathName());
-    browser_->emitEventIfBrowserIsVisible("mm_presets", juce::var(o));
+    emit("mm_presets", juce::var(o));
 }

@@ -6,10 +6,17 @@ Mac (macOS 11 or later, Apple Silicon and Intel):
   Open @NAME@-Installer-Mac.pkg and follow the steps. macOS asks for your password once.
   If macOS says it cannot verify the developer: System Settings > Privacy & Security,
   scroll down, click "Open Anyway", then open the installer again.
+  Still blocked? Open Terminal (Applications > Utilities) and paste, then open the installer again:
+    xattr -d com.apple.quarantine ~/Downloads/@NAME@-Installer-Mac.pkg
+  If your DAW says the plugin is damaged or blocked after install, paste this in Terminal
+  (it asks for your Mac password), then restart the DAW:
+    sudo xattr -cr /Library/Audio/Plug-Ins/VST3/@NAME@.vst3
 [[WIN]]
 Windows (10 or 11, 64-bit, beta):
   Run @NAME@-Installer-Windows.exe and follow the steps.
   If a blue "Windows protected your PC" window shows up: More info > Run anyway.
+  If the plugin window stays empty, install the Microsoft Edge WebView2 Runtime
+  (microsoft.com/edge/webview2, already there on Windows 11), then reopen the plugin.
 [[/WIN]][[NOWIN]]
 Windows: coming soon.
 [[/NOWIN]]

@@ -163,6 +163,7 @@
 
       li { margin: 0 0 12px; }
 
+      code.q { word-break: break-all; }
       code {
         font-family: var(--mono);
         font-size: 13px;
@@ -243,9 +244,9 @@
           <h2>Install on a Mac</h2>
           <ol>
             <li>Open <code class="pkg">MM-RYTM-Installer-Mac.pkg</code> and follow the steps: Continue, Agree, Install. macOS asks for your password once.</li>
-            <li>If macOS says it cannot verify the developer: open System Settings &gt; Privacy &amp; Security, scroll down, click "Open Anyway", then open the installer again.</li>
+            <li>If macOS says it cannot verify the developer: open System Settings &gt; Privacy &amp; Security, scroll down, click "Open Anyway", then open the installer again. Still blocked? In Terminal: <code class="q">xattr -d com.apple.quarantine ~/Downloads/<span class="pkg">MM-RYTM-Installer-Mac.pkg</span></code></li>
             <li>Restart your DAW and rescan the plug-ins. In Ableton Live: Settings &gt; Plug-Ins, turn on "Use VST3 Plug-in System Folders", then Option-click Rescan.</li>
-            <li>Find it under Plug-Ins &gt; Maudite Machine.</li>
+            <li>Find it under Plug-Ins &gt; Maudite Machine. If your DAW says it is damaged or blocked: in Terminal, <code class="q">sudo xattr -cr /Library/Audio/Plug-Ins/VST3/<span class="vst">MM-RYTM.vst3</span></code>, then restart the DAW.</li>
           </ol>
           <p class="small">macOS 11 or later, Apple Silicon and Intel. The plugin goes to /Library/Audio/Plug-Ins/VST3.</p>
         </section>
@@ -307,6 +308,7 @@
         share.href = '/' + name.toLowerCase() + '/';
         share.textContent = 'mauditemachine.com/' + name.toLowerCase();
         put('.exe', name + '-Installer-Windows.exe');
+        put('.vst', name + '.vst3');
 
         // Le systeme du visiteur en bouton plein, l'autre en contour
         function mark() {

@@ -2,7 +2,9 @@ name: Plugin MM-ARP
 # 2026-11-09 (Mika : "fais la meme chose pour ARP, en plugin VST3 pour l'installer et l'utiliser avec Ableton") : le
 # portage C++ du MM-ARP (plugin/mm-arp), comme plugin.yml pour le MM-RYTM. 1) le DSP compare au vrai moog.worklet.js et
 # chorus.worklet.js du site, sur Linux ; 2) le VST3 macOS universel, signe ad hoc, en artefact et dans la release
-# mm-arp-latest. Rien ne touche au site ni a GitHub Pages.
+# mm-arp-latest. Rien ne touche au site ni a GitHub Pages. 3) (2026-11-28, Mika : "MM-ARP en VST3 sur le site ... sur mac
+# ou windows") le VST3 Windows x64, face en WebView2 (la recette du MM-RYTM, plugin.yml), MM-ARP-Windows.zip dans la meme
+# release ; plugin-public.yml reunit les deux.
 on:
   push:
     paths:
@@ -142,6 +144,68 @@ jobs:
           name: MM-ARP-macOS
           path: MM-ARP-macOS.zip
           retention-days: 30
+  # 2026-11-28 : le VST3 Windows x64 (MSVC, runtime C++ et WebView2 lies en statique), la recette du MM-RYTM. Compile en
+  # meme temps que les tests et le Mac ; publie apres les tests, a cote du zip Mac.
+  windows:
+    name: Plugin Windows (VST3)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Construire la face
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund
+          npm run plugin:arp:web
+      # WebView2 lie en statique (NEEDS_WEBVIEW2) : JUCE cherche le paquet NuGet Microsoft.Web.WebView2 (version de sa doc)
+      - name: Paquet WebView2 (NuGet)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'nuget'
+          $pkg = Join-Path $dir 'Microsoft.Web.WebView2.1.0.1901.177'
+          New-Item -ItemType Directory -Force -Path $pkg | Out-Null
+          Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.1901.177' -OutFile "$dir/wv2.zip"
+          Expand-Archive -Path "$dir/wv2.zip" -DestinationPath $pkg -Force
+          Get-ChildItem "$pkg/build/native/x64" | Select-Object Name
+          "WV2_DIR=$($dir -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Configurer (x64)
+        shell: bash
+        run: cmake -S plugin/mm-arp -B build -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$WV2_DIR"
+      - name: Construire
+        shell: bash
+        run: cmake --build build --config Release -j 4 --target MM_ARP_VST3 mmarp_arp_test
+      - name: Arpegiateur (le meme test que sur Linux, compile par MSVC)
+        shell: bash
+        run: ./build/Release/mmarp_arp_test.exe
+      # Le plugin ne doit dependre d'aucune DLL hors de Windows (runtime C++ lie en statique, WebView2 aussi)
+      - name: Dependances de la DLL
+        shell: pwsh
+        run: |
+          $dll = 'build/MM_ARP_artefacts/Release/VST3/MM-ARP.vst3/Contents/x86_64-win/MM-ARP.vst3'
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem -Path "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object { $_.FullName -match 'Hostx64\\x64' } | Select-Object -First 1
+          $deps = & $dumpbin.FullName /DEPENDENTS $dll
+          $deps
+          if ($deps -match 'MSVCP|VCRUNTIME|WebView2Loader') { throw 'Le plugin depend encore du runtime MSVC ou de WebView2Loader.dll' }
+      - name: Empaqueter
+        shell: bash
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-ARP
+          B=build/MM_ARP_artefacts/Release/VST3/MM-ARP.vst3
+          ls -R "$B" | head -20
+          cp -R "$B" pkg/MM-ARP/MM-ARP.vst3
+          printf 'commit %s, branche %s, %s, Windows x64\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-ARP/BUILD.txt
+          (cd pkg && 7z a -tzip ../MM-ARP-Windows.zip MM-ARP > /dev/null)
+          7z l MM-ARP-Windows.zip | tail -3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-ARP-Windows
+          path: MM-ARP-Windows.zip
+          retention-days: 30
+
   # La publication : seulement si les tests (dsp, host) et le Mac sont verts
   publish:
     name: Publier (release mm-arp-latest)
@@ -168,3 +232,20 @@ jobs:
           gh release upload mm-arp-latest MM-ARP-macOS.zip plugin/mm-arp/update.sh --clobber
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-arp-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
           gh release edit mm-arp-latest --notes "MM-ARP, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-arp-latest/update.sh | bash"
+
+  # Windows : a cote du Mac dans mm-arp-latest, une fois le Mac publie (un Windows en panne ne bloque jamais le Mac)
+  publish-windows:
+    name: Publier Windows (release mm-arp-latest)
+    needs: [publish, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MM-ARP-Windows
+      - name: Le zip Windows dans mm-arp-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload mm-arp-latest MM-ARP-Windows.zip --clobber

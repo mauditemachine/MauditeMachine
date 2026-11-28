@@ -32,6 +32,8 @@ private:
 
     MMArpProcessor& proc_;
     std::unique_ptr<Browser> browser_;
+    // Vers la face, seulement si elle existe (Windows sans WebView2 : pas de face)
+    void emit(const juce::Identifier& ev, const juce::var& v) { if (browser_) browser_->emitEventIfBrowserIsVisible(ev, v); }
     int lastSeq_ = -1;
     bool lastPlaying_ = false;
     bool lastInternal_ = false;
